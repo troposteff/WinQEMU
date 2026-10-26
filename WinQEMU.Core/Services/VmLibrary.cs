@@ -287,6 +287,126 @@ namespace WinQEMU.Core.Services
         }
 
         /// <summary>
+        /// Creates a VM from a machine of another hypervisor: each disk converted to qcow2 in a new folder,
+        /// the hardware as the plan describes it. The source files are only read.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Converted rather than referenced: VMware and VirtualBox keep their machine in a chain of images
+        /// (snapshot deltas) that <c>qemu-img convert</c> reads through, and the result is a disk this
+        /// application can snapshot like any other. The source machine keeps working in its hypervisor.
+        /// </para>
+        /// <para>
+        /// The UEFI variable store does not come across — VMware and VirtualBox each keep it in their own
+        /// format — so the boot entries are lost and the firmware falls back to the disk's removable-media
+        /// path, which Windows and most distributions fill in.
+        /// </para>
+        /// </remarks>
+        public async Task<VmConfig> ImportAsync(
+            Import.ImportPlan plan,
+            string name,
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (_imgService is null)
+                throw new QemuNotAvailableException("QEMU is required to import a virtual machine.");
+
+            if (plan.Blocker is not null)
+                throw new InvalidOperationException(plan.Blocker);
+
+            if (ValidateName(name) is { } nameProblem)
+                throw new ArgumentException(nameProblem, nameof(name));
+
+            var profile = plan.Profile;
+            var config = new VmConfig
+            {
+                Name = name.Trim(),
+                Description = $"Importée {SourceName(plan.Source)} le {DateTime.Now:dd/MM/yyyy} : {plan.SourcePath}",
+                GuestOs = plan.GuestOs,
+                Architecture = GuestArchitecture.X86_64,
+                Firmware = plan.Firmware,
+                CpuCount = plan.CpuCount,
+                CoresPerSocket = plan.CoresPerSocket,
+                MemoryMb = plan.MemoryMb,
+                IsoPath = plan.IsoPath,
+                BootFromIso = false,
+                RtcLocalTime = profile.RtcLocalTime
+            };
+
+            var folder = AllocateFolder(config.Name);
+            Directory.CreateDirectory(folder);
+            config.FolderPath = folder;
+
+            try
+            {
+                var total = (double)plan.Disks.Sum(d => Math.Max(1, d.CapacityBytes));
+                var done = 0d;
+
+                for (var index = 0; index < plan.Disks.Count; index++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var source = plan.Disks[index];
+                    var id = $"disk{index.ToString(CultureInfo.InvariantCulture)}";
+                    var fileName = id + ".qcow2";
+                    var weight = Math.Max(1, source.CapacityBytes);
+                    var before = done;
+
+                    await _imgService.ConvertAsync(
+                        source.SourcePath,
+                        Path.Combine(folder, fileName),
+                        DiskFormat.Qcow2,
+                        compress: false,
+                        progress is null ? null : new InlineProgress(f => progress.Report((before + f * weight) / total)),
+                        cancellationToken).ConfigureAwait(false);
+                    done += weight;
+
+                    config.Disks.Add(new DiskConfig
+                    {
+                        Id = id,
+                        FileName = fileName,
+                        Format = DiskFormat.Qcow2,
+                        Bus = source.Bus,
+                        CapacityBytes = source.CapacityBytes,
+                        // The first disk of the plan is the one the source booted from.
+                        BootIndex = index == 0 ? 0 : -1
+                    });
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                for (var index = 0; index < plan.Adapters.Count; index++)
+                {
+                    var adapter = plan.Adapters[index];
+                    config.NetworkAdapters.Add(new NetworkAdapterConfig
+                    {
+                        Id = $"net{index.ToString(CultureInfo.InvariantCulture)}",
+                        Mode = adapter.Mode,
+                        Model = adapter.Model,
+                        // The source's address when it had one: the guest's network settings follow it.
+                        MacAddress = adapter.MacAddress.Length > 0 ? adapter.MacAddress : NetworkAdapterConfig.GenerateMacAddress()
+                    });
+                }
+
+                Save(config);
+                progress?.Report(1d);
+                return config;
+            }
+            catch
+            {
+                TryDeleteFolder(folder);
+                throw;
+            }
+        }
+
+        private static string SourceName(Import.ImportSource source) => source switch
+        {
+            Import.ImportSource.VMware => "de VMware",
+            Import.ImportSource.VirtualBox => "de VirtualBox",
+            _ => "d'une image disque"
+        };
+
+        /// <summary>
         /// Lays the files of a linked clone of a stopped VM: one qcow2 overlay per disk in a new folder, on
         /// top of the image the source writes to now, plus a fresh overlay for the source itself so it never
         /// writes to that image again. Nothing is recorded yet — see <see cref="LinkedClonePlan"/>.

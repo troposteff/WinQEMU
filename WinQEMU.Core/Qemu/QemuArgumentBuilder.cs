@@ -421,10 +421,27 @@ namespace WinQEMU.Core.Qemu
                 .Select((id, index) => (id, index))
                 .ToDictionary(entry => entry.id, entry => entry.index, StringComparer.Ordinal);
 
+        /// <summary>QEMU device of each SCSI controller and the id its disks attach to, by bus.</summary>
+        private static readonly Dictionary<DiskBus, (string Device, string Id)> ScsiControllers = new()
+        {
+            [DiskBus.LsiSas] = ("mptsas1068", "lsisas"),
+            [DiskBus.Pvscsi] = ("pvscsi", "pvscsi")
+        };
+
         private static void AppendStorage(List<string> args, VmConfig config)
         {
             var ideUnit = 0;
             var bootOrder = BuildBootOrder(config);
+
+            // One controller per kind in use, created before the disks that sit on it. Both are what VMware
+            // emulates, kept for imported guests whose boot driver is for that controller and no other.
+            var scsiTargets = new Dictionary<DiskBus, int>();
+            foreach (var bus in config.Disks.Select(d => d.Bus).Distinct().Where(ScsiControllers.ContainsKey))
+            {
+                args.Add("-device");
+                args.Add($"{ScsiControllers[bus].Device},id={ScsiControllers[bus].Id}");
+                scsiTargets[bus] = 0;
+            }
 
             foreach (var disk in config.Disks)
             {
@@ -448,6 +465,11 @@ namespace WinQEMU.Core.Qemu
                         break;
                     case DiskBus.Nvme:
                         device.Append($"nvme,drive={disk.Id},serial={disk.Id}");
+                        break;
+                    case DiskBus.LsiSas or DiskBus.Pvscsi:
+                        var target = scsiTargets[disk.Bus]++;
+                        device.Append($"scsi-hd,drive={disk.Id},bus={ScsiControllers[disk.Bus].Id}.0," +
+                                      $"scsi-id={target.ToString(CultureInfo.InvariantCulture)}");
                         break;
                     default:
                         // q35 exposes its AHCI controller as the 'ide' bus; SATA and IDE both land here.
@@ -686,6 +708,7 @@ namespace WinQEMU.Core.Qemu
             NicModel.E1000 => "e1000",
             NicModel.E1000e => "e1000e",
             NicModel.Rtl8139 => "rtl8139",
+            NicModel.Vmxnet3 => "vmxnet3",
             _ => "virtio-net-pci"
         };
 

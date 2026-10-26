@@ -538,6 +538,16 @@ namespace WinQEMU.ViewModels
             return clone;
         }
 
+        /// <summary>Imports a foreign machine and selects it.</summary>
+        public async Task<VmConfig> ImportAsync(
+            Core.Import.ImportPlan plan, string name, IProgress<double> progress, System.Threading.CancellationToken cancellationToken)
+        {
+            // Adding to the library rebuilds the rows; selecting the import has to happen after that.
+            var imported = await Manager.ImportVirtualMachineAsync(plan, name, progress, cancellationToken);
+            SelectConfig(imported);
+            return imported;
+        }
+
         private void SelectConfig(VmConfig? config) =>
             SelectedItem = config is null
                 ? null

@@ -186,6 +186,38 @@ le clone sans aucune erreur**. Tout le dispositif sert à ce que F ne bouge plus
   `LinkedBaseFileName`), sauf si ce disque porte des superpositions : sa chaîne enregistrée finit alors
   encore sur l'image qui lit F, le lien est gardé. Ou bien faire une copie complète du clone.
 
+## Import (VMware, VirtualBox, Hyper-V)
+
+`WinQEMU.Core/Import` : un fichier choisi devient un `ImportPlan` (montré, puis confirmé), puis
+`VmLibrary.ImportAsync` convertit chaque disque en qcow2 dans un nouveau dossier. **La machine source
+n'est que lue** et reste utilisable dans son hyperviseur.
+
+- **VMware** (`VmxReader`) : `.vmx` à plat, clés insensibles à la casse, échappements `|XX`. Les
+  deltas d'instantanés (`disk-000001.vmdk`) se lisent par `qemu-img convert` (vérifié sur une vraie
+  chaîne vmdk). Refusé : dossier `.lck` présent (machine ouverte), machine chiffrée. Suspendue : l'état
+  mémoire est perdu, c'est dit.
+- **VirtualBox** (`VboxReader`) : XML, éléments cherchés par nom local n'importe où sous la machine
+  (VirtualBox 7 en a déplacé). **Refusé si le disque attaché est différentiel** (instantanés) : le pilote
+  VDI de QEMU ne lit que les images de base ; le message dit comment s'en sortir.
+- **Hyper-V** : la configuration `.vmcx` est binaire et non documentée, donc **seul le disque**
+  (`.vhdx`/`.vhd`) s'importe, avec des valeurs prudentes. Le microprogramme vient de la table de
+  partitions (signature GPT `EFI PART` au secteur 1, lue par `qemu-img dd`) : GPT → UEFI, sinon BIOS.
+  `.avhdx` (point de contrôle) refusé avec la marche à suivre.
+- **Disque seul : le système se déduit des types de partitions** (`VmImporter.DetectFamily` : MSR ou
+  récupération Windows → Windows, SATA ; partition Linux, LVM, swap → Linux, **VirtIO**). Pas SATA pour
+  un Linux venant de Hyper-V : Ubuntu 26.04 y construit son initramfs avec dracut en mode *hostonly*,
+  qui ne contient que `hv_storvsc` ; en SATA l'invité finit en « emergency mode » (`/dev/disk/by-uuid/…
+  does not exist`). En VirtIO il démarre, `virtio_blk` étant compilé dans le noyau Ubuntu. Une
+  distribution qui en fait un module échoue sur tout contrôleur : la note donne la commande dracut.
+- **Même contrôleur que la source quand QEMU l'a** : Windows ne démarre que sur un contrôleur dont il
+  charge le pilote au démarrage. D'où `DiskBus.LsiSas` (mptsas1068, le défaut VMware pour Windows),
+  `DiskBus.Pvscsi`, `NicModel.Vmxnet3`, NVMe, SATA, IDE. LSI Logic parallèle, BusLogic, synthétique
+  Hyper-V : pas d'équivalent → SATA, avec la note `sc config storahci start= boot` pour Windows.
+- Adresse MAC de la source **gardée** (l'invité y attache sa configuration réseau). Mode réseau
+  toujours NAT (ponté et hôte seul exigent un pilote TAP), c'est dit.
+- Pas de NVRAM UEFI reprise (formats propres à chaque hyperviseur) : le microprogramme retombe sur le
+  chemin de secours `\EFI\BOOT\BOOTX64.EFI`, présent pour Windows et la plupart des distributions.
+
 ## Pièges de plateforme (WHPX, QEMU 11)
 
 Chacun a coûté du temps ; les commentaires du code donnent le détail.

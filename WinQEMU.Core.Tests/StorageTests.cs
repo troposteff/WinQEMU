@@ -165,3 +165,50 @@ public class StorageTests
         Assert.Contains("usb-storage,drive=cd0", Fixtures.Device(args, "usb-storage")!);
     }
 }
+
+public class VmwareControllerTests
+{
+    [Fact]
+    public void Lsi_sas_disks_get_one_controller_and_a_target_each()
+    {
+        var vm = Fixtures.Vm();
+        vm.Disks[0].Bus = DiskBus.LsiSas;
+        vm.Disks.Add(new DiskConfig { Id = "disk1", FileName = "disk1.qcow2", Bus = DiskBus.LsiSas });
+
+        var devices = Fixtures.Values(Fixtures.Build(vm), "-device");
+
+        Assert.Single(devices, d => d.StartsWith("mptsas1068", StringComparison.Ordinal));
+        Assert.Contains("mptsas1068,id=lsisas", devices);
+        Assert.Contains("scsi-hd,drive=disk0,bus=lsisas.0,scsi-id=0,id=disk0-dev,bootindex=0", devices);
+        Assert.Contains(devices, d => d.StartsWith("scsi-hd,drive=disk1,bus=lsisas.0,scsi-id=1,", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_controller_comes_before_the_disks_on_it()
+    {
+        // QEMU resolves bus= when it creates the disk, so a controller declared later is not found.
+        var vm = Fixtures.Vm();
+        vm.Disks[0].Bus = DiskBus.Pvscsi;
+
+        var devices = Fixtures.Values(Fixtures.Build(vm), "-device").ToList();
+
+        Assert.True(devices.IndexOf("pvscsi,id=pvscsi") < devices.FindIndex(d => d.StartsWith("scsi-hd", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void No_scsi_controller_without_a_scsi_disk()
+    {
+        var devices = Fixtures.Values(Fixtures.Build(Fixtures.Vm()), "-device");
+
+        Assert.DoesNotContain(devices, d => d.StartsWith("mptsas1068", StringComparison.Ordinal) || d.StartsWith("pvscsi", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_vmxnet3_adapter_keeps_its_model()
+    {
+        var vm = Fixtures.Vm();
+        vm.NetworkAdapters.Add(new NetworkAdapterConfig { Id = "net0", Mode = NetworkMode.Nat, Model = NicModel.Vmxnet3 });
+
+        Assert.Contains(Fixtures.Values(Fixtures.Build(vm), "-device"), d => d.StartsWith("vmxnet3,", StringComparison.Ordinal));
+    }
+}

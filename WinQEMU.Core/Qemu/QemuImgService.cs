@@ -142,6 +142,38 @@ namespace WinQEMU.Core.Qemu
         }
 
         /// <summary>
+        /// The first <paramref name="sectors"/> 512-byte sectors of what the guest sees, whatever the image
+        /// format: <c>qemu-img dd</c> into a scratch raw file, read back and deleted.
+        /// </summary>
+        public async Task<byte[]> ReadStartAsync(string path, int sectors, CancellationToken cancellationToken = default)
+        {
+            var scratch = Path.Combine(Path.GetTempPath(), $"winqemu-{Guid.NewGuid():N}.raw");
+            try
+            {
+                await RunAsync(
+                    new[]
+                    {
+                        "dd", "-O", "raw", "bs=512",
+                        $"count={sectors.ToString(CultureInfo.InvariantCulture)}",
+                        $"if={path}", $"of={scratch}"
+                    },
+                    cancellationToken).ConfigureAwait(false);
+                return await File.ReadAllBytesAsync(scratch, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(scratch);
+                }
+                catch (IOException)
+                {
+                    // A scratch file of a kilobyte in the temp folder is not worth failing over.
+                }
+            }
+        }
+
+        /// <summary>
         /// Reads one of the "    (12.34/100%)" lines that <c>-p</c> prints. Returns null for anything else.
         /// </summary>
         public static double? ParseProgress(string line)

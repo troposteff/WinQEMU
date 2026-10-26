@@ -637,6 +637,8 @@ namespace WinQEMU.ViewModels
             DiskBus.Sata => "SATA (reconnu partout)",
             DiskBus.Nvme => "NVMe",
             DiskBus.Ide => "IDE (héritage)",
+            DiskBus.LsiSas => "LSI SAS (comme VMware)",
+            DiskBus.Pvscsi => "PVSCSI (VMware, pilote requis)",
             _ => bus.ToString()
         };
 

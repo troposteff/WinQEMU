@@ -625,6 +625,51 @@ namespace WinQEMU
                 await _viewModel.Snapshots.DeleteAsync(snapshot);
         }
 
+        private async void OnImportVmClick(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.Manager.DiskService is not { } images)
+                return;
+
+            var picker = new Windows.Storage.Pickers.FileOpenPicker();
+            foreach (var extension in Core.Import.VmImporter.Extensions)
+                picker.FileTypeFilter.Add(extension);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+
+            var file = await picker.PickSingleFileAsync();
+            if (file is null)
+                return;
+
+            Core.Import.ImportPlan plan;
+            try
+            {
+                // A few qemu-img runs: quick, but long enough to want the busy cursor of a disabled window.
+                plan = await Core.Import.VmImporter.ReadAsync(file.Path, images);
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or FormatException or System.Xml.XmlException)
+            {
+                await ShowDialogAsync(new ContentDialog
+                {
+                    Title = "Fichier illisible",
+                    Content = DialogBody($"{file.Path}\n\n{ex.Message}"),
+                    CloseButtonText = "Fermer",
+                    XamlRoot = Content.XamlRoot
+                });
+                return;
+            }
+
+            // The source's own name unless a machine here already has it.
+            var name = plan.Name.Trim();
+            if (_viewModel.VMs.Any(vm => string.Equals(vm.Name.Trim(), name, StringComparison.CurrentCultureIgnoreCase)))
+                name += " (importée)";
+
+            // The dialog runs the import itself and reports failures in place; on success the view model
+            // has already selected the new machine.
+            await ShowDialogAsync(new Dialogs.ImportVmDialog(plan, name, _viewModel.ImportAsync)
+            {
+                XamlRoot = Content.XamlRoot
+            });
+        }
+
         private async void OnCloneClick(object sender, RoutedEventArgs e)
         {
             var selected = _viewModel.SelectedVm;

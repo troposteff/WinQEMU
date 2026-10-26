@@ -111,6 +111,14 @@
                             <muxc:SymbolIcon Symbol="Add" />
                         </Button>
                         <Button
+                            Width="36" Height="36" Padding="0"
+                            AutomationProperties.Name="Importer une machine virtuelle"
+                            Click="OnImportVmClick"
+                            IsEnabled="{Binding IsQemuAvailable, Mode=OneWay}"
+                            ToolTipService.ToolTip="Importer une machine VMware (.vmx), VirtualBox (.vbox) ou un disque Hyper-V (.vhdx)">
+                            <FontIcon FontSize="16" Glyph="&#xE8B5;" />
+                        </Button>
+                        <Button
                             x:Name="RefreshButton"
                             Width="36" Height="36" Padding="0"
                             AutomationProperties.Name="Actualiser la bibliothèque"

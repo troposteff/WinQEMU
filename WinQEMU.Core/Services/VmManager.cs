@@ -130,6 +130,21 @@ namespace WinQEMU.Core.Services
             return clone;
         }
 
+        /// <summary>Imports a machine of another hypervisor and adds it to the library.</summary>
+        public async Task<VmConfig> ImportVirtualMachineAsync(
+            Import.ImportPlan plan,
+            string name,
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            var library = Library ?? throw new InvalidOperationException("The VM library is not initialised.");
+
+            // Resumes on the caller's context on purpose — VirtualMachines is data-bound.
+            var config = await library.ImportAsync(plan, name, progress, cancellationToken);
+            VirtualMachines.Add(config);
+            return config;
+        }
+
         /// <summary>
         /// Makes a linked clone: a VM whose disks hold only what it writes, reading everything else from the
         /// source's current images, which the source stops writing to. Refused while the source has a QEMU

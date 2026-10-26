@@ -47,7 +47,14 @@ namespace WinQEMU.Core.Models
         VirtioBlk,
         Sata,
         Nvme,
-        Ide
+        Ide,
+        /// <summary>
+        /// LSI SAS 1068 (QEMU mptsas1068), the controller VMware gives Windows guests by default. Kept for
+        /// imported machines: Windows only boots from a controller whose driver it already starts at boot.
+        /// </summary>
+        LsiSas,
+        /// <summary>VMware paravirtual SCSI (QEMU pvscsi), for machines imported from VMware that used it.</summary>
+        Pvscsi
     }
 
     public enum DiskCacheMode
@@ -74,7 +81,9 @@ namespace WinQEMU.Core.Models
         VirtioNet,
         E1000,
         E1000e,
-        Rtl8139
+        Rtl8139,
+        /// <summary>VMware's paravirtual adapter, so a machine imported from VMware keeps its network driver.</summary>
+        Vmxnet3
     }
 
     public enum GraphicsAdapter

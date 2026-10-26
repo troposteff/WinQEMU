@@ -353,6 +353,10 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   et la touche arrive **sans scancode**. La console annule les pertes de focus clavier et retrouve le
   scancode par `MapVirtualKey`.
 - **AltGr** arrive comme un Ctrl gauche factice suivi d'Alt droit : `AltGrFilter` supprime le Ctrl.
+- **Clic dans le vide d'un `ScrollViewer`** : il prend le focus et, s'il ne peut pas le garder, le passe à son
+  premier descendant focalisable (la zone du nom de la VM se sélectionnait). `IsTabStop="True"` sur le
+  `ScrollViewer` le lui fait garder. Pas `AllowFocusOnInteraction="False"` : il atteint tout le contenu et
+  plus aucun champ ne se laisse cliquer.
 - Un raccourci clavier sur la grille racine s'affiche en infobulle partout :
   `KeyboardAcceleratorPlacementMode="Hidden"`.
 

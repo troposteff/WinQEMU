@@ -150,7 +150,8 @@ namespace WinQEMU.Core.Qemu
         /// Loopback port for the clipboard channel, or null to leave the clipboard unshared.
         /// </param>
         public static IReadOnlyList<string> Build(
-            VmConfig config, QemuInstallation installation, int qmpPort, int? clipboardVncPort = null)
+            VmConfig config, QemuInstallation installation, int qmpPort, int? clipboardVncPort = null,
+            int? guestAgentPort = null, int? sharedFoldersPort = null)
         {
             var args = new List<string>();
 
@@ -161,6 +162,7 @@ namespace WinQEMU.Core.Qemu
             AppendDisplayAndInput(args, config);
             AppendClipboard(args, clipboardVncPort);
             AppendUsbPassthrough(args, config);
+            AppendGuestChannels(args, guestAgentPort, sharedFoldersPort);
             AppendManagement(args, qmpPort);
 
             foreach (var token in TokenizeExtraArguments(config.ExtraArguments))
@@ -715,6 +717,39 @@ namespace WinQEMU.Core.Qemu
 
             args.Add("-vnc");
             args.Add(string.Create(CultureInfo.InvariantCulture, $"127.0.0.1:{port - VncBasePort},password=on"));
+        }
+
+        /// <summary>Name of the virtio-serial port shared folders are served on (see Sharing.NinePServer).</summary>
+        public const string SharedFoldersPortName = "org.winqemu.shares.0";
+
+        /// <summary>
+        /// The qemu-guest-agent port, which mounts shared folders, and the private port they are served
+        /// on. Their own virtio-serial controller, declared last for the same reason as the USB one: an
+        /// existing machine keeps the PCI slots it had. The clipboard's controller is not reused because
+        /// it only exists while the clipboard is shared. Both ports are always there, so folders can be
+        /// shared while the machine runs.
+        /// </summary>
+        private static void AppendGuestChannels(List<string> args, int? agentPort, int? sharesPort)
+        {
+            if (agentPort is null && sharesPort is null)
+                return;
+
+            args.Add("-device");
+            args.Add("virtio-serial-pci,id=wq-qga-bus");
+            if (agentPort is { } agent)
+            {
+                args.Add("-chardev");
+                args.Add($"socket,id=wq-qga,host=127.0.0.1,port={agent.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
+                args.Add("-device");
+                args.Add("virtserialport,bus=wq-qga-bus.0,chardev=wq-qga,name=org.qemu.guest_agent.0");
+            }
+            if (sharesPort is { } shares)
+            {
+                args.Add("-chardev");
+                args.Add($"socket,id=wq-shares,host=127.0.0.1,port={shares.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
+                args.Add("-device");
+                args.Add($"virtserialport,bus=wq-qga-bus.0,chardev=wq-shares,name={SharedFoldersPortName}");
+            }
         }
 
         private static void AppendManagement(List<string> args, int qmpPort)

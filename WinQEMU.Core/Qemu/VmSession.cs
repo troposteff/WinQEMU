@@ -104,8 +104,12 @@ namespace WinQEMU.Core.Qemu
 
                 var qmpPort = ReserveLoopbackPort();
                 int? clipboardPort = Config.EnableClipboard ? ReserveLoopbackPort() : null;
+                GuestAgentPort = ReserveLoopbackPort();
+                // The folders themselves come from the shell (UpdateSharedFolders), not from Config: this
+                // runs off the UI thread, which alone may read the data-bound configuration.
+                var sharesPort = ReserveLoopbackPort();
                 var executable = _installation.GetSystemBinary(Config.Architecture);
-                var arguments = QemuArgumentBuilder.Build(Config, _installation, qmpPort, clipboardPort);
+                var arguments = QemuArgumentBuilder.Build(Config, _installation, qmpPort, clipboardPort, GuestAgentPort, sharesPort);
 
                 LaunchCommandLine = QemuArgumentBuilder.ToDisplayString(executable, arguments);
                 AppendLog($"Launching: {LaunchCommandLine}");
@@ -144,6 +148,8 @@ namespace WinQEMU.Core.Qemu
 
                 if (clipboardPort is { } port && port >= QemuArgumentBuilder.VncBasePort)
                     _ = StartClipboardAsync(port);
+
+                _ = ServeSharedFoldersAsync(sharesPort);
             }
             catch (Exception ex)
             {
@@ -1061,6 +1067,53 @@ namespace WinQEMU.Core.Qemu
             File.Copy(template, target);
             AppendLog($"Created the UEFI variable store at {target}.");
         }
+
+        private volatile IReadOnlyList<Sharing.SharedFolderEntry> _sharedFolders = Array.Empty<Sharing.SharedFolderEntry>();
+
+        /// <summary>
+        /// What the guest sees under its shared folders mount. Called by the shell on its own thread
+        /// whenever the list changes; the server reads the snapshot from its own.
+        /// </summary>
+        public void UpdateSharedFolders(IEnumerable<SharedFolderConfig> folders) =>
+            _sharedFolders = folders.Select(f => new Sharing.SharedFolderEntry(f.GuestName, f.HostPath, f.ReadOnly)).ToList();
+
+        /// <summary>
+        /// Serves the shared folders on their virtio-serial port for as long as QEMU runs. The connection
+        /// lasts the whole run: the guest opening and closing the port only starts a new 9P session on it.
+        /// </summary>
+        private async Task ServeSharedFoldersAsync(int port)
+        {
+            var server = new Sharing.NinePServer(() => _sharedFolders);
+            while (IsRunning)
+            {
+                try
+                {
+                    using var client = new TcpClient();
+                    await client.ConnectAsync(IPAddress.Loopback, port).ConfigureAwait(false);
+                    await server.ServeAsync(client.GetStream()).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is IOException or SocketException or InvalidDataException)
+                {
+                    if (IsRunning)
+                        AppendLog($"Shared folders: {ex.Message}");
+                }
+
+                if (IsRunning)
+                    await Task.Delay(1000).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>Loopback port of the qemu-guest-agent channel of the current run.</summary>
+        public int? GuestAgentPort { get; private set; }
+
+        /// <summary>
+        /// A connection to the guest agent. It may lead nowhere: whether an agent answers is for
+        /// <see cref="GuestAgentClient.SynchronizeAsync"/> to find out.
+        /// </summary>
+        public Task<GuestAgentClient> ConnectGuestAgentAsync(CancellationToken cancellationToken = default) =>
+            IsRunning && GuestAgentPort is { } port
+                ? GuestAgentClient.ConnectAsync(port, cancellationToken)
+                : throw new InvalidOperationException("The VM is not running.");
 
         private QmpClient RequireQmp() =>
             _qmp is { IsConnected: true } qmp

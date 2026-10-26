@@ -854,8 +854,48 @@ namespace WinQEMU
                     "l'Explorateur. Pour le lui rendre : Gestionnaire de périphériques, clic droit sur le " +
                     "périphérique, « Désinstaller l'appareil » en cochant « Tenter de supprimer le pilote », puis " +
                     "débranchez-le et rebranchez-le.\n\n" +
-                    // Default width: ContentDialog caps itself at 548 px, so a wider body is clipped, not wrapped.
+                    // Default width: with a 560 px minimum this text was clipped on the right instead of wrapped.
                     "Ne faites jamais cela pour le clavier, la souris ou le Bluetooth dont ce PC a besoin."),
+                CloseButtonText = "OK",
+                XamlRoot = Content.XamlRoot
+            });
+        }
+
+        private async void OnShareFolderClick(object sender, RoutedEventArgs e) => await ShareFolderAsync(readOnly: false);
+
+        private async void OnShareFolderReadOnlyClick(object sender, RoutedEventArgs e) => await ShareFolderAsync(readOnly: true);
+
+        private async Task ShareFolderAsync(bool readOnly)
+        {
+            if (_viewModel.SelectedVm is null)
+                return;
+
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            picker.FileTypeFilter.Add("*");
+            // Pickers need an owner window; without it they throw in a packaged desktop app.
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is null)
+                return;
+
+            await ShowProblemAsync("Dossier non partagé", _viewModel.ShareFolder(folder.Path, readOnly));
+        }
+
+        private void OnUnshareFolderClick(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is SharedFolderConfig folder)
+                _viewModel.UnshareFolder(folder);
+        }
+
+        private async Task ShowProblemAsync(string title, string? problem)
+        {
+            if (problem is null)
+                return;
+
+            await ShowDialogAsync(new ContentDialog
+            {
+                Title = title,
+                Content = DialogBody(problem),
                 CloseButtonText = "OK",
                 XamlRoot = Content.XamlRoot
             });

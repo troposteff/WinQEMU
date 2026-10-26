@@ -1098,6 +1098,66 @@
                                     </ContentControl>
                                 </muxc:Expander>
                                 <!--
+                                    Shared folders, served by WinQEMU itself (Sharing.NinePServer). Not behind
+                                    Hardware.CanEdit: they are served live, so they can change while it runs.
+                                -->
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Dossiers partagés" />
+                                    </muxc:Expander.Header>
+                                    <StackPanel Spacing="8">
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="{Binding SharedFolderHint, Mode=OneTime}"
+                                            TextWrapping="Wrap" />
+                                        <TextBlock
+                                            IsTextSelectionEnabled="True"
+                                            Text="{Binding SharedFolderStatus, Mode=OneWay}"
+                                            TextWrapping="Wrap"
+                                            Visibility="{Binding HasSharedFolderStatus, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                        <ItemsControl ItemsSource="{Binding SelectedVm.SharedFolders, Mode=OneWay}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border
+                                                        Margin="0,0,0,8"
+                                                        Padding="10"
+                                                        Background="#11000000"
+                                                        CornerRadius="6">
+                                                        <Grid ColumnSpacing="8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                                <TextBlock
+                                                                    FontWeight="SemiBold"
+                                                                    Text="{Binding HostPath}"
+                                                                    TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock IsTextSelectionEnabled="True">
+                                                                    <Run Text="{Binding GuestPath}" /><Run Text=" · " /><Run Text="{Binding AccessText}" />
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                            <Button
+                                                                Grid.Column="1"
+                                                                VerticalAlignment="Top"
+                                                                Click="OnUnshareFolderClick"
+                                                                Content="Retirer"
+                                                                Tag="{Binding}" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button Click="OnShareFolderClick" Content="Partager un dossier…" />
+                                            <Button Click="OnShareFolderReadOnlyClick" Content="Partager en lecture seule…" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </muxc:Expander>
+
+                                <!--
                                     Snapshots. Opening the section is what loads the list: reading it
                                     runs qemu-img once per disk, and doing that on every selection change
                                     made arrowing through the inventory sluggish. Bound rather than handled

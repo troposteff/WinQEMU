@@ -106,6 +106,9 @@ namespace WinQEMU.Core.Models
         /// <summary>Host USB devices connected at every start (see <see cref="UsbDeviceConfig"/>).</summary>
         public ObservableCollection<UsbDeviceConfig> UsbDevices { get; set; } = new();
 
+        /// <summary>Host folders shared with this machine (see <see cref="SharedFolderConfig"/>).</summary>
+        public ObservableCollection<SharedFolderConfig> SharedFolders { get; set; } = new();
+
         private bool _enableClipboard = true;
         /// <summary>
         /// Shares the text clipboard with the guest. Needs spice-vdagent inside the guest (installed by

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
@@ -561,11 +562,14 @@ namespace WinQEMU.ViewModels
             ClearError();
             var config = SelectedSession.Config;
 
-            await SelectedSession.StartAsync();
+            var session = SelectedSession;
+            session.UpdateSharedFolders(config.SharedFolders);
+            await session.StartAsync();
 
             // Stamped here rather than in the core: this continuation is back on the UI thread, which
             // is the only thread allowed to raise PropertyChanged on a data-bound config.
             config.LastStartedUtc = DateTime.UtcNow;
+            MountSharedFolders(session);
         }
 
         private Task PauseOrResumeAsync()
@@ -667,6 +671,10 @@ namespace WinQEMU.ViewModels
                 UpdateMetricsTimer();
                 NotifyConsoleTargetChanged();
 
+                // Also after the cold restart the session makes of a guest reboot: a new QEMU, unmounted.
+                if (state == VmState.Running && SelectedSession is { } running)
+                    MountSharedFolders(running);
+
                 if (state == VmState.Error && SelectedSession?.LastError is { Length: > 0 } error)
                 {
                     ErrorMessage = error;
@@ -726,6 +734,8 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(PauseResumeLabel));
             RaisePropertyChanged(nameof(CanChangeIsoLive));
             RaisePropertyChanged(nameof(CanClone));
+            RaisePropertyChanged(nameof(SharedFolderStatus));
+            RaisePropertyChanged(nameof(HasSharedFolderStatus));
 
             // Boot order, disks and adapters are only read when QEMU starts, so they stay locked for
             // as long as a process exists — including while it is stopping.
@@ -868,6 +878,110 @@ namespace WinQEMU.ViewModels
 
         /// <summary>True when the medium can be swapped without restarting, i.e. the machine is running.</summary>
         public bool CanChangeIsoLive => SelectedSession?.IsRunning == true;
+
+        // ---- Shared folders ----
+
+        public string SharedFolderHint =>
+            "Comme les dossiers partagés de VMware : WinQEMU les sert lui-même par un canal privé, sans réseau " +
+            $"ni mot de passe, et ils apparaissent dans ~/{GuestShareMounter.GuestFolder} d'un invité Linux. Il y " +
+            "faut une seule fois l'agent invité : sudo apt install qemu-guest-agent. Les invités Windows ne sont " +
+            "pas encore pris en charge.";
+
+        private readonly Dictionary<VmConfig, GuestShareReport> _shareReports = new();
+        private readonly HashSet<(VmSession Session, int Port)> _mountRuns = new();
+
+        /// <summary>Where the selection's folders stand inside the running guest, or null when it is not running.</summary>
+        public string? SharedFolderStatus =>
+            SelectedVm is { } vm && IsSelectedRunning && _shareReports.TryGetValue(vm, out var report) ? report.Text : null;
+
+        public bool HasSharedFolderStatus => SharedFolderStatus is not null;
+
+        /// <summary>
+        /// Mounts the folders in the guest, once per QEMU process: the session relaunches QEMU on a guest
+        /// reboot, and the new one starts with nothing mounted. Once mounted, folders shared later appear
+        /// under the mount by themselves.
+        /// </summary>
+        private void MountSharedFolders(VmSession session)
+        {
+            if (session.Config.SharedFolders.Count == 0 || session.GuestAgentPort is not { } port || !_mountRuns.Add((session, port)))
+                return;
+
+            _ = MountSharedFoldersAsync(session);
+        }
+
+        private async Task MountSharedFoldersAsync(VmSession session)
+        {
+            var config = session.Config;
+            SetShareReport(config, new GuestShareReport(GuestShareState.WaitingForAgent,
+                "En attente de l'agent invité pour monter les dossiers…"));
+
+            GuestShareReport report;
+            try
+            {
+                // Five minutes: a first boot, or one that runs a disk check, can take that long.
+                report = await GuestShareMounter.MountAsync(session, TimeSpan.FromMinutes(5));
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException)
+            {
+                report = new GuestShareReport(GuestShareState.Failed, $"Les dossiers n'ont pas pu être montés : {ex.Message}");
+            }
+
+            if (session.IsRunning)
+                SetShareReport(config, report);
+        }
+
+        private void SetShareReport(VmConfig config, GuestShareReport report)
+        {
+            _shareReports[config] = report;
+            RaisePropertyChanged(nameof(SharedFolderStatus));
+            RaisePropertyChanged(nameof(HasSharedFolderStatus));
+        }
+
+        /// <summary>Hands the selection's current folders to its running session, which serves them live.</summary>
+        private void PublishSharedFolders(VmConfig config)
+        {
+            var session = Manager.FindSession(config);
+            session?.UpdateSharedFolders(config.SharedFolders);
+            if (session is { IsRunning: true })
+                MountSharedFolders(session);
+        }
+
+        /// <summary>Shares a host folder with the selected machine. Returns the reason when it was not.</summary>
+        public string? ShareFolder(string hostPath, bool readOnly)
+        {
+            var target = SelectedVm;
+            if (target is null)
+                return null;
+
+            if (target.SharedFolders.Any(f => SamePath(f.HostPath, hostPath)))
+                return "Ce dossier est déjà partagé avec cette machine.";
+
+            var stem = SharedFolderConfig.DefaultNameFor(hostPath);
+            var name = stem;
+            for (var index = 2; target.SharedFolders.Any(f => string.Equals(f.GuestName, name, StringComparison.OrdinalIgnoreCase)); index++)
+                name = $"{stem} ({index.ToString(CultureInfo.InvariantCulture)})";
+
+            target.SharedFolders.Add(new SharedFolderConfig { HostPath = hostPath, Name = name, ReadOnly = readOnly });
+            SaveSelected();
+            PublishSharedFolders(target);
+            AppendDiagnostic($"Dossier partagé : {hostPath} → ~/{GuestShareMounter.GuestFolder}/{name}");
+            return null;
+        }
+
+        /// <summary>Stops sharing a folder; a running guest sees it disappear from ~/Partages.</summary>
+        public void UnshareFolder(SharedFolderConfig folder)
+        {
+            var target = SelectedVm;
+            if (target is null || !target.SharedFolders.Remove(folder))
+                return;
+
+            SaveSelected();
+            PublishSharedFolders(target);
+        }
+
+        private static bool SamePath(string a, string b) =>
+            string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
+                          Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)), StringComparison.OrdinalIgnoreCase);
 
         // ---- USB devices ----
 

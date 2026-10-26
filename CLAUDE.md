@@ -237,6 +237,32 @@ Bouton **USB** de la barre d'outils : connecter / déconnecter à chaud (machine
 - Identité = vendeur:produit (`wq-usb-0781-559c`), seule correspondance stable que usb-host offre sous
   Windows ; deux périphériques identiques ne se distinguent pas (QEMU prend le premier).
 
+## Dossiers partagés
+
+Comme ceux de VMware (`/mnt/hgfs`) : **WinQEMU sert lui-même les dossiers**, par un canal privé, et
+l'invité les trouve dans `~/Partages/<nom>`. Ni réseau, ni compte, ni mot de passe, ni droits
+administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du résumé (`VmConfig.SharedFolders`).
+
+- **Serveur 9P2000.L maison** (`Sharing.NinePServer`), le build Windows de QEMU n'ayant aucun 9p
+  (« fsdev support is disabled ») ; virtiofs exige un démon Linux. Racine virtuelle : un dossier par
+  dossier partagé, relue à chaque requête (`VmSession.UpdateSharedFolders`, appelé par le shell, seul fil
+  autorisé à lire la configuration liée à l'interface). Noms validés (pas de séparateur, de `:` — flux
+  alternatifs — ni de `..` qui sortirait du dossier) ; lecture seule → `EROFS`. Testé sur un vrai dossier
+  (`NinePServerTests`) et monté dans un vrai Ubuntu 26.04.
+- **Transport** : port virtio-serial `org.winqemu.shares.0` (socket QEMU en serveur, la session s'y connecte)
+  sur le bus `wq-qga-bus`, déclaré en dernier (slots PCI inchangés), présent sur toutes les VM.
+- **Montage par qemu-guest-agent** (`GuestShareMounter`, une fois par processus QEMU : `VmSession` relance
+  QEMU au redémarrage de l'invité) : `exec 3<>/dev/virtio-ports/…` puis `mount -t 9p -o trans=fd,rfdno=3,
+  wfdno=3` (module `9pnet_fd`). Le montage garde le descripteur. `aname=uid:gid` : le serveur déclare les
+  fichiers comme appartenant à l'utilisateur de l'invité (premier compte humain de `/etc/passwd`).
+- **Protocole de l'agent sans greeting** : `guest-sync-delimited` d'abord (réponse précédée de 0xFF) ; une
+  synchronisation ratée rend la connexion inutilisable, d'où une connexion neuve par essai.
+- **Abandonné : le partage Windows (SMB) joint par le NAT à 10.0.2.2.** Windows refusait le compte Entra ID
+  de l'utilisateur venant de l'invité (journal NTLM, évènements 4023 `AzureAD\…`), et il fallait UAC, un
+  mot de passe stocké et un partage visible du réseau local.
+- **Invités Windows** : pas de client 9P intégré ; il faudra un outil WinQEMU dans l'invité (WinFsp), à la
+  manière des VMware Tools.
+
 ## Pièges de plateforme (WHPX, QEMU 11)
 
 Chacun a coûté du temps ; les commentaires du code donnent le détail.

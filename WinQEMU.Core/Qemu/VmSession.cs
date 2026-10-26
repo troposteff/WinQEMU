@@ -751,6 +751,14 @@ namespace WinQEMU.Core.Qemu
                 WorkingDirectory = Path.GetDirectoryName(executable) ?? Environment.CurrentDirectory
             };
 
+            // QEMU declares no DPI awareness, so its SDL window is DPI-unaware (measured: awareness 0) and
+            // ends up a cross-process child of the per-monitor-aware shell. On a 150% display Windows then
+            // scales between the two and the guest pointer lands about an arrow's width off the visible
+            // cursor; the guest image is also drawn at 2/3 size and stretched back, so "Taille réelle" was
+            // blurred. This SDL hint makes the window per-monitor aware (measured: awareness 2), in step
+            // with the shell, which already sizes it in physical pixels.
+            startInfo.Environment["SDL_WINDOWS_DPI_AWARENESS"] = "permonitorv2";
+
             foreach (var argument in arguments)
                 startInfo.ArgumentList.Add(argument);
 

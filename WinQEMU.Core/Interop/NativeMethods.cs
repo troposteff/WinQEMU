@@ -53,6 +53,17 @@ namespace WinQEMU.Core.Interop
 
         public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Point
+        {
+            public int X;
+            public int Y;
+        }
+
+        /// <summary>The pointer in physical screen pixels (the shell is per-monitor DPI aware).</summary>
+        [DllImport("user32.dll")]
+        public static extern bool GetCursorPos(out Point point);
+
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
 

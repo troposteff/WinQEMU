@@ -73,7 +73,7 @@
 
             Row 0 header  · Row 1 sub-header · Row 2 content · Row 3 footer (left column only)
         -->
-        <Grid Grid.Row="1" Padding="12,8,12,12" ColumnSpacing="12">
+        <Grid x:Name="ShellGrid" Grid.Row="1" Padding="12,8,12,12" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="SidebarColumn" Width="320" />
                 <ColumnDefinition Width="*" />
@@ -82,7 +82,7 @@
                 <RowDefinition x:Name="HeaderRow" Height="Auto" />
                 <RowDefinition x:Name="SubHeaderRow" Height="Auto" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition x:Name="FooterRow" Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- Inventory header, centred on the taller command bar opposite it -->
@@ -352,7 +352,7 @@
                 the resources panel. Here the content row is star-sized inside an already-bounded grid,
                 which is what makes scrolling possible at all.
             -->
-            <Grid Grid.Row="2" Grid.Column="1" RowSpacing="12">
+            <Grid x:Name="ContentGrid" Grid.Row="2" Grid.Column="1" RowSpacing="12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -360,7 +360,7 @@
 
                 <!-- Segmented switcher. Exclusivity is enforced in code so a click on the active view
                      cannot leave both views hidden. -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="4">
+                <StackPanel x:Name="ViewSwitcher" Grid.Row="0" Orientation="Horizontal" Spacing="4">
                     <ToggleButton
                         x:Name="SummaryViewButton"
                         MinWidth="120"
@@ -1362,12 +1362,42 @@
                         </StackPanel>
                     </Grid>
 
-                    <Border Grid.Row="1" CornerRadius="8">
+                    <Border x:Name="ConsoleFrame" Grid.Row="1" CornerRadius="8">
                         <controls:VmConsoleHost x:Name="ConsoleHost" />
                     </Border>
                 </Grid>
             </Grid>
         </Grid>
+        <!--
+            Full screen's only chrome, shown while the pointer touches the top of the screen. It cannot
+            simply float over the console: a native child window is always drawn above XAML. So the
+            console is told to leave this strip out of its visible region while the bar shows
+            (VmConsoleHost.TopOverlayHeight); the guest image keeps its size and position.
+        -->
+        <Border
+            x:Name="FullScreenBar"
+            Grid.Row="0" Grid.RowSpan="2"
+            Height="48"
+            Padding="12,0"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1,0,1,1"
+            CornerRadius="0,0,8,8"
+            Visibility="Collapsed">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock
+                    x:Name="FullScreenTitle"
+                    MaxWidth="320"
+                    Margin="4,0,8,0"
+                    VerticalAlignment="Center"
+                    FontWeight="SemiBold"
+                    TextTrimming="CharacterEllipsis" />
+                <Button Command="{Binding SendCtrlAltDeleteCommand}" Content="Ctrl+Alt+Suppr" />
+                <Button x:Name="FullScreenUsbButton" Click="OnUsbClick" Content="USB" />
+                <Button Click="OnToggleFullScreenClick" Content="Quitter le plein écran" Style="{StaticResource AccentButtonStyle}" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>
-

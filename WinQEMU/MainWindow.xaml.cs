@@ -45,11 +45,15 @@ namespace WinQEMU
             // Raised for F11 only, which the host keeps for itself rather than forwarding: with the guest
             // holding the keyboard there is otherwise no key left to leave full screen with.
             ConsoleHost.FullScreenRequested += (_, _) => SetConsoleFullScreen(!_consoleFullScreen);
-            ScaleModeBox.ItemsSource = new[] { "Ajuster", "Étirer", "Taille réelle" };
+            ScaleModeBox.ItemsSource = new[] { "Ajuster", "Taille réelle" };
             ScaleModeBox.SelectedIndex = 0;
             UpdateGuestSizeText();
 
             RootGrid.SizeChanged += (_, _) => ApplyAdaptiveLayout();
+
+            _fullScreenBarTimer = DispatcherQueue.CreateTimer();
+            _fullScreenBarTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _fullScreenBarTimer.Tick += (_, _) => UpdateFullScreenBar();
 
             RootGrid.Loaded += async (_, _) =>
             {
@@ -150,20 +154,22 @@ namespace WinQEMU
             MinWidth = minWidth
         };
 
-        private void OnScaleModeChanged(object sender, SelectionChangedEventArgs e)
+        private void OnScaleModeChanged(object sender, SelectionChangedEventArgs e) => ApplyScaleMode();
+
+        /// <summary>The mode chosen in the box; full screen sets its own and this puts the user's back.</summary>
+        private void ApplyScaleMode()
         {
             if (ConsoleHost is null)
                 return;
 
             ConsoleHost.ScaleMode = ScaleModeBox.SelectedIndex switch
             {
-                1 => Controls.ConsoleScaleMode.Stretch,
-                2 => Controls.ConsoleScaleMode.Actual,
+                1 => Controls.ConsoleScaleMode.Actual,
                 _ => Controls.ConsoleScaleMode.Fit
             };
         }
 
-        /// <summary>Reports the guest's own resolution, which is what the letterboxing is based on.</summary>
+        /// <summary>Reports the guest's own resolution, which "Taille réelle" sizes the console to.</summary>
         private void UpdateGuestSizeText()
         {
             var (width, height) = ConsoleHost.GuestSize;
@@ -188,6 +194,48 @@ namespace WinQEMU
             SetConsoleFullScreen(!_consoleFullScreen);
         }
 
+        /// <summary>
+        /// Watches the pointer while in full screen. Polled rather than evented: over the guest the
+        /// pointer belongs to QEMU's window, in another process, so XAML never hears of it.
+        /// </summary>
+        private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _fullScreenBarTimer;
+        private bool _fullScreenBarShown;
+
+        private void UpdateFullScreenBar()
+        {
+            if (!_consoleFullScreen || !Core.Interop.NativeMethods.GetCursorPos(out var pointer))
+                return;
+
+            var top = AppWindow.Position.Y;
+            var scale = Content.XamlRoot?.RasterizationScale ?? 1;
+            if (!_fullScreenBarShown)
+            {
+                // The very top row of pixels, the same gesture as VMware's and as Windows' own full screen.
+                if (pointer.Y <= top + 1)
+                    ShowFullScreenBar(true);
+                return;
+            }
+
+            // Kept while the pointer is on the bar or just below it, and while one of its menus is open.
+            var barBottom = top + (int)Math.Round((FullScreenBar.ActualHeight + 24) * scale);
+            if (pointer.Y > barBottom && Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(Content.XamlRoot).Count == 0)
+                ShowFullScreenBar(false);
+        }
+
+        private void ShowFullScreenBar(bool show)
+        {
+            if (_fullScreenBarShown == show && (FullScreenBar.Visibility == Visibility.Visible) == show)
+                return;
+
+            _fullScreenBarShown = show;
+            FullScreenBar.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            ConsoleHost.TopOverlayHeight = show ? FullScreenBar.Height : 0;
+
+            // Back to the guest once the bar is gone, so typing resumes without a click.
+            if (!show && _consoleFullScreen)
+                ConsoleHost.FocusGuest();
+        }
+
         private void SetConsoleFullScreen(bool fullScreen)
         {
             _consoleFullScreen = fullScreen;
@@ -196,20 +244,43 @@ namespace WinQEMU
             if (fullScreen)
                 ShowView(console: true);
 
-            NotificationsPanel.Visibility = fullScreen ? Visibility.Collapsed : Visibility.Visible;
+            // Everything but the guest goes, down to the paddings and rounded corners: the user asked for
+            // the guest alone on the monitor, as VMware does. The way back is F11, or the bar that
+            // appears when the pointer touches the top of the screen.
+            var collapsed = fullScreen ? Visibility.Collapsed : Visibility.Visible;
+            NotificationsPanel.Visibility = collapsed;
+            ViewSwitcher.Visibility = collapsed;
+            ConsoleBar.Visibility = collapsed;
             SidebarColumn.Width = fullScreen ? new GridLength(0) : new GridLength(320);
             HeaderRow.Height = fullScreen ? new GridLength(0) : GridLength.Auto;
             SubHeaderRow.Height = fullScreen ? new GridLength(0) : GridLength.Auto;
-            // The hint and the scale controls go, but the button stays: it is the visible way back, and
-            // relying on F11 alone would strand anyone whose focus is not in the console.
-            ConsoleHintText.Visibility = fullScreen ? Visibility.Collapsed : Visibility.Visible;
-            ConsoleScaleControls.Visibility = fullScreen ? Visibility.Collapsed : Visibility.Visible;
+            // The footer belongs to the sidebar column; a zero-width column still lends it its height.
+            FooterRow.Height = fullScreen ? new GridLength(0) : GridLength.Auto;
+            ShellGrid.Padding = fullScreen ? new Thickness(0) : new Thickness(12, 8, 12, 12);
+            ShellGrid.ColumnSpacing = fullScreen ? 0 : 12;
+            ContentGrid.RowSpacing = fullScreen ? 0 : 12;
+            ConsoleView.RowSpacing = fullScreen ? 0 : 8;
+            ConsoleFrame.CornerRadius = fullScreen ? new CornerRadius(0) : new CornerRadius(8);
+            // Letterbox bars black, as on any full-screen video, rather than the theme's background.
+            RootGrid.Background = fullScreen ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black) : null;
 
             AppWindow.SetPresenter(fullScreen
                 ? Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen
                 : Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
 
-            FullScreenButton.Content = fullScreen ? "Quitter le plein écran" : "Plein écran";
+            FullScreenTitle.Text = _viewModel.SelectedVm?.Name ?? string.Empty;
+            ShowFullScreenBar(false);
+            if (fullScreen)
+                _fullScreenBarTimer.Start();
+            else
+                _fullScreenBarTimer.Stop();
+
+            // Fit hands the whole monitor to QEMU, which passes its size on to the guest: a virtio-gpu
+            // guest adopts the monitor's resolution, any other is letterboxed by QEMU itself.
+            if (fullScreen)
+                ConsoleHost.ScaleMode = Controls.ConsoleScaleMode.Fit;
+            else
+                ApplyScaleMode();
 
             if (!fullScreen)
                 ApplyAdaptiveLayout();
@@ -259,6 +330,10 @@ namespace WinQEMU
         /// </remarks>
         private void ApplyAdaptiveLayout()
         {
+            // Full screen owns the layout; a resize there (entering it is one) must not bring the sidebar back.
+            if (_consoleFullScreen)
+                return;
+
             const double narrowThreshold = 1000;
             var narrow = RootGrid.ActualWidth > 0 && RootGrid.ActualWidth < narrowThreshold;
 
@@ -732,7 +807,8 @@ namespace WinQEMU
             // The console is a native window drawn above all XAML, the menu included.
             ConsoleHost.Suspend();
             menu.Closed += (_, _) => ConsoleHost.Resume();
-            menu.ShowAt(UsbButton);
+            // Under whichever button opened it: the toolbar's, or the full-screen bar's.
+            menu.ShowAt(sender as FrameworkElement ?? UsbButton);
         }
 
         private static string UsbStatus(MainViewModel.UsbMenuEntry entry) =>

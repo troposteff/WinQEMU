@@ -26,11 +26,11 @@ namespace WinQEMU.Controls
     /// <summary>How the guest image is fitted into the space the console has.</summary>
     public enum ConsoleScaleMode
     {
-        /// <summary>Preserve the guest's proportions, letterboxing the leftover space.</summary>
+        /// <summary>
+        /// The whole panel goes to QEMU, which keeps the guest's proportions itself (black bars inside its
+        /// window) and passes the size on to the guest, which may adopt it.
+        /// </summary>
         Fit,
-
-        /// <summary>Fill the panel regardless of proportions. What the console did before there was a choice.</summary>
-        Stretch,
 
         /// <summary>One guest pixel per host pixel; larger guests are cropped by the panel.</summary>
         Actual
@@ -593,6 +593,27 @@ namespace WinQEMU.Controls
             }
         }
 
+        private double _topOverlayHeight;
+        /// <summary>
+        /// Height, in DIPs, of a XAML strip along the top of this element that the console must leave
+        /// visible: the native window would otherwise draw over it. The strip is cut out of the window's
+        /// visible region; the guest image keeps its size and place, so nothing reflows under the pointer.
+        /// </summary>
+        public double TopOverlayHeight
+        {
+            get => _topOverlayHeight;
+            set
+            {
+                if (_topOverlayHeight == value)
+                    return;
+
+                _topOverlayHeight = value;
+                // Bounds unchanged as far as layout is concerned: force the region to be recomputed.
+                InvalidateLastBounds();
+                UpdateNativeBounds();
+            }
+        }
+
         private (int Width, int Height) _guestSize;
         /// <summary>The guest's own resolution, or (0,0) while it is not known.</summary>
         public (int Width, int Height) GuestSize => _guestSize;
@@ -647,48 +668,45 @@ namespace WinQEMU.Controls
         /// Places the guest image inside the panel according to the scale mode, in physical pixels.
         /// </summary>
         /// <remarks>
-        /// Letterboxing needs the guest's real resolution; without it the only possible behaviour is to
-        /// stretch. When it is not known yet the panel is filled, which is the old behaviour rather than
-        /// a blank console.
+        /// Only "Taille réelle" needs the guest's resolution. While it is not known the panel is filled,
+        /// as in Fit, rather than leaving the console blank.
         /// </remarks>
         private (int X, int Y, int Width, int Height) FitGuest(int panelX, int panelY, int panelWidth, int panelHeight)
         {
             var guest = GuestSize;
-            if (_scaleMode == ConsoleScaleMode.Stretch || guest.Width <= 0 || guest.Height <= 0)
+            // QEMU's SDL display letterboxes on its own (seen once its window was DPI aware: a 16:10 guest
+            // in a wider window got bars at the sides, not a stretched image), so fitting needs no guest
+            // size and cannot go wrong when that size is stale. The window's size also becomes the
+            // guest's preferred mode, which a virtio-gpu guest follows: a letterbox computed here from an
+            // outdated 640x480 kept such a guest boxed in at 4:3.
+            if (_scaleMode == ConsoleScaleMode.Fit || guest.Width <= 0 || guest.Height <= 0)
                 return (panelX, panelY, panelWidth, panelHeight);
 
-            int width, height;
-            if (_scaleMode == ConsoleScaleMode.Actual)
-            {
-                width = guest.Width;
-                height = guest.Height;
-            }
-            else
-            {
-                // The larger factor would overflow the panel on one axis, so the smaller one wins.
-                var factor = Math.Min(panelWidth / (double)guest.Width, panelHeight / (double)guest.Height);
-                width = Math.Max(1, (int)Math.Round(guest.Width * factor));
-                height = Math.Max(1, (int)Math.Round(guest.Height * factor));
-            }
+            var (width, height) = guest;
 
-            // Centred, so the letterbox bars are even and a cropped 1:1 image shows its middle.
+            // Centred, so a smaller image sits in the middle and a cropped one shows its middle.
             return (panelX + (panelWidth - width) / 2, panelY + (panelHeight - height) / 2, width, height);
         }
 
+        private int _ticksSinceGuestSizeRead;
+
         /// <summary>
-        /// Notices that QEMU resized its own window, which is the only sign a guest mode change gives
-        /// once the window is a child we position. The size it changed to is not used as the resolution;
-        /// it only prompts asking QEMU what the resolution now is.
+        /// Keeps the guest resolution current. QEMU resizing its own window is one sign of a mode change,
+        /// but not the only one: a guest that adopts the size of the window we gave it changes mode with
+        /// no such sign, and the resolution read at boot (640x480) stayed in place for good. So it is also
+        /// read again every few seconds, and shortly after each resize (see UpdateNativeBounds).
         /// </summary>
         private void CheckGuestSize()
         {
             if (_console is null || _suspended)
                 return;
 
-            if (!_console.RefreshNativeSize(_lastWidth, _lastHeight))
-                return;
-
-            _ = RefreshGuestSizeAsync();
+            // A screendump writes the whole framebuffer to a file, hence every few seconds, not every tick.
+            if (_console.RefreshNativeSize(_lastWidth, _lastHeight) || ++_ticksSinceGuestSizeRead >= 5)
+            {
+                _ticksSinceGuestSizeRead = 0;
+                _ = RefreshGuestSizeAsync();
+            }
         }
 
         private Task _regionUpdates = Task.CompletedTask;
@@ -760,7 +778,10 @@ namespace WinQEMU.Controls
 
             _console.SetBounds(x, y, width, height);
             _console.RequestRedraw();
-            ClipToPanel(_console, x, y, width, height, panelX, panelY, panelWidth, panelHeight);
+            // The guest may adopt the new window size as its resolution: read it again in a moment.
+            _ticksSinceGuestSizeRead = Math.Max(_ticksSinceGuestSizeRead, 3);
+            var overlay = Math.Min(panelHeight - 1, (int)Math.Round(_topOverlayHeight * scale));
+            ClipToPanel(_console, x, y, width, height, panelX, panelY + overlay, panelWidth, panelHeight - overlay);
 
             // The guest now covers this element, so the waiting message would only ever be seen
             // through a gap. Collapsing it also makes it obvious when the console is genuinely blank.

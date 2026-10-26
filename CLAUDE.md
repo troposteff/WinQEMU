@@ -270,6 +270,20 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   Résumé masque la console en repliant son conteneur).
 - **Boutons de `CommandBar`** : ils ne prennent pas le focus par défaut, donc une `NumberBox` en cours de
   saisie n'est pas validée. `AllowFocusOnInteraction="True"` sur ceux qui consomment la configuration.
+- **QEMU lancé avec `SDL_WINDOWS_DPI_AWARENESS=permonitorv2`** (`VmSession.StartProcess`). Sans cela sa
+  fenêtre SDL est *DPI-unaware* (mesuré : niveau 0) et devient l'enfant d'une app *per-monitor* (niveau 2) :
+  à 150 %, le pointeur de l'invité tombait à une largeur de flèche du curseur affiché, et l'image était
+  dessinée aux 2/3 puis réagrandie (floue en « Taille réelle »).
+- **L'invité suit la taille de la fenêtre** : SDL transmet sa taille comme mode préféré (`set_ui_info`), et
+  un invité virtio-gpu l'adopte (Ubuntu : fenêtre 1898×1144 → invité 1898×1144). Avant le correctif DPI,
+  cette taille arrivait divisée par 1,5. **SDL garde lui-même les proportions** (bandes noires dans sa
+  fenêtre) : « Ajuster » lui donne donc tout le panneau, sans calcul de notre part (un ancien recadrage
+  fondé sur une taille d'invité périmée, 640×480, enfermait l'invité en 4:3). « Étirer » n'existait plus en
+  pratique et a disparu. Seule « Taille réelle » a besoin de la résolution, relue toutes les 5 s et après
+  chaque redimensionnement (une adoption de mode par l'invité ne redimensionne pas la fenêtre de QEMU).
+- **Barre du plein écran** : XAML ne peut pas passer au-dessus de la console ; la bande de la barre est
+  retirée de la région visible de la fenêtre native (`VmConsoleHost.TopOverlayHeight`). Le pointeur est
+  sondé (`GetCursorPos`) : au-dessus de l'invité il appartient à la fenêtre de QEMU, XAML n'en sait rien.
 - **Tab** : la navigation au clavier de WinUI déplace le focus même si `PreviewKeyDown` est marqué traité,
   et la touche arrive **sans scancode**. La console annule les pertes de focus clavier et retrouve le
   scancode par `MapVirtualKey`.

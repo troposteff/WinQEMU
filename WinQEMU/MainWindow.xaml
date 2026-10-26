@@ -116,7 +116,7 @@
                             Click="OnImportVmClick"
                             IsEnabled="{Binding IsQemuAvailable, Mode=OneWay}"
                             ToolTipService.ToolTip="Importer une machine VMware (.vmx), VirtualBox (.vbox) ou un disque Hyper-V (.vhdx)">
-                            <FontIcon FontSize="16" Glyph="&#xE8B5;" />
+                            <FontIcon FontSize="16" Glyph="&#xE896;" />
                         </Button>
                         <Button
                             x:Name="RefreshButton"
@@ -385,9 +385,17 @@
                         Content="Console" />
                 </StackPanel>
 
+                <!--
+                    IsTabStop="True": a click on an empty part of the summary (below Ressources, say)
+                    focuses the ScrollViewer, and one that cannot hold focus passes it to its first
+                    focusable descendant, which was the machine's name box. Able to hold it, it keeps it.
+                    Not AllowFocusOnInteraction="False": that reached every field inside, and no text box
+                    in the summary could be clicked into any more.
+                -->
                 <ScrollViewer
                     x:Name="SummaryView"
                     Grid.Row="1"
+                    IsTabStop="True"
                     VerticalScrollBarVisibility="Auto">
                     <!--
                         MinHeight tied to the viewport so the wide layout is unchanged: a ScrollViewer
@@ -415,13 +423,36 @@
                                 CornerRadius="8">
                               <StackPanel Spacing="12">
                                 <StackPanel DataContext="{Binding SelectedVm, Mode=OneWay}">
-                                    <TextBox
-                                        x:Name="DetailNameBox"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        FontSize="18"
-                                        FontWeight="SemiBold"
-                                        Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <!--
+                                        Shown as text, renamed through a dialog: as a borderless text box
+                                        it took stray focus and keystrokes, and the name is the folder's
+                                        and the descriptor's name, not something to edit by accident.
+                                    -->
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            VerticalAlignment="Center"
+                                            FontSize="18"
+                                            FontWeight="SemiBold"
+                                            IsTextSelectionEnabled="True"
+                                            Text="{Binding Name, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <Button
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="Renommer la machine virtuelle"
+                                            Click="OnRenameClick"
+                                            ToolTipService.ToolTip="Renommer la machine virtuelle">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon FontSize="14" Glyph="&#xE8AC;" />
+                                                <TextBlock Text="Renommer…" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
                                     <!--
                                         Shown next to the field rather than in the error bar at the top:
                                         this appears while a name is being typed, and the name is what

@@ -1038,6 +1038,23 @@ namespace WinQEMU.ViewModels
 
         // ---- Shared folders ----
 
+        /// <summary>Why a name cannot be given to the selection, or null when it can.</summary>
+        public string? WhyNameIsRefused(string name) =>
+            VmLibrary.ValidateName(name)
+            ?? (Manager.VirtualMachines.Any(vm => !ReferenceEquals(vm, SelectedVm)
+                                                  && string.Equals(vm.Name.Trim(), name.Trim(), StringComparison.CurrentCultureIgnoreCase))
+                ? "Une autre machine porte déjà ce nom."
+                : null);
+
+        public void RenameSelected(string name)
+        {
+            if (SelectedVm is not { } target || WhyNameIsRefused(name) is not null)
+                return;
+
+            target.Name = name.Trim();
+            SaveSelected();
+        }
+
         /// <summary>The networks a card can be plugged into, for the Réseau section's picker.</summary>
         public ObservableCollection<VirtualNetwork> VirtualNetworks => Manager.Settings.VirtualNetworks;
 

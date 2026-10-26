@@ -406,6 +406,48 @@ namespace WinQEMU
             await ShowDialogAsync(dialog);
         }
 
+        private async void OnRenameClick(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.SelectedVm is not { } target)
+                return;
+
+            var box = new TextBox { Header = "Nouveau nom", Text = target.Name };
+            var error = new TextBlock
+            {
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
+                TextWrapping = TextWrapping.Wrap,
+                Visibility = Visibility.Collapsed
+            };
+            var body = new StackPanel { Spacing = 8, MinWidth = 420 };
+            body.Children.Add(box);
+            body.Children.Add(error);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Renommer la machine virtuelle",
+                Content = body,
+                PrimaryButtonText = "Renommer",
+                CloseButtonText = "Annuler",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Content.XamlRoot
+            };
+
+            // Checked as it is typed, so Renommer is only offered for a name that will be accepted.
+            void Validate()
+            {
+                var problem = string.Equals(box.Text.Trim(), target.Name, StringComparison.Ordinal) ? null : _viewModel.WhyNameIsRefused(box.Text);
+                error.Text = problem ?? string.Empty;
+                error.Visibility = problem is null ? Visibility.Collapsed : Visibility.Visible;
+                dialog.IsPrimaryButtonEnabled = problem is null && box.Text.Trim().Length > 0;
+            }
+            box.TextChanged += (_, _) => Validate();
+            box.Loaded += (_, _) => box.SelectAll();
+            Validate();
+
+            if (await ShowDialogAsync(dialog) == ContentDialogResult.Primary && box.Text.Trim() != target.Name)
+                _viewModel.RenameSelected(box.Text);
+        }
+
         private async void OnVirtualNetworksClick(object sender, RoutedEventArgs e) =>
             await ShowDialogAsync(new Dialogs.VirtualNetworksDialog(_viewModel.Manager) { XamlRoot = Content.XamlRoot });
 

@@ -25,7 +25,10 @@ namespace WinQEMU.ViewModels
 
         public VmSnapshot Snapshot { get; }
 
-        /// <summary>Why the snapshot can be neither restored nor deleted — a linked clone reads it — or null.</summary>
+        /// <summary>
+        /// Why the snapshot cannot be deleted — a linked clone reads its level or one under it — or null.
+        /// Restoring it stays possible: the clone's images are then kept.
+        /// </summary>
         public string? LockReason { get; }
 
         public bool IsLocked => LockReason is not null;
@@ -55,7 +58,7 @@ namespace WinQEMU.ViewModels
                     parts.Add($"{Snapshot.PresentOnDisks}/{Snapshot.TotalDisks} disques");
 
                 if (IsLocked)
-                    parts.Add("verrouillé par un clone lié");
+                    parts.Add("base d'un clone lié");
 
                 return string.Join(" · ", parts);
             }
@@ -100,6 +103,7 @@ namespace WinQEMU.ViewModels
 
                 RaisePropertyChanged(nameof(HasSelection));
                 RaisePropertyChanged(nameof(CanActOnSelection));
+                RaisePropertyChanged(nameof(CanDeleteSelection));
                 RaisePropertyChanged(nameof(CanResumeSelection));
                 RaisePropertyChanged(nameof(SelectedLockReason));
                 RaisePropertyChanged(nameof(IsSelectionLocked));
@@ -108,7 +112,7 @@ namespace WinQEMU.ViewModels
 
         public bool HasSelection => Selected is not null;
 
-        /// <summary>Shown under the buttons, so a disabled Restaurer says why rather than just greying out.</summary>
+        /// <summary>Shown under the buttons, so a disabled Supprimer says why rather than just greying out.</summary>
         public string SelectedLockReason => Selected?.LockReason ?? string.Empty;
 
         public bool IsSelectionLocked => Selected?.IsLocked == true;
@@ -125,6 +129,7 @@ namespace WinQEMU.ViewModels
                 RaisePropertyChanged(nameof(CanManage));
                 RaisePropertyChanged(nameof(CanCreate));
                 RaisePropertyChanged(nameof(CanActOnSelection));
+                RaisePropertyChanged(nameof(CanDeleteSelection));
                 RaisePropertyChanged(nameof(CanResumeSelection));
                 RaisePropertyChanged(nameof(CanTakeLiveSnapshot));
                 RaisePropertyChanged(nameof(CanTakeMemorySnapshot));
@@ -148,6 +153,7 @@ namespace WinQEMU.ViewModels
                 RaisePropertyChanged(nameof(CanManage));
                 RaisePropertyChanged(nameof(CanCreate));
                 RaisePropertyChanged(nameof(CanActOnSelection));
+                RaisePropertyChanged(nameof(CanDeleteSelection));
                 RaisePropertyChanged(nameof(IsLockedByRunningMachine));
             }
         }
@@ -167,7 +173,13 @@ namespace WinQEMU.ViewModels
 
         /// <summary>Whether the selected snapshot can actually be acted on. Bound by Restaurer and
         /// Supprimer: with HasSelection alone they stayed clickable on a running machine and did nothing.</summary>
-        public bool CanActOnSelection => CanManage && HasSelection && !IsSelectionLocked;
+        public bool CanActOnSelection => CanManage && HasSelection;
+
+        /// <summary>
+        /// Deleting merges a level into the one below, which writes into an image a linked clone may read;
+        /// restoring never does, so only Supprimer is tied to the lock.
+        /// </summary>
+        public bool CanDeleteSelection => CanActOnSelection && !IsSelectionLocked;
 
         private string _newName = string.Empty;
         public string NewName
@@ -342,7 +354,7 @@ namespace WinQEMU.ViewModels
                 {
                     // Only live snapshots are levels of the chain a clone can rest on; internal ones live
                     // inside the image the machine writes to, which is never a clone's base.
-                    var lockReason = snapshot.IsLive ? _manager.WhyLiveSnapshotIsLocked(config, snapshot.Name) : null;
+                    var lockReason = snapshot.IsLive ? _manager.WhyLiveSnapshotCannotBeDeleted(config, snapshot.Name) : null;
                     Snapshots.Add(new SnapshotItem(snapshot, lockReason));
                 }
 
@@ -557,11 +569,9 @@ namespace WinQEMU.ViewModels
             {
                 if (item.Snapshot.IsLive)
                 {
-                    // Asked again rather than trusting the item: a clone may have been made since the list was read.
-                    if (_manager.WhyLiveSnapshotIsLocked(_config, item.Name) is { } reason)
-                        throw new InvalidOperationException(reason);
-
-                    await new LiveSnapshotOperations(_manager.DiskService).RevertAsync(_config, item.Name);
+                    // Images a linked clone reads are kept rather than deleted, and the machine restarts from
+                    // the snapshot on a fresh layer. The protection is read now, not when the list was.
+                    await new LiveSnapshotOperations(_manager.DiskService).RevertAsync(_config, item.Name, _manager.ProtectedImages);
                     _requestSave();
                 }
                 else
@@ -592,7 +602,8 @@ namespace WinQEMU.ViewModels
             {
                 if (item.Snapshot.IsLive)
                 {
-                    if (_manager.WhyLiveSnapshotIsLocked(_config, item.Name) is { } reason)
+                    // Asked again rather than trusting the item: a clone may have been made since the list was read.
+                    if (_manager.WhyLiveSnapshotCannotBeDeleted(_config, item.Name) is { } reason)
                         throw new InvalidOperationException(reason);
 
                     // Keeps what the disks hold now: the overlay is merged downwards, not thrown away.
@@ -636,6 +647,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(HasExcludedDisks));
             RaisePropertyChanged(nameof(HasSelection));
             RaisePropertyChanged(nameof(CanActOnSelection));
+            RaisePropertyChanged(nameof(CanDeleteSelection));
             RaisePropertyChanged(nameof(CanResumeSelection));
             RaisePropertyChanged(nameof(CanTakeLiveSnapshot));
             RaisePropertyChanged(nameof(CanTakeMemorySnapshot));

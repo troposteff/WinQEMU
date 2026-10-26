@@ -2,113 +2,107 @@ using WinQEMU.Core.Models;
 
 namespace WinQEMU.Core.Services
 {
-    /// <summary>One linked-clone disk and the image it reads from, as an absolute path.</summary>
-    public sealed record LinkedCloneDependency(string BasePath, VmConfig CloneMachine, string DiskId);
-
     /// <summary>
-    /// Keeps the images linked clones are built on from being changed. Every operation that could write to
-    /// or delete such an image asks here first, and is refused with the reason when it would.
+    /// Every image some linked clone reads, directly or through the images it is layered on, with the
+    /// names of those clones. Built from the library's descriptors each time it is needed.
     /// </summary>
     /// <remarks>
     /// <para>
     /// A linked clone's disk is a qcow2 overlay holding only what the clone wrote; everything else is read
-    /// from the original's image. Change one byte of that image and every clone built on it silently reads
-    /// different data — a corrupted filesystem, with no error anywhere.
+    /// from the original's image, and from whatever that image is layered on. Change one byte anywhere down
+    /// that line and the clone silently reads different data — a corrupted filesystem, with no error.
     /// </para>
     /// <para>
-    /// The dependencies are derived from the clones' descriptors each time, never stored on the original:
-    /// a deleted or detached clone then frees the image by itself, and no record can go stale. The cost is
-    /// that a clone the library does not list (removed from it, or outside its folder) protects nothing.
-    /// </para>
-    /// <para>
-    /// The rule on a chain, top first: removing the overlay at index <c>i</c> — restoring or deleting its
-    /// live snapshot, reverting to the base, merging — deletes images <c>0..i</c> and writes into or
-    /// resumes writing to image <c>i+1</c>. It is refused when any of images <c>0..i+1</c> is a clone's
-    /// base. The images under a base are covered by the same bound, since reaching them means passing it.
+    /// The line is followed through two records: the chains of every disk, and the images a machine kept
+    /// for its clones after leaving them (<see cref="DiskConfig.RetainedImages"/>). Nothing is stored on the
+    /// original about its clones, so a deleted or detached clone frees its images by itself and no record
+    /// can go stale. The cost is that a clone the library does not list (removed from it, or outside its
+    /// folder) protects nothing.
     /// </para>
     /// </remarks>
-    public static class LinkedCloneGuard
+    public sealed class LinkedCloneProtection
     {
-        public static IReadOnlyList<LinkedCloneDependency> Dependencies(IEnumerable<VmConfig> machines) =>
-            machines
-                .SelectMany(vm => vm.Disks
-                    .Where(d => d.IsLinkedClone)
-                    .Select(d => new LinkedCloneDependency(Normalize(vm.ResolvePath(d.LinkedBaseFileName)), vm, d.Id)))
-                .ToList();
+        private readonly Dictionary<string, SortedSet<string>> _readers;
 
-        /// <summary>
-        /// Why the overlay at <paramref name="overlayIndex"/> of the disk's chain (0 = the image the machine
-        /// writes to) cannot be removed, or null when it can.
-        /// </summary>
-        public static string? WhyOverlayCannotBeRemoved(
-            VmConfig machine, DiskConfig disk, int overlayIndex, IReadOnlyList<LinkedCloneDependency> dependencies)
+        private LinkedCloneProtection(Dictionary<string, SortedSet<string>> readers) => _readers = readers;
+
+        public static LinkedCloneProtection Of(IEnumerable<VmConfig> machines)
         {
-            var reached = disk.ChainFromTop
-                .Take(overlayIndex + 2)
-                .Select(file => Normalize(machine.ResolvePath(file)))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var list = machines.ToList();
+            var below = BackingMap(list);
 
-            var clones = ClonesOf(dependencies.Where(d => reached.Contains(d.BasePath) && d.CloneMachine.Id != machine.Id));
-            return clones is null
-                ? null
-                : $"Le disque « {disk.Id} » sert de base à {clones} : cette opération modifierait l'image " +
-                  "sur laquelle le clone repose et corromprait ses données. Supprimez le clone, ou rendez ses " +
-                  "disques indépendants avec « Convertir… », avant de recommencer.";
-        }
-
-        /// <summary>Why restoring or deleting the live snapshot <paramref name="name"/> is refused, or null.</summary>
-        public static string? WhyLiveSnapshotIsLocked(
-            VmConfig machine, string name, IReadOnlyList<LinkedCloneDependency> dependencies)
-        {
-            foreach (var disk in machine.Disks)
+            var readers = new Dictionary<string, SortedSet<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var clone in list)
             {
-                var chain = disk.ChainFromTop;
-                for (var index = 0; index < chain.Count - 1; index++)
+                foreach (var disk in clone.Disks.Where(d => d.IsLinkedClone))
                 {
-                    if (DiskConfig.SnapshotNameOf(disk.Id, chain[index]) != name)
-                        continue;
-
-                    if (WhyOverlayCannotBeRemoved(machine, disk, index, dependencies) is { } reason)
-                        return reason;
+                    foreach (var path in LineFrom(clone.ResolvePath(disk.LinkedBaseFileName), below))
+                    {
+                        if (!readers.TryGetValue(path, out var names))
+                            readers[path] = names = new SortedSet<string>(StringComparer.CurrentCulture);
+                        names.Add(clone.Name);
+                    }
                 }
             }
 
-            return null;
+            return new LinkedCloneProtection(readers);
         }
 
         /// <summary>
-        /// Why the machine's folder cannot be deleted, or null. A base outside the folder (an image attached
-        /// from elsewhere) is not deleted with it, so it does not block.
+        /// The image and everything it is layered on, top first, as far as the library knows. The visited
+        /// check only guards against a cycle in hand-edited descriptors.
         /// </summary>
-        public static string? WhyFilesCannotBeDeleted(VmConfig machine, IReadOnlyList<LinkedCloneDependency> dependencies)
+        public static IEnumerable<string> LineFrom(string path, IReadOnlyDictionary<string, string> below)
         {
-            var folder = Normalize(machine.FolderPath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            var clones = ClonesOf(dependencies.Where(d =>
-                d.CloneMachine.Id != machine.Id
-                && d.BasePath.StartsWith(folder, StringComparison.OrdinalIgnoreCase)));
-
-            return clones is null
-                ? null
-                : $"Les fichiers de cette machine servent de base à {clones}. Les supprimer détruirait le " +
-                  "clone. Supprimez d'abord le clone, ou rendez ses disques indépendants avec « Convertir… ».";
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (string? current = Normalize(path);
+                 current is not null && visited.Add(current);
+                 current = below.GetValueOrDefault(current))
+            {
+                yield return current;
+            }
         }
 
-        /// <summary>Why <paramref name="path"/> cannot be attached as a disk, or null.</summary>
-        public static string? WhyImageCannotBeAttached(string path, IReadOnlyList<LinkedCloneDependency> dependencies)
+        /// <summary>
+        /// Every "this image is layered on that one" the library knows: consecutive images of each chain,
+        /// each retained image's recorded base, and each linked disk's bottom on its base.
+        /// </summary>
+        public static Dictionary<string, string> BackingMap(IEnumerable<VmConfig> machines)
         {
-            var full = Normalize(path);
-            var clones = ClonesOf(dependencies.Where(d => string.Equals(d.BasePath, full, StringComparison.OrdinalIgnoreCase)));
-            return clones is null
-                ? null
-                : $"Cette image sert de base à {clones} : une machine qui écrirait dedans corromprait le clone.";
+            var below = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var machine in machines)
+            {
+                foreach (var disk in machine.Disks)
+                {
+                    var chain = disk.ChainFromTop.Select(f => Normalize(machine.ResolvePath(f))).ToList();
+                    for (var index = 0; index < chain.Count - 1; index++)
+                        below[chain[index]] = chain[index + 1];
+
+                    if (disk.IsLinkedClone)
+                        below[chain[^1]] = Normalize(machine.ResolvePath(disk.LinkedBaseFileName));
+
+                    foreach (var retained in disk.RetainedImages)
+                        below[Normalize(machine.ResolvePath(retained.FileName))] = Normalize(machine.ResolvePath(retained.BackingFileName));
+                }
+            }
+
+            return below;
         }
 
-        /// <summary>"le clone lié « A »" or "les clones liés « A », « B »"; null when there are none.</summary>
-        private static string? ClonesOf(IEnumerable<LinkedCloneDependency> dependencies)
+        public bool IsProtected(string path) => _readers.ContainsKey(Normalize(path));
+
+        /// <summary>
+        /// "le clone lié « A »" or "les clones liés « A », « B »" for the clones reading any of the paths;
+        /// null when none does.
+        /// </summary>
+        public string? DescribeReaders(IEnumerable<string> paths)
         {
-            var names = dependencies
-                .Select(d => d.CloneMachine.Name)
+            var names = paths
+                .Select(Normalize)
+                .Where(_readers.ContainsKey)
+                .SelectMany(p => _readers[p])
                 .Distinct(StringComparer.CurrentCulture)
+                .OrderBy(n => n, StringComparer.CurrentCulture)
                 .Select(n => $"« {n} »")
                 .ToList();
 
@@ -120,6 +114,78 @@ namespace WinQEMU.Core.Services
             };
         }
 
-        private static string Normalize(string path) => Path.GetFullPath(path);
+        public IEnumerable<string> ProtectedPaths => _readers.Keys;
+
+        public static string Normalize(string path) => Path.GetFullPath(path);
+    }
+
+    /// <summary>
+    /// The operations that would change an image a linked clone reads, and why each is refused.
+    /// </summary>
+    /// <remarks>
+    /// The rule on a chain, top first: merging the overlay at index <c>i</c> into the image below — deleting
+    /// its live snapshot, or "Fusionner" — deletes image <c>i</c> and writes into image <c>i+1</c>. It is
+    /// refused when either is protected; everything under a protected image is protected too. Restoring is
+    /// never refused: it leaves protected images in place (<see cref="Qemu.LiveSnapshotOperations"/>).
+    /// </remarks>
+    public static class LinkedCloneGuard
+    {
+        /// <summary>
+        /// Why the overlay at <paramref name="overlayIndex"/> of the disk's chain (0 = the image the machine
+        /// writes to) cannot be merged into the image below it, or null when it can.
+        /// </summary>
+        public static string? WhyOverlayCannotBeMerged(
+            VmConfig machine, DiskConfig disk, int overlayIndex, LinkedCloneProtection protection)
+        {
+            var touched = disk.ChainFromTop.Skip(overlayIndex).Take(2).Select(machine.ResolvePath);
+            var clones = protection.DescribeReaders(touched);
+            return clones is null
+                ? null
+                : $"Le disque « {disk.Id} » sert de base à {clones} : supprimer ou fusionner ce niveau " +
+                  "écrirait dans une image que le clone lit, et corromprait ses données. Restaurer reste " +
+                  "possible : les images dont le clone a besoin sont alors conservées.";
+        }
+
+        /// <summary>Why the live snapshot <paramref name="name"/> cannot be deleted, or null when it can.</summary>
+        public static string? WhyLiveSnapshotCannotBeDeleted(VmConfig machine, string name, LinkedCloneProtection protection)
+        {
+            foreach (var disk in machine.Disks)
+            {
+                var chain = disk.ChainFromTop;
+                for (var index = 0; index < chain.Count - 1; index++)
+                {
+                    if (DiskConfig.SnapshotNameOf(disk.Id, chain[index]) == name
+                        && WhyOverlayCannotBeMerged(machine, disk, index, protection) is { } reason)
+                        return reason;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Why the machine's folder cannot be deleted, or null. A protected image outside the folder (one
+        /// attached from elsewhere) is not deleted with it, so it does not block.
+        /// </summary>
+        public static string? WhyFilesCannotBeDeleted(VmConfig machine, LinkedCloneProtection protection)
+        {
+            var folder = LinkedCloneProtection.Normalize(machine.FolderPath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var clones = protection.DescribeReaders(
+                protection.ProtectedPaths.Where(p => p.StartsWith(folder, StringComparison.OrdinalIgnoreCase)));
+
+            return clones is null
+                ? null
+                : $"Les fichiers de cette machine servent de base à {clones}. Les supprimer détruirait le " +
+                  "clone. Supprimez d'abord le clone, ou rendez ses disques indépendants avec « Convertir… ».";
+        }
+
+        /// <summary>Why <paramref name="path"/> cannot be attached as a disk, or null.</summary>
+        public static string? WhyImageCannotBeAttached(string path, LinkedCloneProtection protection)
+        {
+            var clones = protection.DescribeReaders(new[] { path });
+            return clones is null
+                ? null
+                : $"Cette image sert de base à {clones} : une machine qui écrirait dedans corromprait le clone.";
+        }
     }
 }

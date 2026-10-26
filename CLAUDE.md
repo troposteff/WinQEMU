@@ -157,14 +157,29 @@ le clone sans aucune erreur**. Tout le dispositif sert à ce que F ne bouge plus
   descripteur de l'original, **puis** descripteur du clone. Interrompu entre les deux, l'original a
   juste un niveau de plus ; l'ordre inverse laisserait un clone lire une image encore inscriptible.
   En cas d'échec : superpositions dépilées, fichiers et dossier du clone supprimés.
-- **Protections** (`LinkedCloneGuard`, dépendances recalculées depuis les descripteurs des clones de
-  la bibliothèque à chaque question, rien n'est stocké côté original donc rien ne se périme). Règle sur
-  une chaîne, du haut vers le bas : retirer la superposition `i` (restaurer ou supprimer son instantané
-  à chaud, revenir à la base, fusionner) supprime les images `0..i` et écrit dans `i+1` ; refusé si
-  l'une des images `0..i+1` est la base d'un clone. S'y ajoutent : supprimer les fichiers d'une VM dont
-  le dossier contient une base, attacher une base comme disque. Vérifié au cœur (exception) et montré
-  dans l'interface (instantané « verrouillé par un clone lié », dialogues qui expliquent avant de
-  demander confirmation, bouton « Supprimer les fichiers » absent).
+- **Images protégées** (`LinkedCloneProtection`) : toute image qu'un clone lit, directement ou par ce
+  sur quoi elle repose. La ligne se suit par les chaînes de tous les disques **et** par les images
+  conservées (`DiskConfig.RetainedImages`, voir plus bas), recalculée depuis les descripteurs à chaque
+  question : rien n'est stocké côté original sur ses clones, donc rien ne se périme.
+- **Comme VMware : restaurer reste possible, supprimer non.**
+  - **Supprimer** un instantané à chaud ou **Fusionner** (superposition `i` fusionnée dans `i+1`) :
+    refusé si `i` ou `i+1` est protégée (`LinkedCloneGuard`). Aussi refusés : supprimer les fichiers
+    d'une VM dont le dossier contient une image protégée, attacher une image protégée comme disque.
+  - **Restaurer** / **Revenir à l'image de base** (`LiveSnapshotOperations.RevertAsync` /
+    `RevertTopAsync`) : si l'état visé ou une couche à jeter est protégé, la machine **repart d'une
+    nouvelle superposition** posée sur l'état visé au lieu d'écrire dedans. Les couches au-dessus de
+    toute image protégée sont supprimées comme d'habitude ; les couches protégées sortent de la chaîne
+    mais restent sur disque, notées dans `RetainedImages` **avec leur base** (plus aucune chaîne ne la
+    donne). La nouvelle couche reprend le nom de l'instantané s'il est libre, sinon `nom (2)` — même
+    suffixe sur tous les disques pour qu'ils restent groupés. Créée sous un nom temporaire avant que le
+    descripteur change, puis renommée.
+  - **Libération** (`VmManager.ReleaseRetainedImages`) : à la suppression **avec fichiers** d'un clone,
+    ou quand « Convertir… » le rend indépendant, les images conservées qu'il lisait et que plus aucun
+    clone listé ne lit sont supprimées. Limité à ce que ce clone lisait, jamais un balayage de toute la
+    bibliothèque : un clone seulement retiré de la liste existe encore sur disque, et un balayage
+    déclenché ailleurs détruirait ce qu'il lit. « Retirer de la liste » ne libère rien.
+- `LiveSnapshotOperations` n'utilise pas `ConfigureAwait(false)` : les disques sont liés à l'interface
+  et changer de chaîne lève `PropertyChanged`, qui doit rester sur le thread appelant.
 - **Limite assumée** : un clone que la bibliothèque ne liste pas (retiré de la liste, ou hors du
   dossier de la bibliothèque) ne protège rien. Le dialogue de suppression d'un clone lié le signale.
 - **Rendre un clone indépendant** : « Convertir… » sur son disque (lit la chaîne entière, vide

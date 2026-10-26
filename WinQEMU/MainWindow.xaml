@@ -1208,7 +1208,7 @@
                                                 AutomationProperties.Name="Supprimer l'instantané"
                                                 Click="OnDeleteSnapshotClick"
                                                 Content="Supprimer"
-                                                IsEnabled="{Binding Snapshots.CanActOnSelection, Mode=OneWay}" />
+                                                IsEnabled="{Binding Snapshots.CanDeleteSelection, Mode=OneWay}" />
                                             <Button
                                                 AutomationProperties.Name="Actualiser les instantanés"
                                                 Click="OnRefreshSnapshotsClick"

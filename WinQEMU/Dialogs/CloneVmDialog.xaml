@@ -50,7 +50,7 @@
                 <TextBlock
                     Margin="28,0,0,0"
                     Style="{StaticResource Hint}"
-                    Text="Instantané et presque gratuit en place : le clone n'enregistre que ce qu'il écrit et lit le reste dans les disques actuels de l'original. Celui-ci passe sur un nouvel instantané à chaud, « Base de … », et tant que le clone existe il ne peut ni le restaurer, ni le fusionner, ni supprimer ses fichiers. Déplacez toujours les deux machines ensemble." />
+                    Text="Instantané et presque gratuit en place : le clone n'enregistre que ce qu'il écrit et lit le reste dans les disques actuels de l'original. Celui-ci passe sur un nouvel instantané à chaud, « Base de … ». Tant que le clone existe, l'original peut toujours restaurer ses instantanés, mais pas supprimer ceux dont le clone dépend, ni ses fichiers. Déplacez toujours les deux machines ensemble." />
                 <TextBlock
                     x:Name="LinkedUnavailableText"
                     Margin="28,0,0,0"

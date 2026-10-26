@@ -499,12 +499,12 @@ namespace WinQEMU
         /// </summary>
         private async Task<bool> RefuseIfOverlayLockedAsync(DiskConfig disk)
         {
-            if (_viewModel.SelectedVm is not { } vm || _viewModel.Manager.WhyOverlayIsLocked(vm, disk) is not { } reason)
+            if (_viewModel.SelectedVm is not { } vm || _viewModel.Manager.WhyOverlayCannotBeMerged(vm, disk) is not { } reason)
                 return false;
 
             await ShowDialogAsync(new ContentDialog
             {
-                Title = "Superposition verrouillée par un clone lié",
+                Title = "Fusion impossible : un clone lié en dépend",
                 Content = DialogBody(reason),
                 CloseButtonText = "Fermer",
                 XamlRoot = Content.XamlRoot
@@ -514,20 +514,27 @@ namespace WinQEMU
 
         private async void OnDiscardOverlayClick(object sender, RoutedEventArgs e)
         {
-            if (DiskOf(sender) is not { } disk || await RefuseIfOverlayLockedAsync(disk))
+            if (DiskOf(sender) is not { } disk || _viewModel.SelectedVm is not { } vm)
                 return;
+
+            // Allowed either way; what happens to the files differs, so the dialog says which case this is.
+            var keptForClone = _viewModel.Manager.ProtectedImages(vm.ResolvePath(disk.BackingFileName));
 
             var result = await ShowDialogAsync(new ContentDialog
             {
                 Title = $"Revenir à l'image de base de « {disk.Id} » ?",
                 Content = DialogBody(
-                    $"La superposition {disk.FileName} sera supprimée et le disque reviendra à " +
-                    $"{disk.BackingFileName}." +
-                    // Stacked live snapshots: the image underneath is itself an overlay, undone the same way.
-                    (disk.OverlayDepth > 1
-                        ? $" Cette image est elle-même une superposition ({disk.OverlayDepth - 1} niveau(x) restant(s)), " +
-                          "que vous pourrez défaire à son tour."
-                        : string.Empty) +
+                    (keptForClone
+                        ? $"{disk.BackingFileName} sert de base à un clone lié : il n'est pas modifié. Le disque " +
+                          "repart de son état sur une nouvelle superposition, et la superposition actuelle " +
+                          "est supprimée."
+                        : $"La superposition {disk.FileName} sera supprimée et le disque reviendra à " +
+                          $"{disk.BackingFileName}." +
+                          // Stacked live snapshots: the image underneath is itself an overlay, undone the same way.
+                          (disk.OverlayDepth > 1
+                              ? $" Cette image est elle-même une superposition ({disk.OverlayDepth - 1} niveau(x) restant(s)), " +
+                                "que vous pourrez défaire à son tour."
+                              : string.Empty)) +
                     "\n\nTout ce que l'invité a écrit depuis l'instantané est perdu."),
                 PrimaryButtonText = "Revenir à la base",
                 CloseButtonText = "Annuler",
@@ -573,12 +580,19 @@ namespace WinQEMU
                   "resteront dans leur état actuel, et l'ensemble sera incohérent."
                 : string.Empty;
 
+            // The list and the history it shows change differently in that case, so it is said up front.
+            var keptForClone = snapshot.IsLocked
+                ? "\n\nUn clone lié repose sur cet instantané : les images qu'il lit sont conservées, et la " +
+                  "machine repart de cet état sur une nouvelle couche, qui apparaîtra dans la liste sous le " +
+                  "même nom ou suivi de « (2) »."
+                : string.Empty;
+
             var result = await ShowDialogAsync(new ContentDialog
             {
                 Title = $"Restaurer « {snapshot.Name} » ?",
                 Content = DialogBody(
                     $"Pris le {snapshot.CreatedText}.\n\nLes disques reviendront à cet état. " +
-                    $"Tout ce qui a été écrit depuis sera perdu.{partial}"),
+                    $"Tout ce qui a été écrit depuis sera perdu.{partial}{keptForClone}"),
                 PrimaryButtonText = "Restaurer",
                 CloseButtonText = "Annuler",
                 DefaultButton = ContentDialogButton.Close,

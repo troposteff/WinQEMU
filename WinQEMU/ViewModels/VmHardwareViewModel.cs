@@ -356,8 +356,14 @@ namespace WinQEMU.ViewModels
                 // convert read through the base, so a linked clone's disk now holds everything itself —
                 // unless the disk is an overlay: its recorded chain still ends on the image that reads the
                 // base, and undoing the overlay would go back to it.
-                if (!disk.IsOverlay)
+                if (!disk.IsOverlay && disk.IsLinkedClone)
+                {
+                    // What the clone read until now, before the link that says so is gone: the original
+                    // may have kept some of it only for this clone.
+                    var formerlyRead = _manager.ImagesReadThrough(_config);
                     disk.LinkedBaseFileName = string.Empty;
+                    _manager.ReleaseRetainedImages(formerlyRead);
+                }
 
                 _requestSave();
             }
@@ -369,7 +375,8 @@ namespace WinQEMU.ViewModels
 
         /// <summary>
         /// Discards a live-snapshot overlay: the machine goes back to the image underneath and everything
-        /// written since the snapshot is lost.
+        /// written since the snapshot is lost. When a linked clone reads that image, the machine restarts
+        /// from it on a fresh overlay instead, and the clone's images are kept.
         /// </summary>
         public async Task DiscardOverlayAsync(DiskConfig disk)
         {
@@ -378,18 +385,12 @@ namespace WinQEMU.ViewModels
 
             try
             {
-                if (_manager.WhyOverlayIsLocked(_config, disk) is { } reason)
-                    throw new InvalidOperationException(reason);
+                if (_manager.DiskService is null)
+                    throw new InvalidOperationException("qemu-img n'est pas disponible : QEMU n'a pas été détecté.");
 
-                var overlay = ResolveDiskPath(disk);
-
-                // Repoint first, delete second: if the delete fails the descriptor already names the
-                // image that still exists, rather than one that is gone.
-                disk.PopOverlay();
+                await new LiveSnapshotOperations(_manager.DiskService)
+                    .RevertTopAsync(_config, disk, _manager.ProtectedImages).ConfigureAwait(true);
                 _requestSave();
-
-                if (File.Exists(overlay))
-                    File.Delete(overlay);
             }
             catch (Exception ex)
             {
@@ -411,7 +412,7 @@ namespace WinQEMU.ViewModels
                 if (_manager.DiskService is null)
                     throw new InvalidOperationException("qemu-img n'est pas disponible : QEMU n'a pas été détecté.");
 
-                if (_manager.WhyOverlayIsLocked(_config, disk) is { } reason)
+                if (_manager.WhyOverlayCannotBeMerged(_config, disk) is { } reason)
                     throw new InvalidOperationException(reason);
 
                 var overlay = ResolveDiskPath(disk);

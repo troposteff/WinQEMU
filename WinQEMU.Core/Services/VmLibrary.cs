@@ -236,6 +236,11 @@ namespace WinQEMU.Core.Services
 
                 for (var index = 0; index < clone.Disks.Count; index++)
                 {
+                    // Checked here and not only through the process wait: Process.WaitForExitAsync does not
+                    // throw for a process that has already exited, so a cancel landing between two disks
+                    // could be missed by a fast conversion and the clone completed anyway.
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     var disk = clone.Disks[index];
                     var sourcePath = source.ResolvePath(source.Disks[index].FileName);
                     var fileName = $"{disk.Id}.{DiskExtension(disk.Format)}";
@@ -258,6 +263,9 @@ namespace WinQEMU.Core.Services
                     // Copying a linked clone in full reads its base too, so the copy depends on nothing.
                     disk.LinkedBaseFileName = string.Empty;
                 }
+
+                // The last disk's conversion may have outrun a cancel just as well.
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // The UEFI variable store holds the boot entries the guest installer wrote. Without it the
                 // firmware starts from a blank store and only finds an OS through the removable-media

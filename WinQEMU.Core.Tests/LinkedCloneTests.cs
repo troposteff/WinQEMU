@@ -32,20 +32,20 @@ public class LinkedCloneGuardTests
         return vm;
     }
 
-    private static IReadOnlyList<LinkedCloneDependency> Deps(params VmConfig[] machines) =>
-        LinkedCloneGuard.Dependencies(machines);
+    private static LinkedCloneProtection Deps(params VmConfig[] machines) =>
+        LinkedCloneProtection.Of(machines);
 
     [Fact]
-    public void The_layer_frozen_for_a_clone_can_neither_be_restored_nor_merged()
+    public void The_layer_frozen_for_a_clone_can_neither_be_deleted_nor_merged()
     {
         var original = Original("disk0-Base de Copie.qcow2", "disk0.qcow2");
         var deps = Deps(original, CloneOn("disk0.qcow2"));
 
-        var reason = LinkedCloneGuard.WhyLiveSnapshotIsLocked(original, "Base de Copie", deps);
+        var reason = LinkedCloneGuard.WhyLiveSnapshotCannotBeDeleted(original, "Base de Copie", deps);
 
         Assert.NotNull(reason);
         Assert.Contains("« Copie »", reason);
-        Assert.NotNull(LinkedCloneGuard.WhyOverlayCannotBeRemoved(original, original.Disks[0], 0, deps));
+        Assert.NotNull(LinkedCloneGuard.WhyOverlayCannotBeMerged(original, original.Disks[0], 0, deps));
     }
 
     [Fact]
@@ -54,21 +54,21 @@ public class LinkedCloneGuardTests
         var original = Original("disk0-Plus tard.qcow2", "disk0-Base de Copie.qcow2", "disk0.qcow2");
         var deps = Deps(original, CloneOn("disk0.qcow2"));
 
-        Assert.Null(LinkedCloneGuard.WhyLiveSnapshotIsLocked(original, "Plus tard", deps));
-        Assert.Null(LinkedCloneGuard.WhyOverlayCannotBeRemoved(original, original.Disks[0], 0, deps));
-        Assert.NotNull(LinkedCloneGuard.WhyLiveSnapshotIsLocked(original, "Base de Copie", deps));
+        Assert.Null(LinkedCloneGuard.WhyLiveSnapshotCannotBeDeleted(original, "Plus tard", deps));
+        Assert.Null(LinkedCloneGuard.WhyOverlayCannotBeMerged(original, original.Disks[0], 0, deps));
+        Assert.NotNull(LinkedCloneGuard.WhyLiveSnapshotCannotBeDeleted(original, "Base de Copie", deps));
     }
 
     [Fact]
     public void Snapshots_under_the_base_are_locked_too()
     {
         // The clone was made while the original wrote to the overlay of "Avant": that overlay is the base,
-        // and restoring "Avant" would delete it.
+        // and deleting "Avant" would merge it away.
         var original = Original("disk0-Base de Copie.qcow2", "disk0-Avant.qcow2", "disk0.qcow2");
         var deps = Deps(original, CloneOn("disk0-Avant.qcow2"));
 
-        Assert.NotNull(LinkedCloneGuard.WhyLiveSnapshotIsLocked(original, "Avant", deps));
-        Assert.NotNull(LinkedCloneGuard.WhyLiveSnapshotIsLocked(original, "Base de Copie", deps));
+        Assert.NotNull(LinkedCloneGuard.WhyLiveSnapshotCannotBeDeleted(original, "Avant", deps));
+        Assert.NotNull(LinkedCloneGuard.WhyLiveSnapshotCannotBeDeleted(original, "Base de Copie", deps));
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class LinkedCloneGuardTests
         var original = Original("disk0-Base de Copie.qcow2", "disk0.qcow2");
         var deps = Deps(original);
 
-        Assert.Null(LinkedCloneGuard.WhyLiveSnapshotIsLocked(original, "Base de Copie", deps));
+        Assert.Null(LinkedCloneGuard.WhyLiveSnapshotCannotBeDeleted(original, "Base de Copie", deps));
         Assert.Null(LinkedCloneGuard.WhyFilesCannotBeDeleted(original, deps));
     }
 
@@ -122,6 +122,21 @@ public class LinkedCloneGuardTests
         Assert.Contains("les clones liés", reason);
         Assert.Contains("« A »", reason);
         Assert.Contains("« B »", reason);
+    }
+
+    [Fact]
+    public void Images_kept_for_a_clone_protect_what_they_are_layered_on()
+    {
+        // After restoring "Avant", the original writes to a fresh overlay on disk0; the old overlays only
+        // remain because the clone reads "Base de Copie" -> "Avant" -> disk0. Merging the fresh overlay into
+        // disk0 would change what the clone reads, although its base is no longer in the chain.
+        var original = Original("disk0-Avant (2).qcow2", "disk0.qcow2");
+        original.Disks[0].RetainedImages.Add(new RetainedImage { FileName = "disk0-Avant.qcow2", BackingFileName = "disk0.qcow2" });
+        var deps = Deps(original, CloneOn("disk0-Avant.qcow2"));
+
+        Assert.NotNull(LinkedCloneGuard.WhyLiveSnapshotCannotBeDeleted(original, "Avant (2)", deps));
+        Assert.True(deps.IsProtected(@"C:\lib\Debian\disk0.qcow2"));
+        Assert.False(deps.IsProtected(@"C:\lib\Debian\disk0-Avant (2).qcow2"));
     }
 
     [Fact]
@@ -248,7 +263,7 @@ public class LinkedCloneTests : IAsyncLifetime
 
         // And the frozen layer appears as a live snapshot of the original, locked.
         Assert.Contains(VmSnapshotAggregator.LiveSnapshots(reloaded, _ => DateTimeOffset.UtcNow), s => s.Name == "Base de Copie");
-        Assert.NotNull(_manager.WhyLiveSnapshotIsLocked(reloaded, "Base de Copie"));
+        Assert.NotNull(_manager.WhyLiveSnapshotCannotBeDeleted(reloaded, "Base de Copie"));
     }
 
     [Fact]
@@ -263,7 +278,7 @@ public class LinkedCloneTests : IAsyncLifetime
         Assert.Contains(original, _manager.VirtualMachines);
 
         await _manager.DeleteVirtualMachineAsync(clone, deleteFiles: true);
-        Assert.Null(_manager.WhyLiveSnapshotIsLocked(original, "Base de Copie"));
+        Assert.Null(_manager.WhyLiveSnapshotCannotBeDeleted(original, "Base de Copie"));
         await _manager.DeleteVirtualMachineAsync(original, deleteFiles: true);
         Assert.False(Directory.Exists(original.FolderPath));
     }
@@ -340,5 +355,116 @@ public class LinkedCloneTests : IAsyncLifetime
         Assert.Equal("disk0.qcow2", original.Disks[0].FileName);
         Assert.False(Directory.Exists(Path.Combine(_root, "Copie")));
         Assert.Single(Directory.GetFiles(original.FolderPath, "disk0*"));
+    }
+
+    /// <summary>
+    /// The original takes a live snapshot "Avant" (0x22 written after it), then the clone is made, then
+    /// the original writes 0x33. The clone reads disk0-Avant.qcow2: 0x11, 0x22, nothing at 128k.
+    /// </summary>
+    private async Task<(VmConfig Original, VmConfig Clone)> CloneAfterSnapshotAsync()
+    {
+        var original = await OriginalAsync();
+        await _images!.CreateAsync(Path.Combine(original.FolderPath, "disk0-Avant.qcow2"), DiskFormat.Qcow2, SmallDisk, "disk0.qcow2");
+        original.Disks[0].PushOverlay("disk0-Avant.qcow2");
+        _manager.Save(original);
+        await Io(Top(original), "write -P 0x22 64k 64k");
+
+        var clone = await _manager.CreateLinkedCloneAsync(original, "Copie");
+        await Io(Top(original), "write -P 0x33 128k 64k");
+        return (original, clone);
+    }
+
+    private async Task<bool> CloneIsIntactAsync(VmConfig clone) =>
+        await Holds(Top(clone), "0x11", "0")
+        && await Holds(Top(clone), "0x22", "64k")
+        && await Holds(Top(clone), "0x00", "128k");
+
+    [Fact]
+    public async Task Restoring_a_snapshot_the_clone_rests_on_branches_and_keeps_its_images()
+    {
+        if (!Available) return;
+        var (original, clone) = await CloneAfterSnapshotAsync();
+
+        await new LiveSnapshotOperations(_images!).RevertAsync(original, "Avant", _manager.ProtectedImages);
+
+        // The original is back to the state of "Avant", on a fresh layer: the old overlay is the clone's.
+        Assert.Equal(new[] { "disk0-Avant (2).qcow2", "disk0.qcow2" }, original.Disks[0].ChainFromTop);
+        Assert.True(await Holds(Top(original), "0x11", "0"));
+        Assert.True(await Holds(Top(original), "0x00", "64k"));
+        Assert.True(await Holds(Top(original), "0x00", "128k"));
+
+        // What the original wrote after the clone was not anyone's base: gone, as in a plain restore.
+        Assert.False(File.Exists(Path.Combine(original.FolderPath, "disk0-Base de Copie.qcow2")));
+        var retained = Assert.Single(original.Disks[0].RetainedImages);
+        Assert.Equal("disk0-Avant.qcow2", retained.FileName);
+        Assert.Equal("disk0.qcow2", retained.BackingFileName);
+
+        Assert.True(await CloneIsIntactAsync(clone));
+
+        // disk0 now carries both the original's new layer and the clone's kept one: merging into it stays refused.
+        Assert.NotNull(_manager.WhyLiveSnapshotCannotBeDeleted(original, "Avant (2)"));
+        Assert.NotNull(_manager.WhyFilesCannotBeDeleted(original));
+    }
+
+    [Fact]
+    public async Task Restoring_the_layer_frozen_for_the_clone_keeps_its_name()
+    {
+        if (!Available) return;
+        var (original, clone) = await CloneAfterSnapshotAsync();
+
+        await new LiveSnapshotOperations(_images!).RevertAsync(original, "Base de Copie", _manager.ProtectedImages);
+
+        Assert.Equal(new[] { "disk0-Base de Copie.qcow2", "disk0-Avant.qcow2", "disk0.qcow2" }, original.Disks[0].ChainFromTop);
+        Assert.Empty(original.Disks[0].RetainedImages);
+        Assert.True(await Holds(Top(original), "0x22", "64k"));
+        Assert.True(await Holds(Top(original), "0x00", "128k"));   // Written since: discarded.
+        Assert.True(await CloneIsIntactAsync(clone));
+    }
+
+    [Fact]
+    public async Task Reverting_the_top_overlay_of_a_disk_branches_the_same_way()
+    {
+        if (!Available) return;
+        var (original, clone) = await CloneAfterSnapshotAsync();
+
+        await new LiveSnapshotOperations(_images!).RevertTopAsync(original, original.Disks[0], _manager.ProtectedImages);
+
+        Assert.Equal("disk0-Base de Copie.qcow2", original.Disks[0].FileName);
+        Assert.True(await Holds(Top(original), "0x00", "128k"));
+        Assert.True(await CloneIsIntactAsync(clone));
+    }
+
+    [Fact]
+    public async Task Deleting_the_clone_releases_the_images_kept_for_it()
+    {
+        if (!Available) return;
+        var (original, clone) = await CloneAfterSnapshotAsync();
+        await new LiveSnapshotOperations(_images!).RevertAsync(original, "Avant", _manager.ProtectedImages);
+        _manager.Save(original);
+
+        await _manager.DeleteVirtualMachineAsync(clone, deleteFiles: true);
+
+        Assert.Empty(original.Disks[0].RetainedImages);
+        Assert.False(File.Exists(Path.Combine(original.FolderPath, "disk0-Avant.qcow2")));
+        Assert.Null(_manager.WhyLiveSnapshotCannotBeDeleted(original, "Avant (2)"));
+        Assert.True(await Holds(Top(original), "0x11", "0"));
+
+        // Saved, not only changed in memory.
+        _manager.ReloadLibrary();
+        Assert.Empty(_manager.VirtualMachines.Single(m => m.Id == original.Id).Disks[0].RetainedImages);
+    }
+
+    [Fact]
+    public async Task Removing_the_clone_from_the_list_releases_nothing()
+    {
+        if (!Available) return;
+        var (original, clone) = await CloneAfterSnapshotAsync();
+        await new LiveSnapshotOperations(_images!).RevertAsync(original, "Avant", _manager.ProtectedImages);
+
+        // Only forgotten: the clone is still on disk and may be added back.
+        await _manager.DeleteVirtualMachineAsync(clone, deleteFiles: false);
+
+        Assert.Single(original.Disks[0].RetainedImages);
+        Assert.True(File.Exists(Path.Combine(original.FolderPath, "disk0-Avant.qcow2")));
     }
 }

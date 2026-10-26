@@ -194,23 +194,93 @@ namespace WinQEMU.Core.Services
             }
         }
 
-        private IReadOnlyList<LinkedCloneDependency> LinkedClones => LinkedCloneGuard.Dependencies(VirtualMachines);
+        private LinkedCloneProtection Protection => LinkedCloneProtection.Of(VirtualMachines);
 
-        /// <summary>Why undoing or merging the disk's top overlay is refused, or null when it is allowed.</summary>
-        public string? WhyOverlayIsLocked(VmConfig machine, DiskConfig disk) =>
-            LinkedCloneGuard.WhyOverlayCannotBeRemoved(machine, disk, 0, LinkedClones);
+        /// <summary>
+        /// Whether a linked clone reads the image at an absolute path, as of now — for
+        /// <see cref="LiveSnapshotOperations.RevertAsync"/>, which keeps such images.
+        /// </summary>
+        public Func<string, bool> ProtectedImages => Protection.IsProtected;
 
-        /// <summary>Why restoring or deleting a live snapshot is refused, or null when it is allowed.</summary>
-        public string? WhyLiveSnapshotIsLocked(VmConfig machine, string name) =>
-            LinkedCloneGuard.WhyLiveSnapshotIsLocked(machine, name, LinkedClones);
+        /// <summary>Why merging the disk's top overlay into its base is refused, or null when it is allowed.</summary>
+        public string? WhyOverlayCannotBeMerged(VmConfig machine, DiskConfig disk) =>
+            LinkedCloneGuard.WhyOverlayCannotBeMerged(machine, disk, 0, Protection);
+
+        /// <summary>Why deleting a live snapshot is refused, or null when it is allowed.</summary>
+        public string? WhyLiveSnapshotCannotBeDeleted(VmConfig machine, string name) =>
+            LinkedCloneGuard.WhyLiveSnapshotCannotBeDeleted(machine, name, Protection);
 
         /// <summary>Why deleting the machine's files is refused, or null when it is allowed.</summary>
         public string? WhyFilesCannotBeDeleted(VmConfig machine) =>
-            LinkedCloneGuard.WhyFilesCannotBeDeleted(machine, LinkedClones);
+            LinkedCloneGuard.WhyFilesCannotBeDeleted(machine, Protection);
 
         /// <summary>Why attaching this image as a disk is refused, or null when it is allowed.</summary>
         public string? WhyImageCannotBeAttached(string path) =>
-            LinkedCloneGuard.WhyImageCannotBeAttached(path, LinkedClones);
+            LinkedCloneGuard.WhyImageCannotBeAttached(path, Protection);
+
+        /// <summary>
+        /// The images a linked clone read through its disks, for <see cref="ReleaseRetainedImages"/> once it
+        /// stops reading them. Empty for a machine that is not a linked clone.
+        /// </summary>
+        public IReadOnlyList<string> ImagesReadThrough(VmConfig clone)
+        {
+            var below = LinkedCloneProtection.BackingMap(VirtualMachines);
+            return clone.Disks
+                .Where(d => d.IsLinkedClone)
+                .SelectMany(d => LinkedCloneProtection.LineFrom(clone.ResolvePath(d.LinkedBaseFileName), below))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Deletes the images among <paramref name="formerlyRead"/> that were kept only for linked clones
+        /// and that no listed clone reads any more, and saves the machines that kept them.
+        /// </summary>
+        /// <remarks>
+        /// Limited to what one clone used to read, rather than sweeping every kept image in the library: a
+        /// clone only removed from the list may still exist on disk, and a library-wide sweep triggered by
+        /// some unrelated deletion would destroy what it reads without the user having touched it.
+        /// </remarks>
+        public void ReleaseRetainedImages(IEnumerable<string> formerlyRead)
+        {
+            var library = Library;
+            if (library is null)
+                return;
+
+            var candidates = new HashSet<string>(formerlyRead.Select(LinkedCloneProtection.Normalize), StringComparer.OrdinalIgnoreCase);
+            var protection = Protection;
+
+            foreach (var machine in VirtualMachines)
+            {
+                var changed = false;
+                foreach (var disk in machine.Disks)
+                {
+                    foreach (var retained in disk.RetainedImages.ToList())
+                    {
+                        var path = LinkedCloneProtection.Normalize(machine.ResolvePath(retained.FileName));
+                        if (!candidates.Contains(path) || protection.IsProtected(path))
+                            continue;
+
+                        try
+                        {
+                            if (File.Exists(path))
+                                File.Delete(path);
+                        }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            // Kept on record so a later release tries again, rather than losing track of it.
+                            continue;
+                        }
+
+                        disk.RetainedImages.Remove(retained);
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                    TrySave(library, machine);
+            }
+        }
 
         /// <summary>
         /// "Debian (copie)", then "Debian (copie 2)" and so on: the first name no machine in the library
@@ -272,8 +342,16 @@ namespace WinQEMU.Core.Services
                 await session.DisposeAsync();
             }
 
+            // Read before the clone leaves the list: afterwards nothing says what it used to read.
+            var formerlyRead = deleteFiles ? ImagesReadThrough(config) : Array.Empty<string>();
+
             Library?.Delete(config, deleteFiles);
             VirtualMachines.Remove(config);
+
+            // Only for a real deletion: a clone merely removed from the list still exists on disk and may
+            // be added back, so what it reads stays.
+            if (formerlyRead.Count > 0)
+                ReleaseRetainedImages(formerlyRead);
         }
 
         public async ValueTask DisposeAsync()

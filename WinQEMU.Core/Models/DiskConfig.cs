@@ -175,6 +175,13 @@ namespace WinQEMU.Core.Models
         [JsonIgnore]
         public bool IsLinkedClone => !string.IsNullOrWhiteSpace(LinkedBaseFileName);
 
+        /// <summary>
+        /// Images that left this disk's chain — the machine went back to an earlier snapshot — but stay on
+        /// disk because a linked clone still reads them. Each records the image it reads from, since it is
+        /// no longer in a chain that would say so. Deleted once no listed clone needs them.
+        /// </summary>
+        public List<RetainedImage> RetainedImages { get; set; } = new();
+
         private int _bootIndex = -1;
         /// <summary>Boot order position, or -1 to leave it unspecified.</summary>
         public int BootIndex { get => _bootIndex; set => SetProperty(ref _bootIndex, value); }

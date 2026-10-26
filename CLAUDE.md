@@ -263,6 +263,27 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
 - **Invités Windows** : pas de client 9P intégré ; il faudra un outil WinQEMU dans l'invité (WinFsp), à la
   manière des VMware Tools.
 
+## Réseaux virtuels
+
+Comme l'éditeur de réseaux de VMware et les commutateurs d'Hyper-V : des réseaux nommés
+(`AppSettings.VirtualNetworks`, pas dans les VM : un réseau leur survit), sur lesquels une carte se branche
+en mode `NetworkMode.Network` (`NetworkAdapterConfig.NetworkId`, par id : renommer ne débranche rien).
+Bouton à côté des Paramètres (`VirtualNetworksDialog`).
+
+- **Commutateur WinQEMU** (`Networking.VirtualSwitch`) : un par réseau, démarré quand une VM branchée
+  démarre, gardé tant que l'app tourne (`VmManager.Networks`). Chaque carte est une netdev QEMU
+  `stream` cliente en TCP local (`reconnect-ms=1000` : elle revient seule si le commutateur redémarre).
+  Trames préfixées de leur longueur sur 4 octets big-endian. Commutateur à apprentissage : diffusion,
+  multicast et inconnus vers tous les autres ports.
+- **DHCP intégré** (`DhcpResponder`) : .100–.199 du /24 (`10.77.N.0`, un N par réseau), serveur en .254
+  (le .1 est réservé à ce PC pour les réseaux internes), ni routeur ni DNS annoncés (la route par
+  défaut reste celle de la carte NAT). Même adresse pour une même MAC (hachage).
+- **Remplace le mode « Interne » par multicast** (`socket,mcast=`), qui envoyait aussi le trafic des VM
+  par la carte de l'hôte à quiconque rejoignait le groupe. Les cartes qui l'utilisaient sont rebranchées au
+  chargement sur un réseau privé « Segment N » (`VmManager.MoveMulticastSegmentsToNetworks`).
+- **Types** : Privé seulement pour l'instant. Interne (avec ce PC) demandera un adaptateur virtuel côté
+  Windows (pilote TAP-Windows `tap0901`) relié au commutateur ; Externe, Npcap ou TAP + pont Windows.
+
 ## Accès depuis le réseau (à la place d'un vrai pont)
 
 Section **Accès depuis le réseau** (`LanAccess`) : la VM reste en NAT, et des services (SSH, Bureau à

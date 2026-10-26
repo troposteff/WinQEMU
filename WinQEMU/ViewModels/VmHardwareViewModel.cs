@@ -555,9 +555,13 @@ namespace WinQEMU.ViewModels
             {
                 PlatformProblems = string.Join(Environment.NewLine, QemuArgumentBuilder.Validate(_config, installation));
 
-                // A representative port: the real one is allocated at launch, and showing 0 would be a
-                // command line that does not correspond to anything.
-                var arguments = QemuArgumentBuilder.Build(_config, installation, 4444);
+                // Representative ports: the real ones are allocated at launch, and showing 0 would be a
+                // command line that does not correspond to anything. Networks are only looked up, never
+                // started — without them every card on a virtual network read as unplugged here, and the
+                // panel claimed the machine would not start when it did.
+                var networks = _manager.Settings.VirtualNetworks;
+                var arguments = QemuArgumentBuilder.Build(_config, installation, 4444,
+                    networkPorts: id => networks.Any(n => n.Id == id) ? 45000 : null);
                 CommandPreview = QemuArgumentBuilder.ToDisplayString(
                     installation.GetSystemBinary(_config.Architecture),
                     arguments);
@@ -601,7 +605,8 @@ namespace WinQEMU.ViewModels
 
         public bool HasAdapters => _config?.NetworkAdapters.Count > 0;
 
-        public IReadOnlyList<NetworkMode> ModeOptions { get; } = Enum.GetValues<NetworkMode>();
+        // The multicast segment is gone from the choices: its cards are moved to a virtual network on load.
+        public IReadOnlyList<NetworkMode> ModeOptions { get; } = Enum.GetValues<NetworkMode>().Where(m => m != NetworkMode.Internal).ToList();
         public IReadOnlyList<NicModel> NicModelOptions { get; } = Enum.GetValues<NicModel>();
         public IReadOnlyList<PortForwardProtocol> ProtocolOptions { get; } = Enum.GetValues<PortForwardProtocol>();
 
@@ -776,6 +781,11 @@ namespace WinQEMU.ViewModels
         {
             if (sender is DiskConfig && e.PropertyName is nameof(DiskConfig.Id) or nameof(DiskConfig.FileName))
                 RebuildBootEntries();
+
+            // A card's mode, network or forwards decide whether the machine can start: a card switched to
+            // a virtual network kept saying it was unplugged after one had been picked.
+            if (sender is NetworkAdapterConfig or PortForward)
+                RefreshPlatformDiagnostics();
 
             _requestSave();
         }

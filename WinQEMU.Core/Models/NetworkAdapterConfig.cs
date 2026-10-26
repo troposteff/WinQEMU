@@ -41,6 +41,10 @@ namespace WinQEMU.Core.Models
         /// <summary>Segment number for <see cref="NetworkMode.Internal"/>; adapters sharing a number share a network.</summary>
         public int InternalSegment { get => _internalSegment; set => SetProperty(ref _internalSegment, value); }
 
+        private string _networkId = string.Empty;
+        /// <summary>The <see cref="VirtualNetwork"/> a <see cref="NetworkMode.Network"/> card is plugged into.</summary>
+        public string NetworkId { get => _networkId; set => SetProperty(ref _networkId, value); }
+
         public ObservableCollection<PortForward> PortForwards { get; set; } = new();
 
         /// <summary>

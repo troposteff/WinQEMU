@@ -151,14 +151,14 @@ namespace WinQEMU.Core.Qemu
         /// </param>
         public static IReadOnlyList<string> Build(
             VmConfig config, QemuInstallation installation, int qmpPort, int? clipboardVncPort = null,
-            int? guestAgentPort = null, int? sharedFoldersPort = null)
+            int? guestAgentPort = null, int? sharedFoldersPort = null, Func<string, int?>? networkPorts = null)
         {
             var args = new List<string>();
 
             AppendPlatform(args, config, installation);
             AppendFirmware(args, config, installation);
             AppendStorage(args, config);
-            AppendNetworking(args, config);
+            AppendNetworking(args, config, networkPorts);
             AppendDisplayAndInput(args, config);
             AppendClipboard(args, clipboardVncPort);
             AppendUsbPassthrough(args, config);
@@ -554,7 +554,7 @@ namespace WinQEMU.Core.Qemu
             args.Add(device.ToString());
         }
 
-        private static void AppendNetworking(List<string> args, VmConfig config)
+        private static void AppendNetworking(List<string> args, VmConfig config, Func<string, int?>? networkPorts)
         {
             var active = config.NetworkAdapters.Where(a => a.Mode != NetworkMode.None).ToList();
             if (active.Count == 0)
@@ -583,6 +583,15 @@ namespace WinQEMU.Core.Qemu
                         netdev.Append($"tap,id={adapter.Id}");
                         if (!string.IsNullOrWhiteSpace(adapter.BridgeInterface))
                             netdev.Append($",ifname={EscapeOptionValue(adapter.BridgeInterface)}");
+                        break;
+
+                    case NetworkMode.Network:
+                        // A TCP client of WinQEMU's switch for that network. reconnect-ms: the card comes
+                        // back by itself when the switch does, after WinQEMU restarted for instance.
+                        var switchPort = networkPorts?.Invoke(adapter.NetworkId) ?? throw new InvalidOperationException(
+                            $"La carte {adapter.Id} n'est branchée sur aucun réseau virtuel existant : choisissez-en un dans Matériel, section Réseau.");
+                        netdev.Append($"stream,id={adapter.Id},server=off,addr.type=inet,addr.host=127.0.0.1," +
+                                      $"addr.port={switchPort.ToString(CultureInfo.InvariantCulture)},reconnect-ms=1000");
                         break;
 
                     case NetworkMode.Internal:

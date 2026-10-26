@@ -19,6 +19,12 @@ namespace WinQEMU.Core.Services
 
         public AppSettings Settings { get; }
 
+        /// <summary>The switches of the virtual networks, started as machines on them start.</summary>
+        public Networking.VirtualNetworkHost Networks { get; } = new();
+
+        private int? NetworkPort(string networkId) =>
+            Settings.VirtualNetworks.FirstOrDefault(n => n.Id == networkId) is { } network ? Networks.PortOf(network) : null;
+
         public ObservableCollection<VmConfig> VirtualMachines { get; } = new();
 
         /// <summary>Non-fatal problems from the last <see cref="InitializeAsync"/>, suitable for an info bar.</summary>
@@ -95,6 +101,39 @@ namespace WinQEMU.Core.Services
                 else
                     VirtualMachines.Add(machine);
             }
+
+            MoveMulticastSegmentsToNetworks();
+        }
+
+        /// <summary>
+        /// Plugs cards of the old multicast "internal" mode into a private network per segment number
+        /// ("Segment 2"), so machines that shared a segment still share a network, now through the switch.
+        /// </summary>
+        private void MoveMulticastSegmentsToNetworks()
+        {
+            var changedSettings = false;
+            foreach (var machine in VirtualMachines)
+            {
+                var changed = false;
+                foreach (var adapter in machine.NetworkAdapters.Where(a => a.Mode == NetworkMode.Internal))
+                {
+                    var name = $"Segment {adapter.InternalSegment.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+                    var network = Settings.VirtualNetworks.FirstOrDefault(n => n.Name == name);
+                    if (network is null)
+                    {
+                        network = new VirtualNetwork { Name = name, Subnet = VirtualNetwork.FreeSubnet(Settings.VirtualNetworks) };
+                        Settings.VirtualNetworks.Add(network);
+                        changedSettings = true;
+                    }
+                    adapter.Mode = NetworkMode.Network;
+                    adapter.NetworkId = network.Id;
+                    changed = true;
+                }
+                if (changed)
+                    Save(machine);
+            }
+            if (changedSettings)
+                Settings.Save();
         }
 
         public async Task<VmConfig> CreateVirtualMachineAsync(
@@ -324,7 +363,7 @@ namespace WinQEMU.Core.Services
             var installation = Installation
                 ?? throw new QemuNotAvailableException("QEMU was not found, so no VM can be started.");
 
-            var session = new VmSession(config, installation);
+            var session = new VmSession(config, installation, NetworkPort);
             _sessions[config.Id] = session;
             SessionCreated?.Invoke(this, session);
             return session;
@@ -373,6 +412,7 @@ namespace WinQEMU.Core.Services
         {
             foreach (var session in _sessions.Values.ToArray())
                 await session.DisposeAsync().ConfigureAwait(false);
+            await Networks.DisposeAsync().ConfigureAwait(false);
 
             _sessions.Clear();
         }

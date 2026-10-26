@@ -1038,6 +1038,9 @@ namespace WinQEMU.ViewModels
 
         // ---- Shared folders ----
 
+        /// <summary>The networks a card can be plugged into, for the Réseau section's picker.</summary>
+        public ObservableCollection<VirtualNetwork> VirtualNetworks => Manager.Settings.VirtualNetworks;
+
         public string SharedFolderHint =>
             "Comme les dossiers partagés de VMware : WinQEMU les sert lui-même par un canal privé, sans réseau " +
             $"ni mot de passe, et ils apparaissent dans ~/{GuestShareMounter.GuestFolder} d'un invité Linux. Il y " +

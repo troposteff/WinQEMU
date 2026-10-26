@@ -494,7 +494,7 @@ namespace WinQEMU.ViewModels
 
         public IReadOnlyList<NetworkMode> NetworkModeOptions { get; } = new[]
         {
-            NetworkMode.Nat, NetworkMode.Bridged, NetworkMode.Internal, NetworkMode.None
+            NetworkMode.Nat, NetworkMode.Bridged, NetworkMode.None
         };
 
         private NicModel _nicModel = NicModel.VirtioNet;
@@ -646,7 +646,8 @@ namespace WinQEMU.ViewModels
         {
             NetworkMode.Nat => "NAT (partage la connexion de l'hôte)",
             NetworkMode.Bridged => "Ponté (pilote TAP requis)",
-            NetworkMode.Internal => "Interne (isolé, entre VM seulement)",
+            NetworkMode.Internal => "Segment multicast (ancien)",
+            NetworkMode.Network => "Réseau virtuel (Privé, Interne…)",
             NetworkMode.None => "Aucun",
             _ => mode.ToString()
         };

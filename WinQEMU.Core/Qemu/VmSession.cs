@@ -36,10 +36,16 @@ namespace WinQEMU.Core.Qemu
 
         private VncClipboardClient? _clipboard;
 
-        public VmSession(VmConfig config, QemuInstallation installation)
+        private readonly Func<string, int?>? _networkPorts;
+
+        /// <param name="networkPorts">
+        /// The loopback port of a virtual network's switch, by network id; null for an unknown network.
+        /// </param>
+        public VmSession(VmConfig config, QemuInstallation installation, Func<string, int?>? networkPorts = null)
         {
             Config = config;
             _installation = installation;
+            _networkPorts = networkPorts;
         }
 
         public VmConfig Config { get; }
@@ -109,7 +115,7 @@ namespace WinQEMU.Core.Qemu
                 // runs off the UI thread, which alone may read the data-bound configuration.
                 var sharesPort = ReserveLoopbackPort();
                 var executable = _installation.GetSystemBinary(Config.Architecture);
-                var arguments = QemuArgumentBuilder.Build(Config, _installation, qmpPort, clipboardPort, GuestAgentPort, sharesPort);
+                var arguments = QemuArgumentBuilder.Build(Config, _installation, qmpPort, clipboardPort, GuestAgentPort, sharesPort, _networkPorts);
 
                 LaunchCommandLine = QemuArgumentBuilder.ToDisplayString(executable, arguments);
                 AppendLog($"Launching: {LaunchCommandLine}");

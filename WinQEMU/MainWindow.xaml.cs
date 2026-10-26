@@ -406,6 +406,9 @@ namespace WinQEMU
             await ShowDialogAsync(dialog);
         }
 
+        private async void OnVirtualNetworksClick(object sender, RoutedEventArgs e) =>
+            await ShowDialogAsync(new Dialogs.VirtualNetworksDialog(_viewModel.Manager) { XamlRoot = Content.XamlRoot });
+
         // ---- Disks ----
 
         private async void OnAttachDiskClick(object sender, RoutedEventArgs e)

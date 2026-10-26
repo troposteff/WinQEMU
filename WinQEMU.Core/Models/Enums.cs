@@ -72,8 +72,13 @@ namespace WinQEMU.Core.Models
         Nat,
         /// <summary>TAP device attached to a host bridge. Requires an external TAP driver on Windows.</summary>
         Bridged,
-        /// <summary>Isolated network shared only between VMs on the same segment.</summary>
-        Internal
+        /// <summary>
+        /// Legacy multicast segment between VMs. It also sent their traffic out of the host's card to
+        /// anyone on the same group; descriptors using it are moved to <see cref="Network"/> on load.
+        /// </summary>
+        Internal,
+        /// <summary>Plugged into a named virtual network (<see cref="NetworkAdapterConfig.NetworkId"/>), served by WinQEMU's switch.</summary>
+        Network
     }
 
     public enum NicModel

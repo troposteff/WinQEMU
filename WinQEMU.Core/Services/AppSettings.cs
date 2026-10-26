@@ -25,6 +25,12 @@ namespace WinQEMU.Core.Services
         /// <summary>Folder holding one subfolder per VM. Empty means <see cref="DefaultLibraryRoot"/>.</summary>
         public string LibraryRoot { get => _libraryRoot; set => SetProperty(ref _libraryRoot, value); }
 
+        /// <summary>
+        /// The virtual networks machines' cards plug into. Here rather than with the machines: a network
+        /// is shared by several of them and outlives each, as in VMware's network editor.
+        /// </summary>
+        public System.Collections.ObjectModel.ObservableCollection<Models.VirtualNetwork> VirtualNetworks { get; set; } = new();
+
         [JsonIgnore]
         public string EffectiveLibraryRoot =>
             string.IsNullOrWhiteSpace(LibraryRoot) ? DefaultLibraryRoot : LibraryRoot;

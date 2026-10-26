@@ -332,6 +332,17 @@
                 ToolTipService.ToolTip="Paramètres">
                 <muxc:SymbolIcon Symbol="Setting" />
             </Button>
+            <!-- Beside Settings for the same reason: virtual networks belong to the application, not to a machine. -->
+            <Button
+                Grid.Row="0" Grid.Column="1"
+                Width="36" Height="36" Margin="0,0,44,0" Padding="0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Réseaux virtuels"
+                Click="OnVirtualNetworksClick"
+                ToolTipService.ToolTip="Réseaux virtuels">
+                <FontIcon FontSize="16" Glyph="&#xE968;" />
+            </Button>
 
             <StackPanel
                 Grid.Row="1" Grid.Column="1"
@@ -1022,13 +1033,17 @@
                                                                 Text="{Binding BridgeInterface, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                                 Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Bridged}" />
 
-                                                            <muxc:NumberBox
-                                                                Maximum="254" Minimum="1"
-                                                                AutomationProperties.Name="Segment interne"
-                                                                Header="Segment interne (les cartes du même numéro partagent le réseau)"
-                                                                SpinButtonPlacementMode="Compact"
-                                                                Value="{Binding InternalSegment, Mode=TwoWay}"
-                                                                Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Internal}" />
+                                                            <!-- The network is referred to by id, so a rename in the network editor never unplugs a card. -->
+                                                            <ComboBox
+                                                                HorizontalAlignment="Stretch"
+                                                                AutomationProperties.Name="Réseau virtuel"
+                                                                DisplayMemberPath="Name"
+                                                                Header="Réseau virtuel (créés avec le bouton Réseaux virtuels, en haut à droite)"
+                                                                ItemsSource="{Binding DataContext.VirtualNetworks, ElementName=RootGrid}"
+                                                                PlaceholderText="Choisir un réseau"
+                                                                SelectedValue="{Binding NetworkId, Mode=TwoWay}"
+                                                                SelectedValuePath="Id"
+                                                                Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Network}" />
 
                                                             <StackPanel
                                                                 Spacing="6"

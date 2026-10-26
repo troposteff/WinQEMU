@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>WinQEMU</title>
+  <!--
+    Le cadre de l'écran forme la boucle du Q, la queue sort du milieu du trait dans l'angle
+    bas-droite, inclinée à 55° pour que la boîte englobante reste presque carrée. Tracé monochrome :
+    une seule couleur. Géométrie reprise par tools/Generate-Logo.ps1.
+  -->
+  <g fill="none" stroke="#1F6FEB" stroke-width="32" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="46" y="44" width="164" height="140" rx="34"/>
+    <path d="M196 178 L216 207"/>
+  </g>
+</svg>

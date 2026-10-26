@@ -1,0 +1,32 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+AppPackages/
+BundleArtifacts/
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+
+# Visual Studio / IDE state, local to each machine
+.vs/
+*.user
+*.suo
+*.rsuser
+.idea/
+*.DotSettings.user
+
+# Test results
+TestResults/
+*.trx
+
+# Package signing material: never versioned
+*.pfx
+*.p12
+*.snk
+
+# NuGet
+*.nupkg
+packages/

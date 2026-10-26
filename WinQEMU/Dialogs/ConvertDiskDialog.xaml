@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="WinQEMU.Dialogs.ConvertDiskDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    mc:Ignorable="d"
+    Background="Transparent"
+    BorderThickness="0"
+    KeyDown="OnDialogKeyDown"
+    Padding="0">
+
+    <Border
+        Padding="24"
+        Background="{ThemeResource ContentDialogBackground}"
+        BorderBrush="{ThemeResource ContentDialogBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="8">
+        <StackPanel Width="500" Spacing="12">
+            <StackPanel Spacing="2">
+                <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" Text="Convertir le disque" />
+                <TextBlock x:Name="CurrentText" Style="{StaticResource Hint}" />
+            </StackPanel>
+
+            <ComboBox
+                x:Name="FormatBox"
+                HorizontalAlignment="Stretch"
+                AutomationProperties.Name="Format de destination"
+                Header="Format de destination"
+                SelectionChanged="OnFormatChanged">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <CheckBox
+                x:Name="CompressBox"
+                Content="Compresser l'image (qcow2 uniquement)"
+                IsEnabled="False" />
+
+            <muxc:InfoBar
+                IsClosable="False"
+                IsOpen="True"
+                Message="La conversion écrit une nouvelle image à côté de l'ancienne, qui est conservée, et la machine est rattachée à la copie. Les instantanés ne sont pas transportés : ils restent sur l'image d'origine."
+                Severity="Warning"
+                Title="À savoir" />
+
+            <Grid Margin="0,8,0,0" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button
+                    Grid.Column="0"
+                    HorizontalAlignment="Stretch"
+                    Click="OnCancelClick"
+                    Content="Annuler" />
+                <Button
+                    Grid.Column="1"
+                    HorizontalAlignment="Stretch"
+                    Click="OnConfirmClick"
+                    Content="Convertir"
+                    Style="{StaticResource AccentButtonStyle}" />
+            </Grid>
+        </StackPanel>
+    </Border>
+</ContentDialog>

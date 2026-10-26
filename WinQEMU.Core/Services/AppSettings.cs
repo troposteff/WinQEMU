@@ -1,0 +1,69 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace WinQEMU.Core.Services
+{
+    /// <summary>
+    /// User-level application settings, kept separate from VM descriptors so a VM folder stays portable.
+    /// </summary>
+    public sealed class AppSettings : ObservableBase
+    {
+        private static readonly JsonSerializerOptions SerializerOptions = new()
+        {
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
+        private string _qemuDirectory = string.Empty;
+        /// <summary>
+        /// Explicit QEMU install directory. When set, auto-detection is skipped entirely so the
+        /// user's choice is never silently overridden by another install on the machine.
+        /// </summary>
+        public string QemuDirectory { get => _qemuDirectory; set => SetProperty(ref _qemuDirectory, value); }
+
+        private string _libraryRoot = string.Empty;
+        /// <summary>Folder holding one subfolder per VM. Empty means <see cref="DefaultLibraryRoot"/>.</summary>
+        public string LibraryRoot { get => _libraryRoot; set => SetProperty(ref _libraryRoot, value); }
+
+        [JsonIgnore]
+        public string EffectiveLibraryRoot =>
+            string.IsNullOrWhiteSpace(LibraryRoot) ? DefaultLibraryRoot : LibraryRoot;
+
+        public static string DefaultLibraryRoot => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "WinQEMU VMs");
+
+        public static string SettingsDirectory => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "WinQEMU");
+
+        public static string SettingsPath => Path.Combine(SettingsDirectory, "settings.json");
+
+        public static AppSettings Load()
+        {
+            try
+            {
+                if (File.Exists(SettingsPath))
+                {
+                    var json = File.ReadAllText(SettingsPath);
+                    var settings = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions);
+                    if (settings is not null)
+                        return settings;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+            {
+                // A corrupt or unreadable settings file must not prevent the app from starting;
+                // defaults plus auto-detection are a usable fallback.
+            }
+
+            return new AppSettings();
+        }
+
+        public void Save()
+        {
+            Directory.CreateDirectory(SettingsDirectory);
+            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, SerializerOptions));
+        }
+    }
+}

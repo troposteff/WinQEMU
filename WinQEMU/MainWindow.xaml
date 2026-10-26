@@ -1,0 +1,1328 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="WinQEMU.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WinQEMU.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:WinQEMU"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    mc:Ignorable="d"
+    Title="WinQEMU">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <!--
+        KeyboardAcceleratorPlacementMode="Hidden": by default WinUI shows an element's accelerator as a
+        tooltip. Owned by the root grid, the F11 accelerator became a stray "F11" tooltip over anything
+        without a tooltip of its own — the Start button, for one.
+    -->
+    <Grid x:Name="RootGrid" KeyboardAcceleratorPlacementMode="Hidden">
+        <!-- The way out of full screen has to work whatever holds the focus, so it is an accelerator on
+             the window as well as a key the console host keeps for itself. -->
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="F11" Invoked="OnFullScreenAccelerator" />
+        </Grid.KeyboardAccelerators>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--
+            The narrow/wide layout switch is applied in code-behind rather than through AdaptiveTrigger:
+            its MinWindowWidth did not fire at the expected threshold, and comparing ActualWidth removes
+            any doubt about which unit is being measured. See MainWindow.ApplyAdaptiveLayout.
+        -->
+
+        <!-- Environment and error notifications -->
+        <StackPanel x:Name="NotificationsPanel" Grid.Row="0" Margin="12,12,12,0" Spacing="8">
+            <muxc:InfoBar
+                IsOpen="{Binding IsQemuMissing, Mode=OneWay}"
+                IsClosable="False"
+                Severity="Error"
+                Title="QEMU introuvable"
+                Message="{Binding QemuStatusText, Mode=OneWay}">
+                <muxc:InfoBar.ActionButton>
+                    <HyperlinkButton Click="OnSettingsClick" Content="Indiquer le dossier d'installation…" />
+                </muxc:InfoBar.ActionButton>
+                <muxc:InfoBar.Content>
+                    <TextBlock
+                        Margin="0,0,0,12"
+                        IsTextSelectionEnabled="True"
+                        Text="{Binding QemuStatusDetail, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                </muxc:InfoBar.Content>
+            </muxc:InfoBar>
+
+            <muxc:InfoBar
+                CloseButtonClick="OnDismissErrorClick"
+                IsOpen="{Binding HasError, Mode=OneWay}"
+                Severity="Warning"
+                Title="Échec de l'opération"
+                Message="{Binding ErrorMessage, Mode=OneWay}" />
+        </StackPanel>
+
+        <!--
+            One grid for both columns, so the bands line up. Each column used to declare its own rows:
+            the sidebar header sat 18 px below the toolbar, the search box 24 px above the tab strip, and
+            the two content areas started at different heights. Sharing the row definitions makes the
+            alignment structural instead of a set of hand-tuned margins.
+
+            Row 0 header  · Row 1 sub-header · Row 2 content · Row 3 footer (left column only)
+        -->
+        <Grid Grid.Row="1" Padding="12,8,12,12" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarColumn" Width="320" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition x:Name="HeaderRow" Height="Auto" />
+                <RowDefinition x:Name="SubHeaderRow" Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Inventory header, centred on the taller command bar opposite it -->
+            <Grid Grid.Row="0" Grid.Column="0" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    FontSize="14"
+                    FontWeight="SemiBold"
+                    Text="Machines virtuelles"
+                    TextTrimming="CharacterEllipsis" />
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <Button
+                            x:Name="NewVmButton"
+                            Width="36" Height="36" Padding="0"
+                            AutomationProperties.Name="Nouvelle machine virtuelle"
+                            Click="OnNewVmClick"
+                            IsEnabled="{Binding IsQemuAvailable, Mode=OneWay}"
+                            ToolTipService.ToolTip="Nouvelle machine virtuelle">
+                            <muxc:SymbolIcon Symbol="Add" />
+                        </Button>
+                        <Button
+                            x:Name="RefreshButton"
+                            Width="36" Height="36" Padding="0"
+                            AutomationProperties.Name="Actualiser la bibliothèque"
+                            Command="{Binding RefreshCommand}"
+                            ToolTipService.ToolTip="Relancer la détection et réanalyser la bibliothèque">
+                            <muxc:SymbolIcon Symbol="Refresh" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <TextBox
+                    x:Name="VmSearchBox"
+                    Grid.Row="1" Grid.Column="0"
+                    Margin="0,0,0,8"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Rechercher une machine virtuelle"
+                    PlaceholderText="Rechercher une VM..."
+                    Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                <Grid Grid.Row="2" Grid.Column="0">
+                    <ListView
+                        x:Name="VmList"
+                        ItemsSource="{Binding Items}"
+                        SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                        SelectionMode="Single">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <!-- Status dot first: which machines are running is the question the
+                                     inventory has to answer at a glance. -->
+                                <Grid
+                                    Margin="0,6"
+                                    AutomationProperties.Name="{Binding AutomationName}"
+                                    ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Ellipse
+                                        Grid.Column="0"
+                                        Width="10" Height="10"
+                                        VerticalAlignment="Center"
+                                        Fill="{Binding StateBrush}" />
+
+                                    <StackPanel Grid.Column="1" Spacing="1">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock
+                                            FontSize="12"
+                                            Opacity="0.6"
+                                            Text="{Binding StateText}"
+                                            TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <!-- Empty states, so a blank panel is never left unexplained. -->
+                    <TextBlock
+                        Margin="8,24,8,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Opacity="0.6"
+                        Text="Aucune machine virtuelle. Utilisez + pour en créer une."
+                        TextAlignment="Center"
+                        TextWrapping="Wrap"
+                        Visibility="{Binding HasNoVirtualMachines, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock
+                        Margin="8,24,8,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Opacity="0.6"
+                        Text="Aucun résultat pour cette recherche."
+                        TextAlignment="Center"
+                        TextWrapping="Wrap"
+                        Visibility="{Binding HasNoSearchResults, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+
+                <TextBlock
+                    Grid.Row="3" Grid.Column="0"
+                    Margin="0,8,0,0"
+                    FontSize="11"
+                    IsTextSelectionEnabled="True"
+                    Opacity="0.6"
+                    Text="{Binding QemuStatusText, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+
+            <!--
+                Selected VM. Labels stay under the icons rather than beside them: with side labels the
+                five commands plus the state text overflow a 1280 px window and scroll off screen.
+            -->
+            <!--
+                A plain row of AppBarButtons rather than a CommandBar.
+
+                The CommandBar had an overflow menu holding one command, disabled whenever the machine
+                was not running, and its flyout was a large mostly-empty panel drawn over the content
+                below. Removing the overflow exposed the rest of the problem: a closed CommandBar shows
+                icons only, so the labels appeared solely while that flyout was open. Forcing IsOpen
+                brought them back but any click elsewhere light-dismissed the bar and they vanished
+                again. Standalone AppBarButtons keep the same look and hover behaviour with no
+                open/closed state to fight, and Ctrl+Alt+Suppr becomes an ordinary button.
+
+                They place their labels under the icons by default here, which is what we want.
+                Do not try to state it with LabelPosition: that property is not resolvable in this SDK
+                and, like any unknown property, it makes XamlCompiler.exe exit with no diagnostic.
+            -->
+            <StackPanel
+                Grid.Row="0" Grid.Column="1"
+                HorizontalAlignment="Left"
+                Orientation="Horizontal">
+                    <!--
+                        FontIcon everywhere rather than Icon="Play": the built-in SymbolIcon draws at 20 px
+                        against a 12 px label, which reads as oversized. FontIcon is the only one of the two
+                        that takes a FontSize, so the glyphs are the Segoe Fluent codes behind the same
+                        symbols. IconFontSize in App.xaml keeps the seven of them in step.
+                    -->
+                    <!--
+                        AllowFocusOnInteraction: toolbar buttons do not take focus by default, so a NumberBox
+                        being edited never lost it and kept its new value uncommitted — the VM then started
+                        with the old one (a port forward launched with guest port 0). Taking focus on press
+                        commits the edit before the command runs on release.
+                    -->
+                    <muxc:AppBarButton
+                        AllowFocusOnInteraction="True"
+                        Command="{Binding StartCommand}"
+                        Label="Démarrer"
+                        ToolTipService.ToolTip="Démarre la machine virtuelle sélectionnée">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE768;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                    <muxc:AppBarButton
+                        Command="{Binding PauseResumeCommand}"
+                        Label="{Binding PauseResumeLabel, Mode=OneWay}"
+                        ToolTipService.ToolTip="Fige l'exécution de la machine sans l'arrêter, ou la reprend exactement où elle en était">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE769;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                    <muxc:AppBarButton
+                        Command="{Binding ShutdownCommand}"
+                        Label="Arrêter"
+                        ToolTipService.ToolTip="Demande au système invité de s'arrêter proprement (bouton d'alimentation ACPI)">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE71A;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                    <muxc:AppBarButton
+                        Command="{Binding PowerOffCommand}"
+                        Label="Éteindre"
+                        ToolTipService.ToolTip="Éteint la machine immédiatement, sans prévenir l'invité, comme si on débranchait l'alimentation. Utilisez Arrêter pour un arrêt propre.">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE711;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                    <muxc:AppBarSeparator />
+                    <muxc:AppBarButton
+                        Width="112"
+                        Command="{Binding SendCtrlAltDeleteCommand}"
+                        Label="Ctrl+Alt+Suppr"
+                        ToolTipService.ToolTip="Windows intercepte cette combinaison : elle ne peut être transmise à l'invité que d'ici">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE765;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                    <muxc:AppBarSeparator />
+                    <muxc:AppBarButton
+                        x:Name="DeleteButton"
+                        Click="OnDeleteClick"
+                        Label="Supprimer"
+                        ToolTipService.ToolTip="Retire la machine virtuelle sélectionnée de la liste, ou supprime aussi ses fichiers ; le choix est demandé avant toute action">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE74D;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                </StackPanel>
+
+            <!--
+                Settings sits at the far right of the header band, not beside + and Actualiser: those act
+                on the library, this acts on the application. Sharing the sidebar header also cost the
+                title its last 40 px and trimmed "Machines virtuelles" to an ellipsis in narrow mode.
+            -->
+            <Button
+                x:Name="SettingsButton"
+                Grid.Row="0" Grid.Column="1"
+                Width="36" Height="36" Padding="0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Paramètres"
+                Click="OnSettingsClick"
+                ToolTipService.ToolTip="Paramètres">
+                <muxc:SymbolIcon Symbol="Setting" />
+            </Button>
+
+            <StackPanel
+                Grid.Row="1" Grid.Column="1"
+                Margin="4,0,0,8"
+                VerticalAlignment="Center"
+                Orientation="Horizontal">
+                <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="État :" />
+                <TextBlock
+                    VerticalAlignment="Center"
+                    FontWeight="SemiBold"
+                    Text="{Binding SelectedStateText, Mode=OneWay}" />
+            </StackPanel>
+
+            <!--
+                A switcher plus two views, rather than a TabView. TabView does not bound the height of
+                its content, so a ScrollViewer placed inside it never got a viewport smaller than its
+                content and could not scroll — the summary was clipped instead, losing the log and half
+                the resources panel. Here the content row is star-sized inside an already-bounded grid,
+                which is what makes scrolling possible at all.
+            -->
+            <Grid Grid.Row="2" Grid.Column="1" RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Segmented switcher. Exclusivity is enforced in code so a click on the active view
+                     cannot leave both views hidden. -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="4">
+                    <ToggleButton
+                        x:Name="SummaryViewButton"
+                        MinWidth="120"
+                        Click="OnSummaryViewClick"
+                        Content="Résumé"
+                        IsChecked="True" />
+                    <ToggleButton
+                        x:Name="ConsoleViewButton"
+                        MinWidth="120"
+                        Click="OnConsoleViewClick"
+                        Content="Console" />
+                </StackPanel>
+
+                <ScrollViewer
+                    x:Name="SummaryView"
+                    Grid.Row="1"
+                    VerticalScrollBarVisibility="Auto">
+                    <!--
+                        MinHeight tied to the viewport so the wide layout is unchanged: a ScrollViewer
+                        measures its content against infinite height, which would collapse the log's
+                        star-sized row instead of letting it fill the space.
+                    -->
+                    <Grid
+                        ColumnSpacing="12"
+                        MinHeight="{Binding ViewportHeight, ElementName=SummaryView}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition x:Name="ResourcesColumn" Width="320" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <!-- Kept usable when the content has to scroll instead of stretch. -->
+                                <RowDefinition Height="*" MinHeight="240" />
+                            </Grid.RowDefinitions>
+
+                            <Border
+                                Grid.Row="0" Grid.Column="0"
+                                Padding="12"
+                                Background="#11000000"
+                                CornerRadius="8">
+                              <StackPanel Spacing="12">
+                                <StackPanel DataContext="{Binding SelectedVm, Mode=OneWay}">
+                                    <TextBox
+                                        x:Name="DetailNameBox"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        FontSize="18"
+                                        FontWeight="SemiBold"
+                                        Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <!--
+                                        Shown next to the field rather than in the error bar at the top:
+                                        this appears while a name is being typed, and the name is what
+                                        has to be corrected. Nothing is written to disk until it clears.
+                                    -->
+                                    <TextBlock
+                                        Margin="2,2,0,0"
+                                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                        Style="{StaticResource Hint}"
+                                        Text="{Binding DataContext.NameError, ElementName=RootGrid, Mode=OneWay}"
+                                        Visibility="{Binding DataContext.HasNameError, ElementName=RootGrid, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                    <TextBox
+                                        Height="60"
+                                        Margin="0,6,0,0"
+                                        AcceptsReturn="True"
+                                        Text="{Binding Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        TextWrapping="Wrap" />
+
+                                    <Grid Margin="0,12,0,0" ColumnSpacing="12" RowSpacing="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock
+                                            Grid.Row="0" Grid.Column="0"
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Text="Processeurs virtuels" />
+                                        <muxc:NumberBox
+                                            Grid.Row="0" Grid.Column="1"
+                                            Maximum="64" Minimum="1"
+                                            SpinButtonPlacementMode="Compact"
+                                            Value="{Binding CpuCount, Mode=TwoWay}" />
+
+                                        <TextBlock
+                                            Grid.Row="1" Grid.Column="0"
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Text="Mémoire (Mo)" />
+                                        <muxc:NumberBox
+                                            Grid.Row="1" Grid.Column="1"
+                                            Maximum="1048576" Minimum="128"
+                                            SmallChange="512"
+                                            SpinButtonPlacementMode="Compact"
+                                            Value="{Binding MemoryMb, Mode=TwoWay}" />
+
+                                        <TextBlock
+                                            Grid.Row="2" Grid.Column="0"
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Text="Image ISO" />
+                                        <Grid Grid.Row="2" Grid.Column="1" ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox
+                                                Grid.Column="0"
+                                                AutomationProperties.Name="Chemin de l'image ISO"
+                                                PlaceholderText="Aucun support optique"
+                                                Text="{Binding IsoPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <Button
+                                                Grid.Column="1"
+                                                AutomationProperties.Name="Choisir une image ISO"
+                                                Click="OnBrowseIsoClick"
+                                                Content="Parcourir…" />
+                                            <!-- Swapping the medium is the one hardware change QEMU takes
+                                                 without a restart, so this button is the opposite of the
+                                                 rest: it is enabled only while the machine runs. -->
+                                            <Button
+                                                Grid.Column="2"
+                                                Click="OnInsertIsoClick"
+                                                Content="Insérer"
+                                                IsEnabled="{Binding DataContext.CanChangeIsoLive, ElementName=RootGrid, Mode=OneWay}"
+                                                ToolTipService.ToolTip="Change le disque dans le lecteur de la machine en cours d'exécution" />
+                                        </Grid>
+
+                                        <TextBlock
+                                            Grid.Row="3" Grid.Column="0"
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Text="Emplacement" />
+                                        <TextBlock
+                                            Grid.Row="3" Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            IsTextSelectionEnabled="True"
+                                            Opacity="0.7"
+                                            Text="{Binding FolderPath, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </StackPanel>
+
+                                <!--
+                                    Platform. Read at launch like the rest of the hardware, so it is locked
+                                    while the machine is alive. The verdict below is the argument builder's
+                                    own, shown as the settings are chosen rather than at a failed start:
+                                    several of these combinations produce a machine that starts and then
+                                    shows nothing at all.
+                                -->
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Plateforme" />
+                                    </muxc:Expander.Header>
+                                    <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{Binding Hardware.CanEdit, Mode=OneWay}">
+                                    <StackPanel DataContext="{Binding SelectedVm, Mode=OneWay}" Spacing="10">
+
+                                        <Grid ColumnSpacing="12" RowSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <ComboBox
+                                                Grid.Row="0" Grid.Column="0"
+                                                HorizontalAlignment="Stretch"
+                                                AutomationProperties.Name="Architecture"
+                                                Header="Architecture"
+                                                ItemsSource="{Binding DataContext.Hardware.ArchitectureOptions, ElementName=RootGrid}"
+                                                SelectedItem="{Binding Architecture, Mode=TwoWay}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+
+                                            <ComboBox
+                                                Grid.Row="0" Grid.Column="1"
+                                                HorizontalAlignment="Stretch"
+                                                AutomationProperties.Name="Micrologiciel"
+                                                Header="Micrologiciel"
+                                                ItemsSource="{Binding DataContext.Hardware.FirmwareOptions, ElementName=RootGrid}"
+                                                SelectedItem="{Binding Firmware, Mode=TwoWay}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+
+                                            <ComboBox
+                                                Grid.Row="1" Grid.Column="0"
+                                                HorizontalAlignment="Stretch"
+                                                AutomationProperties.Name="Accélération"
+                                                Header="Accélération"
+                                                ItemsSource="{Binding DataContext.Hardware.AcceleratorOptions, ElementName=RootGrid}"
+                                                SelectedItem="{Binding Accelerator, Mode=TwoWay}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+
+                                            <!-- Editable: a machine type can carry sub-options, and the
+                                                 list comes from this QEMU rather than from a guess. -->
+                                            <ComboBox
+                                                Grid.Row="1" Grid.Column="1"
+                                                HorizontalAlignment="Stretch"
+                                                AutomationProperties.Name="Type de machine"
+                                                Header="Type de machine"
+                                                IsEditable="True"
+                                                ItemsSource="{Binding DataContext.Hardware.MachineTypeOptions, ElementName=RootGrid}"
+                                                PlaceholderText="q35"
+                                                Text="{Binding MachineType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                                            <!-- Editable too: a CPU model is a name plus feature flags,
+                                                 and the shipped default carries six of them. -->
+                                            <ComboBox
+                                                Grid.Row="2" Grid.Column="0"
+                                                HorizontalAlignment="Stretch"
+                                                AutomationProperties.Name="Modèle de processeur"
+                                                Header="Modèle de processeur"
+                                                IsEditable="True"
+                                                ItemsSource="{Binding DataContext.Hardware.CpuModelOptions, ElementName=RootGrid}"
+                                                Text="{Binding CpuModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                                            <muxc:NumberBox
+                                                Grid.Row="2" Grid.Column="1"
+                                                Maximum="64" Minimum="1"
+                                                AutomationProperties.Name="Cœurs par socket"
+                                                Header="Cœurs par socket (1 = laisser QEMU décider)"
+                                                SpinButtonPlacementMode="Compact"
+                                                Value="{Binding CoresPerSocket, Mode=TwoWay}" />
+                                        </Grid>
+
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox
+                                                Grid.Column="0"
+                                                HorizontalAlignment="Stretch"
+                                                AutomationProperties.Name="Carte graphique"
+                                                Header="Carte graphique"
+                                                ItemsSource="{Binding DataContext.Hardware.GraphicsOptions, ElementName=RootGrid}"
+                                                SelectedItem="{Binding Graphics, Mode=TwoWay}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <muxc:NumberBox
+                                                Grid.Column="1"
+                                                Maximum="1024" Minimum="4"
+                                                AutomationProperties.Name="Mémoire vidéo"
+                                                Header="Mémoire vidéo (Mo)"
+                                                SpinButtonPlacementMode="Compact"
+                                                Value="{Binding VideoMemoryMb, Mode=TwoWay}" />
+                                        </Grid>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="16">
+                                            <CheckBox Content="Son" IsChecked="{Binding EnableAudio, Mode=TwoWay}" />
+                                            <CheckBox
+                                                Content="Tablette USB"
+                                                IsChecked="{Binding EnableUsbTablet, Mode=TwoWay}"
+                                                ToolTipService.ToolTip="Pointeur absolu : sans lui le curseur de l'invité dérive de celui de l'hôte" />
+                                            <CheckBox
+                                                Content="Ballon mémoire"
+                                                IsChecked="{Binding EnableBalloon, Mode=TwoWay}"
+                                                ToolTipService.ToolTip="Permet à l'hôte de reprendre de la mémoire non utilisée par l'invité" />
+                                            <CheckBox
+                                                Content="Horloge en heure locale"
+                                                IsChecked="{Binding RtcLocalTime, Mode=TwoWay}"
+                                                ToolTipService.ToolTip="Attendu par Windows ; la plupart des invités Linux attendent UTC" />
+                                        </StackPanel>
+
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox
+                                                Grid.Column="0"
+                                                AutomationProperties.Name="Second lecteur optique"
+                                                Header="Second lecteur optique (pilotes virtio-win, par exemple)"
+                                                PlaceholderText="Aucun"
+                                                Text="{Binding SecondaryIsoPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <Button
+                                                Grid.Column="1"
+                                                Margin="0,28,0,0"
+                                                AutomationProperties.Name="Choisir le second ISO"
+                                                Click="OnBrowseSecondaryIsoClick"
+                                                Content="Parcourir…" />
+                                        </Grid>
+
+                                        <TextBox
+                                            AcceptsReturn="True"
+                                            AutomationProperties.Name="Arguments supplémentaires"
+                                            Header="Arguments QEMU supplémentaires"
+                                            Height="60"
+                                            PlaceholderText="Ajoutés tels quels à la fin de la ligne de commande"
+                                            Text="{Binding ExtraArguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    </ContentControl>
+                                </muxc:Expander>
+
+                                <!-- Outside the lock: worth reading even while the machine runs. -->
+                                <muxc:InfoBar
+                                    IsClosable="False"
+                                    IsOpen="{Binding Hardware.HasPlatformProblems, Mode=OneWay}"
+                                    Message="{Binding Hardware.PlatformProblems, Mode=OneWay}"
+                                    Severity="Error"
+                                    Title="Cette configuration ne démarrerait pas" />
+
+                                <muxc:Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Ligne de commande" />
+                                    </muxc:Expander.Header>
+                                    <StackPanel Spacing="8">
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="Ce que ces réglages produisent. Le port de contrôle affiché est indicatif : le vrai est attribué au démarrage." />
+                                        <TextBlock
+                                            FontFamily="Consolas"
+                                            FontSize="12"
+                                            IsTextSelectionEnabled="True"
+                                            Text="{Binding Hardware.CommandPreview, Mode=OneWay}"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </muxc:Expander>
+
+                                <!--
+                                    Hardware. Collapsed by default: the three sections together are
+                                    taller than the card, and the everyday questions ("is it running",
+                                    "how much memory") are answered above without opening any of them.
+
+                                    Bindings inside the item templates go through ElementName=RootGrid.
+                                    A template's DataContext is the disk or adapter being drawn, so a
+                                    plain {Binding Hardware.…} would look for the command on the model
+                                    object and silently find nothing.
+                                -->
+                                <muxc:InfoBar
+                                    IsClosable="False"
+                                    IsOpen="{Binding Hardware.IsLocked, Mode=OneWay}"
+                                    Message="Le matériel n'est lu qu'au démarrage de QEMU. Arrêtez la machine pour le modifier."
+                                    Severity="Informational" />
+
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Ordre de démarrage" />
+                                    </muxc:Expander.Header>
+                                    <!--
+                                        The lock goes on a ContentControl, not on the StackPanel:
+                                        IsEnabled is declared by Control, and Panel does not have it.
+                                        Binding it on a panel does not merely fail at runtime — it makes
+                                        the XAML compiler exit with no diagnostic at all. The Expander
+                                        itself stays enabled so the section can still be opened and read
+                                        while the machine runs.
+                                    -->
+                                    <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{Binding Hardware.CanEdit, Mode=OneWay}">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="Le micrologiciel essaie les périphériques dans cet ordre. En UEFI c'est le seul ordre pris en compte : un périphérique absent de cette liste reste invisible au gestionnaire de démarrage." />
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <ListView
+                                                Grid.Column="0"
+                                                MaxHeight="160"
+                                                AutomationProperties.Name="Ordre de démarrage"
+                                                ItemsSource="{Binding Hardware.BootEntries, Mode=OneWay}"
+                                                SelectedItem="{Binding Hardware.SelectedBootEntry, Mode=TwoWay}"
+                                                SelectionMode="Single">
+                                                <ListView.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="0,4" Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock Text="{Binding Label}" />
+                                                            <TextBlock Opacity="0.6" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ListView.ItemTemplate>
+                                            </ListView>
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Top" Spacing="4">
+                                                <Button
+                                                    MinWidth="120"
+                                                    Command="{Binding Hardware.MoveBootUpCommand}"
+                                                    Content="Monter" />
+                                                <Button
+                                                    MinWidth="120"
+                                                    Command="{Binding Hardware.MoveBootDownCommand}"
+                                                    Content="Descendre" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                    </ContentControl>
+                                </muxc:Expander>
+
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Disques" />
+                                    </muxc:Expander.Header>
+                                    <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{Binding Hardware.CanEdit, Mode=OneWay}">
+                                    <StackPanel Spacing="8">
+                                        <ItemsControl ItemsSource="{Binding Hardware.Disks, Mode=OneWay}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border
+                                                        Margin="0,0,0,8"
+                                                        Padding="10"
+                                                        Background="#11000000"
+                                                        CornerRadius="6">
+                                                        <StackPanel Spacing="8">
+                                                            <Grid ColumnSpacing="8">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock
+                                                                    Grid.Column="0"
+                                                                    VerticalAlignment="Center"
+                                                                    FontWeight="SemiBold"
+                                                                    Text="{Binding Id}" />
+                                                                <TextBox
+                                                                    Grid.Column="1"
+                                                                    AutomationProperties.Name="Fichier image"
+                                                                    Text="{Binding FileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                                                    <Button
+                                                                        AutomationProperties.Name="Agrandir le disque"
+                                                                        Click="OnGrowDiskClick"
+                                                                        Content="Agrandir…" />
+                                                                    <Button
+                                                                        AutomationProperties.Name="Convertir le disque"
+                                                                        Click="OnConvertDiskClick"
+                                                                        Content="Convertir…" />
+                                                                    <Button
+                                                                        AutomationProperties.Name="Détacher le disque"
+                                                                        Command="{Binding DataContext.Hardware.RemoveDiskCommand, ElementName=RootGrid}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="Détacher" />
+                                                                </StackPanel>
+                                                            </Grid>
+
+                                                            <Grid ColumnSpacing="8">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <ComboBox
+                                                                    Grid.Column="0"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    AutomationProperties.Name="Contrôleur"
+                                                                    Header="Contrôleur"
+                                                                    ItemsSource="{Binding DataContext.Hardware.BusOptions, ElementName=RootGrid}"
+                                                                    SelectedItem="{Binding Bus, Mode=TwoWay}">
+                                                                    <ComboBox.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                                                        </DataTemplate>
+                                                                    </ComboBox.ItemTemplate>
+                                                                </ComboBox>
+
+                                                                <ComboBox
+                                                                    Grid.Column="1"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    AutomationProperties.Name="Cache"
+                                                                    Header="Cache"
+                                                                    ItemsSource="{Binding DataContext.Hardware.CacheOptions, ElementName=RootGrid}"
+                                                                    SelectedItem="{Binding Cache, Mode=TwoWay}" />
+
+                                                                <StackPanel Grid.Column="2" VerticalAlignment="Bottom" Spacing="2">
+                                                                    <TextBlock
+                                                                        Style="{StaticResource Hint}"
+                                                                        Text="{Binding Format, Converter={StaticResource EnumLabel}}" />
+                                                                    <TextBlock
+                                                                        Style="{StaticResource Hint}"
+                                                                        Text="{Binding CapacityBytes, Converter={StaticResource DiskCapacity}}" />
+                                                                </StackPanel>
+                                                            </Grid>
+
+                                                            <!-- Visible whenever the disk is a live-snapshot
+                                                                 overlay, because the chain decides what a
+                                                                 rollback would mean. -->
+                                                            <StackPanel
+                                                                Spacing="6"
+                                                                Visibility="{Binding IsOverlay, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                                                <TextBlock
+                                                                    Style="{StaticResource Hint}"
+                                                                    Text="{Binding BackingFileName, Mode=OneWay}" />
+                                                                <TextBlock Style="{StaticResource Hint}">
+                                                                    <Run Text="Niveaux de superposition : " /><Run Text="{Binding OverlayDepth, Mode=OneWay}" />
+                                                                </TextBlock>
+                                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                    <Button
+                                                                        AutomationProperties.Name="Revenir à l'image de base"
+                                                                        Click="OnDiscardOverlayClick"
+                                                                        Content="Revenir à l'image de base" />
+                                                                    <Button
+                                                                        AutomationProperties.Name="Fusionner dans l'image de base"
+                                                                        Click="OnCommitOverlayClick"
+                                                                        Content="Fusionner" />
+                                                                </StackPanel>
+                                                            </StackPanel>
+
+                                                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                                                <CheckBox Content="Lecture seule" IsChecked="{Binding ReadOnly, Mode=TwoWay}" />
+                                                                <CheckBox
+                                                                    Content="Transmettre TRIM (discard)"
+                                                                    IsChecked="{Binding Discard, Mode=TwoWay}"
+                                                                    ToolTipService.ToolTip="Permet à l'image qcow2 de rétrécir quand l'invité libère de l'espace" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="Le format est celui de l'image existante : le changer ici ne convertirait rien. Détacher ne supprime pas le fichier." />
+
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button Click="OnCreateDiskClick" Content="Créer un disque…" />
+                                            <Button Click="OnAttachDiskClick" Content="Attacher une image existante…" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    </ContentControl>
+                                </muxc:Expander>
+
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Réseau" />
+                                    </muxc:Expander.Header>
+                                    <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{Binding Hardware.CanEdit, Mode=OneWay}">
+                                    <StackPanel Spacing="8">
+                                        <ItemsControl ItemsSource="{Binding Hardware.Adapters, Mode=OneWay}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border
+                                                        Margin="0,0,0,8"
+                                                        Padding="10"
+                                                        Background="#11000000"
+                                                        CornerRadius="6">
+                                                        <StackPanel Spacing="8">
+                                                            <Grid ColumnSpacing="8">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <TextBlock
+                                                                    Grid.Column="0"
+                                                                    Margin="0,0,0,6"
+                                                                    VerticalAlignment="Bottom"
+                                                                    FontWeight="SemiBold"
+                                                                    Text="{Binding Id}" />
+
+                                                                <ComboBox
+                                                                    Grid.Column="1"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    AutomationProperties.Name="Mode réseau"
+                                                                    Header="Mode"
+                                                                    ItemsSource="{Binding DataContext.Hardware.ModeOptions, ElementName=RootGrid}"
+                                                                    SelectedItem="{Binding Mode, Mode=TwoWay}">
+                                                                    <ComboBox.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                                                        </DataTemplate>
+                                                                    </ComboBox.ItemTemplate>
+                                                                </ComboBox>
+
+                                                                <ComboBox
+                                                                    Grid.Column="2"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    AutomationProperties.Name="Modèle de carte"
+                                                                    Header="Carte"
+                                                                    ItemsSource="{Binding DataContext.Hardware.NicModelOptions, ElementName=RootGrid}"
+                                                                    SelectedItem="{Binding Model, Mode=TwoWay}" />
+
+                                                                <Button
+                                                                    Grid.Column="3"
+                                                                    Margin="0,0,0,1"
+                                                                    VerticalAlignment="Bottom"
+                                                                    Command="{Binding DataContext.Hardware.RemoveAdapterCommand, ElementName=RootGrid}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Content="Retirer" />
+                                                            </Grid>
+
+                                                            <Grid ColumnSpacing="8">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock
+                                                                    Grid.Column="0"
+                                                                    VerticalAlignment="Center"
+                                                                    Text="Adresse MAC" />
+                                                                <TextBox
+                                                                    Grid.Column="1"
+                                                                    AutomationProperties.Name="Adresse MAC"
+                                                                    PlaceholderText="Générée par QEMU si vide"
+                                                                    Text="{Binding MacAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <Button
+                                                                    Grid.Column="2"
+                                                                    Command="{Binding DataContext.Hardware.GenerateMacCommand, ElementName=RootGrid}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Content="Générer" />
+                                                            </Grid>
+
+                                                            <!-- Mode-specific fields, hidden where they would be ignored. -->
+                                                            <TextBox
+                                                                AutomationProperties.Name="Interface TAP"
+                                                                Header="Interface TAP de l'hôte"
+                                                                Text="{Binding BridgeInterface, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Bridged}" />
+
+                                                            <muxc:NumberBox
+                                                                Maximum="254" Minimum="1"
+                                                                AutomationProperties.Name="Segment interne"
+                                                                Header="Segment interne (les cartes du même numéro partagent le réseau)"
+                                                                SpinButtonPlacementMode="Compact"
+                                                                Value="{Binding InternalSegment, Mode=TwoWay}"
+                                                                Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Internal}" />
+
+                                                            <StackPanel
+                                                                Spacing="6"
+                                                                Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Nat}">
+                                                                <TextBlock Style="{StaticResource Hint}"
+                                                                           Text="En NAT, l'invité sort mais rien n'entre : une redirection de port est le seul moyen de l'atteindre depuis l'hôte." />
+                                                                <ItemsControl ItemsSource="{Binding PortForwards}">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Grid Margin="0,0,0,6" ColumnSpacing="8">
+                                                                                <Grid.ColumnDefinitions>
+                                                                                    <ColumnDefinition Width="Auto" />
+                                                                                    <ColumnDefinition Width="*" />
+                                                                                    <ColumnDefinition Width="*" />
+                                                                                    <ColumnDefinition Width="*" />
+                                                                                    <ColumnDefinition Width="Auto" />
+                                                                                </Grid.ColumnDefinitions>
+
+                                                                                <ComboBox
+                                                                                    Grid.Column="0"
+                                                                                    AutomationProperties.Name="Protocole"
+                                                                                    ItemsSource="{Binding DataContext.Hardware.ProtocolOptions, ElementName=RootGrid}"
+                                                                                    SelectedItem="{Binding Protocol, Mode=TwoWay}" />
+                                                                                <TextBox
+                                                                                    Grid.Column="1"
+                                                                                    AutomationProperties.Name="Adresse hôte"
+                                                                                    PlaceholderText="127.0.0.1"
+                                                                                    Text="{Binding HostAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                                <muxc:NumberBox
+                                                                                    Grid.Column="2"
+                                                                                    Maximum="65535" Minimum="0"
+                                                                                    AutomationProperties.Name="Port hôte"
+                                                                                    PlaceholderText="Port hôte"
+                                                                                    Value="{Binding HostPort, Mode=TwoWay}" />
+                                                                                <muxc:NumberBox
+                                                                                    Grid.Column="3"
+                                                                                    Maximum="65535" Minimum="0"
+                                                                                    AutomationProperties.Name="Port invité"
+                                                                                    PlaceholderText="Port invité"
+                                                                                    Value="{Binding GuestPort, Mode=TwoWay}" />
+                                                                                <Button
+                                                                                    Grid.Column="4"
+                                                                                    Command="{Binding DataContext.Hardware.RemovePortForwardCommand, ElementName=RootGrid}"
+                                                                                    CommandParameter="{Binding}"
+                                                                                    Content="Retirer" />
+                                                                            </Grid>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                                <Button
+                                                                    HorizontalAlignment="Left"
+                                                                    Command="{Binding DataContext.Hardware.AddPortForwardCommand, ElementName=RootGrid}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Content="Ajouter une redirection de port" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Button
+                                            HorizontalAlignment="Left"
+                                            Command="{Binding Hardware.AddAdapterCommand}"
+                                            Content="Ajouter une carte réseau" />
+                                    </StackPanel>
+                                    </ContentControl>
+                                </muxc:Expander>
+                                <!--
+                                    Snapshots. Expanding the section is what loads the list: reading it
+                                    runs qemu-img once per disk, and doing that on every selection change
+                                    made arrowing through the inventory sluggish.
+                                -->
+                                <muxc:Expander
+                                    x:Name="SnapshotsExpander"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Expanding="OnSnapshotsExpanding">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Instantanés" />
+                                    </muxc:Expander.Header>
+                                    <StackPanel Spacing="8">
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="Trois façons de prendre un instantané, qui se défont différemment. Machine arrêtée : instantané interne des disques, annulé en les ramenant à cet état. À chaud sur les disques : chaque disque reçoit une superposition ; restaurer ou supprimer se fait ici, machine arrêtée. À chaud avec la mémoire : la machine repart à l'instant capturé, mais cela exige l'émulation TCG." />
+
+                                        <muxc:InfoBar
+                                            IsClosable="False"
+                                            IsOpen="{Binding Snapshots.HasExcludedDisks, Mode=OneWay}"
+                                            Message="{Binding Snapshots.ExcludedDisksText, Mode=OneWay}"
+                                            Severity="Warning" />
+
+                                        <ListView
+                                            MaxHeight="180"
+                                            AutomationProperties.Name="Instantanés"
+                                            ItemsSource="{Binding Snapshots.Snapshots, Mode=OneWay}"
+                                            SelectedItem="{Binding Snapshots.Selected, Mode=TwoWay}"
+                                            SelectionMode="Single">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,4" ColumnSpacing="10">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" Spacing="1">
+                                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Opacity="0.6"
+                                                                Text="{Binding DetailText}"
+                                                                TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                        <TextBlock
+                                                            Grid.Column="1"
+                                                            VerticalAlignment="Center"
+                                                            FontSize="12"
+                                                            Opacity="0.6"
+                                                            Text="{Binding CreatedText}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="{Binding Snapshots.Status, Mode=OneWay}"
+                                            Visibility="{Binding Snapshots.HasStatus, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox
+                                                Grid.Column="0"
+                                                AutomationProperties.Name="Nom du nouvel instantané"
+                                                IsEnabled="{Binding Snapshots.CanEnterName, Mode=OneWay}"
+                                                PlaceholderText="Nom du nouvel instantané"
+                                                Text="{Binding Snapshots.NewName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <Button
+                                                Grid.Column="1"
+                                                Click="OnCreateSnapshotClick"
+                                                Content="Machine arrêtée"
+                                                IsEnabled="{Binding Snapshots.CanCreate, Mode=OneWay}"
+                                                ToolTipService.ToolTip="Instantané interne des disques, machine éteinte" />
+                                        </Grid>
+
+                                        <!-- The three ways differ in what they capture and, above all, in
+                                             how they are undone; they are offered side by side so the
+                                             difference is visible at the moment of choosing. -->
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button
+                                                Click="OnLiveSnapshotClick"
+                                                Content="À chaud (disques)"
+                                                IsEnabled="{Binding Snapshots.CanTakeLiveSnapshot, Mode=OneWay}"
+                                                ToolTipService.ToolTip="Machine en marche : chaque disque reçoit une superposition et les écritures divergent à partir de là. Équivaut à une coupure de courant pour l'invité." />
+                                            <Button
+                                                Click="OnMemorySnapshotClick"
+                                                Content="À chaud (avec la mémoire)"
+                                                IsEnabled="{Binding Snapshots.CanTakeMemorySnapshot, Mode=OneWay}"
+                                                ToolTipService.ToolTip="Machine en marche sous émulation : enregistre aussi la mémoire, donc la reprise repart exactement au même instant." />
+                                        </StackPanel>
+
+                                        <muxc:InfoBar
+                                            IsClosable="False"
+                                            IsOpen="{Binding Snapshots.HasMemorySnapshotCaveat, Mode=OneWay}"
+                                            Message="{Binding Snapshots.MemorySnapshotUnavailableReason, Mode=OneWay}"
+                                            Severity="Informational" />
+
+                                        <TextBlock
+                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                            Style="{StaticResource Hint}"
+                                            Text="{Binding Snapshots.NameProblem, Mode=OneWay}" />
+
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <!-- Named for automation and screen readers: "Restaurer" and
+                                                 "Supprimer" alone are indistinguishable from the toolbar
+                                                 commands that delete the whole machine. -->
+                                            <Button
+                                                AutomationProperties.Name="Restaurer l'instantané"
+                                                Click="OnRestoreSnapshotClick"
+                                                Content="Restaurer"
+                                                IsEnabled="{Binding Snapshots.CanActOnSelection, Mode=OneWay}"
+                                                ToolTipService.ToolTip="Machine arrêtée : ramène les disques à cet état" />
+                                            <Button
+                                                AutomationProperties.Name="Reprendre l'instantané"
+                                                Click="OnResumeSnapshotClick"
+                                                Content="Reprendre"
+                                                IsEnabled="{Binding Snapshots.CanResumeSelection, Mode=OneWay}"
+                                                ToolTipService.ToolTip="Instantané avec mémoire, machine en marche : la machine repart à l'instant capturé" />
+                                            <Button
+                                                AutomationProperties.Name="Supprimer l'instantané"
+                                                Click="OnDeleteSnapshotClick"
+                                                Content="Supprimer"
+                                                IsEnabled="{Binding Snapshots.CanActOnSelection, Mode=OneWay}" />
+                                            <Button
+                                                AutomationProperties.Name="Actualiser les instantanés"
+                                                Click="OnRefreshSnapshotsClick"
+                                                Content="Actualiser" />
+                                            <muxc:ProgressRing
+                                                Width="20" Height="20"
+                                                VerticalAlignment="Center"
+                                                IsActive="{Binding Snapshots.IsBusy, Mode=OneWay}" />
+                                        </StackPanel>
+
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="Restaurer et supprimer exigent que la machine soit arrêtée : qemu-img ne peut pas toucher une image qu'un QEMU en cours tient ouverte."
+                                            Visibility="{Binding Snapshots.IsLockedByRunningMachine, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+                                </muxc:Expander>
+
+                              </StackPanel>
+                            </Border>
+
+                            <Border
+                                Grid.Row="2" Grid.Column="0"
+                                Margin="0,12,0,0"
+                                Padding="12"
+                                Background="#11000000"
+                                CornerRadius="8">
+                                <Grid RowSpacing="8">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" FontWeight="SemiBold" Text="Journal QEMU" />
+                                    <!--
+                                        A single text block, not a ListView: thousands of list items
+                                        blow up the accessibility tree and stall the UI thread when
+                                        anything walks it.
+                                    -->
+                                    <!--
+                                        No horizontal scrolling: with it, the TextBlock is measured
+                                        against infinite width and never wraps, so long QEMU lines were
+                                        simply cut off — which is what forced reading the log elsewhere
+                                        to find a launch error.
+                                    -->
+                                    <ScrollViewer
+                                        x:Name="LogScroller"
+                                        Grid.Row="1"
+                                        HorizontalScrollBarVisibility="Disabled"
+                                        VerticalScrollBarVisibility="Auto">
+                                        <TextBlock
+                                            Margin="4"
+                                            AutomationProperties.Name="Journal QEMU"
+                                            FontFamily="Consolas"
+                                            FontSize="12"
+                                            IsTextSelectionEnabled="True"
+                                            Text="{Binding LogText, Mode=OneWay}"
+                                            TextWrapping="Wrap" />
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+
+                            <Border
+                                x:Name="ResourcesPanel"
+                                Grid.Row="0" Grid.RowSpan="3" Grid.Column="1"
+                                Padding="12"
+                                VerticalAlignment="Top"
+                                Background="#11000000"
+                                CornerRadius="8">
+                                <StackPanel Spacing="6">
+                                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Ressources" />
+                                    <ProgressBar Maximum="100" Value="{Binding CpuPercent, Mode=OneWay}" />
+                                    <TextBlock Text="{Binding CpuText, Mode=OneWay}" />
+                                    <ProgressBar Margin="0,6,0,0" Maximum="100" Value="{Binding MemoryPercent, Mode=OneWay}" />
+                                    <TextBlock Text="{Binding MemoryText, Mode=OneWay}" />
+                                    <TextBlock Margin="0,6,0,0" Text="{Binding DiskText, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                </ScrollViewer>
+
+                <Grid
+                    x:Name="ConsoleView"
+                    Grid.Row="1"
+                    RowSpacing="8"
+                    Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid x:Name="ConsoleBar" Grid.Row="0" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock
+                            x:Name="ConsoleHintText"
+                            Grid.Column="0"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Opacity="0.6"
+                            Text="Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris."
+                            TextWrapping="Wrap" />
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <StackPanel x:Name="ConsoleScaleControls" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock
+                                x:Name="GuestSizeText"
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Opacity="0.6" />
+                            <ComboBox
+                                x:Name="ScaleModeBox"
+                                MinWidth="150"
+                                AutomationProperties.Name="Mise à l'échelle de la console"
+                                SelectionChanged="OnScaleModeChanged" />
+                            </StackPanel>
+                            <!-- No AutomationProperties.Name: it would freeze the accessible name at
+                                 "Plein écran" while the label alternates with "Quitter le plein écran",
+                                 so the content is left to name the button. -->
+                            <Button
+                                x:Name="FullScreenButton"
+                                Click="OnToggleFullScreenClick"
+                                Content="Plein écran"
+                                ToolTipService.ToolTip="F11 pour revenir. Échap n'y suffit pas : cette touche part à l'invité." />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Grid.Row="1" CornerRadius="8">
+                        <controls:VmConsoleHost x:Name="ConsoleHost" />
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
+

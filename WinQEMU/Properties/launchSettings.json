@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "WinQEMU (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "WinQEMU (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

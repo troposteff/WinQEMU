@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="WinQEMU.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WinQEMU">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <!-- Other merged dictionaries here -->
+            </ResourceDictionary.MergedDictionaries>
+
+            <!--
+                Everything the creation wizard needs lives here rather than in the dialog's own
+                Resources. A local ResourceDictionary on a ContentDialog stops its template from
+                resolving the theme radii, which fall back to 0 and render the dialog square while
+                an untouched dialog in the same app is correctly rounded.
+            -->
+            <x:Double x:Key="ContentDialogMaxWidth">860</x:Double>
+
+            <!--
+                The ContentDialog template reads this resource directly instead of template-binding
+                BorderThickness, so setting BorderThickness="0" on a dialog does nothing. The wizard
+                draws its own rounded panel, and without this the template's square hairline border
+                stays visible around it. Dialogs keep their rounded background, just no hairline.
+            -->
+            <Thickness x:Key="ContentDialogBorderWidth">0</Thickness>
+
+            <!--
+                Glyph size for the toolbar buttons. The stock 20 px of SymbolIcon sits badly above a
+                12 px label; one resource keeps the whole row consistent.
+            -->
+            <x:Double x:Key="IconFontSize">13</x:Double>
+
+            <local:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+            <local:EnumLabelConverter x:Key="EnumLabel" />
+            <local:EnumMatchVisibilityConverter x:Key="EnumMatchVisibility" />
+            <local:DiskCapacityConverter x:Key="DiskCapacity" />
+
+            <Style x:Key="FieldLabel" TargetType="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style x:Key="Hint" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Opacity" Value="0.7" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

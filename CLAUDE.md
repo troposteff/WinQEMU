@@ -218,6 +218,25 @@ n'est que lue** et reste utilisable dans son hyperviseur.
 - Pas de NVRAM UEFI reprise (formats propres à chaque hyperviseur) : le microprogramme retombe sur le
   chemin de secours `\EFI\BOOT\BOOTX64.EFI`, présent pour Windows et la plupart des distributions.
 
+## Périphériques USB de l'hôte
+
+Bouton **USB** de la barre d'outils : connecter / déconnecter à chaud (machine en marche), et
+« Connecter à chaque démarrage » (`VmConfig.UsbDevices`, appliqué par la ligne de commande).
+
+- **QEMU n'ouvre que les périphériques sur WinUSB** (pilote, ou filtre inférieur : libusb accepte les
+  deux). Sinon libusb répond « unrecognized device driver », QEMU **réessaie toutes les 2 s sans rien
+  dire** et l'invité voit un « USB Host Device » vide. D'où `HostUsbEnumerator` (SetupAPI, interface
+  `GUID_DEVINTERFACE_USB_DEVICE`) qui lit le pilote de chaque périphérique, et l'aide qui guide vers
+  Zadig. Ce QEMU n'utilise pas UsbDk (non installé ici, et pas de chemin vérifié).
+- **`attached` (qom-get) est le seul signal fiable** : usb-host reste détaché tant que libusb n'a pas ouvert
+  le périphérique. `VmSession.ConnectUsbAsync` le surveille ~3 s puis retire le périphérique qu'il a créé ;
+  un périphérique « au démarrage » qui attend n'est jamais retiré (il se connectera une fois branché).
+- **Contrôleur `qemu-xhci,id=wq-usb` sur toutes les machines, après tous les autres périphériques PCI** :
+  ajouté à une machine existante, il prend le slot suivant au lieu de décaler les autres (une carte réseau
+  Linux nommée d'après son slot, `enp0s3`, perdrait sa configuration).
+- Identité = vendeur:produit (`wq-usb-0781-559c`), seule correspondance stable que usb-host offre sous
+  Windows ; deux périphériques identiques ne se distinguent pas (QEMU prend le premier).
+
 ## Pièges de plateforme (WHPX, QEMU 11)
 
 Chacun a coûté du temps ; les commentaires du code donnent le détail.

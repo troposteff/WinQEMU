@@ -284,6 +284,17 @@
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE765;" />
                         </muxc:AppBarButton.Icon>
                     </muxc:AppBarButton>
+                    <!-- The menu is built on each click: the host's devices and the guest's hold on them
+                         change behind the application's back. -->
+                    <muxc:AppBarButton
+                        x:Name="UsbButton"
+                        Click="OnUsbClick"
+                        Label="USB"
+                        ToolTipService.ToolTip="Connecte un périphérique USB de ce PC à la machine en marche, ou choisit ceux à connecter à chaque démarrage">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE88E;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
                     <muxc:AppBarSeparator />
                     <muxc:AppBarButton
                         Click="OnCloneClick"

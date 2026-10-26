@@ -463,6 +463,112 @@ namespace WinQEMU.Core.Qemu
         }
 
         /// <summary>
+        /// The host USB devices handed to this machine, connected at start or since, and whether QEMU
+        /// actually holds each one.
+        /// </summary>
+        /// <remarks>
+        /// Read from QEMU each time rather than tracked here: a device recorded for every start is created
+        /// by the command line, not by this class. "attached" is the honest signal — usb-host stays
+        /// detached until libusb has opened the host device, and QEMU never reports a failed open.
+        /// </remarks>
+        public async Task<IReadOnlyList<(int VendorId, int ProductId, bool Attached)>> QueryUsbDevicesAsync(
+            CancellationToken cancellationToken = default)
+        {
+            var qmp = RequireQmp();
+            var children = await qmp.ExecuteAsync(
+                "qom-list", new JsonObject { ["path"] = "/machine/peripheral" }, cancellationToken).ConfigureAwait(false);
+
+            var devices = new List<(int, int, bool)>();
+            foreach (var child in children?.AsArray() ?? new JsonArray())
+            {
+                if (child?["name"]?.GetValue<string>() is not { } id || ParseUsbHostDeviceId(id) is not { } ids)
+                    continue;
+                devices.Add((ids.VendorId, ids.ProductId, await IsUsbAttachedAsync(qmp, id, cancellationToken).ConfigureAwait(false)));
+            }
+
+            return devices;
+        }
+
+        /// <summary>
+        /// Hands a host USB device to the running guest. False when QEMU could not open it — unplugged,
+        /// held by another program, or on a driver other than WinUSB — in which case nothing is left
+        /// behind: a waiting usb-host would take the device later, out of the user's sight.
+        /// </summary>
+        public async Task<bool> ConnectUsbAsync(int vendorId, int productId, CancellationToken cancellationToken = default)
+        {
+            var qmp = RequireQmp();
+            var id = QemuArgumentBuilder.UsbHostDeviceId(vendorId, productId);
+            var created = true;
+
+            try
+            {
+                await qmp.ExecuteAsync(
+                    "device_add",
+                    new JsonObject
+                    {
+                        ["driver"] = "usb-host",
+                        ["id"] = id,
+                        ["bus"] = QemuArgumentBuilder.UsbPassthroughControllerId + ".0",
+                        ["vendorid"] = vendorId,
+                        ["productid"] = productId
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (QmpException ex) when (ex.Message.Contains("Duplicate", StringComparison.OrdinalIgnoreCase))
+            {
+                // Already there: recorded for every start and waiting for the device. Left in place if it
+                // still cannot be opened, so it keeps taking the device whenever it becomes available.
+                created = false;
+            }
+
+            // usb-host tries to open the device as it is realized, then every two seconds.
+            for (var attempt = 0; attempt < 12; attempt++)
+            {
+                if (await IsUsbAttachedAsync(qmp, id, cancellationToken).ConfigureAwait(false))
+                {
+                    AppendLog($"USB device {UsbDeviceConfig.FormatId(vendorId, productId)} connected.");
+                    return true;
+                }
+                await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (created)
+                await qmp.ExecuteAsync("device_del", new JsonObject { ["id"] = id }, cancellationToken).ConfigureAwait(false);
+            AppendLog($"USB device {UsbDeviceConfig.FormatId(vendorId, productId)} could not be opened by QEMU.");
+            return false;
+        }
+
+        /// <summary>Gives a host USB device back to Windows. The guest sees it unplugged.</summary>
+        public async Task DisconnectUsbAsync(int vendorId, int productId, CancellationToken cancellationToken = default)
+        {
+            await RequireQmp().ExecuteAsync(
+                "device_del",
+                new JsonObject { ["id"] = QemuArgumentBuilder.UsbHostDeviceId(vendorId, productId) },
+                cancellationToken).ConfigureAwait(false);
+            AppendLog($"USB device {UsbDeviceConfig.FormatId(vendorId, productId)} disconnected.");
+        }
+
+        private static async Task<bool> IsUsbAttachedAsync(QmpClient qmp, string id, CancellationToken cancellationToken)
+        {
+            var attached = await qmp.ExecuteAsync(
+                "qom-get",
+                new JsonObject { ["path"] = $"/machine/peripheral/{id}", ["property"] = "attached" },
+                cancellationToken).ConfigureAwait(false);
+            return attached?.GetValue<bool>() == true;
+        }
+
+        /// <summary>Vendor and product back from an id made by <see cref="QemuArgumentBuilder.UsbHostDeviceId"/>.</summary>
+        public static (int VendorId, int ProductId)? ParseUsbHostDeviceId(string id)
+        {
+            var parts = id.Split('-');
+            return parts.Length == 4 && id.StartsWith("wq-usb-", StringComparison.Ordinal)
+                   && int.TryParse(parts[2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var vendor)
+                   && int.TryParse(parts[3], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var product)
+                ? (vendor, product)
+                : null;
+        }
+
+        /// <summary>
         /// The guest's framebuffer size, asked of QEMU rather than guessed from its window.
         /// </summary>
         /// <remarks>

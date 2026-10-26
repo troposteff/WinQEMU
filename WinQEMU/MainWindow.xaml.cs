@@ -670,6 +670,121 @@ namespace WinQEMU
             });
         }
 
+        /// <summary>
+        /// The USB menu: the host's devices, checked when the running machine holds them, then those to
+        /// connect at every start. Built on each click from Windows and from QEMU, since a device can be
+        /// plugged, unplugged or rebound to WinUSB at any time.
+        /// </summary>
+        private async void OnUsbClick(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.SelectedVm is null)
+                return;
+
+            var entries = await _viewModel.GetUsbEntriesAsync();
+            var running = _viewModel.IsSelectedRunning;
+            var menu = new MenuFlyout();
+
+            if (!running)
+            {
+                menu.Items.Add(new MenuFlyoutItem
+                {
+                    Text = "Machine arrêtée : choisissez ce qui sera connecté au démarrage",
+                    IsEnabled = false
+                });
+            }
+
+            foreach (var entry in entries.Where(candidate => candidate.Host is not null))
+            {
+                var item = new ToggleMenuFlyoutItem
+                {
+                    Text = $"{entry.Name} ({entry.IdText}){UsbStatus(entry)}",
+                    IsChecked = entry.Connected,
+                    // Offered even when not on WinUSB: the attempt explains what is missing.
+                    IsEnabled = running
+                };
+                item.Click += async (_, _) => await ToggleUsbAsync(entry);
+                menu.Items.Add(item);
+            }
+
+            if (entries.All(candidate => candidate.Host is null))
+                menu.Items.Add(new MenuFlyoutItem { Text = "Aucun périphérique USB branché sur ce PC", IsEnabled = false });
+
+            menu.Items.Add(new MenuFlyoutSeparator());
+            var atStart = new MenuFlyoutSubItem { Text = "Connecter à chaque démarrage" };
+            foreach (var entry in entries)
+            {
+                var item = new ToggleMenuFlyoutItem
+                {
+                    Text = entry.Host is null ? $"{entry.Name} ({entry.IdText}) — débranché" : $"{entry.Name} ({entry.IdText})",
+                    IsChecked = entry.AtStart
+                };
+                item.Click += (_, _) => _viewModel.SetUsbAtStart(entry, item.IsChecked);
+                atStart.Items.Add(item);
+            }
+            if (atStart.Items.Count == 0)
+                atStart.IsEnabled = false;
+            menu.Items.Add(atStart);
+
+            var help = new MenuFlyoutItem { Text = "Rendre un périphérique accessible (pilote WinUSB)…" };
+            help.Click += async (_, _) => await ShowWinUsbHelpAsync();
+            menu.Items.Add(help);
+
+            // The console is a native window drawn above all XAML, the menu included.
+            ConsoleHost.Suspend();
+            menu.Closed += (_, _) => ConsoleHost.Resume();
+            menu.ShowAt(UsbButton);
+        }
+
+        private static string UsbStatus(MainViewModel.UsbMenuEntry entry) =>
+            entry.Connected ? string.Empty
+            : entry.Waiting ? " — en attente"
+            : entry.Host is { IsReachable: false } ? " — pilote WinUSB requis"
+            : string.Empty;
+
+        private async Task ToggleUsbAsync(MainViewModel.UsbMenuEntry entry)
+        {
+            var problem = await _viewModel.ToggleUsbAsync(entry);
+            if (problem is null)
+                return;
+
+            await ShowDialogAsync(new ContentDialog
+            {
+                Title = "Périphérique USB non connecté",
+                Content = DialogBody(problem),
+                CloseButtonText = "OK",
+                XamlRoot = Content.XamlRoot
+            });
+        }
+
+        private async Task ShowWinUsbHelpAsync()
+        {
+            await ShowDialogAsync(new ContentDialog
+            {
+                Title = "Rendre un périphérique USB accessible",
+                Content = DialogBody(
+                    "QEMU n'accède qu'aux périphériques USB qui utilisent le pilote générique WinUSB de Microsoft. " +
+                    "Contrairement à VMware, il n'a pas de pilote à lui qui saurait prendre un périphérique à Windows.\n\n" +
+                    "Pour équiper un périphérique de WinUSB :\n" +
+                    "1. Téléchargez Zadig (zadig.akeo.ie), l'outil de référence pour cela.\n" +
+                    "2. Lancez-le. Dans le menu Options, cochez « List All Devices » : sans cela, Zadig ne montre " +
+                    "pas les périphériques qui ont déjà un pilote.\n" +
+                    "3. Dans la liste déroulante du haut, choisissez le périphérique. Vérifiez que « USB ID » " +
+                    "affiche les mêmes numéros que ce menu (par exemple 0781 559C).\n" +
+                    "4. Au centre, la case de gauche montre le pilote actuel (par exemple USBSTOR) ; celle de " +
+                    "droite, le pilote à installer : réglez-la sur WinUSB avec ses petites flèches.\n" +
+                    "5. Cliquez sur le grand bouton « Replace Driver » et attendez la fin (une minute environ).\n" +
+                    "6. Rouvrez ce menu : le périphérique se connecte.\n\n" +
+                    "Tant qu'il est sur WinUSB, Windows ne s'en sert plus lui-même : une clé n'apparaît plus dans " +
+                    "l'Explorateur. Pour le lui rendre : Gestionnaire de périphériques, clic droit sur le " +
+                    "périphérique, « Désinstaller l'appareil » en cochant « Tenter de supprimer le pilote », puis " +
+                    "débranchez-le et rebranchez-le.\n\n" +
+                    // Default width: ContentDialog caps itself at 548 px, so a wider body is clipped, not wrapped.
+                    "Ne faites jamais cela pour le clavier, la souris ou le Bluetooth dont ce PC a besoin."),
+                CloseButtonText = "OK",
+                XamlRoot = Content.XamlRoot
+            });
+        }
+
         private async void OnCloneClick(object sender, RoutedEventArgs e)
         {
             var selected = _viewModel.SelectedVm;

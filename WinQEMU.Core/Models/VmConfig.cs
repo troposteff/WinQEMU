@@ -103,6 +103,9 @@ namespace WinQEMU.Core.Models
         /// <summary>Absolute pointing device. Without it the guest cursor drifts from the host cursor.</summary>
         public bool EnableUsbTablet { get => _enableUsbTablet; set => SetProperty(ref _enableUsbTablet, value); }
 
+        /// <summary>Host USB devices connected at every start (see <see cref="UsbDeviceConfig"/>).</summary>
+        public ObservableCollection<UsbDeviceConfig> UsbDevices { get; set; } = new();
+
         private bool _enableClipboard = true;
         /// <summary>
         /// Shares the text clipboard with the guest. Needs spice-vdagent inside the guest (installed by

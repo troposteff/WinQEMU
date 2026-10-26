@@ -869,6 +869,127 @@ namespace WinQEMU.ViewModels
         /// <summary>True when the medium can be swapped without restarting, i.e. the machine is running.</summary>
         public bool CanChangeIsoLive => SelectedSession?.IsRunning == true;
 
+        // ---- USB devices ----
+
+        /// <summary>One line of the USB menu: a host device, or one recorded for every start and unplugged.</summary>
+        public sealed record UsbMenuEntry(
+            int VendorId,
+            int ProductId,
+            string Name,
+            Core.Usb.HostUsbDevice? Host,
+            bool Connected,
+            bool Waiting,
+            bool AtStart)
+        {
+            public string IdText => UsbDeviceConfig.FormatId(VendorId, ProductId);
+        }
+
+        /// <summary>
+        /// What the USB menu shows for the selection: the devices plugged into the host, which of them the
+        /// running machine holds, and which are recorded for every start, plugged in or not.
+        /// </summary>
+        public async Task<IReadOnlyList<UsbMenuEntry>> GetUsbEntriesAsync()
+        {
+            var target = SelectedVm;
+            if (target is null)
+                return Array.Empty<UsbMenuEntry>();
+
+            var host = await Task.Run(Core.Usb.HostUsbEnumerator.List);
+
+            IReadOnlyList<(int VendorId, int ProductId, bool Attached)> inGuest = Array.Empty<(int, int, bool)>();
+            if (SelectedSession is { IsRunning: true } session)
+            {
+                try
+                {
+                    inGuest = await session.QueryUsbDevicesAsync();
+                }
+                catch (Exception ex)
+                {
+                    ReportError(ex);
+                }
+            }
+
+            UsbMenuEntry Entry(int vendor, int product, string name, Core.Usb.HostUsbDevice? device)
+            {
+                var held = inGuest.FirstOrDefault(d => d.VendorId == vendor && d.ProductId == product);
+                var present = held != default;
+                return new UsbMenuEntry(vendor, product, name, device,
+                    Connected: present && held.Attached,
+                    Waiting: present && !held.Attached,
+                    AtStart: target.UsbDevices.Any(d => d.Matches(vendor, product)));
+            }
+
+            var entries = host
+                .GroupBy(d => (d.VendorId, d.ProductId))
+                .Select(g => Entry(g.Key.VendorId, g.Key.ProductId, g.First().Name, g.First()))
+                .ToList();
+            entries.AddRange(target.UsbDevices
+                .Where(d => !host.Any(h => d.Matches(h.VendorId, h.ProductId)))
+                .DistinctBy(d => (d.VendorId, d.ProductId))
+                .Select(d => Entry(d.VendorId, d.ProductId, d.Name.Length > 0 ? d.Name : "Périphérique USB", null)));
+            return entries;
+        }
+
+        /// <summary>
+        /// Connects or disconnects a device on the running machine. Returns the reason when QEMU could
+        /// not take it, worded from the driver Windows has on it.
+        /// </summary>
+        public async Task<string?> ToggleUsbAsync(UsbMenuEntry entry)
+        {
+            if (SelectedSession is not { IsRunning: true } session)
+                return null;
+
+            try
+            {
+                if (entry.Connected)
+                {
+                    await session.DisconnectUsbAsync(entry.VendorId, entry.ProductId);
+                    AppendDiagnostic($"USB : {entry.Name} rendu à Windows.");
+                    return null;
+                }
+
+                if (await session.ConnectUsbAsync(entry.VendorId, entry.ProductId))
+                {
+                    AppendDiagnostic($"USB : {entry.Name} connecté à la machine.");
+                    return null;
+                }
+
+                return entry.Host is { IsReachable: false } device
+                    ? $"{entry.Name} utilise le pilote « {device.Service} », que QEMU ne sait pas ouvrir : il lui faut le " +
+                      "pilote WinUSB. Le menu USB explique comment l'installer."
+                    : entry.Host is null
+                        ? $"{entry.Name} n'est pas branché."
+                        : $"QEMU n'a pas pu ouvrir {entry.Name} : un autre programme s'en sert sans doute (Windows Hello " +
+                          "pour un lecteur d'empreintes, un logiciel du fabricant…), ou il est déjà donné à une autre machine.";
+            }
+            catch (Exception ex)
+            {
+                ReportError(ex);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Records or forgets a device for every start of the selection. Takes effect at the next start;
+        /// the running machine is left as it is.
+        /// </summary>
+        public void SetUsbAtStart(UsbMenuEntry entry, bool atStart)
+        {
+            var target = SelectedVm;
+            if (target is null)
+                return;
+
+            foreach (var stale in target.UsbDevices.Where(d => d.Matches(entry.VendorId, entry.ProductId)).ToList())
+                target.UsbDevices.Remove(stale);
+            if (atStart)
+                target.UsbDevices.Add(new UsbDeviceConfig { VendorId = entry.VendorId, ProductId = entry.ProductId, Name = entry.Name });
+
+            SaveSelected();
+            AppendDiagnostic(atStart
+                ? $"USB : {entry.Name} sera connecté à chaque démarrage."
+                : $"USB : {entry.Name} ne sera plus connecté au démarrage.");
+        }
+
         private void SaveSelected()
         {
             var target = SelectedVm;

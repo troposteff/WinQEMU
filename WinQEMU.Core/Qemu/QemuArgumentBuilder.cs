@@ -160,6 +160,7 @@ namespace WinQEMU.Core.Qemu
             AppendNetworking(args, config);
             AppendDisplayAndInput(args, config);
             AppendClipboard(args, clipboardVncPort);
+            AppendUsbPassthrough(args, config);
             AppendManagement(args, qmpPort);
 
             foreach (var token in TokenizeExtraArguments(config.ExtraArguments))
@@ -639,6 +640,47 @@ namespace WinQEMU.Core.Qemu
                 args.Add("hda-duplex,audiodev=snd0");
             }
         }
+
+        /// <summary>The xHCI controller host USB devices plug into, at start or while the machine runs.</summary>
+        public const string UsbPassthroughControllerId = "wq-usb";
+
+        /// <summary>
+        /// qdev id of the usb-host device for a vendor and product. Derived from them rather than numbered,
+        /// so the running machine's menu finds a device connected at start under the same id.
+        /// </summary>
+        public static string UsbHostDeviceId(int vendorId, int productId) =>
+            $"wq-usb-{vendorId.ToString("x4", CultureInfo.InvariantCulture)}-{productId.ToString("x4", CultureInfo.InvariantCulture)}";
+
+        /// <summary>
+        /// Always present, so any running machine can take a device without a restart. USB 3: the
+        /// controller -usb gives on q35 is USB 2, which a USB 3 device would fall back to.
+        /// </summary>
+        /// <remarks>
+        /// Declared after every other PCI device so that adding it to an existing machine takes the next
+        /// free slot instead of shifting the others: a Linux guest names its network card after its slot
+        /// (enp0s3), and a renamed card loses its configuration.
+        ///
+        /// A device that cannot be opened (unplugged, or not on WinUSB) is no error to QEMU: it waits and
+        /// takes the device whenever it becomes available, which is also what makes a device recorded
+        /// for every start connect itself when plugged in later.
+        /// </remarks>
+        private static void AppendUsbPassthrough(List<string> args, VmConfig config)
+        {
+            args.Add("-device");
+            args.Add($"qemu-xhci,id={UsbPassthroughControllerId}");
+
+            foreach (var device in config.UsbDevices.DistinctBy(d => (d.VendorId, d.ProductId)))
+            {
+                args.Add("-device");
+                args.Add(UsbHostDeviceArguments(device.VendorId, device.ProductId));
+            }
+        }
+
+        /// <summary>The usb-host device for -device, and for device_add on a running machine.</summary>
+        public static string UsbHostDeviceArguments(int vendorId, int productId) =>
+            $"usb-host,id={UsbHostDeviceId(vendorId, productId)},bus={UsbPassthroughControllerId}.0," +
+            $"vendorid=0x{vendorId.ToString("x4", CultureInfo.InvariantCulture)}," +
+            $"productid=0x{productId.ToString("x4", CultureInfo.InvariantCulture)}";
 
         /// <summary>Device id of the virtio-serial port spice-vdagent opens inside the guest.</summary>
         public const string ClipboardAgentPortId = "wq-vdagent-port";

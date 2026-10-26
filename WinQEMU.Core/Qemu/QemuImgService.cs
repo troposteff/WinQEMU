@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using WinQEMU.Core.Models;
 
 namespace WinQEMU.Core.Qemu
@@ -110,12 +111,18 @@ namespace WinQEMU.Core.Qemu
                 cancellationToken).ConfigureAwait(false);
         }
 
-        /// <summary>Converts between formats — the path for importing VMDK/VHDX images or compacting a qcow2.</summary>
+        /// <summary>
+        /// Converts between formats — the path for importing VMDK/VHDX images or compacting a qcow2.
+        /// Reads through the whole backing chain, so the result is one standalone image holding the
+        /// current contents, without the internal snapshots.
+        /// </summary>
+        /// <param name="progress">Receives the completed fraction, from 0 to 1.</param>
         public async Task ConvertAsync(
             string sourcePath,
             string destinationPath,
             DiskFormat destinationFormat,
             bool compress = false,
+            IProgress<double>? progress = null,
             CancellationToken cancellationToken = default)
         {
             var arguments = new List<string> { "convert", "-p", "-O", FormatName(destinationFormat) };
@@ -124,8 +131,31 @@ namespace WinQEMU.Core.Qemu
             arguments.Add(sourcePath);
             arguments.Add(destinationPath);
 
-            await RunAsync(arguments, cancellationToken).ConfigureAwait(false);
+            await RunAsync(
+                arguments,
+                cancellationToken,
+                progress is null ? null : line =>
+                {
+                    if (ParseProgress(line) is { } fraction)
+                        progress.Report(fraction);
+                }).ConfigureAwait(false);
         }
+
+        /// <summary>
+        /// Reads one of the "    (12.34/100%)" lines that <c>-p</c> prints. Returns null for anything else.
+        /// </summary>
+        public static double? ParseProgress(string line)
+        {
+            var match = ProgressPattern.Match(line);
+            if (!match.Success)
+                return null;
+
+            return double.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var percent)
+                ? Math.Clamp(percent / 100d, 0d, 1d)
+                : null;
+        }
+
+        private static readonly Regex ProgressPattern = new(@"\((\d+(?:\.\d+)?)/100%\)", RegexOptions.CultureInvariant);
 
         /// <summary>
         /// Checks a snapshot name against what qemu-img can actually store. Returns null when the name
@@ -190,10 +220,13 @@ namespace WinQEMU.Core.Qemu
         public Task ApplyOfflineSnapshotAsync(string path, string name, CancellationToken cancellationToken = default) =>
             RunAsync(new[] { "snapshot", "-a", name, path }, cancellationToken);
 
-        private async Task<ProcessResult> RunAsync(IEnumerable<string> arguments, CancellationToken cancellationToken)
+        private async Task<ProcessResult> RunAsync(
+            IEnumerable<string> arguments,
+            CancellationToken cancellationToken,
+            Action<string>? onOutputLine = null)
         {
             var argumentList = arguments.ToList();
-            var result = await ProcessRunner.RunAsync(_qemuImgPath, argumentList, cancellationToken).ConfigureAwait(false);
+            var result = await ProcessRunner.RunAsync(_qemuImgPath, argumentList, cancellationToken, onOutputLine).ConfigureAwait(false);
 
             if (!result.Succeeded)
             {

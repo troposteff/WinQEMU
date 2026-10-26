@@ -278,6 +278,15 @@
                     </muxc:AppBarButton>
                     <muxc:AppBarSeparator />
                     <muxc:AppBarButton
+                        Click="OnCloneClick"
+                        IsEnabled="{Binding CanClone, Mode=OneWay}"
+                        Label="Cloner"
+                        ToolTipService.ToolTip="Crée une copie complète de la machine virtuelle sélectionnée, sous un nouveau nom. La machine doit être arrêtée.">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE8C8;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                    <muxc:AppBarButton
                         x:Name="DeleteButton"
                         Click="OnDeleteClick"
                         Label="Supprimer"

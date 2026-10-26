@@ -170,6 +170,139 @@ namespace WinQEMU.Core.Services
             return config;
         }
 
+        /// <summary>
+        /// Makes an independent copy of a stopped VM under a new name: same hardware, its own folder,
+        /// identity and MAC addresses, and a copy of every disk as it is now.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Each disk is copied with <c>qemu-img convert</c>, never as files. A live-snapshot overlay records
+        /// its base by absolute path, so a copied overlay would go on reading the original's image, and the
+        /// clone would change whenever the original merged or reverted a snapshot. Converting reads through
+        /// the chain and writes one standalone image — at the cost of the snapshots, which describe the
+        /// original's past, not the clone's.
+        /// </para>
+        /// <para>
+        /// Disks attached from outside the VM folder are copied too: sharing one writable image between
+        /// two machines corrupts it the first time both run.
+        /// </para>
+        /// <para>The caller guarantees the source is not running: qemu-img cannot read an image QEMU holds open.</para>
+        /// </remarks>
+        /// <param name="progress">Receives the completed fraction of the whole copy, from 0 to 1.</param>
+        public async Task<VmConfig> CloneAsync(
+            VmConfig source,
+            string name,
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (_imgService is null)
+                throw new QemuNotAvailableException("QEMU is required to clone a virtual machine.");
+
+            if (ValidateName(name) is { } nameProblem)
+                throw new ArgumentException(nameProblem, nameof(name));
+
+            // Measured before anything is created, so a missing disk fails without leaving a half-made
+            // folder behind, and so progress can be weighted by how much each disk has to copy.
+            var sizes = new List<long>();
+            foreach (var disk in source.Disks)
+            {
+                var path = source.ResolvePath(disk.FileName);
+                if (!File.Exists(path))
+                    throw new FileNotFoundException($"Le disque « {disk.Id} » est introuvable : {path}", path);
+
+                var info = await _imgService.GetInfoAsync(path, cancellationToken).ConfigureAwait(false);
+                sizes.Add(Math.Max(1, info.VirtualSizeBytes));
+            }
+
+            var clone = JsonSerializer.Deserialize<VmConfig>(JsonSerializer.Serialize(source, SerializerOptions), SerializerOptions)
+                        ?? throw new InvalidOperationException("The VM descriptor could not be copied.");
+
+            clone.Id = Guid.NewGuid();
+            clone.Name = name.Trim();
+            clone.CreatedUtc = DateTime.UtcNow;
+            clone.LastStartedUtc = null;
+
+            // Two guests with one MAC on the same segment fight over it. An empty MAC stays empty: QEMU
+            // assigns one at launch, exactly as it did for the original.
+            foreach (var adapter in clone.NetworkAdapters.Where(a => !string.IsNullOrWhiteSpace(a.MacAddress)))
+                adapter.MacAddress = NetworkAdapterConfig.GenerateMacAddress();
+
+            var folder = AllocateFolder(clone.Name);
+            Directory.CreateDirectory(folder);
+            clone.FolderPath = folder;
+
+            try
+            {
+                var total = (double)sizes.Sum();
+                var done = 0d;
+
+                for (var index = 0; index < clone.Disks.Count; index++)
+                {
+                    var disk = clone.Disks[index];
+                    var sourcePath = source.ResolvePath(source.Disks[index].FileName);
+                    var fileName = $"{disk.Id}.{DiskExtension(disk.Format)}";
+
+                    var weight = sizes[index];
+                    var before = done;
+                    await _imgService.ConvertAsync(
+                        sourcePath,
+                        Path.Combine(folder, fileName),
+                        disk.Format,
+                        compress: false,
+                        progress is null ? null : new InlineProgress(f => progress.Report((before + f * weight) / total)),
+                        cancellationToken).ConfigureAwait(false);
+                    done += weight;
+
+                    // Relative, so the clone's folder is movable as a unit like any other.
+                    disk.FileName = fileName;
+                    disk.BackingFileName = string.Empty;
+                    disk.DeeperBackingFiles = new List<string>();
+                }
+
+                // The UEFI variable store holds the boot entries the guest installer wrote. Without it the
+                // firmware starts from a blank store and only finds an OS through the removable-media
+                // fallback path, which not every installer populates.
+                var vars = QemuArgumentBuilder.GetUefiVarsPath(source);
+                if (File.Exists(vars))
+                    File.Copy(vars, QemuArgumentBuilder.GetUefiVarsPath(clone));
+
+                Save(clone);
+                progress?.Report(1d);
+                return clone;
+            }
+            catch
+            {
+                // The folder was allocated fresh for this clone, so nothing in it belongs to anyone else.
+                TryDeleteFolder(folder);
+                throw;
+            }
+        }
+
+        private static void TryDeleteFolder(string folder)
+        {
+            try
+            {
+                if (Directory.Exists(folder))
+                    Directory.Delete(folder, recursive: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A killed qemu-img may hold its output a moment longer; the folder is then left for the
+                // user to remove rather than masking the error that actually stopped the clone.
+            }
+        }
+
+        /// <summary>
+        /// Reports synchronously on the caller's thread. <see cref="Progress{T}"/> would post each report to
+        /// the context it was created on, and the one wrapping it does that already.
+        /// </summary>
+        private sealed class InlineProgress : IProgress<double>
+        {
+            private readonly Action<double> _report;
+            public InlineProgress(Action<double> report) => _report = report;
+            public void Report(double value) => _report(value);
+        }
+
         private async Task AddSystemDiskAsync(
             VmConfig config,
             CreateVmRequest request,

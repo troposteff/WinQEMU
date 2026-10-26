@@ -18,10 +18,15 @@ namespace WinQEMU.Core.Qemu
     /// </summary>
     public static class ProcessRunner
     {
+        /// <param name="onOutputLine">
+        /// Called with each stdout line as it arrives, on a thread-pool thread. Lines also split on a bare
+        /// carriage return, which is how qemu-img redraws its progress in place.
+        /// </param>
         public static async Task<ProcessResult> RunAsync(
             string executablePath,
             IEnumerable<string> arguments,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            Action<string>? onOutputLine = null)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -40,7 +45,13 @@ namespace WinQEMU.Core.Qemu
 
             var stdout = new StringBuilder();
             var stderr = new StringBuilder();
-            process.OutputDataReceived += (_, e) => { if (e.Data is not null) stdout.AppendLine(e.Data); };
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data is null)
+                    return;
+                stdout.AppendLine(e.Data);
+                onOutputLine?.Invoke(e.Data);
+            };
             process.ErrorDataReceived += (_, e) => { if (e.Data is not null) stderr.AppendLine(e.Data); };
 
             if (!process.Start())
@@ -67,7 +78,12 @@ namespace WinQEMU.Core.Qemu
             try
             {
                 if (!process.HasExited)
+                {
                     process.Kill(entireProcessTree: true);
+                    // Kill only requests termination. Waiting lets the caller clean up the files the
+                    // tool was writing, which stay locked until the process is really gone.
+                    process.WaitForExit(5000);
+                }
             }
             catch
             {

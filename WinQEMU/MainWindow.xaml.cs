@@ -595,6 +595,25 @@ namespace WinQEMU
                 await _viewModel.Snapshots.DeleteAsync(snapshot);
         }
 
+        private async void OnCloneClick(object sender, RoutedEventArgs e)
+        {
+            var selected = _viewModel.SelectedVm;
+            if (selected is null || !_viewModel.CanClone)
+                return;
+
+            // The dialog runs the copy itself and reports failures in place, so there is nothing to do
+            // here afterwards: on success the view model has already selected the clone.
+            var dialog = new Dialogs.CloneVmDialog(
+                selected,
+                _viewModel.Manager.SuggestCloneName(selected),
+                _viewModel.CloneSelectedAsync)
+            {
+                XamlRoot = Content.XamlRoot
+            };
+
+            await ShowDialogAsync(dialog);
+        }
+
         private async void OnDeleteClick(object sender, RoutedEventArgs e)
         {
             var selected = _viewModel.SelectedVm;

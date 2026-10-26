@@ -108,6 +108,44 @@ namespace WinQEMU.Core.Services
             return config;
         }
 
+        /// <summary>
+        /// Copies a VM under a new name and adds it to the library. Refused while the source has a QEMU
+        /// process, paused included: qemu-img cannot read an image QEMU holds open, and forcing it would
+        /// copy a disk caught mid-write.
+        /// </summary>
+        public async Task<VmConfig> CloneVirtualMachineAsync(
+            VmConfig source,
+            string name,
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            var library = Library ?? throw new InvalidOperationException("The VM library is not initialised.");
+
+            if (FindSession(source) is { } session && session.State != VmState.Stopped)
+                throw new InvalidOperationException("Arrêtez la machine virtuelle avant de la cloner.");
+
+            // Resumes on the caller's context on purpose — VirtualMachines is data-bound.
+            var clone = await library.CloneAsync(source, name, progress, cancellationToken);
+            VirtualMachines.Add(clone);
+            return clone;
+        }
+
+        /// <summary>
+        /// "Debian (copie)", then "Debian (copie 2)" and so on: the first name no machine in the library
+        /// already uses.
+        /// </summary>
+        public string SuggestCloneName(VmConfig source)
+        {
+            var taken = new HashSet<string>(VirtualMachines.Select(m => m.Name.Trim()), StringComparer.CurrentCultureIgnoreCase);
+            var baseName = source.Name.Trim();
+
+            var candidate = $"{baseName} (copie)";
+            for (var index = 2; taken.Contains(candidate); index++)
+                candidate = $"{baseName} (copie {index.ToString(System.Globalization.CultureInfo.CurrentCulture)})";
+
+            return candidate;
+        }
+
         public void Save(VmConfig config) => Library?.Save(config);
 
         /// <summary>Returns the session for a VM, creating a stopped one on first request.</summary>

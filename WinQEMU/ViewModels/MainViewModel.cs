@@ -471,6 +471,7 @@ namespace WinQEMU.ViewModels
 
             RaisePropertyChanged(nameof(IsQemuAvailable));
             RaisePropertyChanged(nameof(IsQemuMissing));
+            RaisePropertyChanged(nameof(CanClone));
             RaiseSettingsProperties();
 
             // Sessions only become available once QEMU is found, so the rows are built after detection
@@ -515,6 +516,23 @@ namespace WinQEMU.ViewModels
             var created = await Manager.CreateVirtualMachineAsync(request);
             SelectConfig(created);
             return created;
+        }
+
+        /// <summary>
+        /// Cloning reads the disks with qemu-img, which cannot open an image a QEMU process holds, so the
+        /// machine has to be fully down — the same rule as editing its hardware.
+        /// </summary>
+        public bool CanClone => SelectedVm is not null && Manager.IsQemuAvailable && !IsSelectedAlive;
+
+        /// <summary>Copies the selected machine and selects the copy.</summary>
+        public async Task<VmConfig> CloneSelectedAsync(string name, IProgress<double> progress, System.Threading.CancellationToken cancellationToken)
+        {
+            var source = SelectedVm ?? throw new InvalidOperationException("Aucune machine virtuelle n'est sélectionnée.");
+
+            // Adding to the library rebuilds the rows; selecting the clone has to happen after that.
+            var clone = await Manager.CloneVirtualMachineAsync(source, name, progress, cancellationToken);
+            SelectConfig(clone);
+            return clone;
         }
 
         private void SelectConfig(VmConfig? config) =>
@@ -690,6 +708,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(CanPauseOrResume));
             RaisePropertyChanged(nameof(PauseResumeLabel));
             RaisePropertyChanged(nameof(CanChangeIsoLive));
+            RaisePropertyChanged(nameof(CanClone));
 
             // Boot order, disks and adapters are only read when QEMU starts, so they stay locked for
             // as long as a process exists — including while it is stopping.

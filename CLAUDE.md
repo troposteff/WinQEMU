@@ -117,6 +117,27 @@ courant, et dit pourquoi les autres ne le sont pas.
   `qemu-img commit` écrit dans la base **immédiate** de la superposition, vérifié sur une chaîne de trois
   niveaux. Avant ce suivi, revenir sur le niveau du haut laissait celui du dessous sans base enregistrée.
 
+## Clonage
+
+**Copie complète uniquement** (`VmLibrary.CloneAsync`), machine arrêtée (pause comprise :
+`VmManager.CloneVirtualMachineAsync` refuse). Le clone lié est reporté : il exige que l'image de base
+de l'original reste figée pour toujours, donc de figer l'original sous une superposition et de bloquer
+démarrage sur l'ancienne image, fusion, retour à la base et suppression tant qu'un clone en dépend.
+
+- **Disques recopiés par `qemu-img convert`, jamais comme fichiers.** Une superposition d'instantané à
+  chaud désigne sa base par **chemin absolu** (QEMU l'écrit ainsi) : copiée telle quelle, elle lirait
+  encore l'image de l'original, et le clone changerait quand l'original fusionne un instantané.
+  `convert` lit toute la chaîne et écrit une image autonome ; les instantanés ne suivent pas (ils
+  décrivent le passé de l'original). Même format que la source.
+- Les disques attachés **hors du dossier** de la VM sont copiés aussi : deux machines sur une même
+  image inscriptible la corrompent.
+- Nouvel `Id`, nouvelles MAC (une MAC vide reste vide), NVRAM UEFI copiée (entrées de démarrage).
+  L'identité de l'invité (nom d'hôte, machine-id, SID) n'est pas touchée : le dialogue le dit.
+- Échec ou annulation : le dossier du clone, alloué pour l'occasion, est supprimé. `ProcessRunner`
+  attend la fin réelle de `qemu-img` tué, sinon ses fichiers restent verrouillés.
+- Progression : `qemu-img convert -p` écrit `(12.34/100%)` séparés par `\r`, y compris sortie
+  redirigée ; `QemuImgService.ParseProgress`, pondéré par la taille virtuelle de chaque disque.
+
 ## Pièges de plateforme (WHPX, QEMU 11)
 
 Chacun a coûté du temps ; les commentaires du code donnent le détail.

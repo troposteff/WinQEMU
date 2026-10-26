@@ -263,6 +263,24 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
 - **Invités Windows** : pas de client 9P intégré ; il faudra un outil WinQEMU dans l'invité (WinFsp), à la
   manière des VMware Tools.
 
+## Accès depuis le réseau (à la place d'un vrai pont)
+
+Section **Accès depuis le réseau** (`LanAccess`) : la VM reste en NAT, et des services (SSH, Bureau à
+distance, HTTP, HTTPS, autre port) s'ouvrent en un clic par des redirections écoutant sur `0.0.0.0`.
+L'app affiche quoi taper depuis une autre machine (`ssh -p 10022 utilisateur@192.168.1.170`).
+
+- **Pourquoi pas de pont** : le backend `tap` de ce QEMU n'accepte que les adaptateurs TAP-Windows
+  `tap0901` ; celui d'OpenVPN Connect (`tap_ovpnconnect`) donne « Device 'tap' could not be initialized ».
+  Ponter un TAP et le Wi-Fi exige un pont Windows (admin), que bornes d'entreprise et clients VPN
+  mettent en échec. Choix de l'utilisateur : l'accès par redirections.
+- **À chaud** : `hostfwd_add` / `hostfwd_remove` par le moniteur humain (QMP n'a pas d'équivalent ; succès =
+  réponse vide pour l'ajout, « … removed » pour le retrait).
+- **Port hôte** : celui de l'invité s'il est ≥ 1024 et libre, sinon +10000, sinon dès 20000 ; les ports déjà
+  redirigés par d'autres VM, même arrêtées, sont exclus.
+- **Pare-feu** : sans règle entrante pour `qemu-system-*.exe`, rien n'arrive du réseau (l'invite de Windows
+  passe inaperçue ou est refusée à un utilisateur standard). Lu par l'API COM `HNetCfg.FwPolicy2` sans
+  droits ; règle ajoutée par `netsh` en `runas`, profils privé et domaine seulement (pas public).
+
 ## Pièges de plateforme (WHPX, QEMU 11)
 
 Chacun a coûté du temps ; les commentaires du code donnent le détail.

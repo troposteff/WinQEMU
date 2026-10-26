@@ -239,6 +239,7 @@ namespace WinQEMU.ViewModels
 
                 Hardware.Attach(_selectedVm);
                 Snapshots.Attach(_selectedVm);
+                RefreshLanServices(checkFirewall: false);
                 AttachSession();
             }
         }
@@ -878,6 +879,162 @@ namespace WinQEMU.ViewModels
 
         /// <summary>True when the medium can be swapped without restarting, i.e. the machine is running.</summary>
         public bool CanChangeIsoLive => SelectedSession?.IsRunning == true;
+
+        // ---- Access from the network ----
+
+        /// <summary>A service of the selected guest reachable through a host forward, as one line of the section.</summary>
+        public sealed class LanServiceItem
+        {
+            public LanServiceItem(NetworkAdapterConfig adapter, PortForward forward, IReadOnlyList<string> addresses)
+            {
+                Adapter = adapter;
+                Forward = forward;
+                Title = $"{LanAccess.LabelOf(forward)} — port {forward.HostPort.ToString(CultureInfo.InvariantCulture)} de ce PC " +
+                        $"vers le port {forward.GuestPort.ToString(CultureInfo.InvariantCulture)} de l'invité";
+                Usage = !LanAccess.IsOnNetwork(forward)
+                    ? $"{LanAccess.UsageOf(forward, "127.0.0.1")} (depuis ce PC seulement)"
+                    : addresses.Count == 0
+                        ? "Ce PC n'a pas d'adresse sur un réseau local pour l'instant."
+                        : string.Join("   ", addresses.Select(a => LanAccess.UsageOf(forward, a)));
+            }
+
+            public NetworkAdapterConfig Adapter { get; }
+            public PortForward Forward { get; }
+            public string Title { get; }
+            public string Usage { get; }
+        }
+
+        public ObservableCollection<LanServiceItem> LanServices { get; } = new();
+
+        private bool? _qemuAllowedThroughFirewall;
+
+        public bool HasNatAdapter => SelectedVm?.NetworkAdapters.Any(a => a.Mode == NetworkMode.Nat) == true;
+
+        public string LanAccessHint => HasNatAdapter
+            ? "La machine est en NAT : elle sort sur le réseau, mais rien ne l'atteint depuis les autres " +
+              "appareils, sauf les services ouverts ici. Ils s'ouvrent aussitôt si elle est en marche."
+            : "Il faut une carte réseau en NAT pour ouvrir des services (section Réseau).";
+
+        /// <summary>Said only when the firewall is known to block QEMU; nothing to say when it lets it through.</summary>
+        public string? FirewallWarning => _qemuAllowedThroughFirewall == false && LanServices.Any(s => LanAccess.IsOnNetwork(s.Forward))
+            ? "Le pare-feu Windows bloque QEMU : depuis le réseau, rien n'arrivera aux services ouverts tant qu'il " +
+              "n'est pas autorisé (réseaux privés et de domaine seulement, pas les réseaux publics)."
+            : null;
+
+        public bool HasFirewallWarning => FirewallWarning is not null;
+
+        /// <summary>
+        /// Rebuilds the list from the selection's forwards. The firewall is asked again only when told to
+        /// (the section opening): walking its rules through COM takes a noticeable moment, too long for
+        /// every selection change, and the answer is the same for every machine.
+        /// </summary>
+        public void RefreshLanServices(bool checkFirewall = true)
+        {
+            LanServices.Clear();
+            var target = SelectedVm;
+            if (target is not null)
+            {
+                var addresses = LanAccess.LanAddresses();
+                foreach (var adapter in target.NetworkAdapters.Where(a => a.Mode == NetworkMode.Nat))
+                {
+                    foreach (var forward in adapter.PortForwards.Where(f => f.HostPort > 0 && f.GuestPort > 0))
+                        LanServices.Add(new LanServiceItem(adapter, forward, addresses));
+                }
+            }
+
+            if (checkFirewall)
+                _qemuAllowedThroughFirewall = QemuPath is { } path ? LanAccess.IsQemuAllowed(path) : null;
+            RaisePropertyChanged(nameof(HasNatAdapter));
+            RaisePropertyChanged(nameof(LanAccessHint));
+            RaisePropertyChanged(nameof(FirewallWarning));
+            RaisePropertyChanged(nameof(HasFirewallWarning));
+        }
+
+        private string? QemuPath =>
+            SelectedVm is { } vm && Manager.Installation is { } installation ? installation.GetSystemBinary(vm.Architecture) : null;
+
+        /// <summary>
+        /// Opens a guest port to the network on the first NAT adapter, on a free host port; live when the
+        /// machine runs. Returns the reason when nothing was opened.
+        /// </summary>
+        public async Task<string?> OpenServiceAsync(PortForwardProtocol protocol, int guestPort)
+        {
+            var target = SelectedVm;
+            var adapter = target?.NetworkAdapters.FirstOrDefault(a => a.Mode == NetworkMode.Nat);
+            if (target is null || adapter is null)
+                return "Il faut une carte réseau en NAT pour ouvrir un service.";
+
+            if (adapter.PortForwards.FirstOrDefault(f => f.GuestPort == guestPort && f.Protocol == protocol && LanAccess.IsOnNetwork(f)) is { } existing)
+                return $"Ce service est déjà ouvert, sur le port {existing.HostPort.ToString(CultureInfo.InvariantCulture)} de ce PC.";
+
+            // Ports other machines forward count as taken even while they are stopped: both would start.
+            var taken = Manager.VirtualMachines.SelectMany(vm => vm.NetworkAdapters).SelectMany(a => a.PortForwards).Select(f => f.HostPort);
+            var forward = new PortForward
+            {
+                Protocol = protocol,
+                HostPort = LanAccess.ChooseHostPort(guestPort, taken),
+                GuestPort = guestPort,
+                HostAddress = LanAccess.AllInterfaces
+            };
+
+            if (SelectedSession is { IsRunning: true } session)
+            {
+                try
+                {
+                    await session.AddHostForwardAsync(adapter.Id, forward);
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or QmpException)
+                {
+                    return ex.Message;
+                }
+            }
+
+            adapter.PortForwards.Add(forward);
+            SaveSelected();
+            RefreshLanServices();
+            return null;
+        }
+
+        /// <summary>Closes a service, live when the machine runs.</summary>
+        public async Task CloseServiceAsync(LanServiceItem item)
+        {
+            if (SelectedSession is { IsRunning: true } session)
+            {
+                try
+                {
+                    await session.RemoveHostForwardAsync(item.Adapter.Id, item.Forward);
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or QmpException)
+                {
+                    ReportError(ex);
+                }
+            }
+
+            item.Adapter.PortForwards.Remove(item.Forward);
+            SaveSelected();
+            RefreshLanServices();
+        }
+
+        /// <summary>Adds the firewall rule for QEMU; one UAC prompt. Returns the reason when it was not added.</summary>
+        public async Task<string?> AllowQemuThroughFirewallAsync()
+        {
+            if (QemuPath is not { } path)
+                return null;
+
+            try
+            {
+                await LanAccess.AllowQemuAsync(path);
+            }
+            catch (OperationCanceledException)
+            {
+                return "Le pare-feu n'a pas été modifié : l'autorisation administrateur a été refusée.";
+            }
+
+            RefreshLanServices();
+            return _qemuAllowedThroughFirewall == false
+                ? "La règle n'a pas pris effet. Une stratégie d'entreprise interdit peut-être les règles de pare-feu locales."
+                : null;
+        }
 
         // ---- Shared folders ----
 

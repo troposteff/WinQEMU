@@ -861,6 +861,64 @@ namespace WinQEMU
             });
         }
 
+        private void OnLanAccessExpanding(Microsoft.UI.Xaml.Controls.Expander sender, ExpanderExpandingEventArgs args) =>
+            _viewModel.RefreshLanServices();
+
+        /// <summary>The common services, then any port: what is opened is reachable from the network at once.</summary>
+        private void OnOpenServiceClick(object sender, RoutedEventArgs e)
+        {
+            var menu = new MenuFlyout();
+            foreach (var preset in Core.Services.LanAccess.Presets)
+            {
+                var item = new MenuFlyoutItem { Text = $"{preset.Label} (port {preset.GuestPort})" };
+                item.Click += async (_, _) => await ShowProblemAsync("Service non ouvert",
+                    await _viewModel.OpenServiceAsync(preset.Protocol, preset.GuestPort));
+                menu.Items.Add(item);
+            }
+            menu.Items.Add(new MenuFlyoutSeparator());
+            var other = new MenuFlyoutItem { Text = "Autre port de l'invité…" };
+            other.Click += async (_, _) => await OpenOtherServiceAsync();
+            menu.Items.Add(other);
+
+            // The console is a native window drawn above all XAML, the menu included.
+            ConsoleHost.Suspend();
+            menu.Closed += (_, _) => ConsoleHost.Resume();
+            menu.ShowAt(OpenServiceButton);
+        }
+
+        private async Task OpenOtherServiceAsync()
+        {
+            var port = new NumberBox { Header = "Port de l'invité", Minimum = 1, Maximum = 65535, Value = 8080, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
+            var udp = new CheckBox { Content = "UDP (TCP sinon)" };
+            var body = new StackPanel { Spacing = 12, MinWidth = 360 };
+            body.Children.Add(port);
+            body.Children.Add(udp);
+
+            var result = await ShowDialogAsync(new ContentDialog
+            {
+                Title = "Ouvrir un port de l'invité",
+                Content = body,
+                PrimaryButtonText = "Ouvrir",
+                CloseButtonText = "Annuler",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Content.XamlRoot
+            });
+            if (result != ContentDialogResult.Primary || double.IsNaN(port.Value))
+                return;
+
+            await ShowProblemAsync("Service non ouvert", await _viewModel.OpenServiceAsync(
+                udp.IsChecked == true ? PortForwardProtocol.Udp : PortForwardProtocol.Tcp, (int)port.Value));
+        }
+
+        private async void OnCloseServiceClick(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is MainViewModel.LanServiceItem item)
+                await _viewModel.CloseServiceAsync(item);
+        }
+
+        private async void OnAllowFirewallClick(object sender, RoutedEventArgs e) =>
+            await ShowProblemAsync("Pare-feu inchangé", await _viewModel.AllowQemuThroughFirewallAsync());
+
         private async void OnShareFolderClick(object sender, RoutedEventArgs e) => await ShareFolderAsync(readOnly: false);
 
         private async void OnShareFolderReadOnlyClick(object sender, RoutedEventArgs e) => await ShareFolderAsync(readOnly: true);

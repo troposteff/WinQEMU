@@ -469,6 +469,31 @@ namespace WinQEMU.Core.Qemu
         }
 
         /// <summary>
+        /// Opens a host forward on a running NAT adapter, without a restart. HMP only: QMP has no command
+        /// for it. HMP answers in prose, empty on success.
+        /// </summary>
+        public async Task AddHostForwardAsync(string adapterId, PortForward forward, CancellationToken cancellationToken = default)
+        {
+            var reply = await RequireQmp().ExecuteHumanCommandAsync(
+                $"hostfwd_add {adapterId} {Services.LanAccess.RuleOf(forward)}", cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(reply))
+                throw new InvalidOperationException($"QEMU n'a pas ouvert le port {forward.HostPort} : {reply.Trim()}");
+            AppendLog($"Host forward added: {Services.LanAccess.RuleOf(forward)}");
+        }
+
+        /// <summary>Closes a host forward on a running NAT adapter.</summary>
+        public async Task RemoveHostForwardAsync(string adapterId, PortForward forward, CancellationToken cancellationToken = default)
+        {
+            var reply = await RequireQmp().ExecuteHumanCommandAsync(
+                $"hostfwd_remove {adapterId} {Services.LanAccess.RemovalRuleOf(forward)}", cancellationToken).ConfigureAwait(false);
+            // "host forwarding rule for ... removed" is the success message here, unlike hostfwd_add.
+            if (reply.Contains("not found", StringComparison.OrdinalIgnoreCase))
+                AppendLog($"Host forward was not open: {Services.LanAccess.RemovalRuleOf(forward)}");
+            else
+                AppendLog($"Host forward removed: {Services.LanAccess.RemovalRuleOf(forward)}");
+        }
+
+        /// <summary>
         /// The host USB devices handed to this machine, connected at start or since, and whether QEMU
         /// actually holds each one.
         /// </summary>

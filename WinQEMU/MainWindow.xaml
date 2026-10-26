@@ -1098,6 +1098,74 @@
                                     </ContentControl>
                                 </muxc:Expander>
                                 <!--
+                                    Access from the network: host forwards on every interface, instead of a
+                                    bridged network this QEMU build cannot offer (see LanAccess). Not behind
+                                    Hardware.CanEdit: forwards open and close live on a running machine.
+                                -->
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Expanding="OnLanAccessExpanding">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Accès depuis le réseau" />
+                                    </muxc:Expander.Header>
+                                    <StackPanel Spacing="8">
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="{Binding LanAccessHint, Mode=OneWay}"
+                                            TextWrapping="Wrap" />
+                                        <muxc:InfoBar
+                                            IsClosable="False"
+                                            IsOpen="{Binding HasFirewallWarning, Mode=OneWay}"
+                                            Message="{Binding FirewallWarning, Mode=OneWay}"
+                                            Severity="Warning"
+                                            Title="Pare-feu">
+                                            <muxc:InfoBar.ActionButton>
+                                                <Button Click="OnAllowFirewallClick" Content="Autoriser QEMU…" />
+                                            </muxc:InfoBar.ActionButton>
+                                        </muxc:InfoBar>
+                                        <ItemsControl ItemsSource="{Binding LanServices}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border
+                                                        Margin="0,0,0,8"
+                                                        Padding="10"
+                                                        Background="#11000000"
+                                                        CornerRadius="6">
+                                                        <Grid ColumnSpacing="8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                                <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextWrapping="Wrap" />
+                                                                <TextBlock
+                                                                    FontFamily="Consolas"
+                                                                    IsTextSelectionEnabled="True"
+                                                                    Text="{Binding Usage}"
+                                                                    TextWrapping="Wrap" />
+                                                            </StackPanel>
+                                                            <Button
+                                                                Grid.Column="1"
+                                                                VerticalAlignment="Top"
+                                                                Click="OnCloseServiceClick"
+                                                                Content="Fermer"
+                                                                Tag="{Binding}" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <Button
+                                            x:Name="OpenServiceButton"
+                                            HorizontalAlignment="Left"
+                                            Click="OnOpenServiceClick"
+                                            Content="Ouvrir un service…"
+                                            IsEnabled="{Binding HasNatAdapter, Mode=OneWay}" />
+                                    </StackPanel>
+                                </muxc:Expander>
+
+                                <!--
                                     Shared folders, served by WinQEMU itself (Sharing.NinePServer). Not behind
                                     Hardware.CanEdit: they are served live, so they can change while it runs.
                                 -->

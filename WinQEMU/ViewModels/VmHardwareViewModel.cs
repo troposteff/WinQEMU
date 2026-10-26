@@ -228,6 +228,9 @@ namespace WinQEMU.ViewModels
                 if (!File.Exists(full))
                     throw new FileNotFoundException($"Image introuvable : {full}", full);
 
+                if (_manager.WhyImageCannotBeAttached(full) is { } reason)
+                    throw new InvalidOperationException(reason);
+
                 var format = DiskFormat.Qcow2;
                 long capacity = 0;
 
@@ -350,6 +353,12 @@ namespace WinQEMU.ViewModels
                 disk.FileName = targetName;
                 disk.Format = format;
 
+                // convert read through the base, so a linked clone's disk now holds everything itself —
+                // unless the disk is an overlay: its recorded chain still ends on the image that reads the
+                // base, and undoing the overlay would go back to it.
+                if (!disk.IsOverlay)
+                    disk.LinkedBaseFileName = string.Empty;
+
                 _requestSave();
             }
             catch (Exception ex)
@@ -369,6 +378,9 @@ namespace WinQEMU.ViewModels
 
             try
             {
+                if (_manager.WhyOverlayIsLocked(_config, disk) is { } reason)
+                    throw new InvalidOperationException(reason);
+
                 var overlay = ResolveDiskPath(disk);
 
                 // Repoint first, delete second: if the delete fails the descriptor already names the
@@ -398,6 +410,9 @@ namespace WinQEMU.ViewModels
             {
                 if (_manager.DiskService is null)
                     throw new InvalidOperationException("qemu-img n'est pas disponible : QEMU n'a pas été détecté.");
+
+                if (_manager.WhyOverlayIsLocked(_config, disk) is { } reason)
+                    throw new InvalidOperationException(reason);
 
                 var overlay = ResolveDiskPath(disk);
                 // qemu-img commit writes into the overlay's own base, which is the next level down even

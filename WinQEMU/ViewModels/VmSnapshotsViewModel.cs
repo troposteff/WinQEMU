@@ -17,9 +17,18 @@ namespace WinQEMU.ViewModels
     /// </summary>
     public sealed class SnapshotItem
     {
-        public SnapshotItem(VmSnapshot snapshot) => Snapshot = snapshot;
+        public SnapshotItem(VmSnapshot snapshot, string? lockReason = null)
+        {
+            Snapshot = snapshot;
+            LockReason = lockReason;
+        }
 
         public VmSnapshot Snapshot { get; }
+
+        /// <summary>Why the snapshot can be neither restored nor deleted — a linked clone reads it — or null.</summary>
+        public string? LockReason { get; }
+
+        public bool IsLocked => LockReason is not null;
 
         public string Name => Snapshot.Name;
 
@@ -44,6 +53,9 @@ namespace WinQEMU.ViewModels
                 // Only worth saying when the machine has more than one disk to be inconsistent about.
                 if (Snapshot.TotalDisks > 1)
                     parts.Add($"{Snapshot.PresentOnDisks}/{Snapshot.TotalDisks} disques");
+
+                if (IsLocked)
+                    parts.Add("verrouillé par un clone lié");
 
                 return string.Join(" · ", parts);
             }
@@ -89,10 +101,17 @@ namespace WinQEMU.ViewModels
                 RaisePropertyChanged(nameof(HasSelection));
                 RaisePropertyChanged(nameof(CanActOnSelection));
                 RaisePropertyChanged(nameof(CanResumeSelection));
+                RaisePropertyChanged(nameof(SelectedLockReason));
+                RaisePropertyChanged(nameof(IsSelectionLocked));
             }
         }
 
         public bool HasSelection => Selected is not null;
+
+        /// <summary>Shown under the buttons, so a disabled Restaurer says why rather than just greying out.</summary>
+        public string SelectedLockReason => Selected?.LockReason ?? string.Empty;
+
+        public bool IsSelectionLocked => Selected?.IsLocked == true;
 
         private bool _isBusy;
         public bool IsBusy
@@ -148,7 +167,7 @@ namespace WinQEMU.ViewModels
 
         /// <summary>Whether the selected snapshot can actually be acted on. Bound by Restaurer and
         /// Supprimer: with HasSelection alone they stayed clickable on a running machine and did nothing.</summary>
-        public bool CanActOnSelection => CanManage && HasSelection;
+        public bool CanActOnSelection => CanManage && HasSelection && !IsSelectionLocked;
 
         private string _newName = string.Empty;
         public string NewName
@@ -215,16 +234,56 @@ namespace WinQEMU.ViewModels
 
         public bool HasExcludedDisks => ExcludedDisksText.Length > 0;
 
+        /// <summary>
+        /// Bumped on every <see cref="Attach"/>. A read started for the previous machine compares it on
+        /// return and drops its result: qemu-img answers after the user may have moved on, and its list
+        /// then appeared under the next machine selected.
+        /// </summary>
+        private int _generation;
+
+        /// <summary>How long the selection has to rest on a machine before an open section reads its list.</summary>
+        private static readonly TimeSpan SettleDelay = TimeSpan.FromMilliseconds(250);
+
         public void Attach(VmConfig? config)
         {
+            var generation = ++_generation;
             _config = config;
             _loaded = false;
+            IsBusy = false;
             Snapshots.Clear();
             Selected = null;
             NewName = string.Empty;
             Status = string.Empty;
 
             RaiseAll();
+
+            // Expanding is what loads the list, and an open section is never expanded again: without this
+            // it stayed empty, or kept nothing at all, for every machine selected after the first.
+            if (config is not null && IsSectionExpanded)
+                _ = LoadWhenSettledAsync(generation);
+        }
+
+        private bool _isSectionExpanded;
+        /// <summary>Bound to the section's expander; opening it loads the list.</summary>
+        public bool IsSectionExpanded
+        {
+            get => _isSectionExpanded;
+            set
+            {
+                if (SetProperty(ref _isSectionExpanded, value) && value)
+                    _ = EnsureLoadedAsync();
+            }
+        }
+
+        /// <summary>
+        /// Reads the list once the selection has rested. Arrowing through the inventory with the section
+        /// open attaches every machine on the way; only the one the user stops on is worth a qemu-img run.
+        /// </summary>
+        private async Task LoadWhenSettledAsync(int generation)
+        {
+            await Task.Delay(SettleDelay);
+            if (generation == _generation && IsSectionExpanded)
+                await EnsureLoadedAsync();
         }
 
         /// <summary>
@@ -241,14 +300,17 @@ namespace WinQEMU.ViewModels
 
         public async Task RefreshAsync()
         {
-            if (_config is null || _manager.DiskService is null)
+            // Captured, not re-read after each await: the selection can change while qemu-img runs.
+            var config = _config;
+            var generation = _generation;
+            if (config is null || _manager.DiskService is null)
                 return;
 
             var disks = SnapshotableDisks;
             if (disks.Count == 0)
             {
                 Snapshots.Clear();
-                Status = _config.Disks.Count == 0
+                Status = config.Disks.Count == 0
                     ? "Cette machine n'a aucun disque."
                     : "Aucun disque au format qcow2 : seuls ces disques savent porter un instantané interne.";
                 _loaded = true;
@@ -263,7 +325,9 @@ namespace WinQEMU.ViewModels
                 var perDisk = new List<IReadOnlyCollection<DiskSnapshot>>();
                 foreach (var disk in disks)
                 {
-                    var info = await _manager.DiskService.GetInfoAsync(_config.ResolvePath(disk.FileName));
+                    var info = await _manager.DiskService.GetInfoAsync(config.ResolvePath(disk.FileName));
+                    if (generation != _generation)
+                        return;
                     perDisk.Add(info.Snapshots);
                 }
 
@@ -273,9 +337,14 @@ namespace WinQEMU.ViewModels
                 // Live snapshots are overlay levels, not internal snapshots, so reading the images never
                 // finds them; they come from the descriptor's chains instead. One list, newest first.
                 var live = VmSnapshotAggregator.LiveSnapshots(
-                    _config, file => new DateTimeOffset(File.GetCreationTimeUtc(_config.ResolvePath(file)), TimeSpan.Zero));
+                    config, file => new DateTimeOffset(File.GetCreationTimeUtc(config.ResolvePath(file)), TimeSpan.Zero));
                 foreach (var snapshot in VmSnapshotAggregator.Aggregate(perDisk).Concat(live).OrderByDescending(s => s.CreatedAt))
-                    Snapshots.Add(new SnapshotItem(snapshot));
+                {
+                    // Only live snapshots are levels of the chain a clone can rest on; internal ones live
+                    // inside the image the machine writes to, which is never a clone's base.
+                    var lockReason = snapshot.IsLive ? _manager.WhyLiveSnapshotIsLocked(config, snapshot.Name) : null;
+                    Snapshots.Add(new SnapshotItem(snapshot, lockReason));
+                }
 
                 Selected = Snapshots.FirstOrDefault(s => s.Name == previous) ?? Snapshots.FirstOrDefault();
                 Status = Snapshots.Count == 0 ? "Aucun instantané." : string.Empty;
@@ -283,13 +352,19 @@ namespace WinQEMU.ViewModels
             }
             catch (Exception ex)
             {
+                if (generation != _generation)
+                    return;
                 Status = string.Empty;
                 _reportError(ex);
             }
             finally
             {
-                IsBusy = false;
-                RaiseAll();
+                // The machine selected since owns the busy flag and the status now.
+                if (generation == _generation)
+                {
+                    IsBusy = false;
+                    RaiseAll();
+                }
             }
         }
 
@@ -482,6 +557,10 @@ namespace WinQEMU.ViewModels
             {
                 if (item.Snapshot.IsLive)
                 {
+                    // Asked again rather than trusting the item: a clone may have been made since the list was read.
+                    if (_manager.WhyLiveSnapshotIsLocked(_config, item.Name) is { } reason)
+                        throw new InvalidOperationException(reason);
+
                     await new LiveSnapshotOperations(_manager.DiskService).RevertAsync(_config, item.Name);
                     _requestSave();
                 }
@@ -513,6 +592,9 @@ namespace WinQEMU.ViewModels
             {
                 if (item.Snapshot.IsLive)
                 {
+                    if (_manager.WhyLiveSnapshotIsLocked(_config, item.Name) is { } reason)
+                        throw new InvalidOperationException(reason);
+
                     // Keeps what the disks hold now: the overlay is merged downwards, not thrown away.
                     await new LiveSnapshotOperations(_manager.DiskService).MergeAsync(_config, item.Name);
                     _requestSave();
@@ -561,6 +643,8 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(MemorySnapshotUnavailableReason));
             RaisePropertyChanged(nameof(HasMemorySnapshotCaveat));
             RaisePropertyChanged(nameof(IsLockedByRunningMachine));
+            RaisePropertyChanged(nameof(SelectedLockReason));
+            RaisePropertyChanged(nameof(IsSelectionLocked));
         }
     }
 }

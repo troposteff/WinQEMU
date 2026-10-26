@@ -131,6 +131,88 @@ namespace WinQEMU.Core.Services
         }
 
         /// <summary>
+        /// Makes a linked clone: a VM whose disks hold only what it writes, reading everything else from the
+        /// source's current images, which the source stops writing to. Refused while the source has a QEMU
+        /// process, for the same reason as a full copy, and because the source's disks get a new layer.
+        /// </summary>
+        /// <remarks>
+        /// Recorded in a fixed order: source first, clone last. Interrupted in between, the source merely has
+        /// an extra snapshot level and the clone does not exist; the other order could leave a clone reading
+        /// an image the source still writes to. Must be called on the UI thread: the source's disks are
+        /// data-bound, and pushing an overlay raises PropertyChanged.
+        /// </remarks>
+        public async Task<VmConfig> CreateLinkedCloneAsync(
+            VmConfig source,
+            string name,
+            CancellationToken cancellationToken = default)
+        {
+            var library = Library ?? throw new InvalidOperationException("The VM library is not initialised.");
+
+            if (FindSession(source) is { } session && session.State != VmState.Stopped)
+                throw new InvalidOperationException("Arrêtez la machine virtuelle avant de la cloner.");
+
+            // Resumes on the caller's context on purpose — the source's disks are data-bound.
+            var plan = await library.PrepareLinkedCloneAsync(source, name, cancellationToken);
+
+            var pushed = new List<DiskConfig>();
+            try
+            {
+                foreach (var (disk, overlay) in plan.SourceOverlays)
+                {
+                    disk.PushOverlay(overlay);
+                    pushed.Add(disk);
+                }
+
+                library.Save(source);
+                library.Save(plan.CloneConfig);
+            }
+            catch
+            {
+                // Popped in reverse so each disk's chain is exactly what it was.
+                for (var index = pushed.Count - 1; index >= 0; index--)
+                    pushed[index].PopOverlay();
+                if (pushed.Count > 0)
+                    TrySave(library, source);
+
+                VmLibrary.AbandonLinkedClone(plan);
+                throw;
+            }
+
+            VirtualMachines.Add(plan.CloneConfig);
+            return plan.CloneConfig;
+        }
+
+        private static void TrySave(VmLibrary library, VmConfig config)
+        {
+            try
+            {
+                library.Save(config);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The in-memory descriptor is right again; the next save of this machine writes it.
+            }
+        }
+
+        private IReadOnlyList<LinkedCloneDependency> LinkedClones => LinkedCloneGuard.Dependencies(VirtualMachines);
+
+        /// <summary>Why undoing or merging the disk's top overlay is refused, or null when it is allowed.</summary>
+        public string? WhyOverlayIsLocked(VmConfig machine, DiskConfig disk) =>
+            LinkedCloneGuard.WhyOverlayCannotBeRemoved(machine, disk, 0, LinkedClones);
+
+        /// <summary>Why restoring or deleting a live snapshot is refused, or null when it is allowed.</summary>
+        public string? WhyLiveSnapshotIsLocked(VmConfig machine, string name) =>
+            LinkedCloneGuard.WhyLiveSnapshotIsLocked(machine, name, LinkedClones);
+
+        /// <summary>Why deleting the machine's files is refused, or null when it is allowed.</summary>
+        public string? WhyFilesCannotBeDeleted(VmConfig machine) =>
+            LinkedCloneGuard.WhyFilesCannotBeDeleted(machine, LinkedClones);
+
+        /// <summary>Why attaching this image as a disk is refused, or null when it is allowed.</summary>
+        public string? WhyImageCannotBeAttached(string path) =>
+            LinkedCloneGuard.WhyImageCannotBeAttached(path, LinkedClones);
+
+        /// <summary>
         /// "Debian (copie)", then "Debian (copie 2)" and so on: the first name no machine in the library
         /// already uses.
         /// </summary>
@@ -176,6 +258,10 @@ namespace WinQEMU.Core.Services
             bool deleteFiles,
             CancellationToken cancellationToken = default)
         {
+            // Checked before anything is stopped or forgotten, so a refusal leaves the machine as it was.
+            if (deleteFiles && WhyFilesCannotBeDeleted(config) is { } refusal)
+                throw new InvalidOperationException(refusal);
+
             if (_sessions.TryGetValue(config.Id, out var session))
             {
                 // Resumes on the caller's context on purpose — VirtualMachines is data-bound.

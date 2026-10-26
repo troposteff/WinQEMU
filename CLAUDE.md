@@ -119,10 +119,9 @@ courant, et dit pourquoi les autres ne le sont pas.
 
 ## Clonage
 
-**Copie complète uniquement** (`VmLibrary.CloneAsync`), machine arrêtée (pause comprise :
-`VmManager.CloneVirtualMachineAsync` refuse). Le clone lié est reporté : il exige que l'image de base
-de l'original reste figée pour toujours, donc de figer l'original sous une superposition et de bloquer
-démarrage sur l'ancienne image, fusion, retour à la base et suppression tant qu'un clone en dépend.
+Deux formes, toujours machine source arrêtée (pause comprise : `VmManager` refuse).
+
+### Copie complète (`VmLibrary.CloneAsync`)
 
 - **Disques recopiés par `qemu-img convert`, jamais comme fichiers.** Une superposition d'instantané à
   chaud désigne sa base par **chemin absolu** (QEMU l'écrit ainsi) : copiée telle quelle, elle lirait
@@ -137,6 +136,40 @@ démarrage sur l'ancienne image, fusion, retour à la base et suppression tant q
   attend la fin réelle de `qemu-img` tué, sinon ses fichiers restent verrouillés.
 - Progression : `qemu-img convert -p` écrit `(12.34/100%)` séparés par `\r`, y compris sortie
   redirigée ; `QemuImgService.ParseProgress`, pondéré par la taille virtuelle de chaque disque.
+- Copier un clone lié en entier donne une machine indépendante (`LinkedBaseFileName` vidé).
+
+### Clone lié (`VmLibrary.PrepareLinkedCloneAsync` + `VmManager.CreateLinkedCloneAsync`)
+
+Chaque disque du clone est une superposition qcow2 vide posée sur l'image **où l'original écrit à cet
+instant** (F). Le clone lit dans F tout ce qu'il n'a pas écrit : **un seul octet changé dans F corrompt
+le clone sans aucune erreur**. Tout le dispositif sert à ce que F ne bouge plus.
+
+- **L'original est figé** : il reçoit lui aussi une nouvelle superposition, un instantané à chaud
+  ordinaire nommé `Base de <clone>` (ASCII replié, unique), et n'écrit plus jamais dans F. Disques qcow2
+  exigés des deux côtés (`WhyNoLinkedClone`), pour la même raison que les instantanés à chaud.
+- **Le lien est enregistré côté clone seulement** : `DiskConfig.LinkedBaseFileName`, relatif au dossier
+  du clone. **Pas `BackingFileName`** : celui-là marque une superposition que l'application sait dépiler
+  ou fusionner, ce qui écrirait dans F. La chaîne du clone s'arrête donc sur sa propre image.
+- **Chemins relatifs** des deux côtés (qemu résout une base relative depuis le dossier de la
+  superposition) : déplacer toute la bibliothèque garde le couple valide (testé). Déplacer un seul des
+  deux dossiers casse le clone : l'interface le dit.
+- **Ordre d'enregistrement** : fichiers d'abord, puis superposition poussée sur l'original et
+  descripteur de l'original, **puis** descripteur du clone. Interrompu entre les deux, l'original a
+  juste un niveau de plus ; l'ordre inverse laisserait un clone lire une image encore inscriptible.
+  En cas d'échec : superpositions dépilées, fichiers et dossier du clone supprimés.
+- **Protections** (`LinkedCloneGuard`, dépendances recalculées depuis les descripteurs des clones de
+  la bibliothèque à chaque question, rien n'est stocké côté original donc rien ne se périme). Règle sur
+  une chaîne, du haut vers le bas : retirer la superposition `i` (restaurer ou supprimer son instantané
+  à chaud, revenir à la base, fusionner) supprime les images `0..i` et écrit dans `i+1` ; refusé si
+  l'une des images `0..i+1` est la base d'un clone. S'y ajoutent : supprimer les fichiers d'une VM dont
+  le dossier contient une base, attacher une base comme disque. Vérifié au cœur (exception) et montré
+  dans l'interface (instantané « verrouillé par un clone lié », dialogues qui expliquent avant de
+  demander confirmation, bouton « Supprimer les fichiers » absent).
+- **Limite assumée** : un clone que la bibliothèque ne liste pas (retiré de la liste, ou hors du
+  dossier de la bibliothèque) ne protège rien. Le dialogue de suppression d'un clone lié le signale.
+- **Rendre un clone indépendant** : « Convertir… » sur son disque (lit la chaîne entière, vide
+  `LinkedBaseFileName`), sauf si ce disque porte des superpositions : sa chaîne enregistrée finit alors
+  encore sur l'image qui lit F, le lien est gardé. Ou bien faire une copie complète du clone.
 
 ## Pièges de plateforme (WHPX, QEMU 11)
 

@@ -150,6 +150,31 @@ namespace WinQEMU.Core.Models
             RaisePropertyChanged(nameof(OverlayDepth));
         }
 
+        private string _linkedBaseFileName = string.Empty;
+        /// <summary>
+        /// For a linked clone: the image of another machine that the bottom of this disk's chain was
+        /// created on, and still reads everything it has not overwritten from. Empty otherwise. Relative to
+        /// this machine's folder when both sit on the same volume, so moving the whole library keeps the
+        /// pair working.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately not <see cref="BackingFileName"/>: that one marks an overlay the application may
+        /// unstack or merge, and doing either here would write into an image other machines depend on.
+        /// Recorded so the original can be stopped from changing the image (<see cref="Services.LinkedCloneGuard"/>).
+        /// </remarks>
+        public string LinkedBaseFileName
+        {
+            get => _linkedBaseFileName;
+            set
+            {
+                if (SetProperty(ref _linkedBaseFileName, value))
+                    RaisePropertyChanged(nameof(IsLinkedClone));
+            }
+        }
+
+        [JsonIgnore]
+        public bool IsLinkedClone => !string.IsNullOrWhiteSpace(LinkedBaseFileName);
+
         private int _bootIndex = -1;
         /// <summary>Boot order position, or -1 to leave it unspecified.</summary>
         public int BootIndex { get => _bootIndex; set => SetProperty(ref _bootIndex, value); }

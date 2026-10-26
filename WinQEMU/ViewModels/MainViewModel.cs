@@ -524,13 +524,16 @@ namespace WinQEMU.ViewModels
         /// </summary>
         public bool CanClone => SelectedVm is not null && Manager.IsQemuAvailable && !IsSelectedAlive;
 
-        /// <summary>Copies the selected machine and selects the copy.</summary>
-        public async Task<VmConfig> CloneSelectedAsync(string name, IProgress<double> progress, System.Threading.CancellationToken cancellationToken)
+        /// <summary>Clones the selected machine, fully or linked, and selects the clone.</summary>
+        public async Task<VmConfig> CloneSelectedAsync(
+            string name, bool linked, IProgress<double> progress, System.Threading.CancellationToken cancellationToken)
         {
             var source = SelectedVm ?? throw new InvalidOperationException("Aucune machine virtuelle n'est sélectionnée.");
 
             // Adding to the library rebuilds the rows; selecting the clone has to happen after that.
-            var clone = await Manager.CloneVirtualMachineAsync(source, name, progress, cancellationToken);
+            var clone = linked
+                ? await Manager.CreateLinkedCloneAsync(source, name, cancellationToken)
+                : await Manager.CloneVirtualMachineAsync(source, name, progress, cancellationToken);
             SelectConfig(clone);
             return clone;
         }
@@ -574,6 +577,10 @@ namespace WinQEMU.ViewModels
             var target = SelectedVm;
             if (target is null)
                 return;
+
+            // Refused before the selection is cleared, so the machine stays shown with the reason.
+            if (deleteFiles && Manager.WhyFilesCannotBeDeleted(target) is { } refusal)
+                throw new InvalidOperationException(refusal);
 
             // Cleared first so nothing keeps observing a machine that is going away; removing it from
             // the library then rebuilds the rows and picks a new selection.

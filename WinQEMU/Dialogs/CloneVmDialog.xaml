@@ -20,12 +20,7 @@
         BorderThickness="1"
         CornerRadius="8">
         <StackPanel Width="460" Spacing="12">
-            <StackPanel Spacing="2">
-                <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                <TextBlock
-                    Style="{StaticResource Hint}"
-                    Text="Copie complète : chaque disque est recopié tel qu'il est maintenant, en une image autonome. Les instantanés ne sont pas repris. Le clone reçoit ses propres adresses MAC." />
-            </StackPanel>
+            <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
 
             <TextBox
                 x:Name="NameBox"
@@ -33,13 +28,42 @@
                 Header="Nom du clone"
                 TextChanged="OnNameChanged" />
 
-            <TextBlock
-                x:Name="SizeText"
-                Style="{StaticResource Hint}" />
+            <!-- The two kinds differ in what they cost now and in what they forbid later, so each says
+                 both at the moment of choosing. -->
+            <StackPanel Spacing="4">
+                <RadioButton
+                    x:Name="FullCopyOption"
+                    Checked="OnKindChanged"
+                    Content="Copie complète"
+                    GroupName="CloneKind"
+                    IsChecked="True" />
+                <TextBlock
+                    Margin="28,0,0,0"
+                    Style="{StaticResource Hint}"
+                    Text="Chaque disque est recopié tel qu'il est maintenant, en une image autonome. Les instantanés ne sont pas repris. Le clone ne dépend plus de rien." />
+                <RadioButton
+                    x:Name="LinkedOption"
+                    Margin="0,4,0,0"
+                    Checked="OnKindChanged"
+                    Content="Clone lié"
+                    GroupName="CloneKind" />
+                <TextBlock
+                    Margin="28,0,0,0"
+                    Style="{StaticResource Hint}"
+                    Text="Instantané et presque gratuit en place : le clone n'enregistre que ce qu'il écrit et lit le reste dans les disques actuels de l'original. Celui-ci passe sur un nouvel instantané à chaud, « Base de … », et tant que le clone existe il ne peut ni le restaurer, ni le fusionner, ni supprimer ses fichiers. Déplacez toujours les deux machines ensemble." />
+                <TextBlock
+                    x:Name="LinkedUnavailableText"
+                    Margin="28,0,0,0"
+                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                    Style="{StaticResource Hint}"
+                    Visibility="Collapsed" />
+            </StackPanel>
+
+            <TextBlock x:Name="SizeText" Style="{StaticResource Hint}" />
 
             <TextBlock
                 Style="{StaticResource Hint}"
-                Text="Le système invité garde son identité : nom d'hôte, identifiant de machine, SID Windows. Changez-les dans le clone s'il doit partager un réseau avec l'original." />
+                Text="Dans les deux cas le clone reçoit ses propres adresses MAC, mais le système invité garde son identité : nom d'hôte, identifiant de machine, SID Windows. Changez-les dans le clone s'il doit partager un réseau avec l'original." />
 
             <StackPanel x:Name="ProgressPanel" Spacing="4" Visibility="Collapsed">
                 <ProgressBar x:Name="CopyProgress" Maximum="1" />

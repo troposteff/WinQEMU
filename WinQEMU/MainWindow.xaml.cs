@@ -438,9 +438,6 @@ namespace WinQEMU
 
         // ---- Snapshots ----
 
-        private async void OnSnapshotsExpanding(Expander sender, ExpanderExpandingEventArgs args) =>
-            await _viewModel.Snapshots.EnsureLoadedAsync();
-
         private async void OnRefreshSnapshotsClick(object sender, RoutedEventArgs e) =>
             await _viewModel.Snapshots.RefreshAsync();
 
@@ -496,9 +493,28 @@ namespace WinQEMU
 
         // ---- Live-snapshot overlays ----
 
+        /// <summary>
+        /// Explains a refusal before any confirmation is asked: confirming something that is then refused
+        /// would make the user decide for nothing.
+        /// </summary>
+        private async Task<bool> RefuseIfOverlayLockedAsync(DiskConfig disk)
+        {
+            if (_viewModel.SelectedVm is not { } vm || _viewModel.Manager.WhyOverlayIsLocked(vm, disk) is not { } reason)
+                return false;
+
+            await ShowDialogAsync(new ContentDialog
+            {
+                Title = "Superposition verrouillée par un clone lié",
+                Content = DialogBody(reason),
+                CloseButtonText = "Fermer",
+                XamlRoot = Content.XamlRoot
+            });
+            return true;
+        }
+
         private async void OnDiscardOverlayClick(object sender, RoutedEventArgs e)
         {
-            if (DiskOf(sender) is not { } disk)
+            if (DiskOf(sender) is not { } disk || await RefuseIfOverlayLockedAsync(disk))
                 return;
 
             var result = await ShowDialogAsync(new ContentDialog
@@ -525,7 +541,7 @@ namespace WinQEMU
 
         private async void OnCommitOverlayClick(object sender, RoutedEventArgs e)
         {
-            if (DiskOf(sender) is not { } disk)
+            if (DiskOf(sender) is not { } disk || await RefuseIfOverlayLockedAsync(disk))
                 return;
 
             var result = await ShowDialogAsync(new ContentDialog
@@ -601,7 +617,7 @@ namespace WinQEMU
             if (selected is null || !_viewModel.CanClone)
                 return;
 
-            // The dialog runs the copy itself and reports failures in place, so there is nothing to do
+            // The dialog runs the clone itself and reports failures in place, so there is nothing to do
             // here afterwards: on success the view model has already selected the clone.
             var dialog = new Dialogs.CloneVmDialog(
                 selected,
@@ -620,6 +636,20 @@ namespace WinQEMU
             if (selected is null)
                 return;
 
+            var body = $"Les disques virtuels se trouvent dans :\n{selected.FolderPath}";
+
+            // The files of a machine linked clones read from cannot go; the button is then not offered at
+            // all, and the body says why.
+            var filesLocked = _viewModel.Manager.WhyFilesCannotBeDeleted(selected);
+            if (filesLocked is not null)
+                body += "\n\n" + filesLocked;
+
+            // A clone the library no longer lists protects nothing: its original could then be changed
+            // under it. Said here because "Retirer de la liste" sounds harmless.
+            if (selected.Disks.Any(d => d.IsLinkedClone))
+                body += "\n\nC'est un clone lié : retiré de la liste, il ne protège plus les disques de son " +
+                        "original, et ne fonctionnera plus si celui-ci les modifie.";
+
             // Two distinct destructive outcomes, so they get two distinct buttons rather than a
             // single confirmation that guesses which one the user meant.
             var result = await ShowDialogAsync(new ContentDialog
@@ -627,8 +657,8 @@ namespace WinQEMU
                 Title = $"Supprimer « {selected.Name} » ?",
                 // Three buttons share the width, so the labels have to be short enough to survive it.
                 // The title already names the machine and the body gives the folder.
-                Content = DialogBody($"Les disques virtuels se trouvent dans :\n{selected.FolderPath}", 540),
-                PrimaryButtonText = "Supprimer les fichiers",
+                Content = DialogBody(body, 540),
+                PrimaryButtonText = filesLocked is null ? "Supprimer les fichiers" : string.Empty,
                 SecondaryButtonText = "Retirer de la liste",
                 CloseButtonText = "Annuler",
                 DefaultButton = ContentDialogButton.Close,

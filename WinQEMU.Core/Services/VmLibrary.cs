@@ -40,6 +40,16 @@ namespace WinQEMU.Core.Services
     }
 
     /// <summary>
+    /// The files of a linked clone, laid down but not yet recorded. Committing it means pushing each
+    /// overlay onto the source's disk and saving the source, then saving the clone — in that order, so the
+    /// clone never exists while the source still writes to the image the clone reads.
+    /// </summary>
+    public sealed record LinkedClonePlan(
+        VmConfig Source,
+        VmConfig CloneConfig,
+        IReadOnlyList<(DiskConfig Disk, string OverlayFileName)> SourceOverlays);
+
+    /// <summary>
     /// Reads and writes the VM library on disk. Each VM lives in its own folder holding a
     /// <c>.wqvm</c> descriptor plus its disks, so a VM can be moved or backed up as a unit.
     /// </summary>
@@ -214,19 +224,7 @@ namespace WinQEMU.Core.Services
                 sizes.Add(Math.Max(1, info.VirtualSizeBytes));
             }
 
-            var clone = JsonSerializer.Deserialize<VmConfig>(JsonSerializer.Serialize(source, SerializerOptions), SerializerOptions)
-                        ?? throw new InvalidOperationException("The VM descriptor could not be copied.");
-
-            clone.Id = Guid.NewGuid();
-            clone.Name = name.Trim();
-            clone.CreatedUtc = DateTime.UtcNow;
-            clone.LastStartedUtc = null;
-
-            // Two guests with one MAC on the same segment fight over it. An empty MAC stays empty: QEMU
-            // assigns one at launch, exactly as it did for the original.
-            foreach (var adapter in clone.NetworkAdapters.Where(a => !string.IsNullOrWhiteSpace(a.MacAddress)))
-                adapter.MacAddress = NetworkAdapterConfig.GenerateMacAddress();
-
+            var clone = CopyDescriptor(source, name);
             var folder = AllocateFolder(clone.Name);
             Directory.CreateDirectory(folder);
             clone.FolderPath = folder;
@@ -257,6 +255,8 @@ namespace WinQEMU.Core.Services
                     disk.FileName = fileName;
                     disk.BackingFileName = string.Empty;
                     disk.DeeperBackingFiles = new List<string>();
+                    // Copying a linked clone in full reads its base too, so the copy depends on nothing.
+                    disk.LinkedBaseFileName = string.Empty;
                 }
 
                 // The UEFI variable store holds the boot entries the guest installer wrote. Without it the
@@ -276,6 +276,177 @@ namespace WinQEMU.Core.Services
                 TryDeleteFolder(folder);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Lays the files of a linked clone of a stopped VM: one qcow2 overlay per disk in a new folder, on
+        /// top of the image the source writes to now, plus a fresh overlay for the source itself so it never
+        /// writes to that image again. Nothing is recorded yet — see <see cref="LinkedClonePlan"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Freezing the source is what makes the clone safe at all: the clone reads every block it has not
+        /// written from the source's image, so the source must move to a new layer. That layer is a live
+        /// snapshot like any other, named after the clone, and shows up in the source's snapshot list as the
+        /// state the clone started from. <see cref="LinkedCloneGuard"/> then refuses to undo or merge it.
+        /// </para>
+        /// <para>
+        /// qcow2 only, on both sides: the source gains an overlay, and the descriptor holds one format per
+        /// disk — the same reason live snapshots exclude other formats.
+        /// </para>
+        /// <para>
+        /// The clone's overlay names its base by a path relative to the clone's folder when possible, as qemu
+        /// resolves a relative backing path against the overlay's own directory: moving the whole library
+        /// then keeps the pair working, where an absolute path would break it.
+        /// </para>
+        /// </remarks>
+        public async Task<LinkedClonePlan> PrepareLinkedCloneAsync(
+            VmConfig source,
+            string name,
+            CancellationToken cancellationToken = default)
+        {
+            if (_imgService is null)
+                throw new QemuNotAvailableException("QEMU is required to clone a virtual machine.");
+
+            if (ValidateName(name) is { } nameProblem)
+                throw new ArgumentException(nameProblem, nameof(name));
+
+            if (WhyNoLinkedClone(source) is { } refusal)
+                throw new InvalidOperationException(refusal);
+
+            var bases = new List<(string Path, long Size)>();
+            foreach (var disk in source.Disks)
+            {
+                var path = source.ResolvePath(disk.FileName);
+                if (!File.Exists(path))
+                    throw new FileNotFoundException($"Le disque « {disk.Id} » est introuvable : {path}", path);
+
+                var info = await _imgService.GetInfoAsync(path, cancellationToken).ConfigureAwait(false);
+                bases.Add((path, info.VirtualSizeBytes));
+            }
+
+            var clone = CopyDescriptor(source, name);
+            var snapshotName = UniqueLinkedSnapshotName(source, clone.Name);
+            var folder = AllocateFolder(clone.Name);
+            Directory.CreateDirectory(folder);
+            clone.FolderPath = folder;
+
+            var sourceOverlays = new List<(DiskConfig Disk, string OverlayFileName)>();
+            try
+            {
+                for (var index = 0; index < clone.Disks.Count; index++)
+                {
+                    var disk = clone.Disks[index];
+                    var (basePath, size) = bases[index];
+
+                    var fileName = $"{disk.Id}.qcow2";
+                    var linkedBase = Path.GetRelativePath(folder, basePath);
+                    await _imgService.CreateAsync(
+                        Path.Combine(folder, fileName), DiskFormat.Qcow2, size, linkedBase, cancellationToken).ConfigureAwait(false);
+
+                    disk.FileName = fileName;
+                    disk.BackingFileName = string.Empty;
+                    disk.DeeperBackingFiles = new List<string>();
+                    disk.LinkedBaseFileName = linkedBase;
+
+                    var sourceDisk = source.Disks[index];
+                    var overlayFileName = $"{sourceDisk.Id}-{snapshotName}.qcow2";
+                    await _imgService.CreateAsync(
+                        Path.Combine(source.FolderPath, overlayFileName),
+                        DiskFormat.Qcow2,
+                        size,
+                        Path.GetRelativePath(source.FolderPath, basePath),
+                        cancellationToken).ConfigureAwait(false);
+                    sourceOverlays.Add((sourceDisk, overlayFileName));
+                }
+
+                var vars = QemuArgumentBuilder.GetUefiVarsPath(source);
+                if (File.Exists(vars))
+                    File.Copy(vars, QemuArgumentBuilder.GetUefiVarsPath(clone));
+
+                return new LinkedClonePlan(source, clone, sourceOverlays);
+            }
+            catch
+            {
+                AbandonLinkedClone(new LinkedClonePlan(source, clone, sourceOverlays));
+                throw;
+            }
+        }
+
+        /// <summary>Deletes the files a plan laid down. The source's descriptor must not reference them.</summary>
+        public static void AbandonLinkedClone(LinkedClonePlan plan)
+        {
+            foreach (var (_, overlay) in plan.SourceOverlays)
+            {
+                try
+                {
+                    File.Delete(Path.Combine(plan.Source.FolderPath, overlay));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // An unreferenced overlay only takes space; the error that got us here matters more.
+                }
+            }
+
+            TryDeleteFolder(plan.CloneConfig.FolderPath);
+        }
+
+        /// <summary>Why the machine cannot be linked-cloned, or null when it can.</summary>
+        public static string? WhyNoLinkedClone(VmConfig source)
+        {
+            var others = source.Disks.Where(d => d.Format != DiskFormat.Qcow2).ToList();
+            return others.Count == 0
+                ? null
+                : "Un clone lié exige des disques qcow2 : " +
+                  string.Join(", ", others.Select(d => $"{d.Id} ({d.Format.ToString().ToLowerInvariant()})")) +
+                  " ne peut pas servir de base. Faites une copie complète, ou convertissez ces disques en qcow2.";
+        }
+
+        /// <summary>
+        /// "Base de Debian (copie)": the live snapshot the source gains, named after the clone so the list
+        /// says why it is there. ASCII only, as every snapshot name (see
+        /// <see cref="QemuImgService.ValidateSnapshotName"/>), and unused by any level of the source's chains.
+        /// </summary>
+        private static string UniqueLinkedSnapshotName(VmConfig source, string cloneName)
+        {
+            var folded = new string(cloneName.Normalize(System.Text.NormalizationForm.FormD)
+                    .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                    .Select(c => c is < ' ' or > '~' || Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)
+                    .ToArray())
+                .Trim();
+
+            var stem = $"Base de {(folded.Length == 0 ? "clone" : folded)}";
+            var candidate = stem;
+            for (var index = 2; Taken(candidate); index++)
+                candidate = $"{stem} {index.ToString(CultureInfo.InvariantCulture)}";
+
+            return candidate;
+
+            bool Taken(string snapshot) => source.Disks.Any(disk =>
+                disk.ChainFromTop.Any(file => DiskConfig.SnapshotNameOf(disk.Id, file) == snapshot)
+                || File.Exists(Path.Combine(source.FolderPath, $"{disk.Id}-{snapshot}.qcow2")));
+        }
+
+        /// <summary>
+        /// The source's descriptor under a new name and identity. Disks still name the source's files; the
+        /// caller repoints them.
+        /// </summary>
+        private static VmConfig CopyDescriptor(VmConfig source, string name)
+        {
+            var clone = JsonSerializer.Deserialize<VmConfig>(JsonSerializer.Serialize(source, SerializerOptions), SerializerOptions)
+                        ?? throw new InvalidOperationException("The VM descriptor could not be copied.");
+
+            clone.Id = Guid.NewGuid();
+            clone.Name = name.Trim();
+            clone.CreatedUtc = DateTime.UtcNow;
+            clone.LastStartedUtc = null;
+
+            // Two guests with one MAC on the same segment fight over it. An empty MAC stays empty: QEMU
+            // assigns one at launch, exactly as it did for the original.
+            foreach (var adapter in clone.NetworkAdapters.Where(a => !string.IsNullOrWhiteSpace(a.MacAddress)))
+                adapter.MacAddress = NetworkAdapterConfig.GenerateMacAddress();
+
+            return clone;
         }
 
         private static void TryDeleteFolder(string folder)

@@ -10,20 +10,23 @@ using WinQEMU.Core.Services;
 namespace WinQEMU.Dialogs
 {
     /// <summary>
-    /// Asks for the clone's name, then runs the copy itself so the progress and a way to cancel stay on
-    /// screen: copying tens of gigabytes takes minutes, and a dialog that closed straight away would leave
-    /// nothing to watch or stop.
+    /// Asks for the clone's name and kind, then runs the clone itself so the progress and a way to cancel
+    /// stay on screen: a full copy of tens of gigabytes takes minutes, and a dialog that closed straight away
+    /// would leave nothing to watch or stop.
     /// </summary>
     public sealed partial class CloneVmDialog : ContentDialog
     {
-        private readonly Func<string, IProgress<double>, CancellationToken, Task<VmConfig>> _clone;
+        private readonly Func<string, bool, IProgress<double>, CancellationToken, Task<VmConfig>> _clone;
+        private readonly string _fullCopySize;
         private CancellationTokenSource? _cancellation;
 
-        /// <param name="clone">Performs the copy under the given name. Called on the UI thread.</param>
+        /// <param name="clone">
+        /// Performs the clone under the given name, linked when the flag is set. Called on the UI thread.
+        /// </param>
         public CloneVmDialog(
             VmConfig source,
             string suggestedName,
-            Func<string, IProgress<double>, CancellationToken, Task<VmConfig>> clone)
+            Func<string, bool, IProgress<double>, CancellationToken, Task<VmConfig>> clone)
         {
             InitializeComponent();
             _clone = clone;
@@ -35,15 +38,41 @@ namespace WinQEMU.Dialogs
             // An upper bound: the copy only takes what the guest has actually written, but the space the
             // disks may grow to is what the host has to be ready for.
             var capacity = source.Disks.Sum(d => d.CapacityBytes);
-            SizeText.Text = capacity > 0
+            _fullCopySize = capacity > 0
                 ? $"{source.Disks.Count} disque(s), {capacity / (1024d * 1024 * 1024):0.#} Gio au plus, copiés dans un nouveau dossier de la bibliothèque."
                 : $"{source.Disks.Count} disque(s), copiés dans un nouveau dossier de la bibliothèque.";
+
+            // Offered but disabled with the reason, rather than hidden: the user then knows what would
+            // make it possible.
+            if (VmLibrary.WhyNoLinkedClone(source) is { } reason)
+            {
+                LinkedOption.IsEnabled = false;
+                LinkedUnavailableText.Text = reason;
+                LinkedUnavailableText.Visibility = Visibility.Visible;
+            }
+
+            UpdateSizeText();
         }
 
         /// <summary>The new machine, or null when the dialog was closed without cloning.</summary>
         public VmConfig? Clone { get; private set; }
 
         private bool IsCloning => _cancellation is not null;
+
+        private bool IsLinked => LinkedOption.IsChecked == true;
+
+        private void OnKindChanged(object sender, RoutedEventArgs e) => UpdateSizeText();
+
+        private void UpdateSizeText()
+        {
+            // Raised from InitializeComponent by the initially checked option, before the field is set.
+            if (SizeText is null || _fullCopySize is null)
+                return;
+
+            SizeText.Text = IsLinked
+                ? "Rien n'est copié : le clone commence avec des disques presque vides, qui ne grossissent que de ce qu'il écrit."
+                : _fullCopySize;
+        }
 
         private async void OnCloneClick(object sender, RoutedEventArgs e)
         {
@@ -59,7 +88,8 @@ namespace WinQEMU.Dialogs
             ShowError(null);
             using var cancellation = new CancellationTokenSource();
             _cancellation = cancellation;
-            SetCloning(true);
+            var linked = IsLinked;
+            SetCloning(true, linked);
 
             // Created here, on the UI thread, so each report is posted back to it.
             var progress = new Progress<double>(fraction =>
@@ -70,14 +100,14 @@ namespace WinQEMU.Dialogs
 
             try
             {
-                Clone = await _clone(NameBox.Text.Trim(), progress, cancellation.Token);
+                Clone = await _clone(NameBox.Text.Trim(), linked, progress, cancellation.Token);
                 _cancellation = null;
                 Hide();
                 return;
             }
             catch (OperationCanceledException)
             {
-                // The half-made copy has already been removed; the dialog closes as if nothing happened.
+                // The half-made clone has already been removed; the dialog closes as if nothing happened.
                 _cancellation = null;
                 Hide();
                 return;
@@ -89,17 +119,21 @@ namespace WinQEMU.Dialogs
             }
 
             _cancellation = null;
-            SetCloning(false);
+            SetCloning(false, linked);
         }
 
-        private void SetCloning(bool cloning)
+        private void SetCloning(bool cloning, bool linked)
         {
             NameBox.IsEnabled = !cloning;
+            FullCopyOption.IsEnabled = !cloning;
+            LinkedOption.IsEnabled = !cloning && LinkedUnavailableText.Visibility != Visibility.Visible;
             CloneButton.IsEnabled = !cloning;
             CancelButton.IsEnabled = true;
             ProgressPanel.Visibility = cloning ? Visibility.Visible : Visibility.Collapsed;
+            // A linked clone only creates empty overlays: there is no fraction worth showing.
+            CopyProgress.IsIndeterminate = cloning && linked;
             CopyProgress.Value = 0;
-            ProgressText.Text = "Préparation…";
+            ProgressText.Text = linked ? "Création du clone lié…" : "Préparation…";
         }
 
         private void ShowError(string? message)
@@ -112,7 +146,7 @@ namespace WinQEMU.Dialogs
 
         private void OnCancelClick(object sender, RoutedEventArgs e) => CancelOrClose();
 
-        /// <summary>During a copy, Annuler and Échap stop it; the dialog closes once it has unwound.</summary>
+        /// <summary>During a clone, Annuler and Échap stop it; the dialog closes once it has unwound.</summary>
         private void CancelOrClose()
         {
             if (IsCloning)
@@ -128,7 +162,7 @@ namespace WinQEMU.Dialogs
 
         private void OnClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
         {
-            // Never close over a running copy: nobody would await it any more, so a failure would go
+            // Never close over a running clone: nobody would await it any more, so a failure would go
             // unreported and a cancelled copy's folder removal unconfirmed.
             if (IsCloning)
             {

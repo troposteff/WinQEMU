@@ -853,6 +853,15 @@
                                                                 </StackPanel>
                                                             </Grid>
 
+                                                            <!-- A linked clone's disk reads another machine's
+                                                                 image: said where the disk is described, since
+                                                                 moving either folder alone breaks the pair. -->
+                                                            <TextBlock
+                                                                Style="{StaticResource Hint}"
+                                                                Visibility="{Binding IsLinkedClone, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                                                <Run Text="Clone lié : ne contient que ce que cette machine a écrit et lit le reste dans " /><Run Text="{Binding LinkedBaseFileName, Mode=OneWay}" /><Run Text=". « Convertir… » le rend indépendant." />
+                                                            </TextBlock>
+
                                                             <!-- Visible whenever the disk is a live-snapshot
                                                                  overlay, because the chain decides what a
                                                                  rollback would mean. -->
@@ -1070,15 +1079,18 @@
                                     </ContentControl>
                                 </muxc:Expander>
                                 <!--
-                                    Snapshots. Expanding the section is what loads the list: reading it
+                                    Snapshots. Opening the section is what loads the list: reading it
                                     runs qemu-img once per disk, and doing that on every selection change
-                                    made arrowing through the inventory sluggish.
+                                    made arrowing through the inventory sluggish. Bound rather than handled
+                                    through Expanding, so the view model also knows the section stays open
+                                    when another machine is selected — that event never fires again then,
+                                    and the list stayed empty or showed nothing until it was reopened.
                                 -->
                                 <muxc:Expander
                                     x:Name="SnapshotsExpander"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch"
-                                    Expanding="OnSnapshotsExpanding">
+                                    IsExpanded="{Binding Snapshots.IsSectionExpanded, Mode=TwoWay}">
                                     <muxc:Expander.Header>
                                         <TextBlock FontWeight="SemiBold" Text="Instantanés" />
                                     </muxc:Expander.Header>
@@ -1206,6 +1218,11 @@
                                                 VerticalAlignment="Center"
                                                 IsActive="{Binding Snapshots.IsBusy, Mode=OneWay}" />
                                         </StackPanel>
+
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="{Binding Snapshots.SelectedLockReason, Mode=OneWay}"
+                                            Visibility="{Binding Snapshots.IsSelectionLocked, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
 
                                         <TextBlock
                                             Style="{StaticResource Hint}"

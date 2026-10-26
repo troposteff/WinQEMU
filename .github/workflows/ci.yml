@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Without QEMU the tests that drive the real qemu-img return early and pass vacuously, and those
+      # are the ones guarding the snapshot chains against data loss. QemuLocator finds this install
+      # under Program Files, as it would on a user's machine.
+      - name: Install QEMU
+        run: choco install qemu --no-progress -y
+
+      - name: Test core
+        run: dotnet test WinQEMU.Core.Tests -c Debug --logger "trx;LogFileName=core.trx" --results-directory TestResults
+
+      # The shell has no tests; building it still catches XAML compiler failures, which exit with no
+      # diagnostic at all (IsEnabled bound on a Panel, for one).
+      - name: Build shell
+        run: dotnet build WinQEMU\WinQEMU.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults

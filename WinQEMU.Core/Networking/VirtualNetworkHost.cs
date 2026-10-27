@@ -12,16 +12,24 @@ namespace WinQEMU.Core.Networking
         private readonly Dictionary<string, VirtualSwitch> _switches = new();
         private readonly object _lock = new();
 
-        /// <summary>The loopback port of the network's switch, started on first use.</summary>
-        public int PortOf(VirtualNetwork network)
+        /// <summary>
+        /// The loopback port of the network's switch, started on first use. <paramref name="all"/> are every
+        /// network, for the subnet checks: this PC may have joined since a Wi-Fi on the same subnet.
+        /// </summary>
+        public int PortOf(VirtualNetwork network, IReadOnlyCollection<VirtualNetwork> all)
         {
             lock (_lock)
             {
                 if (_switches.TryGetValue(network.Id, out var running))
                     return running.Port;
 
+                if (network.Type == VirtualNetworkType.External)
+                    return StartExternal(network);
+
                 var scope = network.Scope ?? throw new InvalidOperationException(
                     $"Les adresses du réseau {network.Name} ne conviennent pas : {network.Problem}");
+                if (network.ConflictAmong(all) is { } conflict)
+                    throw new InvalidOperationException($"Le réseau {network.Name} ne peut pas démarrer. {conflict} (Réseaux virtuels)");
 
                 // An internal network is this PC's too: its TAP adapter becomes one more port, and the
                 // DHCP server keeps .1 for it. Opened before anything starts, so a missing or refused
@@ -46,6 +54,29 @@ namespace WinQEMU.Core.Networking
                 _switches[network.Id] = created;
                 return created.Port;
             }
+        }
+
+        /// <summary>
+        /// An external network's switch, with the physical card as one more port and no DHCP server of
+        /// its own: the machines ask the physical network's. The card is opened before anything starts,
+        /// so a missing Npcap or card stops the machine with the reason.
+        /// </summary>
+        private int StartExternal(VirtualNetwork network)
+        {
+            if (!Npcap.IsInstalled)
+                throw new InvalidOperationException(
+                    $"Le réseau {network.Name} passe par Npcap, qui n'est plus installé : réinstallez-le depuis npcap.com.");
+            var adapter = PhysicalAdapter.List().FirstOrDefault(a => a.Id.Equals(network.PhysicalAdapterId, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException(
+                    $"La carte « {network.PhysicalAdapterName} » du réseau {network.Name} n'est pas connectée " +
+                    "(Wi-Fi coupé, câble débranché ?). Branchez-la, ou choisissez une autre carte dans Réseaux virtuels.");
+
+            var device = Npcap.Open(adapter);
+            var created = new VirtualSwitch(null);
+            created.Start();
+            created.Attach(device, new MacTranslator(adapter.Mac));
+            _switches[network.Id] = created;
+            return created.Port;
         }
 
         /// <summary>The address the network's DHCP gave a card, for display. Null when none, or not yet.</summary>

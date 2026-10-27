@@ -50,6 +50,24 @@ namespace WinQEMU.Core.Models
         /// <summary>The adapter's name when it was chosen, shown even when it has since disappeared.</summary>
         public string TapAdapterName { get => _tapAdapterName; set => SetProperty(ref _tapAdapterName, value); }
 
+        private string _physicalAdapterId = string.Empty;
+        /// <summary>
+        /// For an external network: the card of this PC (its interface id, as Windows' NetworkInterface
+        /// gives it) the machines go out on, through Npcap. Networking.PhysicalAdapter lists them.
+        /// </summary>
+        public string PhysicalAdapterId { get => _physicalAdapterId; set => SetProperty(ref _physicalAdapterId, value); }
+
+        private string _physicalAdapterName = string.Empty;
+        /// <summary>The card's name when it was chosen ("Wi-Fi"), shown even when it has since disappeared.</summary>
+        public string PhysicalAdapterName { get => _physicalAdapterName; set { if (SetProperty(ref _physicalAdapterName, value)) RaisePropertyChanged(nameof(SubnetText)); } }
+
+        /// <summary>
+        /// Whether the network has addresses of its own. An external network has none: the machines take
+        /// theirs from the physical network's DHCP server (the box), like any device on it.
+        /// </summary>
+        [JsonIgnore]
+        public bool HasAddresses => Type != VirtualNetworkType.External;
+
         private string _dhcpStart = string.Empty;
         /// <summary>
         /// First address leased; empty for the default, which follows the subnet (.100 of a /24). Takes
@@ -82,7 +100,9 @@ namespace WinQEMU.Core.Models
         };
 
         [JsonIgnore]
-        public string SubnetText => Problem is { } problem
+        public string SubnetText => Type == VirtualNetworkType.External
+            ? $"sur « {PhysicalAdapterName} », adresses données par le réseau physique (la box)"
+            : Problem is { } problem
             ? problem
             : $"{Subnet}/{PrefixLength.ToString(CultureInfo.InvariantCulture)}" +
               (Dhcp && Scope is { } scope ? $", DHCP de {DhcpScope.Format(scope.First)} à {DhcpScope.Format(scope.Last)}" : string.Empty) +
@@ -120,6 +140,8 @@ namespace WinQEMU.Core.Models
         {
             get
             {
+                if (!HasAddresses)
+                    return null;
                 if (Network is not { } network)
                     return $"« {Subnet} » n'est pas une adresse IPv4 de sous-réseau (exemple : 10.77.1.0).";
                 if (PrefixLength is < 8 or > 29)
@@ -157,6 +179,49 @@ namespace WinQEMU.Core.Models
                     DhcpEnd.Length == 0 ? defaultLast : DhcpScope.Parse(DhcpEnd)!.Value);
             }
         }
+
+        /// <summary>
+        /// Why the subnet cannot sit beside the others, or null when it can. Two virtual networks never share
+        /// addresses, as VMware's editor refuses two VMnets on one subnet: a machine on both, or this PC on
+        /// an internal one, could not tell them apart. An internal network also puts this PC on its subnet,
+        /// so it must stay off this PC's own networks (its Wi-Fi, which an external network uses too), or
+        /// Windows would route part of that network into the virtual one. Any network overlapping QEMU's
+        /// NAT would do the same inside a guest with both cards.
+        /// </summary>
+        public string? ConflictWith(IEnumerable<VirtualNetwork> networks, IEnumerable<HostSubnet> hostSubnets)
+        {
+            if (!HasAddresses || Network is not { } network || Problem is not null)
+                return null;
+
+            if (HostSubnet.QemuNat.Overlaps(network, PrefixLength))
+                return $"{SubnetLabel} chevauche {HostSubnet.QemuNat.Card} ({HostSubnet.QemuNat}) : choisissez un autre sous-réseau.";
+
+            foreach (var other in networks)
+            {
+                if (other == this || !other.HasAddresses || other.Problem is not null || other.Network is not { } theirs)
+                    continue;
+                if (new HostSubnet(theirs, other.PrefixLength, other.Name).Overlaps(network, PrefixLength))
+                    return $"{SubnetLabel} chevauche celui du réseau {other.Name} ({other.Subnet}/{other.PrefixLength.ToString(CultureInfo.InvariantCulture)}) : " +
+                           "deux réseaux virtuels ne peuvent pas partager des adresses. Choisissez un autre sous-réseau.";
+            }
+            if (Type != VirtualNetworkType.Internal)
+                return null;
+            foreach (var host in hostSubnets)
+            {
+                if (host.Overlaps(network, PrefixLength))
+                    return $"{SubnetLabel} chevauche le réseau de {host.Card} ({host}) : ce PC ne saurait plus par où joindre ces adresses.";
+            }
+            return null;
+        }
+
+        private string SubnetLabel => $"Le sous-réseau {Subnet}/{PrefixLength.ToString(CultureInfo.InvariantCulture)}";
+
+        /// <summary>
+        /// <see cref="ConflictWith"/> against this PC's cards as they are now, the internal networks' own TAP
+        /// adapters aside (they are on their subnet by design).
+        /// </summary>
+        public string? ConflictAmong(IReadOnlyCollection<VirtualNetwork> networks) =>
+            ConflictWith(networks, HostSubnet.List(networks.Select(n => n.TapAdapterId)));
 
         /// <summary>10.77.N.0 with the first N no other network uses.</summary>
         public static string FreeSubnet(IEnumerable<VirtualNetwork> existing)

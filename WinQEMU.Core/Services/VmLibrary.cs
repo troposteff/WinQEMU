@@ -35,6 +35,8 @@ namespace WinQEMU.Core.Services
 
         public bool BootFromIso { get; init; } = true;
         public NetworkMode NetworkMode { get; init; } = NetworkMode.Nat;
+        /// <summary>The virtual network a <see cref="NetworkMode.Network"/> card is plugged into.</summary>
+        public string NetworkId { get; init; } = string.Empty;
         public NicModel NicModel { get; init; } = NicModel.VirtioNet;
         public bool RtcLocalTime { get; init; }
     }
@@ -171,6 +173,7 @@ namespace WinQEMU.Core.Services
                 {
                     Id = "net0",
                     Mode = request.NetworkMode,
+                    NetworkId = request.NetworkId,
                     Model = request.NicModel,
                     MacAddress = NetworkAdapterConfig.GenerateMacAddress()
                 });

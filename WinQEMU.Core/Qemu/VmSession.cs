@@ -116,6 +116,7 @@ namespace WinQEMU.Core.Qemu
                 var sharesPort = ReserveLoopbackPort();
                 var executable = _installation.GetSystemBinary(Config.Architecture);
                 var arguments = QemuArgumentBuilder.Build(Config, _installation, qmpPort, clipboardPort, GuestAgentPort, sharesPort, _networkPorts);
+                var unplugged = Config.NetworkAdapters.Where(a => a.Mode != NetworkMode.None && !a.Connected).Select(a => a.Id).ToList();
 
                 LaunchCommandLine = QemuArgumentBuilder.ToDisplayString(executable, arguments);
                 AppendLog($"Launching: {LaunchCommandLine}");
@@ -144,6 +145,20 @@ namespace WinQEMU.Core.Qemu
                 }
 
                 AppendLog("QMP: client ready.");
+
+                // No command-line option starts a card with its link down: done before the guest's system
+                // has started, which is what it sees. A failure costs the setting, never the start.
+                foreach (var id in unplugged)
+                {
+                    try
+                    {
+                        await SetLinkAsync(id, false, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is QmpException or InvalidOperationException or IOException)
+                    {
+                        AppendLog($"Network card {id}: could not be unplugged ({ex.Message}).");
+                    }
+                }
 
                 // Deliberately does not touch Config here. This continuation runs on the thread pool,
                 // and VmConfig is data-bound in the shell, so raising PropertyChanged from here throws
@@ -472,6 +487,15 @@ namespace WinQEMU.Core.Qemu
                 },
                 cancellationToken).ConfigureAwait(false);
             AppendLog($"Optical drive now holds {resolved}.");
+        }
+
+        /// <summary>Plugs a running machine's card in or out: the guest sees its cable connected or not.</summary>
+        public async Task SetLinkAsync(string adapterId, bool connected, CancellationToken cancellationToken = default)
+        {
+            // Named after the netdev: QEMU carries the link state over to the card it feeds.
+            await RequireQmp().ExecuteAsync("set_link", new JsonObject { ["name"] = adapterId, ["up"] = connected }, cancellationToken)
+                .ConfigureAwait(false);
+            AppendLog($"Network card {adapterId}: {(connected ? "connected" : "unplugged")}.");
         }
 
         /// <summary>

@@ -282,6 +282,19 @@ Bouton à côté des Paramètres (`VirtualNetworksDialog`).
   sous-réseau, plage hors limites…), et le commutateur refuse de démarrer tant qu'elle l'est. Pris en compte au prochain
   démarrage du commutateur. Ni routeur ni DNS annoncés (la route par défaut reste celle de la carte NAT) ; même adresse
   pour une même MAC (hachage).
+- **Une seule liste « Connexion » par carte** (Matériel et assistant) : NAT puis chaque réseau par son nom, comme
+  VMware liste NAT et ses VMnets (`NetworkChoice`, valeur `NetworkAdapterConfig.Connection` : `nat`, `none`,
+  `net:<id>`). Le mode « Ponté » (backend `tap` brut) n'y figure plus : le réseau Externe le remplace. Une
+  valeur nulle est ignorée (une liste qui remplace ses éléments la pose un instant).
+- **Câble branché / débranché** (`NetworkAdapterConfig.Connected`, comme « Connected » chez VMware) : la carte
+  reste dans l'invité mais sans lien, par QMP `set_link` (nommé d'après la netdev, QEMU reporte l'état sur la
+  carte). Aucune option de ligne de commande ne démarre une carte lien coupé : posé juste après la connexion
+  QMP, avant que le système de l'invité démarre. Seul réglage de la section Réseau modifiable machine en marche.
+- **Sous-réseaux incompatibles** (`VirtualNetwork.ConflictWith`, `HostSubnet`) : un réseau interne met ce PC sur
+  son sous-réseau, donc refusé s'il chevauche un réseau d'une carte de ce PC (dont le Wi-Fi d'un réseau
+  externe). Deux réseaux virtuels quels qu'ils soient ne partagent jamais d'adresses (VMware refuse deux VMnets
+  sur un même sous-réseau) ; aucun ne doit chevaucher le NAT de QEMU (10.0.2.0/24). Vérifié à la
+  fermeture du dialogue **et** au démarrage du commutateur (le PC a pu rejoindre un autre Wi-Fi depuis).
 - **Remplace le mode « Interne » par multicast** (`socket,mcast=`), qui envoyait aussi le trafic des VM
   par la carte de l'hôte à quiconque rejoignait le groupe. Les cartes qui l'utilisaient sont rebranchées au
   chargement sur un réseau privé « Segment N » (`VmManager.MoveMulticastSegmentsToNetworks`).
@@ -295,7 +308,25 @@ Bouton à côté des Paramètres (`VirtualNetworksDialog`).
   « branche » (IOCTL media status, sinon Windows ne demande pas d'adresse) et en fait un port du
   commutateur. Le DHCP réserve `.1` à sa MAC : Windows prend son adresse tout seul, sans droits.
   Accès refusé (5) → réglage « Non-Admin Access » de la carte. OpenVPN Connect (`tap_ovpnconnect`) exclu.
-- **Externe** : à venir (Npcap ou TAP + pont Windows ; Wi-Fi d'entreprise problématique).
+- **Externe** (les VM sur le réseau physique, chacune avec son adresse donnée par la box ; pas de DHCP WinQEMU) :
+  la carte physique choisie (`PhysicalAdapter`, `VirtualNetwork.PhysicalAdapterId`) devient un port du
+  commutateur par **Npcap** (`Networking.Npcap`, P/Invoke vers `System32\Npcap\wpcap.dll`), comme le pilote de
+  pont de VMware, **sans rien régler dans Windows** (l'utilisateur a refusé le pont manuel du panneau de
+  configuration). Npcap est installé par l'utilisateur (licence interdisant de l'embarquer), guidé par le
+  dialogue ; sans l'option « Restrict … to Administrators only », sinon accès refusé. La carte est ouverte une
+  fois à la création du réseau pour le dire tout de suite.
+  - **Traduction d'adresses MAC** (`MacTranslator`, testée sans Npcap) : une borne Wi-Fi n'accepte que la MAC du
+    poste associé. Les trames des VM sortent sous la MAC du PC (Ethernet et ARP), leur IP est apprise ; ce qui
+    revient à la MAC du PC pour l'IP d'une VM lui est réadressé. DHCP : drapeau broadcast posé (somme UDP mise
+    à 0), `chaddr` gardé pour que la box donne une adresse par VM. Fait aussi sur Ethernet : pas de mode
+    promiscuous, un seul chemin.
+  - **IPv6 bloqué dans les deux sens** (le NDP porte des MAC dans de l'ICMPv6 sommé) : sans cela un invité ayant
+    reçu des annonces de routeur essaierait l'IPv6 d'abord et attendrait à chaque connexion.
+  - **Le PC et ses VM ne se joignent pas par ce réseau** (Windows ne reçoit pas ce qui est injecté sur sa propre
+    carte ; ses trames ne se distinguent de celles des VM que par la MAC) : carte NAT ou réseau interne pour ça.
+  - **Écartés** : pont Windows d'une carte TAP (manuel), NDISUIO (`\\.\Ndisuio`, réservé à 802.1X :
+    administrateur exigé, `SET_ETHER_TYPE` → erreur 87, toute écriture → paramètre incorrect), pilote maison
+    (certificat EV et signature d'attestation Microsoft).
 
 ## Accès depuis le réseau (à la place d'un vrai pont)
 

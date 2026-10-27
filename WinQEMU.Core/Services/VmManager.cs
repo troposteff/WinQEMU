@@ -23,7 +23,7 @@ namespace WinQEMU.Core.Services
         public Networking.VirtualNetworkHost Networks { get; } = new();
 
         private int? NetworkPort(string networkId) =>
-            Settings.VirtualNetworks.FirstOrDefault(n => n.Id == networkId) is { } network ? Networks.PortOf(network) : null;
+            Settings.VirtualNetworks.FirstOrDefault(n => n.Id == networkId) is { } network ? Networks.PortOf(network, Settings.VirtualNetworks) : null;
 
         public ObservableCollection<VmConfig> VirtualMachines { get; } = new();
 

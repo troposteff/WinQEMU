@@ -995,6 +995,28 @@ namespace WinQEMU.ViewModels
             return null;
         }
 
+        /// <summary>
+        /// Saves a card's cable state (already set by its switch), and plugs it in or out at once when the
+        /// machine runs. Refused live, the switch goes back so it never shows what the guest does not see.
+        /// </summary>
+        public async Task SetAdapterConnectedAsync(NetworkAdapterConfig adapter)
+        {
+            if (SelectedSession is { IsRunning: true } session && adapter.Mode != NetworkMode.None)
+            {
+                try
+                {
+                    await session.SetLinkAsync(adapter.Id, adapter.Connected);
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or QmpException)
+                {
+                    adapter.Connected = !adapter.Connected;
+                    ReportError(ex);
+                    return;
+                }
+            }
+            SaveSelected();
+        }
+
         /// <summary>Closes a service, live when the machine runs.</summary>
         public async Task CloseServiceAsync(LanServiceItem item)
         {

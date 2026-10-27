@@ -906,6 +906,19 @@ namespace WinQEMU
             });
         }
 
+        /// <summary>
+        /// A card's cable, plugged in or out by the user. Toggled also fires when the template binds the
+        /// switch to its card: only a switch that has focus — it was clicked or keyed — is the user's.
+        /// </summary>
+        private async void OnAdapterConnectedToggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ToggleSwitch { FocusState: not FocusState.Unfocused } toggle
+                || toggle.DataContext is not NetworkAdapterConfig adapter)
+                return;
+            adapter.Connected = toggle.IsOn;
+            await _viewModel.SetAdapterConnectedAsync(adapter);
+        }
+
         private void OnLanAccessExpanding(Microsoft.UI.Xaml.Controls.Expander sender, ExpanderExpandingEventArgs args) =>
             _viewModel.RefreshLanServices();
 

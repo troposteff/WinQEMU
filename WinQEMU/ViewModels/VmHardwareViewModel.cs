@@ -43,6 +43,7 @@ namespace WinQEMU.ViewModels
         public VmHardwareViewModel(VmManager manager, Action requestSave, Action<Exception> reportError)
         {
             _manager = manager;
+            ConnectionOptions = NetworkChoice.Follow(manager.Settings.VirtualNetworks);
             _requestSave = requestSave;
             _reportError = reportError;
 
@@ -605,8 +606,8 @@ namespace WinQEMU.ViewModels
 
         public bool HasAdapters => _config?.NetworkAdapters.Count > 0;
 
-        // The multicast segment is gone from the choices: its cards are moved to a virtual network on load.
-        public IReadOnlyList<NetworkMode> ModeOptions { get; } = Enum.GetValues<NetworkMode>().Where(m => m != NetworkMode.Internal).ToList();
+        /// <summary>NAT and the virtual networks, in one list: what a card's "Connexion" offers.</summary>
+        public ObservableCollection<NetworkChoice> ConnectionOptions { get; }
         public IReadOnlyList<NicModel> NicModelOptions { get; } = Enum.GetValues<NicModel>();
         public IReadOnlyList<PortForwardProtocol> ProtocolOptions { get; } = Enum.GetValues<PortForwardProtocol>();
 

@@ -978,7 +978,10 @@
                                     <muxc:Expander.Header>
                                         <TextBlock FontWeight="SemiBold" Text="Réseau" />
                                     </muxc:Expander.Header>
-                                    <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{Binding Hardware.CanEdit, Mode=OneWay}">
+                                    <!--
+                                        Not wholly behind Hardware.CanEdit: a card's cable plugs in and out live,
+                                        like VMware's "Connected". The rest of each card waits for the machine to stop.
+                                    -->
                                     <StackPanel Spacing="8">
                                         <ItemsControl ItemsSource="{Binding Hardware.Adapters, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
@@ -988,6 +991,14 @@
                                                         Padding="10"
                                                         Background="#11000000"
                                                         CornerRadius="6">
+                                                        <StackPanel Spacing="8">
+                                                        <ToggleSwitch
+                                                            AutomationProperties.Name="Câble branché"
+                                                            IsOn="{Binding Connected, Mode=TwoWay}"
+                                                            OffContent="Câble débranché : l'invité ne voit plus de réseau sur cette carte"
+                                                            OnContent="Câble branché"
+                                                            Toggled="OnAdapterConnectedToggled" />
+                                                        <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{Binding DataContext.Hardware.CanEdit, ElementName=RootGrid, Mode=OneWay}">
                                                         <StackPanel Spacing="8">
                                                             <Grid ColumnSpacing="8">
                                                                 <Grid.ColumnDefinitions>
@@ -1004,19 +1015,21 @@
                                                                     FontWeight="SemiBold"
                                                                     Text="{Binding Id}" />
 
+                                                                <!--
+                                                                    NAT and the virtual networks in one list, as VMware lists NAT and
+                                                                    its VMnets. Networks are referred to by id, so a rename in the
+                                                                    network editor never unplugs a card.
+                                                                -->
                                                                 <ComboBox
                                                                     Grid.Column="1"
                                                                     HorizontalAlignment="Stretch"
-                                                                    AutomationProperties.Name="Mode réseau"
-                                                                    Header="Mode"
-                                                                    ItemsSource="{Binding DataContext.Hardware.ModeOptions, ElementName=RootGrid}"
-                                                                    SelectedItem="{Binding Mode, Mode=TwoWay}">
-                                                                    <ComboBox.ItemTemplate>
-                                                                        <DataTemplate>
-                                                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
-                                                                        </DataTemplate>
-                                                                    </ComboBox.ItemTemplate>
-                                                                </ComboBox>
+                                                                    AutomationProperties.Name="Connexion"
+                                                                    DisplayMemberPath="Label"
+                                                                    Header="Connexion"
+                                                                    ItemsSource="{Binding DataContext.Hardware.ConnectionOptions, ElementName=RootGrid}"
+                                                                    PlaceholderText="Choisir une connexion"
+                                                                    SelectedValue="{Binding Connection, Mode=TwoWay}"
+                                                                    SelectedValuePath="Key" />
 
                                                                 <ComboBox
                                                                     Grid.Column="2"
@@ -1064,17 +1077,6 @@
                                                                 Text="{Binding BridgeInterface, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                                 Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Bridged}" />
 
-                                                            <!-- The network is referred to by id, so a rename in the network editor never unplugs a card. -->
-                                                            <ComboBox
-                                                                HorizontalAlignment="Stretch"
-                                                                AutomationProperties.Name="Réseau virtuel"
-                                                                DisplayMemberPath="Name"
-                                                                Header="Réseau virtuel (créés avec le bouton Réseaux virtuels, en haut à droite)"
-                                                                ItemsSource="{Binding DataContext.VirtualNetworks, ElementName=RootGrid}"
-                                                                PlaceholderText="Choisir un réseau"
-                                                                SelectedValue="{Binding NetworkId, Mode=TwoWay}"
-                                                                SelectedValuePath="Id"
-                                                                Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Network}" />
 
                                                             <StackPanel
                                                                 Spacing="6"
@@ -1131,6 +1133,8 @@
                                                                     Content="Ajouter une redirection de port" />
                                                             </StackPanel>
                                                         </StackPanel>
+                                                        </ContentControl>
+                                                        </StackPanel>
                                                     </Border>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -1141,7 +1145,6 @@
                                             Command="{Binding Hardware.AddAdapterCommand}"
                                             Content="Ajouter une carte réseau" />
                                     </StackPanel>
-                                    </ContentControl>
                                 </muxc:Expander>
                                 <!--
                                     Access from the network: host forwards on every interface, instead of a

@@ -115,6 +115,98 @@ namespace WinQEMU.Dialogs
             Save();
         }
 
+        /// <summary>
+        /// An external network puts the machines on a physical card through Npcap, which the user installs
+        /// (its licence forbids bundling it). The card is opened once here, so an Npcap restricted to
+        /// administrators is caught now rather than when a machine starts.
+        /// </summary>
+        private void OnAddExternalClick(object sender, RoutedEventArgs e)
+        {
+            if (!Npcap.IsInstalled)
+            {
+                ShowError(null);
+                NpcapPanel.Visibility = Visibility.Visible;
+                return;
+            }
+            NpcapPanel.Visibility = Visibility.Collapsed;
+
+            var adapter = PhysicalAdapter.List().FirstOrDefault();
+            if (adapter is null)
+            {
+                ShowError("Aucune carte Wi-Fi ou Ethernet de ce PC n'est connectée : connectez-en une, puis réessayez.");
+                return;
+            }
+            if (WhyUnusable(adapter) is { } reason)
+            {
+                ShowError(reason);
+                return;
+            }
+
+            ShowError(null);
+            var networks = _manager.Settings.VirtualNetworks;
+            var name = "Réseau externe";
+            for (var index = 2; networks.Any(n => n.Name == name); index++)
+                name = $"Réseau externe {index}";
+
+            networks.Add(new VirtualNetwork
+            {
+                Name = name,
+                Type = VirtualNetworkType.External,
+                PhysicalAdapterId = adapter.Id,
+                PhysicalAdapterName = adapter.Name
+            });
+            Save();
+        }
+
+        /// <summary>Why Npcap cannot open the card, or null when it can.</summary>
+        private static string? WhyUnusable(PhysicalAdapter adapter)
+        {
+            try
+            {
+                Npcap.Open(adapter).Dispose();
+                return null;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or DllNotFoundException or BadImageFormatException)
+            {
+                return ex.Message;
+            }
+        }
+
+        /// <summary>The cards an external network can use, as of when its box is shown; its own first if it has gone.</summary>
+        private void OnAdapterBoxLoaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ComboBox box || box.DataContext is not VirtualNetwork network || box.Items.Count > 0)
+                return;
+            var adapters = PhysicalAdapter.List();
+            foreach (var adapter in adapters)
+                box.Items.Add(new ComboBoxItem { Content = $"{adapter.Name} ({adapter.Description})", Tag = adapter });
+            var index = adapters.ToList().FindIndex(a => a.Id.Equals(network.PhysicalAdapterId, StringComparison.OrdinalIgnoreCase));
+            if (index < 0)
+            {
+                box.Items.Insert(0, new ComboBoxItem { Content = $"{network.PhysicalAdapterName} (non connectée)", IsEnabled = false });
+                index = 0;
+            }
+            box.SelectedIndex = index;
+        }
+
+        /// <summary>Takes effect when the network's switch next starts, i.e. once no machine uses it any more.</summary>
+        private void OnAdapterChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is not ComboBox { SelectedItem: ComboBoxItem { Tag: PhysicalAdapter adapter } } box
+                || box.DataContext is not VirtualNetwork network
+                || adapter.Id.Equals(network.PhysicalAdapterId, StringComparison.OrdinalIgnoreCase))
+                return;
+            if (WhyUnusable(adapter) is { } reason)
+            {
+                ShowError(reason);
+                return;
+            }
+            ShowError(null);
+            network.PhysicalAdapterId = adapter.Id;
+            network.PhysicalAdapterName = adapter.Name;
+            Save();
+        }
+
         /// <summary>Shows what is under way and holds the buttons back meanwhile.</summary>
         private void ShowProgress(string? message)
         {
@@ -188,7 +280,8 @@ namespace WinQEMU.Dialogs
 
         private void Check(VirtualNetwork network)
         {
-            ShowError(network.Problem is { } problem ? $"{network.Name} : {problem}" : null);
+            var problem = network.Problem ?? network.ConflictAmong(_manager.Settings.VirtualNetworks);
+            ShowError(problem is null ? null : $"{network.Name} : {problem}");
             Save();
         }
 
@@ -242,10 +335,16 @@ namespace WinQEMU.Dialogs
             Hide();
         }
 
-        private string? FirstProblem() =>
-            _manager.Settings.VirtualNetworks.FirstOrDefault(n => n.Problem is not null) is { } wrong
-                ? $"{wrong.Name} : {wrong.Problem}"
-                : null;
+        private string? FirstProblem()
+        {
+            var networks = _manager.Settings.VirtualNetworks;
+            foreach (var network in networks)
+            {
+                if ((network.Problem ?? network.ConflictAmong(networks)) is { } problem)
+                    return $"{network.Name} : {problem}";
+            }
+            return null;
+        }
 
         /// <summary>The same rule for any other way the dialog could close.</summary>
         private void OnClosing(ContentDialog sender, ContentDialogClosingEventArgs args)

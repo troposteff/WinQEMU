@@ -40,7 +40,7 @@
                 <TextBlock FontSize="20" FontWeight="SemiBold" Text="Réseaux virtuels" />
                 <TextBlock
                     Style="{StaticResource Hint}"
-                    Text="Des réseaux sur lesquels brancher les cartes des machines (Matériel, section Réseau, mode « Réseau virtuel »). WinQEMU les fait fonctionner lui-même, avec un serveur DHCP : les machines y obtiennent une adresse toutes seules."
+                    Text="Des réseaux sur lesquels brancher les cartes des machines (Matériel, section Réseau, liste « Connexion »). WinQEMU les fait fonctionner lui-même ; sur un réseau privé ou interne, son serveur DHCP donne une adresse aux machines, sur un réseau externe c'est la box. Chaque réseau a son propre sous-réseau."
                     TextWrapping="Wrap" />
             </StackPanel>
 
@@ -89,6 +89,7 @@
                                         </StackPanel>
                                         <ToggleSwitch
                                             Grid.Row="1" Grid.Column="1"
+                                            Visibility="{Binding HasAddresses, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                                             AutomationProperties.Name="Serveur DHCP"
                                             IsOn="{Binding Dhcp, Mode=TwoWay}"
                                             OffContent="DHCP"
@@ -99,7 +100,23 @@
                                             switch next starts. Text boxes update on losing focus, which is
                                             also when the settings are saved and the result checked.
                                         -->
-                                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="6">
+                                        <!-- An external network's addresses are the physical network's: only its card is chosen here. -->
+                                        <StackPanel
+                                            Grid.Row="2" Grid.ColumnSpan="2"
+                                            Orientation="Horizontal"
+                                            Spacing="6"
+                                            Visibility="{Binding Type, Mode=OneWay, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=External}">
+                                            <TextBlock Width="110" VerticalAlignment="Center" Text="Carte" />
+                                            <ComboBox
+                                                Width="360"
+                                                AutomationProperties.Name="Carte réseau de ce PC"
+                                                Loaded="OnAdapterBoxLoaded"
+                                                SelectionChanged="OnAdapterChanged" />
+                                        </StackPanel>
+                                        <StackPanel
+                                            Grid.Row="2" Grid.ColumnSpan="2"
+                                            Spacing="6"
+                                            Visibility="{Binding HasAddresses, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <TextBlock Width="110" VerticalAlignment="Center" Text="Sous-réseau" />
                                                 <TextBox
@@ -146,11 +163,19 @@
                 <StackPanel x:Name="AddButtons" Orientation="Horizontal" Spacing="8">
                     <Button Click="OnAddPrivateClick" Content="Ajouter un réseau privé" />
                     <Button Click="OnAddInternalClick" Content="Ajouter un réseau interne" />
+                    <Button Click="OnAddExternalClick" Content="Ajouter un réseau externe" />
                 </StackPanel>
                 <TextBlock
                     Style="{StaticResource Hint}"
-                    Text="Un réseau interne relie aussi ce PC aux machines, par une carte TAP-Windows : une carte par réseau interne. Le pilote (d'OpenVPN, licence GPLv2, source github.com/OpenVPN/tap-windows6) est fourni avec WinQEMU et installé au premier réseau interne. Externe (le réseau physique) viendra ensuite."
+                    Text="Un réseau interne relie aussi ce PC aux machines, par une carte TAP-Windows : une carte par réseau interne. Le pilote (d'OpenVPN, licence GPLv2, source github.com/OpenVPN/tap-windows6) est fourni avec WinQEMU et installé au premier réseau interne. Un réseau externe met les machines sur le réseau de ce PC, chacune avec sa propre adresse donnée par la box, grâce à Npcap ; elles n'y joignent pas ce PC lui-même (pour cela : leur carte NAT, ou un réseau interne)."
                     TextWrapping="Wrap" />
+                <!-- Npcap's licence forbids bundling it: the user installs it, guided from here. -->
+                <StackPanel x:Name="NpcapPanel" Spacing="4" Visibility="Collapsed">
+                    <TextBlock
+                        Text="Un réseau externe passe par Npcap, le pilote de capture de Wireshark, gratuit. Installez-le avec ses options par défaut, sans cocher « Restrict Npcap driver's access to Administrators only », puis cliquez à nouveau sur « Ajouter un réseau externe »."
+                        TextWrapping="Wrap" />
+                    <HyperlinkButton Padding="0" Content="Télécharger Npcap sur npcap.com" NavigateUri="https://npcap.com/#download" />
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <ProgressRing x:Name="ProgressRing" Width="16" Height="16" IsActive="False" Visibility="Collapsed" />
                     <TextBlock

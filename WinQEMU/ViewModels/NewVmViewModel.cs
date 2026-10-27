@@ -36,6 +36,11 @@ namespace WinQEMU.ViewModels
             ApplyProfile(_selectedProfile);
 
             Name = MakeUniqueName("Nouvelle machine virtuelle");
+
+            NetworkChoices = new[] { NetworkChoice.Nat() }
+                .Concat(manager.Settings.VirtualNetworks.Select(NetworkChoice.For))
+                .Append(NetworkChoice.None())
+                .ToList();
         }
 
         // ---- Navigation ----
@@ -294,12 +299,6 @@ namespace WinQEMU.ViewModels
                                "disque est configuré sur un bus reconnu nativement.");
             }
 
-            if (NetworkMode == NetworkMode.Bridged)
-            {
-                advisories.Add("Le mode ponté exige un pilote TAP installé sur l'hôte (OpenVPN TAP-Windows par " +
-                               "exemple). Sans lui, la VM refusera de démarrer.");
-            }
-
             return (null, advisories.Count > 0 ? string.Join(Environment.NewLine, advisories) : null);
         }
 
@@ -485,17 +484,25 @@ namespace WinQEMU.ViewModels
         private bool _bootFromIso = true;
         public bool BootFromIso { get => _bootFromIso; set => SetProperty(ref _bootFromIso, value); }
 
-        private NetworkMode _networkMode = NetworkMode.Nat;
-        public NetworkMode NetworkMode
+        private string _networkConnection = NetworkAdapterConfig.NatConnection;
+        /// <summary>What the machine's card is plugged into, as <see cref="NetworkAdapterConfig.Connection"/> takes it.</summary>
+        public string NetworkConnection
         {
-            get => _networkMode;
-            set { if (SetProperty(ref _networkMode, value)) RevalidateCurrentStep(); }
+            get => _networkConnection;
+            set { if (value is not null && SetProperty(ref _networkConnection, value)) RevalidateCurrentStep(); }
         }
 
-        public IReadOnlyList<NetworkMode> NetworkModeOptions { get; } = new[]
+        /// <summary>NAT, the virtual networks, or no card at all. The dialog is modal: the networks cannot change meanwhile.</summary>
+        public IReadOnlyList<NetworkChoice> NetworkChoices { get; }
+
+        private NetworkAdapterConfig ChosenConnection()
         {
-            NetworkMode.Nat, NetworkMode.Bridged, NetworkMode.None
-        };
+            var adapter = new NetworkAdapterConfig();
+            adapter.Connection = NetworkConnection;
+            return adapter;
+        }
+
+        private NetworkMode NetworkMode => ChosenConnection().Mode;
 
         private NicModel _nicModel = NicModel.VirtioNet;
         public NicModel NicModel { get => _nicModel; set => SetProperty(ref _nicModel, value); }
@@ -526,7 +533,7 @@ namespace WinQEMU.ViewModels
                 if (!string.IsNullOrWhiteSpace(SecondaryIsoPath))
                     builder.AppendLine($"Second lecteur : {SecondaryIsoPath}");
 
-                builder.AppendLine($"Réseau : {DescribeNetwork(NetworkMode)}");
+                builder.AppendLine($"Réseau : {NetworkChoices.FirstOrDefault(c => c.Key == NetworkConnection)?.Label ?? DescribeNetwork(NetworkMode)}");
                 builder.Append($"Horloge matérielle : {(RtcLocalTime ? "heure locale" : "UTC")}");
 
                 return builder.ToString();
@@ -550,7 +557,7 @@ namespace WinQEMU.ViewModels
                     var config = BuildPreviewConfig();
                     var executable = installation.GetSystemBinary(config.Architecture);
                     // A representative port; the real one is allocated at launch.
-                    var arguments = QemuArgumentBuilder.Build(config, installation, 45000);
+                    var arguments = QemuArgumentBuilder.Build(config, installation, 45000, networkPorts: _ => 45001);
                     return QemuArgumentBuilder.ToDisplayString(executable, arguments);
                 }
                 catch (Exception ex)
@@ -592,6 +599,7 @@ namespace WinQEMU.ViewModels
                 {
                     Id = "net0",
                     Mode = NetworkMode,
+                    NetworkId = ChosenConnection().NetworkId,
                     Model = NicModel,
                     MacAddress = "52:54:00:xx:xx:xx"
                 });
@@ -617,6 +625,7 @@ namespace WinQEMU.ViewModels
             SecondaryIsoPath = SecondaryIsoPath,
             BootFromIso = BootFromIso,
             NetworkMode = NetworkMode,
+            NetworkId = ChosenConnection().NetworkId,
             NicModel = NicModel,
             RtcLocalTime = RtcLocalTime
         };

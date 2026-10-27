@@ -104,6 +104,40 @@ namespace WinQEMU.Core.Networking
             }
         }
 
+        /// <summary>
+        /// Plugs the network into a physical card through Npcap: the machines' frames go out under this
+        /// PC's MAC, and what comes back for their addresses is switched to them (MacTranslator).
+        /// </summary>
+        public void Attach(PcapDevice device, MacTranslator translator)
+        {
+            var port = new PcapPort(device, translator);
+            lock (_lock)
+                _ports.Add(port);
+            // pcap_next_ex blocks for up to its timeout: a thread of its own rather than a pool thread.
+            _ = Task.Factory.StartNew(() => ServePcap(port, _stop.Token), CancellationToken.None,
+                TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        }
+
+        private void ServePcap(PcapPort port, CancellationToken cancellationToken)
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    if (port.Device.Read() is { } seen && port.Translator.Incoming(seen) is { } frame)
+                        ForwardAsync(port, frame, cancellationToken).GetAwaiter().GetResult();
+                }
+            }
+            catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
+            {
+                // The switch is shutting down, or the card went away (disabled, Wi-Fi switched off).
+            }
+            finally
+            {
+                Disconnect(port);
+            }
+        }
+
         private async Task ServeAsync(StreamPort port, CancellationToken cancellationToken)
         {
             var stream = port.Client.GetStream();
@@ -245,6 +279,29 @@ namespace WinQEMU.Core.Networking
             }
 
             public override void Close() => Client.Dispose();
+        }
+
+        /// <summary>A physical card, through Npcap and the address translation it needs.</summary>
+        private sealed class PcapPort : SwitchPort
+        {
+            public PcapPort(PcapDevice device, MacTranslator translator)
+            {
+                Device = device;
+                Translator = translator;
+            }
+
+            public PcapDevice Device { get; }
+
+            public MacTranslator Translator { get; }
+
+            protected override Task WriteAsync(byte[] frame, CancellationToken cancellationToken)
+            {
+                if (Translator.Outgoing(frame) is { } translated)
+                    Device.Send(translated);
+                return Task.CompletedTask;
+            }
+
+            public override void Close() => Device.Dispose();
         }
 
         /// <summary>This PC, through a TAP-Windows adapter: one frame per write, no framing.</summary>

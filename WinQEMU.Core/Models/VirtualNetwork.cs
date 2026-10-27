@@ -35,6 +35,17 @@ namespace WinQEMU.Core.Models
         /// <summary>The network's /24, e.g. 10.77.1.0: addresses .100-.199 are leased by DHCP.</summary>
         public string Subnet { get => _subnet; set => SetProperty(ref _subnet, value); }
 
+        private string _tapAdapterId = string.Empty;
+        /// <summary>
+        /// For an internal network: the TAP-Windows adapter (its NetCfgInstanceId) that is this PC's card on
+        /// it. Networking.TapAdapter lists them.
+        /// </summary>
+        public string TapAdapterId { get => _tapAdapterId; set => SetProperty(ref _tapAdapterId, value); }
+
+        private string _tapAdapterName = string.Empty;
+        /// <summary>The adapter's name when it was chosen, shown even when it has since disappeared.</summary>
+        public string TapAdapterName { get => _tapAdapterName; set => SetProperty(ref _tapAdapterName, value); }
+
         private bool _dhcp = true;
         /// <summary>Whether the switch hands out addresses. Off for networks where a guest runs its own DHCP server.</summary>
         public bool Dhcp { get => _dhcp; set => SetProperty(ref _dhcp, value); }
@@ -48,7 +59,13 @@ namespace WinQEMU.Core.Models
         };
 
         [JsonIgnore]
-        public string SubnetText => $"{Subnet}/24{(Dhcp ? ", DHCP" : string.Empty)}";
+        public string SubnetText => Type == VirtualNetworkType.Internal
+            ? $"{Subnet}/24{(Dhcp ? ", DHCP" : string.Empty)}, ce PC en {HostAddress} sur « {TapAdapterName} »"
+            : $"{Subnet}/24{(Dhcp ? ", DHCP" : string.Empty)}";
+
+        /// <summary>This PC's address on an internal network: .1 of the subnet.</summary>
+        [JsonIgnore]
+        public string HostAddress => Prefix is { } p ? $"{p[0]}.{p[1]}.{p[2]}.1" : string.Empty;
 
         /// <summary>The first three bytes of <see cref="Subnet"/>, or null when it is not an IPv4 address.</summary>
         [JsonIgnore]

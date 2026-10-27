@@ -239,6 +239,31 @@ public class VirtualNetworkTests
     }
 
     [Fact]
+    public void This_pcs_adapter_is_given_the_first_address_of_an_internal_network()
+    {
+        var hostMac = new PhysicalAddress(new byte[] { 0x00, 0xFF, 0x12, 0x34, 0x56, 0x78 });
+        var dhcp = new DhcpResponder(Prefix, new Dictionary<PhysicalAddress, byte> { [hostMac] = 1 });
+
+        Assert.Equal(new byte[] { 10, 77, 1, 1 }, ParseReply(dhcp.Answer(DhcpFrame(hostMac.GetAddressBytes(), 1))!).YourAddress);
+        // A machine still gets one from the pool, never .1.
+        Assert.InRange(ParseReply(dhcp.Answer(DhcpFrame(MacA, 1))!).YourAddress[3], 100, 199);
+    }
+
+    [Fact]
+    public void An_internal_network_says_where_this_pc_is_on_it()
+    {
+        var network = new VirtualNetwork
+        {
+            Type = VirtualNetworkType.Internal,
+            Subnet = "10.77.4.0",
+            TapAdapterName = "Ethernet 3"
+        };
+
+        Assert.Equal("10.77.4.1", network.HostAddress);
+        Assert.Contains("ce PC en 10.77.4.1 sur « Ethernet 3 »", network.SubnetText);
+    }
+
+    [Fact]
     public void Each_new_network_gets_a_subnet_of_its_own()
     {
         var existing = new[] { new VirtualNetwork { Subnet = "10.77.1.0" }, new VirtualNetwork { Subnet = "10.77.2.0" } };

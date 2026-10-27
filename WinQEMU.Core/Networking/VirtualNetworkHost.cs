@@ -22,8 +22,27 @@ namespace WinQEMU.Core.Networking
 
                 var prefix = network.Prefix ?? throw new InvalidOperationException(
                     $"Le réseau {network.Name} a un sous-réseau invalide : {network.Subnet}.");
-                var created = new VirtualSwitch(network.Dhcp ? new DhcpResponder(prefix) : null);
+
+                // An internal network is this PC's too: its TAP adapter becomes one more port, and the
+                // DHCP server keeps .1 for it. Opened before anything starts, so a missing or refused
+                // adapter stops the machine with the reason instead of leaving a network without the PC.
+                TapDevice? device = null;
+                var reserved = new Dictionary<System.Net.NetworkInformation.PhysicalAddress, byte>();
+                if (network.Type == VirtualNetworkType.Internal)
+                {
+                    var adapter = TapAdapter.List().FirstOrDefault(a => a.Id.Equals(network.TapAdapterId, StringComparison.OrdinalIgnoreCase))
+                        ?? throw new InvalidOperationException(
+                            $"La carte TAP-Windows du réseau {network.Name} (« {network.TapAdapterName} ») est introuvable : " +
+                            "le pilote a-t-il été désinstallé ? Choisissez une autre carte dans Réseaux virtuels.");
+                    device = TapDevice.Open(adapter);
+                    if (adapter.Mac is { } mac)
+                        reserved[mac] = 1;
+                }
+
+                var created = new VirtualSwitch(network.Dhcp ? new DhcpResponder(prefix, reserved) : null);
                 created.Start();
+                if (device is not null)
+                    created.Attach(device);
                 _switches[network.Id] = created;
                 return created.Port;
             }

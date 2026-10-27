@@ -1,5 +1,3 @@
-using System.ComponentModel;
-using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -168,36 +166,9 @@ namespace WinQEMU.Core.Services
         /// Adds an inbound rule for QEMU on the private and domain profiles (not public: a café's network
         /// has no business reaching the guest). One UAC prompt; OperationCanceledException if declined.
         /// </summary>
-        public static async Task<bool> AllowQemuAsync(string qemuPath)
-        {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = Path.Combine(Environment.SystemDirectory, "netsh.exe"),
-                Arguments = $"advfirewall firewall add rule name=\"{FirewallRuleName}\" dir=in action=allow " +
-                            $"program=\"{qemuPath}\" enable=yes profile=private,domain",
-                // Elevation is a shell verb, so no redirection: the outcome is read back with IsQemuAllowed.
-                UseShellExecute = true,
-                Verb = "runas",
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-
-            Process? process;
-            try
-            {
-                process = Process.Start(startInfo);
-            }
-            catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)   // ERROR_CANCELLED: UAC declined
-            {
-                throw new OperationCanceledException("L'autorisation administrateur a été refusée.", ex);
-            }
-
-            if (process is null)
-                return false;
-            using (process)
-            {
-                await process.WaitForExitAsync().ConfigureAwait(false);
-                return process.ExitCode == 0;
-            }
-        }
+        public static async Task<bool> AllowQemuAsync(string qemuPath) =>
+            await Elevation.RunAsync(Path.Combine(Environment.SystemDirectory, "netsh.exe"),
+                $"advfirewall firewall add rule name=\"{FirewallRuleName}\" dir=in action=allow " +
+                $"program=\"{qemuPath}\" enable=yes profile=private,domain").ConfigureAwait(false) == 0;
     }
 }

@@ -25,9 +25,15 @@ namespace WinQEMU.Core.Networking
         private readonly Dictionary<string, byte> _leases = new();
         private readonly object _lock = new();
 
-        public DhcpResponder(byte[] prefix)
+        /// <param name="reserved">
+        /// Fixed addresses by MAC, outside the pool: this PC's TAP adapter gets .1 on an internal network,
+        /// so machines can be told where to find it.
+        /// </param>
+        public DhcpResponder(byte[] prefix, IReadOnlyDictionary<PhysicalAddress, byte>? reserved = null)
         {
             _prefix = prefix;
+            foreach (var (mac, host) in reserved ?? new Dictionary<PhysicalAddress, byte>())
+                _leases[mac.ToString()] = host;
         }
 
         private byte[] ServerAddress => new[] { _prefix[0], _prefix[1], _prefix[2], (byte)254 };

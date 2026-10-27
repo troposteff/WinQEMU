@@ -90,11 +90,22 @@
             </ScrollViewer>
 
             <StackPanel Grid.Row="2" Spacing="6">
-                <Button Click="OnAddPrivateClick" Content="Ajouter un réseau privé" />
+                <!-- Not IsEnabled: that is declared by Control, and a panel binding it breaks XamlCompiler. -->
+                <StackPanel x:Name="AddButtons" Orientation="Horizontal" Spacing="8">
+                    <Button Click="OnAddPrivateClick" Content="Ajouter un réseau privé" />
+                    <Button Click="OnAddInternalClick" Content="Ajouter un réseau interne" />
+                </StackPanel>
                 <TextBlock
                     Style="{StaticResource Hint}"
-                    Text="Interne (les machines et ce PC) et Externe (le réseau physique) demandent un pilote réseau sur Windows ; ils viendront ensuite."
+                    Text="Un réseau interne relie aussi ce PC aux machines, par une carte TAP-Windows : une carte par réseau interne. Le pilote (d'OpenVPN, licence GPLv2, source github.com/OpenVPN/tap-windows6) est fourni avec WinQEMU et installé au premier réseau interne. Externe (le réseau physique) viendra ensuite."
                     TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressRing x:Name="ProgressRing" Width="16" Height="16" IsActive="False" Visibility="Collapsed" />
+                    <TextBlock
+                        x:Name="ProgressText"
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
+                </StackPanel>
                 <TextBlock
                     x:Name="ErrorText"
                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"

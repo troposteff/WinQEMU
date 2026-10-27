@@ -64,14 +64,47 @@ namespace WinQEMU.Core.Networking
                 }
 
                 client.NoDelay = true;
-                var port = new SwitchPort(client);
+                var port = new StreamPort(client);
                 lock (_lock)
                     _ports.Add(port);
                 _ = ServeAsync(port, cancellationToken);
             }
         }
 
-        private async Task ServeAsync(SwitchPort port, CancellationToken cancellationToken)
+        /// <summary>
+        /// Plugs this PC into the network through a TAP-Windows adapter: what Windows sends on it is
+        /// switched like a machine's frames, and what is switched to it, Windows receives.
+        /// </summary>
+        public void Attach(TapDevice device)
+        {
+            var port = new TapPort(device);
+            lock (_lock)
+                _ports.Add(port);
+            _ = ServeTapAsync(port, _stop.Token);
+        }
+
+        private async Task ServeTapAsync(TapPort port, CancellationToken cancellationToken)
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    var frame = await port.Device.ReadAsync(cancellationToken).ConfigureAwait(false);
+                    if (frame.Length >= 14)
+                        await ForwardAsync(port, frame, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
+            {
+                // The switch is shutting down, or the adapter was disabled or removed.
+            }
+            finally
+            {
+                Disconnect(port);
+            }
+        }
+
+        private async Task ServeAsync(StreamPort port, CancellationToken cancellationToken)
         {
             var stream = port.Client.GetStream();
             var header = new byte[4];
@@ -135,7 +168,7 @@ namespace WinQEMU.Core.Networking
                 foreach (var stale in _macTable.Where(entry => entry.Value == port).Select(entry => entry.Key).ToList())
                     _macTable.Remove(stale);
             }
-            port.Client.Dispose();
+            port.Close();
         }
 
         private static async Task<bool> ReadExactlyAsync(Stream stream, byte[] buffer, CancellationToken cancellationToken)
@@ -157,44 +190,74 @@ namespace WinQEMU.Core.Networking
             _listener.Stop();
             if (_accepting is not null)
                 await _accepting.ConfigureAwait(false);
+            List<SwitchPort> ports;
             lock (_lock)
             {
-                foreach (var port in _ports)
-                    port.Client.Dispose();
+                ports = _ports.ToList();
                 _ports.Clear();
             }
+            foreach (var port in ports)
+                port.Close();
             _stop.Dispose();
         }
 
-        private sealed class SwitchPort
+        /// <summary>A port of the switch: something frames are delivered to.</summary>
+        private abstract class SwitchPort
         {
             private readonly SemaphoreSlim _writeLock = new(1, 1);
 
-            public SwitchPort(TcpClient client) => Client = client;
-
-            public TcpClient Client { get; }
-
-            /// <summary>One frame, length first; serialised so frames from several senders never interleave.</summary>
+            /// <summary>One frame; serialised so frames from several senders never interleave.</summary>
             public async Task SendAsync(byte[] frame, CancellationToken cancellationToken)
             {
-                var message = new byte[4 + frame.Length];
-                BinaryPrimitives.WriteInt32BigEndian(message, frame.Length);
-                frame.CopyTo(message, 4);
-
                 await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    await Client.GetStream().WriteAsync(message, cancellationToken).ConfigureAwait(false);
+                    await WriteAsync(frame, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException)
                 {
-                    // That machine is going away; its reader removes the port.
+                    // That port is going away; its reader removes it.
                 }
                 finally
                 {
                     _writeLock.Release();
                 }
             }
+
+            protected abstract Task WriteAsync(byte[] frame, CancellationToken cancellationToken);
+
+            public abstract void Close();
+        }
+
+        /// <summary>A machine's card: QEMU's stream netdev, each frame preceded by its length.</summary>
+        private sealed class StreamPort : SwitchPort
+        {
+            public StreamPort(TcpClient client) => Client = client;
+
+            public TcpClient Client { get; }
+
+            protected override async Task WriteAsync(byte[] frame, CancellationToken cancellationToken)
+            {
+                var message = new byte[4 + frame.Length];
+                BinaryPrimitives.WriteInt32BigEndian(message, frame.Length);
+                frame.CopyTo(message, 4);
+                await Client.GetStream().WriteAsync(message, cancellationToken).ConfigureAwait(false);
+            }
+
+            public override void Close() => Client.Dispose();
+        }
+
+        /// <summary>This PC, through a TAP-Windows adapter: one frame per write, no framing.</summary>
+        private sealed class TapPort : SwitchPort
+        {
+            public TapPort(TapDevice device) => Device = device;
+
+            public TapDevice Device { get; }
+
+            protected override Task WriteAsync(byte[] frame, CancellationToken cancellationToken) =>
+                Device.WriteAsync(frame, cancellationToken);
+
+            public override void Close() => _ = Device.DisposeAsync();
         }
     }
 }

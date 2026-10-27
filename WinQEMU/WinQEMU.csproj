@@ -20,6 +20,8 @@
          asset missing from this list is silently absent from the package. -->
     <Content Include="Assets\**\*.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\WinQEMU.ico" CopyToOutputDirectory="PreserveNewest" />
+    <!-- TAP-Windows driver installer (OpenVPN, GPLv2), run by WinQEMU for internal networks: see Assets\Drivers\README.txt. -->
+    <Content Include="Assets\Drivers\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

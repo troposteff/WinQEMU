@@ -281,8 +281,17 @@ Bouton à côté des Paramètres (`VirtualNetworksDialog`).
 - **Remplace le mode « Interne » par multicast** (`socket,mcast=`), qui envoyait aussi le trafic des VM
   par la carte de l'hôte à quiconque rejoignait le groupe. Les cartes qui l'utilisaient sont rebranchées au
   chargement sur un réseau privé « Segment N » (`VmManager.MoveMulticastSegmentsToNetworks`).
-- **Types** : Privé seulement pour l'instant. Interne (avec ce PC) demandera un adaptateur virtuel côté
-  Windows (pilote TAP-Windows `tap0901`) relié au commutateur ; Externe, Npcap ou TAP + pont Windows.
+- **Interne** (les VM et ce PC) : une carte TAP-Windows (`tap0901`) par réseau interne. **Le pilote est
+  embarqué** (décision de l'utilisateur, par exception à « jamais embarquer » qui reste la règle pour
+  QEMU) : `Assets\Drivers\tap-windows-setup.exe`, l'installateur 9.24.7 d'OpenVPN (GPLv2, source et
+  empreinte dans le README voisin), renommé car les points du nom d'origine déclenchaient l'avertissement
+  PRI249. `TapDriver` le lance en `/S`, ou ajoute une carte avec son `tapinstall.exe`, en `runas` (une invite
+  UAC), après avoir vérifié la signature (WinVerifyTrust + signataire « OpenVPN Inc. ») : un fichier
+  substitué ne doit jamais être élevé. Les releases GitHub de tap-windows6 ne publient plus que des `.msm`. WinQEMU l'ouvre (`\\.\Global\{GUID}.tap`, `TapDevice`), la
+  « branche » (IOCTL media status, sinon Windows ne demande pas d'adresse) et en fait un port du
+  commutateur. Le DHCP réserve `.1` à sa MAC : Windows prend son adresse tout seul, sans droits.
+  Accès refusé (5) → réglage « Non-Admin Access » de la carte. OpenVPN Connect (`tap_ovpnconnect`) exclu.
+- **Externe** : à venir (Npcap ou TAP + pont Windows ; Wi-Fi d'entreprise problématique).
 
 ## Accès depuis le réseau (à la place d'un vrai pont)
 

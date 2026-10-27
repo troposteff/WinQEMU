@@ -27,8 +27,8 @@ namespace WinQEMU.Controls
     public enum ConsoleScaleMode
     {
         /// <summary>
-        /// The whole panel goes to QEMU, which keeps the guest's proportions itself (black bars inside its
-        /// window) and passes the size on to the guest, which may adopt it.
+        /// The whole panel goes to QEMU, which passes the size on to the guest; a guest that does not
+        /// adopt it is shown at its native size, centred, where QEMU's pointer lands right (see FitGuest).
         /// </summary>
         Fit,
 
@@ -44,6 +44,8 @@ namespace WinQEMU.Controls
 
         private IntPtr _shellWindow = IntPtr.Zero;
         private IntPtr _parkingWindow = IntPtr.Zero;
+        private ChildClickWatcher? _clickWatcher;
+        private PointerOverlay? _pointerOverlay;
         private QemuConsoleWindow? _console;
         private int _consoleProcessId;
 
@@ -163,6 +165,23 @@ namespace WinQEMU.Controls
 
             // Created here because this runs on the UI thread, whose message loop the window needs.
             _parkingWindow = QemuConsoleWindow.CreateParkingWindow();
+
+            // A click on the guest image gives the guest the keyboard, as it would in VMware.
+            _clickWatcher = new ChildClickWatcher(shellWindowHandle, OnChildClicked);
+            if (!_clickWatcher.IsInstalled)
+                Log?.Invoke("Console: could not watch clicks on the console; a click on it will not give it the keyboard.");
+
+            _pointerOverlay = new PointerOverlay(shellWindowHandle);
+            if (_pointerOverlay.IsCreated)
+            {
+                _pointerOverlay.Moved += (x, y) => QueuePointerMove(x, y);
+                _pointerOverlay.Button += OnOverlayButton;
+            }
+            else
+            {
+                Log?.Invoke("Console: could not create the pointer overlay; the pointer stays QEMU's, offset in a scaled image.");
+                _pointerOverlay = null;
+            }
             if (_parkingWindow == IntPtr.Zero)
                 Log?.Invoke("Console: could not create the parking window; consoles left by switching VMs return to the desktop.");
         }
@@ -292,6 +311,7 @@ namespace WinQEMU.Controls
             _suspended = true;
             _placeholder.Visibility = Visibility.Visible;
             ReleaseHeldKeys();
+            _pointerOverlay?.Hide();
             _console.Hide();
         }
 
@@ -319,11 +339,13 @@ namespace WinQEMU.Controls
             var processId = _consoleProcessId;
             _console = null;
             _consoleProcessId = 0;
+            _pointerOverlay?.Hide();
             _suspended = false;
             _pressedKeys.Clear();
             ResetCachedBounds();
             _guestSizeTimer.Stop();
             _guestSize = (0, 0);
+            _guestIgnoresWindow = false;
             GuestSizeChanged?.Invoke(this, EventArgs.Empty);
 
             PlaceholderText = IdlePlaceholder;
@@ -393,6 +415,99 @@ namespace WinQEMU.Controls
                 return;
 
             Focus(FocusState.Programmatic);
+        }
+
+        private void OnChildClicked(int x, int y)
+        {
+            if (_console is null || _suspended || _lastWidth <= 0)
+                return;
+            if (x >= _lastX && x < _lastX + _lastWidth && y >= _lastY && y < _lastY + _lastHeight)
+                FocusGuest();
+        }
+
+        /// <summary>
+        /// Sends pointer events to the guest over QMP, for the scaled image QEMU cannot point in (see
+        /// PointerOverlay). Supplied by the shell, which owns the session.
+        /// </summary>
+        public Func<IReadOnlyList<PointerEvent>, Task>? PointerForwarder { get; set; }
+
+        private readonly List<PointerEvent> _pointerQueue = new();
+        private bool _pointerSending;
+        // Traced once each per overlay showing, to see in the journal where the chain stops.
+        private bool _pointerMoveTraced;
+        private bool _pointerSendTraced;
+        private int _pointerErrorsTraced;
+
+        private void QueuePointerMove(int x, int y)
+        {
+            var guest = GuestSize;
+            if (!_pointerMoveTraced)
+            {
+                _pointerMoveTraced = true;
+                Log?.Invoke($"Console: pointer overlay got the mouse at ({x},{y}); window {_lastWidth}x{_lastHeight}, guest {guest.Width}x{guest.Height}.");
+            }
+            if (guest.Width <= 0 || guest.Height <= 0 || _lastWidth <= 0 || _lastHeight <= 0)
+                return;
+            var (absoluteX, absoluteY) = PointerEvent.ToAbsolute(x, y, _lastWidth, _lastHeight, guest.Width, guest.Height);
+            QueuePointer(PointerEvent.Move(absoluteX, absoluteY));
+        }
+
+        private void OnOverlayButton(string button, bool down, int x, int y)
+        {
+            // Placed first, so the press lands where the user clicked even if no move came before it.
+            if (x != int.MinValue)
+                QueuePointerMove(x, y);
+            QueuePointer(PointerEvent.Press(button, down));
+        }
+
+        /// <summary>
+        /// One QMP command at a time; moves made meanwhile collapse into the latest, presses are all kept
+        /// and stay in order. The mouse reports far more often than a round trip to QEMU takes.
+        /// </summary>
+        private void QueuePointer(PointerEvent pointer)
+        {
+            if (pointer.Button is null && _pointerQueue.Count > 0 && _pointerQueue[^1].Button is null)
+                _pointerQueue[^1] = pointer;
+            else
+                _pointerQueue.Add(pointer);
+
+            if (!_pointerSending)
+                _ = SendPointerQueueAsync();
+        }
+
+        private async Task SendPointerQueueAsync()
+        {
+            _pointerSending = true;
+            try
+            {
+                while (_pointerQueue.Count > 0 && PointerForwarder is { } forwarder)
+                {
+                    var batch = _pointerQueue.ToList();
+                    _pointerQueue.Clear();
+                    try
+                    {
+                        await forwarder(batch);
+                        if (!_pointerSendTraced)
+                        {
+                            _pointerSendTraced = true;
+                            Log?.Invoke($"Console: pointer sent to the guest over QMP ({batch.Count} event(s), first at {batch[0].X},{batch[0].Y}).");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // A refused event must not stop the ones after it; the first few say why.
+                        if (_pointerErrorsTraced++ < 3)
+                            Log?.Invoke($"Console: QEMU refused the pointer events: {ex.GetType().Name}: {ex.Message}");
+                    }
+                }
+                if (PointerForwarder is null && _pointerQueue.Count > 0 && _pointerErrorsTraced++ < 3)
+                    Log?.Invoke("Console: no pointer forwarder; pointer events dropped.");
+                _pointerQueue.Clear();
+            }
+            finally
+            {
+                _pointerSending = false;
+            }
         }
 
         /// <summary>
@@ -614,7 +729,23 @@ namespace WinQEMU.Controls
             }
         }
 
+        /// <summary>
+        /// Set once the guest, given the whole panel in Fit, kept a resolution of its own: Fit then shows
+        /// it at native size (see FitGuest). Cleared when the guest changes mode, which may be a driver
+        /// that now follows the window.
+        /// </summary>
+        private bool _guestIgnoresWindow;
+
+        /// <summary>When the native window was last moved or resized, to give the guest time to follow it.</summary>
+        private long _boundsSetAt;
+
         private (int Width, int Height) _guestSize;
+        /// <summary>
+        /// Whether the image is scaled down for a guest that keeps a resolution larger than the panel,
+        /// where QEMU's pointer lands short of the host's (see FitGuest).
+        /// </summary>
+        public bool IsPointerImprecise { get; private set; }
+
         /// <summary>The guest's own resolution, or (0,0) while it is not known.</summary>
         public (int Width, int Height) GuestSize => _guestSize;
 
@@ -637,10 +768,24 @@ namespace WinQEMU.Controls
             try
             {
                 var size = await GuestSizeProvider();
-                if (size.Width <= 0 || size.Height <= 0 || size == _guestSize)
+                if (size.Width <= 0 || size.Height <= 0)
                     return;
 
+                if (size == _guestSize)
+                {
+                    // A guest that follows the window does so within a second or two of a resize.
+                    if (_scaleMode == ConsoleScaleMode.Fit && !_guestIgnoresWindow
+                        && size != (_lastWidth, _lastHeight) && Environment.TickCount64 - _boundsSetAt > 2500)
+                    {
+                        _guestIgnoresWindow = true;
+                        InvalidateLastBounds();
+                        UpdateNativeBounds();
+                    }
+                    return;
+                }
+
                 _guestSize = size;
+                _guestIgnoresWindow = false;
 
                 // The panel has not moved, so the usual no-op guard would skip the new letterbox.
                 InvalidateLastBounds();
@@ -674,12 +819,27 @@ namespace WinQEMU.Controls
         private (int X, int Y, int Width, int Height) FitGuest(int panelX, int panelY, int panelWidth, int panelHeight)
         {
             var guest = GuestSize;
-            // QEMU's SDL display letterboxes on its own (seen once its window was DPI aware: a 16:10 guest
-            // in a wider window got bars at the sides, not a stretched image), so fitting needs no guest
-            // size and cannot go wrong when that size is stale. The window's size also becomes the
-            // guest's preferred mode, which a virtio-gpu guest follows: a letterbox computed here from an
-            // outdated 640x480 kept such a guest boxed in at 4:3.
-            if (_scaleMode == ConsoleScaleMode.Fit || guest.Width <= 0 || guest.Height <= 0)
+            if (guest.Width <= 0 || guest.Height <= 0)
+                return (panelX, panelY, panelWidth, panelHeight);
+
+            // Fit first hands QEMU the whole panel: its window size becomes the guest's preferred mode,
+            // which a virtio-gpu guest adopts, and the image then needs no scaling at all. A guest that
+            // keeps its own mode (Windows, with or without its virtio display driver) is shown at its
+            // native size instead, centred, when it fits: QEMU cannot point at a scaled image (SDL converts
+            // the pointer into image coordinates, letterbox included, and QEMU then scales that against
+            // the window size rather than the image's; measured on a 1280x800 guest in a 1578x944 window,
+            // the window's centre reached the guest at 81% and 85% of the way). A guest larger than the
+            // panel is scaled down, and PointerOverlay then points for QEMU, with a plain arrow for cursor.
+            var scaledDown = _scaleMode == ConsoleScaleMode.Fit && _guestIgnoresWindow
+                && (guest.Width > panelWidth || guest.Height > panelHeight);
+            // The pointer overlay points right in a scaled image; only without it is the pointer off.
+            var imprecise = scaledDown && _pointerOverlay is null;
+            if (imprecise != IsPointerImprecise)
+            {
+                IsPointerImprecise = imprecise;
+                GuestSizeChanged?.Invoke(this, EventArgs.Empty);
+            }
+            if (_scaleMode == ConsoleScaleMode.Fit && (!_guestIgnoresWindow || scaledDown))
                 return (panelX, panelY, panelWidth, panelHeight);
 
             var (width, height) = guest;
@@ -736,6 +896,8 @@ namespace WinQEMU.Controls
 
             _regionUpdates = _regionUpdates.ContinueWith(
                 _ => console.SetVisibleRegion(visible), TaskScheduler.Default);
+            // Its own window, on this thread: set here directly. Keeps the bar of full screen clickable.
+            _pointerOverlay?.SetVisibleRegion(visible);
         }
 
         private void UpdateNativeBounds()
@@ -776,7 +938,29 @@ namespace WinQEMU.Controls
             _lastWidth = width;
             _lastHeight = height;
 
-            _console.SetBounds(x, y, width, height);
+            // QEMU points right only when its window is the guest's size; otherwise the overlay takes the
+            // mouse, and QEMU's window is kept just under it.
+            var guest = GuestSize;
+            var scaled = guest.Width > 0 && guest.Height > 0 && (width, height) != guest;
+            if (scaled && _pointerOverlay is not null)
+            {
+                if (!_pointerOverlay.IsVisible)
+                {
+                    _pointerMoveTraced = _pointerSendTraced = false;
+                    _pointerErrorsTraced = 0;
+                    Log?.Invoke($"Console: image scaled (window {width}x{height}, guest {guest.Width}x{guest.Height}); WinQEMU points for QEMU.");
+                }
+                _pointerOverlay.Show(x, y, width, height);
+                _console.SetBounds(x, y, width, height, _pointerOverlay.Handle);
+            }
+            else
+            {
+                if (_pointerOverlay is { IsVisible: true })
+                    Log?.Invoke($"Console: image at the guest's size ({width}x{height}); QEMU points again.");
+                _pointerOverlay?.Hide();
+                _console.SetBounds(x, y, width, height);
+            }
+            _boundsSetAt = Environment.TickCount64;
             _console.RequestRedraw();
             // The guest may adopt the new window size as its resolution: read it again in a moment.
             _ticksSinceGuestSizeRead = Math.Max(_ticksSinceGuestSizeRead, 3);

@@ -192,9 +192,11 @@ namespace WinQEMU.Core.Qemu
             var accelerator = ResolveAccelerator(config, installation);
             args.Add("-accel");
             args.Add(accelerator == AcceleratorType.Whpx
-                // WHPX has no in-kernel interrupt controller; leaving kernel-irqchip at its default
-                // makes QEMU refuse to start.
-                ? "whpx,kernel-irqchip=off"
+                // kernel-irqchip left at its default: the hypervisor's own APIC when the host has one,
+                // QEMU's otherwise. Forced off (QEMU's APIC), a Windows guest with more than one vCPU
+                // froze for good on its boot spinner, Windows 11 Setup included; one vCPU booted, and so
+                // did every vCPU count with the hypervisor's APIC. Linux guests boot either way.
+                ? "whpx"
                 : "tcg,thread=multi");
 
             if (accelerator == AcceleratorType.Whpx)
@@ -209,7 +211,9 @@ namespace WinQEMU.Core.Qemu
                 args.Add("reboot=shutdown");
             }
 
-            var cpuModel = string.IsNullOrWhiteSpace(config.CpuModel) ? "max" : config.CpuModel;
+            // Empty is the default model, never "max": under WHPX the guest then stalls. Seen with a field
+            // the editable CPU box had emptied: a Windows 11 guest hung after "Press any key to boot".
+            var cpuModel = string.IsNullOrWhiteSpace(config.CpuModel) ? VmConfig.DefaultCpuModel : config.CpuModel;
             args.Add("-cpu");
             args.Add(accelerator == AcceleratorType.Whpx && config.Architecture == GuestArchitecture.X86_64
                 ? WithConsistentCetState(cpuModel)
@@ -685,7 +689,31 @@ namespace WinQEMU.Core.Qemu
                 args.Add("-device");
                 args.Add(UsbHostDeviceArguments(device.VendorId, device.ProductId));
             }
+
+            if (NeedsWindowsSetupStick(config))
+            {
+                // vvfat shows a host folder as a FAT disk, read-only here. A USB stick, not a CD: the
+                // installation ISO already is one, and a removable drive is where Setup looks first.
+                args.Add("-blockdev");
+                args.Add($"driver=vvfat,node-name=wq-setup-fat,dir={EscapeOptionValue(GetWindowsSetupFolder(config))},label=WINQEMU,read-only=on");
+                args.Add("-blockdev");
+                args.Add("driver=raw,node-name=wq-setup,file=wq-setup-fat,read-only=on");
+                args.Add("-device");
+                args.Add($"usb-storage,id=wq-setup-stick,bus={UsbPassthroughControllerId}.0,drive=wq-setup,removable=on");
+            }
         }
+
+        /// <summary>
+        /// Whether the machine gets the stick carrying Windows 11 Setup's answer file
+        /// (Services.WindowsSetupAnswer): a Windows 11 machine starting from its installation ISO. It does
+        /// no harm once Windows is installed, which never looks for the file again.
+        /// </summary>
+        public static bool NeedsWindowsSetupStick(VmConfig config) =>
+            config.GuestOs == "windows-11" && config.BootFromIso && !string.IsNullOrWhiteSpace(config.IsoPath)
+            && config.Architecture == GuestArchitecture.X86_64;
+
+        /// <summary>The machine's folder the setup stick shows.</summary>
+        public static string GetWindowsSetupFolder(VmConfig config) => Path.Combine(config.FolderPath, "winqemu-setup");
 
         /// <summary>The usb-host device for -device, and for device_add on a running machine.</summary>
         public static string UsbHostDeviceArguments(int vendorId, int productId) =>
@@ -719,7 +747,11 @@ namespace WinQEMU.Core.Qemu
             args.Add("-device");
             args.Add("virtio-serial-pci,id=wq-agent-bus");
             args.Add("-chardev");
-            args.Add("qemu-vdagent,id=wq-vdagent,name=vdagent,clipboard=on");
+            // mouse=off: the clipboard only. With its default mouse=on, the agent takes the pointer as soon
+            // as spice-vdagent runs in the guest, and pointer events sent over QMP (the shell points for
+            // QEMU in a scaled image) carry no display, so it passed them on with none: a Windows guest
+            // with virtio-win's tools ignored every one. The USB tablet points for both SDL and QMP.
+            args.Add("qemu-vdagent,id=wq-vdagent,name=vdagent,clipboard=on,mouse=off");
             args.Add("-device");
             // The id is what makes QEMU report the agent connecting (VSERPORT_CHANGE); see VmSession.
             args.Add($"virtserialport,bus=wq-agent-bus.0,chardev=wq-vdagent,name=com.redhat.spice.0,id={ClipboardAgentPortId}");

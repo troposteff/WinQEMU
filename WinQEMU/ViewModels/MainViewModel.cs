@@ -504,6 +504,18 @@ namespace WinQEMU.ViewModels
             }
         }
 
+        /// <summary>Pointer events from the console, when the shell points for QEMU.</summary>
+        public async Task ForwardPointerAsync(IReadOnlyList<Core.Input.PointerEvent> pointer)
+        {
+            // Failures go back to the console, which traces the first few: unlike a key, a pointer that
+            // does nothing has no other sign of why.
+            var session = SelectedSession;
+            if (session is null || session.State is not VmState.Running)
+                throw new InvalidOperationException($"no running session ({session?.State.ToString() ?? "none selected"})");
+
+            await session.SendPointerAsync(pointer);
+        }
+
         private async Task SendCtrlAltDeleteAsync()
         {
             if (SelectedSession is { } session && session.State == VmState.Running)

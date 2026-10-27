@@ -288,7 +288,10 @@ namespace WinQEMU.Core.Interop
             return true;
         }
 
-        public void SetBounds(int x, int y, int width, int height)
+        /// <param name="below">
+        /// A window of the shell to stay just under (the pointer overlay), or zero for the top.
+        /// </param>
+        public void SetBounds(int x, int y, int width, int height, IntPtr below = default)
         {
             if (!IsAlive)
                 return;
@@ -298,7 +301,7 @@ namespace WinQEMU.Core.Interop
             // tree paints straight over it, so the window is correctly parented, sized and visible
             // yet shows nothing at all.
             NativeMethods.SetWindowPos(
-                Handle, NativeMethods.HwndTop, x, y, Math.Max(1, width), Math.Max(1, height),
+                Handle, below == IntPtr.Zero ? NativeMethods.HwndTop : below, x, y, Math.Max(1, width), Math.Max(1, height),
                 NativeMethods.SwpNoActivate | NativeMethods.SwpShowWindow | NativeMethods.SwpAsyncWindowPos);
         }
 

@@ -30,6 +30,7 @@ namespace WinQEMU
             // Keys captured by the host travel to the guest over the control channel, because an
             // embedded console window cannot receive them.
             ConsoleHost.KeyForwarder = _viewModel.ForwardKeysAsync;
+            ConsoleHost.PointerForwarder = _viewModel.ForwardPointerAsync;
 
             // Keep the newest QEMU output in view without stealing focus.
             _viewModel.LogUpdated += OnLogUpdated;
@@ -154,7 +155,12 @@ namespace WinQEMU
             MinWidth = minWidth
         };
 
-        private void OnScaleModeChanged(object sender, SelectionChangedEventArgs e) => ApplyScaleMode();
+        private void OnScaleModeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ApplyScaleMode();
+            // The box would otherwise keep the keyboard, and the keys meant for the guest change its mode.
+            ConsoleHost?.FocusGuest();
+        }
 
         /// <summary>The mode chosen in the box; full screen sets its own and this puts the user's back.</summary>
         private void ApplyScaleMode()
@@ -173,7 +179,10 @@ namespace WinQEMU
         private void UpdateGuestSizeText()
         {
             var (width, height) = ConsoleHost.GuestSize;
-            GuestSizeText.Text = width > 0 && height > 0 ? $"{width} × {height}" : string.Empty;
+            GuestSizeText.Text = width <= 0 || height <= 0 ? string.Empty
+                : ConsoleHost.IsPointerImprecise
+                    ? $"{width} × {height} réduite : pointeur décalé (F11 ou Taille réelle)"
+                    : $"{width} × {height}";
         }
 
         private bool _consoleFullScreen;

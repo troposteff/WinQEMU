@@ -47,7 +47,8 @@ Prises avec l'utilisateur ; ne pas les remettre en cause sans raison nouvelle.
   l'affichage** (pas de client .NET mûr, un client RFB complet serait à écrire).
 - **Clavier par QMP, jamais par la fenêtre.** Une fenêtre SDL enfant n'atteint jamais l'état de focus
   qu'exige QEMU. `VmConsoleHost` capte les touches en XAML et les envoie en scancodes AT set 1
-  (`input-send-event`). La souris passe nativement. Ne jamais donner le focus Win32 à la fenêtre SDL :
+  (`input-send-event`). La souris passe nativement, **sauf image mise à l'échelle** : QEMU y vise faux, et
+  WinQEMU envoie alors lui-même la position par QMP (`PointerOverlay`, décision de l'utilisateur). Ne jamais donner le focus Win32 à la fenêtre SDL :
   XAML cesserait de livrer les touches.
 - **Console d'une VM non affichée : garée, pas rendue au bureau.** Rendue au bureau, SDL la réaffiche
   seul au premier changement de mode vidéo de l'invité. Elle est mise en enfant d'une fenêtre cachée de
@@ -56,7 +57,9 @@ Prises avec l'utilisateur ; ne pas les remettre en cause sans raison nouvelle.
   SDL de QEMU n'a aucun support du presse-papiers, et le serveur VNC est le seul pair de presse-papiers
   côté hôte dans le build Windows. Côté invité : chardev `qemu-vdagent` sur le port virtio-serial
   `com.redhat.spice.0` (il faut `spice-vdagent` dans l'invité, et une session graphique). Côté hôte :
-  `-vnc 127.0.0.1:N,password=on`, mot de passe aléatoire posé par QMP ; `VncClipboardClient` ne parle
+  `-vnc 127.0.0.1:N,password=on`, mot de passe aléatoire posé par QMP ; **`mouse=off`** sur le chardev (sinon l'agent
+  prend le pointeur dès que spice-vdagent tourne, et les événements envoyés par QMP, sans écran d'origine, n'arrivaient
+  plus à un Windows muni des outils virtio-win : vérifié par un clic QMP sur le menu Démarrer, avec et sans) ; `VncClipboardClient` ne parle
   que les messages *Extended Clipboard* et ne demande jamais d'image. `ClipboardBridge` synchronise avec
   Windows.
 - **QEMU : détecter et guider, jamais embarquer ni télécharger.** `QemuLocator` explore et explique les
@@ -363,8 +366,17 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   froid sur un `SHUTDOWN` de raison `guest-reset` ou `host-qmp-system-reset`.
 - **Pas d'instantanés mémoire** (`savevm` exige la migration) et **pas de Secure Boot** (SMM refusé par
   WHPX) : les invités Windows 11 n'ont ni TPM ni Secure Boot et demandent le contournement du contrôle
-  matériel à l'installation.
-- `kernel-irqchip=off` est obligatoire, sans quoi QEMU refuse de démarrer.
+  matériel à l'installation. **Fait par WinQEMU** : une machine `windows-11` qui démarre sur son ISO reçoit
+  une clé USB en lecture seule (vvfat sur `<dossier VM>\winqemu-setup`, `usb-storage` sur `wq-usb`) portant un
+  `autounattend.xml` (`WindowsSetupAnswer`) qui ne fait que poser les clés `LabConfig` (TPM, Secure Boot, RAM,
+  CPU, stockage) dans la passe windowsPE ; l'installation pose ses questions habituelles. Le modèle CPU par
+  défaut a déjà SSE4.2 et POPCNT, exigés sans contournement possible par Windows 11 24H2.
+- **`-accel whpx` sans `kernel-irqchip`** : par défaut QEMU prend l'APIC de l'hyperviseur s'il en a un, sinon le
+  sien. Forcé à `off` (l'ancienne règle, de l'époque où le défaut refusait de démarrer), **un invité Windows à plus
+  d'un vCPU se figeait sur la roue de démarrage**, installation de Windows 11 comprise ; 1 vCPU démarrait, et tout
+  nombre de vCPU avec l'APIC de l'hyperviseur. Trouvé par sondes QMP sans affichage (`screendump`) : ni le modèle
+  CPU, ni CET, ni la topologie, ni x2APIC, ni HPET, ni i440fx n'y changeaient rien. Ubuntu et Debian démarrent
+  pareil avec 4 vCPU.
 - « failed to get xsave state » sur la sortie d'erreur : deux par vCPU secondaire au démarrage, sans effet.
 
 ## Pièges WinUI 3
@@ -386,8 +398,29 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
 - **L'invité suit la taille de la fenêtre** : SDL transmet sa taille comme mode préféré (`set_ui_info`), et
   un invité virtio-gpu l'adopte (Ubuntu : fenêtre 1898×1144 → invité 1898×1144). Avant le correctif DPI,
   cette taille arrivait divisée par 1,5. **SDL garde lui-même les proportions** (bandes noires dans sa
-  fenêtre) : « Ajuster » lui donne donc tout le panneau, sans calcul de notre part (un ancien recadrage
-  fondé sur une taille d'invité périmée, 640×480, enfermait l'invité en 4:3). « Étirer » n'existait plus en
+  fenêtre) : « Ajuster » lui donne donc d'abord tout le panneau (un ancien recadrage fondé sur une taille
+  d'invité périmée, 640×480, enfermait l'invité en 4:3).
+- **QEMU 11.1 ne sait pas pointer dans une image mise à l'échelle** : SDL convertit le pointeur en coordonnées
+  de l'image (bandes comprises), puis QEMU les rapporte à la taille de la **fenêtre** au lieu de celle de
+  l'image. Mesuré par la trace `input_event_abs` (invité 1280×800, fenêtre 1578×944 : le centre arrive à 81 % et
+  85 %). Le pointeur n'est juste que fenêtre = image. D'où, en « Ajuster », un invité qui garde sa résolution
+  ~2,5 s après qu'on lui a donné le panneau (installation de Windows, invité sans pilote d'affichage) est montré
+  à sa taille native, centré (`VmConsoleHost._guestIgnoresWindow`, remis à zéro à chaque changement de mode).
+  Un invité plus grand que le panneau est réduit, et **WinQEMU pointe alors à la place de QEMU** :
+  `PointerOverlay`, une fenêtre enfant à nous, superposée (couche à alpha 1/255 : invisible mais touchée par la
+  souris ; à 0 elle ne l'est plus), prend la souris et envoie la position calculée (bandes comprises,
+  `PointerEvent.ToAbsolute`) et les boutons par QMP `input-send-event` (`abs`, `btn`), mouvements fusionnés
+  le temps d'un aller-retour. La fenêtre de QEMU est gardée juste en dessous (`SetBounds(..., below)`). Prix :
+  le curseur est la flèche de Windows (les formes de l'invité n'existent que dans la fenêtre de QEMU). À taille
+  native, la couche est cachée et QEMU garde la souris. Windows, même avec le pilote d'affichage de virtio-win,
+  ne suit pas la taille de la fenêtre (constaté). Windows sans pilote d'affichage reste en
+  1280×800 (le mode GOP d'OVMF) : la résolution préférée annoncée par EDID (`virtio-vga,xres=,yres=`) est
+  ignorée par le microprogramme comme par l'installation de Windows (vérifié).
+- **Un clic dans la console ne donne pas le clavier à XAML** : il va au processus de QEMU, et le focus restait
+  sur le dernier contrôle utilisé (la liste « Ajuster » prenait les touches : impossible de saisir un nom dans
+  l'installation de Windows). `ChildClickWatcher` sous-classe la fenêtre du shell et reçoit `WM_PARENTNOTIFY`,
+  que Windows envoie au parent même quand l'enfant est d'un autre processus ; un clic dans la console appelle
+  `FocusGuest`. « Étirer » n'existait plus en
   pratique et a disparu. Seule « Taille réelle » a besoin de la résolution, relue toutes les 5 s et après
   chaque redimensionnement (une adoption de mode par l'invité ne redimensionne pas la fenêtre de QEMU).
 - **Barre du plein écran** : XAML ne peut pas passer au-dessus de la console ; la bande de la barre est

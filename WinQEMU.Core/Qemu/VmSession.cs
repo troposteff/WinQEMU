@@ -107,6 +107,8 @@ namespace WinQEMU.Core.Qemu
                 State = VmState.Starting;
 
                 EnsureUefiVarsStore();
+                if (QemuArgumentBuilder.NeedsWindowsSetupStick(Config))
+                    Services.WindowsSetupAnswer.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(Config));
 
                 var qmpPort = ReserveLoopbackPort();
                 int? clipboardPort = Config.EnableClipboard ? ReserveLoopbackPort() : null;
@@ -426,6 +428,36 @@ namespace WinQEMU.Core.Qemu
                 "input-send-event",
                 new JsonObject { ["events"] = events },
                 cancellationToken);
+        }
+
+        /// <summary>
+        /// Sends pointer events to the guest's tablet, for when the shell points for QEMU: absolute
+        /// positions in QEMU's 0..0x7FFF range across the guest screen, and button presses (QMP's
+        /// InputButton names: left, right, middle, side, extra, wheel-up, wheel-down, wheel-left,
+        /// wheel-right). One QMP command per batch, in order.
+        /// </summary>
+        public Task SendPointerAsync(IReadOnlyList<Input.PointerEvent> pointer, CancellationToken cancellationToken = default)
+        {
+            if (pointer.Count == 0)
+                return Task.CompletedTask;
+
+            var events = new JsonArray();
+            foreach (var item in pointer)
+            {
+                if (item.Button is { } button)
+                {
+                    events.Add(new JsonObject
+                    {
+                        ["type"] = "btn",
+                        ["data"] = new JsonObject { ["down"] = item.Down, ["button"] = button }
+                    });
+                    continue;
+                }
+                events.Add(new JsonObject { ["type"] = "abs", ["data"] = new JsonObject { ["axis"] = "x", ["value"] = item.X } });
+                events.Add(new JsonObject { ["type"] = "abs", ["data"] = new JsonObject { ["axis"] = "y", ["value"] = item.Y } });
+            }
+
+            return RequireQmp().ExecuteAsync("input-send-event", new JsonObject { ["events"] = events }, cancellationToken);
         }
 
         public Task SendKeyAsync(int number, bool down, CancellationToken cancellationToken = default) =>

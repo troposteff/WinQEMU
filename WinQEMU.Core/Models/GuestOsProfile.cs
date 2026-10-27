@@ -49,8 +49,9 @@ namespace WinQEMU.Core.Models
         private const string Windows11Caveat =
             "Windows 11 exige un TPM 2.0 et le démarrage sécurisé. Aucun des deux n'est possible ici : swtpm " +
             "est absent des versions Windows de QEMU, et le démarrage sécurisé réclame le mode SMM que " +
-            "l'hyperviseur WHPX ne fournit pas. Le profil reste donc en UEFI simple ; l'installation exigera " +
-            "de contourner le contrôle de configuration matérielle.";
+            "l'hyperviseur WHPX ne fournit pas. Le profil reste donc en UEFI simple, et WinQEMU lève le contrôle " +
+            "de configuration matérielle tout seul : pendant l'installation, la machine reçoit une clé USB " +
+            "« WINQEMU » dont le fichier de réponses demande à l'installation de Windows de passer outre.";
 
         private const string VirtioCaveat =
             "Windows n'embarque pas de pilote virtio. Le disque est donc en SATA, qui fonctionne sans pilote. " +

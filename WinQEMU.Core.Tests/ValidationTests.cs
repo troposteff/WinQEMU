@@ -79,6 +79,17 @@ public class ValidationTests : IDisposable
     }
 
     [Fact]
+    public void An_empty_cpu_model_means_the_default_one_never_max()
+    {
+        // The editable CPU box can empty the field; a Windows 11 guest then hung under WHPX after
+        // "Press any key to boot from CD or DVD".
+        var vm = Vm();
+        vm.CpuModel = string.Empty;
+
+        Assert.StartsWith(VmConfig.DefaultCpuModel, Fixtures.Value(Fixtures.Build(vm), "-cpu"));
+    }
+
+    [Fact]
     public void Those_same_models_are_fine_under_emulation()
     {
         var vm = Vm();

@@ -18,11 +18,21 @@ public class ClipboardArgumentTests
     }
 
     [Fact]
+    public void The_agent_leaves_the_pointer_to_the_tablet()
+    {
+        // With the agent's mouse on, pointer events sent over QMP never reached a Windows guest running
+        // spice-vdagent: the same click opened the Start menu once mouse=off.
+        var chardev = Fixtures.Values(BuildWithClipboard(50000), "-chardev").Single(c => c.StartsWith("qemu-vdagent", StringComparison.Ordinal));
+
+        Assert.Contains("mouse=off", chardev);
+    }
+
+    [Fact]
     public void Guest_agent_port_has_the_name_spice_vdagent_looks_for()
     {
         var args = BuildWithClipboard(50000);
 
-        Assert.Contains("qemu-vdagent,id=wq-vdagent,name=vdagent,clipboard=on", args);
+        Assert.Contains("qemu-vdagent,id=wq-vdagent,name=vdagent,clipboard=on,mouse=off", args);
         Assert.Contains(args, a => a.StartsWith("virtserialport,", StringComparison.Ordinal)
                                    && a.Contains("chardev=wq-vdagent")
                                    && a.Contains("name=com.redhat.spice.0")

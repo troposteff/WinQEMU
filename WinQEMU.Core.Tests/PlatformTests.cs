@@ -11,12 +11,12 @@ namespace WinQEMU.Core.Tests;
 public class PlatformTests
 {
     [Fact]
-    public void Whpx_disables_the_kernel_irqchip()
+    public void Whpx_leaves_the_interrupt_controller_to_the_hypervisor()
     {
-        // QEMU refuses to start with the default irqchip under WHPX, so the suffix is not optional.
+        // kernel-irqchip=off froze Windows guests with more than one vCPU on their boot spinner.
         var args = Fixtures.Build(Fixtures.Vm());
 
-        Assert.Equal("whpx,kernel-irqchip=off", Fixtures.Value(args, "-accel"));
+        Assert.Equal("whpx", Fixtures.Value(args, "-accel"));
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class PlatformTests
 
         var args = Fixtures.Build(vm, Fixtures.Installation(supportsWhpx: false));
 
-        Assert.Equal("whpx,kernel-irqchip=off", Fixtures.Value(args, "-accel"));
+        Assert.Equal("whpx", Fixtures.Value(args, "-accel"));
     }
 
     [Fact]

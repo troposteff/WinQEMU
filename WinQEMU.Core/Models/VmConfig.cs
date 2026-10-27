@@ -46,9 +46,13 @@ namespace WinQEMU.Core.Models
         /// — the firmware itself never starts and the console shows only "Display output is not
         /// active", with nothing in the log to explain it.
         /// A vendor-neutral base plus the instruction sets modern operating systems actually require
-        /// starts reliably and is not tied to Intel or AMD.
+        /// starts reliably and is not tied to Intel or AMD; Windows 11 24H2 will not even start Setup
+        /// without SSE4.2 and POPCNT. Also what an empty field means.
         /// </summary>
-        private string _cpuModel = "qemu64,+sse4.1,+sse4.2,+popcnt,+aes,+ssse3,+xsave";
+        public const string DefaultCpuModel = "qemu64,+sse4.1,+sse4.2,+popcnt,+aes,+ssse3,+xsave";
+
+        private string _cpuModel = DefaultCpuModel;
+        /// <summary>The model and its feature flags; empty for <see cref="DefaultCpuModel"/>.</summary>
         public string CpuModel { get => _cpuModel; set => SetProperty(ref _cpuModel, value); }
 
         private int _cpuCount = 2;

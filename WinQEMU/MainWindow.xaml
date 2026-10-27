@@ -1301,37 +1301,23 @@
                                             Message="{Binding Snapshots.ExcludedDisksText, Mode=OneWay}"
                                             Severity="Warning" />
 
-                                        <ListView
-                                            MaxHeight="180"
-                                            AutomationProperties.Name="Instantanés"
-                                            ItemsSource="{Binding Snapshots.Snapshots, Mode=OneWay}"
-                                            SelectedItem="{Binding Snapshots.Selected, Mode=TwoWay}"
-                                            SelectionMode="Single">
-                                            <ListView.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,4" ColumnSpacing="10">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0" Spacing="1">
-                                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                Opacity="0.6"
-                                                                Text="{Binding DetailText}"
-                                                                TextTrimming="CharacterEllipsis" />
-                                                        </StackPanel>
-                                                        <TextBlock
-                                                            Grid.Column="1"
-                                                            VerticalAlignment="Center"
-                                                            FontSize="12"
-                                                            Opacity="0.6"
-                                                            Text="{Binding CreatedText}" />
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ListView.ItemTemplate>
-                                        </ListView>
+                                        <!--
+                                            The snapshots as a tree, as VMware's snapshot manager draws them
+                                            (SnapshotTree for the shape, SnapshotTreeView for the drawing).
+                                            A click on a snapshot selects it for the buttons below; a click
+                                            on a linked clone opens that machine.
+                                        -->
+                                        <ScrollViewer
+                                            MaxHeight="300"
+                                            HorizontalScrollBarVisibility="Auto"
+                                            HorizontalScrollMode="Enabled"
+                                            IsTabStop="True"
+                                            VerticalScrollBarVisibility="Auto">
+                                            <controls:SnapshotTreeView
+                                                x:Name="SnapshotTreeDrawing"
+                                                Margin="0,4,0,4"
+                                                AutomationProperties.Name="Arbre des instantanés" />
+                                        </ScrollViewer>
 
                                         <TextBlock
                                             Style="{StaticResource Hint}"

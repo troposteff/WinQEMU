@@ -113,6 +113,20 @@ namespace WinQEMU.Core.Models
         /// <summary>Host folders shared with this machine (see <see cref="SharedFolderConfig"/>).</summary>
         public ObservableCollection<SharedFolderConfig> SharedFolders { get; set; } = new();
 
+        /// <summary>
+        /// Which state each snapshot was taken from, by name ("" for the machine's original state), as
+        /// VMware's snapshot tree knows it. Recorded by WinQEMU from the moment it existed: qcow2 keeps no
+        /// parent for its internal snapshots, so earlier ones hang from the original state, by date.
+        /// See Qemu.SnapshotTree.
+        /// </summary>
+        public List<SnapshotLink> SnapshotLinks { get; set; } = new();
+
+        /// <summary>
+        /// The snapshot the machine's current state comes from ("Vous êtes ici"): the last one taken,
+        /// restored or resumed. Empty when unknown, the disks' chains then tell.
+        /// </summary>
+        public string CurrentSnapshot { get; set; } = string.Empty;
+
         private bool _enableClipboard = true;
         /// <summary>
         /// Shares the text clipboard with the guest. Needs spice-vdagent inside the guest (installed by

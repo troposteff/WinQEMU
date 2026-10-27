@@ -120,6 +120,17 @@ courant, et dit pourquoi les autres ne le sont pas.
   `qemu-img commit` écrit dans la base **immédiate** de la superposition, vérifié sur une chaîne de trois
   niveaux. Avant ce suivi, revenir sur le niveau du haut laissait celui du dessous sans base enregistrée.
 
+- **Arborescence** (`SnapshotTree`, dessinée par `Controls.SnapshotTreeView`, comme le gestionnaire de VMware) :
+  « État d'origine », les instantanés sous celui dont ils partent, « Vous êtes ici », les clones liés et les
+  branches conservées pour eux (grisées). Filiation des instantanés à chaud lue dans la chaîne (la superposition
+  de S repose sur celle du précédent ; la machine écrit dans celle du haut). **qcow2 ne retient aucun parent pour
+  ses instantanés internes** : WinQEMU l'enregistre lui-même à chaque prise (`VmConfig.SnapshotLinks`) et note
+  où l'on se trouve après une restauration ou une reprise (`VmConfig.CurrentSnapshot`, vidé après une restauration
+  à chaud : la chaîne le dit alors). Un parent enregistré l'emporte s'il existe encore ; les instantanés plus
+  anciens que l'enregistrement pendent de l'origine ; une filiation en boucle (descripteur modifié à la main) est
+  ignorée. Un clone lié lit toute une image, donc l'état où elle a été figée : il pend de l'instantané dont la
+  superposition repose sur sa base (« Base de <clone> »), ou de celui de l'image s'il n'y a plus rien dessus.
+
 ## Clonage
 
 Deux formes, toujours machine source arrêtée (pause comprise : `VmManager` refuse).

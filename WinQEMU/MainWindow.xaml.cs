@@ -38,6 +38,14 @@ namespace WinQEMU
             _viewModel.ConsoleTargetChanged += OnConsoleTargetChanged;
 
             ConsoleHost.GuestSizeChanged += (_, _) => UpdateGuestSizeText();
+
+            // The snapshot tree is drawn in code (boxes and lines), redrawn when the tree or the selection changes.
+            _viewModel.Snapshots.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(VmSnapshotsViewModel.Tree) or nameof(VmSnapshotsViewModel.Selected))
+                    DrawSnapshotTree();
+            };
+            SnapshotTreeDrawing.NodeClicked += OnSnapshotNodeClicked;
             // Only the session can answer this, and only over QMP.
             ConsoleHost.GuestSizeProvider = async () =>
             {
@@ -155,6 +163,23 @@ namespace WinQEMU
             TextWrapping = TextWrapping.Wrap,
             MinWidth = minWidth
         };
+
+        private void DrawSnapshotTree() =>
+            SnapshotTreeDrawing.Show(_viewModel.Snapshots.Tree, _viewModel.Snapshots.Snapshots, _viewModel.Snapshots.Selected?.Name);
+
+        /// <summary>A snapshot becomes the one the buttons act on; a linked clone is opened.</summary>
+        private void OnSnapshotNodeClicked(Core.Qemu.SnapshotTreeNode node)
+        {
+            // Selected through the list, the one place selection originates (a clone hidden by the search
+            // stays where it is).
+            if (node.Clone is { } clone)
+            {
+                if (_viewModel.Items.FirstOrDefault(i => ReferenceEquals(i.Config, clone)) is { } listed)
+                    _viewModel.SelectedItem = listed;
+            }
+            else if (_viewModel.Snapshots.Snapshots.FirstOrDefault(s => s.Name == node.Title) is { } item)
+                _viewModel.Snapshots.Selected = item;
+        }
 
         private void OnScaleModeChanged(object sender, SelectionChangedEventArgs e)
         {

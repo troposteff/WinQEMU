@@ -678,11 +678,12 @@ namespace WinQEMU.ViewModels
         {
             _dispatcher.TryEnqueue(() =>
             {
+                // Any machine starting or stopping decides whether sampling goes on.
+                UpdateMetricsTimer();
                 if (!ReferenceEquals(sender, SelectedSession))
                     return;
 
                 RaiseStateDependentProperties();
-                UpdateMetricsTimer();
                 NotifyConsoleTargetChanged();
 
                 // Also after the cold restart the session makes of a guest reboot: a new QEMU, unmounted.
@@ -774,9 +775,21 @@ namespace WinQEMU.ViewModels
 
         // ---- Metrics ----
 
+        /// <summary>The last two minutes of each running machine, kept for all of them so a machine's charts are full when it is selected.</summary>
+        private readonly Dictionary<VmSession, VmMetricsHistory> _histories = new();
+        private readonly HashSet<VmSession> _sampling = new();
+        private int _metricsTicks;
+
+        /// <summary>The selected machine's history, for the charts; null when it is not running.</summary>
+        public VmMetricsHistory? SelectedHistory =>
+            SelectedSession is { IsRunning: true } session && _histories.TryGetValue(session, out var history) ? history : null;
+
+        /// <summary>Raised after each sample, for the charts to redraw.</summary>
+        public event EventHandler? MetricsSampled;
+
         private void UpdateMetricsTimer()
         {
-            if (SelectedSession?.IsRunning == true)
+            if (Manager.VirtualMachines.Any(vm => Manager.FindSession(vm)?.IsRunning == true))
             {
                 if (!_metricsTimer.IsRunning)
                     _metricsTimer.Start();
@@ -784,8 +797,10 @@ namespace WinQEMU.ViewModels
             else
             {
                 _metricsTimer.Stop();
-                ResetMetrics();
             }
+            if (SelectedSession?.IsRunning != true)
+                ResetMetrics();
+            RaisePropertyChanged(nameof(SelectedHistory));
         }
 
         private void ResetMetrics()
@@ -799,24 +814,62 @@ namespace WinQEMU.ViewModels
 
         private async Task RefreshMetricsAsync()
         {
-            var session = SelectedSession;
-            if (session is null || !session.IsRunning)
-                return;
+            // Every running machine, not only the one shown: its charts are full when it gets selected.
+            var running = Manager.VirtualMachines.Select(Manager.FindSession).OfType<VmSession>().Where(s => s.IsRunning).ToList();
+            foreach (var gone in _histories.Keys.Except(running).ToList())
+                _histories.Remove(gone);
+            var networkTick = _metricsTicks++ % 3 == 0;
+            await Task.WhenAll(running.Select(session => SampleAsync(session, networkTick)));
+            MetricsSampled?.Invoke(this, EventArgs.Empty);
 
-            VmMetrics metrics;
+            var selected = SelectedSession;
+            if (selected is null || !selected.IsRunning || !_histories.ContainsKey(selected))
+                return;
+            ShowMetrics(selected, _lastMetrics.GetValueOrDefault(selected));
+        }
+
+        private readonly Dictionary<VmSession, VmMetrics> _lastMetrics = new();
+
+        /// <summary>
+        /// One sample of one machine. The network comes from the guest agent, every third second: its
+        /// channel takes one client at a time, and the shared folders and the display use it too.
+        /// </summary>
+        private async Task SampleAsync(VmSession session, bool networkTick)
+        {
+            if (!_sampling.Add(session))
+                return;   // the previous sample is still waiting on QEMU or the agent
             try
             {
-                metrics = await session.QueryMetricsAsync();
+                VmMetrics metrics;
+                try
+                {
+                    metrics = await session.QueryMetricsAsync();
+                }
+                catch (Exception ex) when (ex is QmpException or InvalidOperationException or ObjectDisposedException)
+                {
+                    return;
+                }
+                var network = networkTick ? await session.QueryGuestNetworkBytesAsync() : null;
+
+                if (!_histories.TryGetValue(session, out var history))
+                    _histories[session] = history = new VmMetricsHistory();
+                history.Add(DateTimeOffset.UtcNow, metrics, network);
+                _lastMetrics[session] = metrics;
             }
-            catch (Exception ex) when (ex is QmpException or InvalidOperationException or ObjectDisposedException)
+            finally
             {
-                return;
+                _sampling.Remove(session);
             }
+        }
+
+        private void ShowMetrics(VmSession session, VmMetrics metrics)
+        {
 
             var allocatedBytes = (double)session.Config.MemoryMb * 1024 * 1024;
 
             CpuPercent = metrics.HostCpuPercent;
             CpuText = $"CPU hôte {metrics.HostCpuPercent.ToString("0.#", CultureInfo.CurrentCulture)} %";
+            RaisePropertyChanged(nameof(SelectedHistory));
 
             MemoryPercent = allocatedBytes > 0
                 ? Math.Clamp(metrics.ResidentMemoryBytes / allocatedBytes * 100d, 0d, 100d)

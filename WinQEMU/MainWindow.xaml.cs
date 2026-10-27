@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
@@ -46,6 +47,18 @@ namespace WinQEMU
                     DrawSnapshotTree();
             };
             SnapshotTreeDrawing.NodeClicked += OnSnapshotNodeClicked;
+
+            CpuChart.FixedMax = 100;
+            CpuChart.Format = v => $"{v.ToString("0", CultureInfo.CurrentCulture)} %";
+            MemoryChart.Format = FormatBytes;
+            DiskChart.Format = v => FormatBytes(v) + "/s";
+            NetworkChart.Format = v => FormatBytes(v) + "/s";
+            _viewModel.MetricsSampled += (_, _) => DrawMetrics();
+            _viewModel.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(MainViewModel.SelectedHistory))
+                    DrawMetrics();
+            };
             // Only the session can answer this, and only over QMP.
             ConsoleHost.GuestSizeProvider = async () =>
             {
@@ -163,6 +176,33 @@ namespace WinQEMU
             TextWrapping = TextWrapping.Wrap,
             MinWidth = minWidth
         };
+
+        /// <summary>The selected machine's last two minutes; empty charts when it is not running.</summary>
+        private void DrawMetrics()
+        {
+            var history = _viewModel.SelectedHistory;
+            var none = Array.Empty<double>();
+            CpuChart.Show(new[] { ("Processeur", history?.Cpu ?? none) });
+            MemoryChart.FixedMax = _viewModel.SelectedVm is { } vm ? vm.MemoryMb * 1024d * 1024d : null;
+            MemoryChart.Show(new[] { ("Mémoire", history?.MemoryBytes ?? none) });
+            DiskChart.Show(new[] { ("Lecture", history?.DiskRead ?? none), ("Écriture", history?.DiskWrite ?? none) });
+            NetworkChart.Show(new[] { ("Reçu", history?.NetworkReceived ?? none), ("Envoyé", history?.NetworkSent ?? none) },
+                history is { HasNetwork: false } && history.Count > 5
+                    ? "Mesuré par l'agent invité, qui ne répond pas dans cette machine."
+                    : null);
+        }
+
+        private static string FormatBytes(double bytes)
+        {
+            string[] units = { "o", "Ko", "Mo", "Go", "To" };
+            var unit = 0;
+            while (bytes >= 1024 && unit < units.Length - 1)
+            {
+                bytes /= 1024;
+                unit++;
+            }
+            return $"{bytes.ToString(unit == 0 || bytes >= 100 ? "0" : "0.#", CultureInfo.CurrentCulture)} {units[unit]}";
+        }
 
         private void DrawSnapshotTree() =>
             SnapshotTreeDrawing.Show(_viewModel.Snapshots.Tree, _viewModel.Snapshots.Snapshots, _viewModel.Snapshots.Selected?.Name);

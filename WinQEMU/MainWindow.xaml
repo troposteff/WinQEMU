@@ -1464,13 +1464,18 @@
                                 VerticalAlignment="Top"
                                 Background="#11000000"
                                 CornerRadius="8">
-                                <StackPanel Spacing="6">
+                                <!--
+                                    The last two minutes, one chart per measure (MetricChart), as Hyper-V's
+                                    manager shows them; sampled for every running machine, so they are full
+                                    when one is selected. Drawn from code after each sample.
+                                -->
+                                <StackPanel MinWidth="260" Spacing="14">
                                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Ressources" />
-                                    <ProgressBar Maximum="100" Value="{Binding CpuPercent, Mode=OneWay}" />
-                                    <TextBlock Text="{Binding CpuText, Mode=OneWay}" />
-                                    <ProgressBar Margin="0,6,0,0" Maximum="100" Value="{Binding MemoryPercent, Mode=OneWay}" />
-                                    <TextBlock Text="{Binding MemoryText, Mode=OneWay}" />
-                                    <TextBlock Margin="0,6,0,0" Text="{Binding DiskText, Mode=OneWay}" />
+                                    <controls:MetricChart x:Name="CpuChart" Title="Processeur" />
+                                    <controls:MetricChart x:Name="MemoryChart" Title="Mémoire" />
+                                    <controls:MetricChart x:Name="DiskChart" Title="Disque" />
+                                    <controls:MetricChart x:Name="NetworkChart" Title="Réseau" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="{Binding CpuText, Mode=OneWay}" />
                                 </StackPanel>
                             </Border>
                         </Grid>

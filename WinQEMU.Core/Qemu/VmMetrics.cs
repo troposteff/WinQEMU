@@ -14,9 +14,14 @@ namespace WinQEMU.Core.Qemu
     /// </param>
     /// <param name="DiskReadBytes">Cumulative bytes read across all block devices since boot.</param>
     /// <param name="DiskWrittenBytes">Cumulative bytes written across all block devices since boot.</param>
+    /// <param name="GuestCpuPercent">
+    /// The same CPU time as a share of the machine's own processors: what "the machine runs at 80 %"
+    /// means to its user. QEMU's own threads (display, I/O) count too, so it is capped at 100.
+    /// </param>
     public readonly record struct VmMetrics(
         double HostCpuPercent,
         long ResidentMemoryBytes,
         long DiskReadBytes,
-        long DiskWrittenBytes);
+        long DiskWrittenBytes,
+        double GuestCpuPercent = 0);
 }

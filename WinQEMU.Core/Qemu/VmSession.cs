@@ -771,6 +771,7 @@ namespace WinQEMU.Core.Qemu
                 return default;
 
             double cpuPercent = 0;
+            double guestCpuPercent = 0;
             long residentBytes = 0;
 
             try
@@ -788,6 +789,8 @@ namespace WinQEMU.Core.Qemu
                         var cpuDelta = (cpuTime - _lastCpuTime).TotalMilliseconds;
                         cpuPercent = Math.Clamp(
                             cpuDelta / (wallClockDelta * Environment.ProcessorCount) * 100d, 0d, 100d);
+                        guestCpuPercent = Math.Clamp(
+                            cpuDelta / (wallClockDelta * Math.Max(1, Config.CpuCount)) * 100d, 0d, 100d);
                     }
                 }
 
@@ -824,7 +827,50 @@ namespace WinQEMU.Core.Qemu
                 }
             }
 
-            return new VmMetrics(cpuPercent, residentBytes, read, written);
+            return new VmMetrics(cpuPercent, residentBytes, read, written, guestCpuPercent);
+        }
+
+        /// <summary>
+        /// Bytes received and sent by the guest's network cards since they came up, as the guest agent
+        /// reports them; null without an agent. QEMU counts nothing for its NAT, so only the guest can tell.
+        /// </summary>
+        /// <remarks>
+        /// A connection of its own, opened and closed at once: the agent's channel takes one client at a
+        /// time, and the shared folders and the display use it too. Loopback is left out.
+        /// </remarks>
+        public async Task<(long Received, long Sent)?> QueryGuestNetworkBytesAsync(CancellationToken cancellationToken = default)
+        {
+            if (!IsRunning || GuestAgentPort is null)
+                return null;
+            try
+            {
+                await using var agent = await ConnectGuestAgentAsync(cancellationToken).ConfigureAwait(false);
+                if (!await agent.SynchronizeAsync(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false))
+                    return null;
+                var interfaces = await agent.ExecuteAsync("guest-network-get-interfaces", null, TimeSpan.FromSeconds(2), cancellationToken)
+                    .ConfigureAwait(false) as JsonArray;
+                if (interfaces is null)
+                    return null;
+
+                long received = 0, sent = 0;
+                var counted = false;
+                foreach (var card in interfaces)
+                {
+                    var name = card?["name"]?.GetValue<string>() ?? string.Empty;
+                    if (name == "lo" || name.StartsWith("Loopback", StringComparison.OrdinalIgnoreCase)
+                        || card?["statistics"] is not JsonObject statistics)
+                        continue;
+                    received += statistics["rx-bytes"]?.GetValue<long>() ?? 0;
+                    sent += statistics["tx-bytes"]?.GetValue<long>() ?? 0;
+                    counted = true;
+                }
+                return counted ? (received, sent) : null;
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or SocketException or InvalidOperationException
+                                           or OperationCanceledException or ObjectDisposedException or FormatException)
+            {
+                return null;
+            }
         }
 
         private void StartProcess(string executable, IReadOnlyList<string> arguments)

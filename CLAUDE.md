@@ -371,6 +371,23 @@ L'app affiche quoi taper depuis une autre machine (`ssh -p 10022 utilisateur@192
   passe inaperçue ou est refusée à un utilisateur standard). Lu par l'API COM `HNetCfg.FwPolicy2` sans
   droits ; règle ajoutée par `netsh` en `runas`, profils privé et domaine seulement (pas public).
 
+## Graphiques de ressources
+
+Panneau « Ressources » du résumé : processeur, mémoire, disque, réseau sur deux minutes (`VmMetricsHistory`, une
+mesure par seconde **pour chaque VM en marche**, si bien que les courbes sont pleines quand on en sélectionne une),
+dessinés par `Controls.MetricChart` selon le guide de data-viz : une mesure par graphique (jamais deux échelles),
+au plus deux séries de même unité, palette de référence (bleu puis orange, pas propre à chaque thème), lignes 2 px,
+grille en filet, réticule et valeurs au survol.
+
+- **Processeur** : temps CPU de QEMU rapporté aux processeurs **de la VM** (`VmMetrics.GuestCpuPercent`), plafonné
+  à 100 (les fils de QEMU comptent aussi). La part du PC reste affichée sous les graphiques.
+- **Disque** : débits tirés des compteurs cumulés de `query-blockstats` ; un compteur qui recule (QEMU relancé
+  au redémarrage de l'invité) donne 0, pas un pic négatif.
+- **Réseau** : QEMU ne compte rien pour son NAT ; c'est **l'agent invité** qui le dit
+  (`guest-network-get-interfaces`, statistiques, loopback exclue), toutes les 3 s, par une connexion ouverte et
+  fermée aussitôt : le canal de l'agent n'accepte qu'un client, que partagent dossiers partagés et affichage. Sans
+  agent, le graphique le dit.
+
 ## Pièges de plateforme (WHPX, QEMU 11)
 
 Chacun a coûté du temps ; les commentaires du code donnent le détail.

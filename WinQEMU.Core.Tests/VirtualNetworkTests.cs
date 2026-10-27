@@ -15,6 +15,13 @@ namespace WinQEMU.Core.Tests;
 public class VirtualNetworkTests
 {
     private static readonly byte[] Prefix = { 10, 77, 1 };
+
+    /// <summary>10.77.1.0/24, leasing .100-.199 unless told otherwise, as a new network does.</summary>
+    private static DhcpScope Scope(int first = 100, int last = 199, string subnet = "10.77.1.0", int prefixLength = 24)
+    {
+        var network = DhcpScope.Parse(subnet)!.Value;
+        return new DhcpScope(network, prefixLength, network + (uint)first, network + (uint)last);
+    }
     private static readonly byte[] MacA = { 0x52, 0x54, 0x00, 0x00, 0x00, 0x0A };
     private static readonly byte[] MacB = { 0x52, 0x54, 0x00, 0x00, 0x00, 0x0B };
     private static readonly byte[] Broadcast = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
@@ -71,7 +78,7 @@ public class VirtualNetworkTests
     [Fact]
     public void A_discover_is_offered_an_address_of_the_network_and_a_request_acknowledged()
     {
-        var dhcp = new DhcpResponder(Prefix);
+        var dhcp = new DhcpResponder(Scope());
 
         var offer = ParseReply(dhcp.Answer(DhcpFrame(MacA, 1))!);
         Assert.Equal(2, offer.Type);
@@ -87,7 +94,7 @@ public class VirtualNetworkTests
     [Fact]
     public void Two_cards_get_two_addresses_and_each_keeps_its_own()
     {
-        var dhcp = new DhcpResponder(Prefix);
+        var dhcp = new DhcpResponder(Scope());
 
         var a = ParseReply(dhcp.Answer(DhcpFrame(MacA, 1))!).YourAddress;
         var b = ParseReply(dhcp.Answer(DhcpFrame(MacB, 1))!).YourAddress;
@@ -99,7 +106,7 @@ public class VirtualNetworkTests
     [Fact]
     public void A_request_for_another_address_is_refused_so_the_guest_starts_over()
     {
-        var dhcp = new DhcpResponder(Prefix);
+        var dhcp = new DhcpResponder(Scope());
 
         // A guest coming from another network asks to keep the address it had there.
         Assert.Equal(6, ParseReply(dhcp.Answer(DhcpFrame(MacA, 3, new byte[] { 192, 168, 1, 50 }))!).Type);
@@ -108,7 +115,7 @@ public class VirtualNetworkTests
     [Fact]
     public void A_request_to_another_server_gets_no_answer()
     {
-        var dhcp = new DhcpResponder(Prefix);
+        var dhcp = new DhcpResponder(Scope());
 
         Assert.Null(dhcp.Answer(DhcpFrame(MacA, 3, new byte[] { 10, 77, 1, 120 }, new byte[] { 10, 77, 1, 1 })));
     }
@@ -116,7 +123,7 @@ public class VirtualNetworkTests
     [Fact]
     public void The_server_answers_arp_for_its_own_address_only()
     {
-        var dhcp = new DhcpResponder(Prefix);
+        var dhcp = new DhcpResponder(Scope());
         byte[] Arp(byte last)
         {
             var payload = new byte[28];
@@ -202,7 +209,7 @@ public class VirtualNetworkTests
     [Fact]
     public async Task A_guest_on_the_switch_gets_its_address_from_the_switch()
     {
-        await using var network = new VirtualSwitch(new DhcpResponder(Prefix));
+        await using var network = new VirtualSwitch(new DhcpResponder(Scope()));
         network.Start();
         var a = await ConnectAsync(network);
         await WaitForPortsAsync(network, 1);
@@ -212,7 +219,7 @@ public class VirtualNetworkTests
 
         Assert.NotNull(offer);
         Assert.Equal(2, ParseReply(offer!).Type);
-        Assert.Equal(ParseReply(offer!).YourAddress, network.Dhcp!.LeaseOf(new PhysicalAddress(MacA)));
+        Assert.Equal(string.Join('.', ParseReply(offer!).YourAddress), network.Dhcp!.LeaseOf(new PhysicalAddress(MacA)));
     }
 
     [Fact]
@@ -242,11 +249,80 @@ public class VirtualNetworkTests
     public void This_pcs_adapter_is_given_the_first_address_of_an_internal_network()
     {
         var hostMac = new PhysicalAddress(new byte[] { 0x00, 0xFF, 0x12, 0x34, 0x56, 0x78 });
-        var dhcp = new DhcpResponder(Prefix, new Dictionary<PhysicalAddress, byte> { [hostMac] = 1 });
+        var dhcp = new DhcpResponder(Scope(), new Dictionary<PhysicalAddress, uint> { [hostMac] = Scope().HostAddress });
 
         Assert.Equal(new byte[] { 10, 77, 1, 1 }, ParseReply(dhcp.Answer(DhcpFrame(hostMac.GetAddressBytes(), 1))!).YourAddress);
         // A machine still gets one from the pool, never .1.
         Assert.InRange(ParseReply(dhcp.Answer(DhcpFrame(MacA, 1))!).YourAddress[3], 100, 199);
+    }
+
+    [Fact]
+    public void Addresses_come_from_the_network_s_own_range()
+    {
+        var dhcp = new DhcpResponder(Scope(50, 51));
+
+        var a = ParseReply(dhcp.Answer(DhcpFrame(MacA, 1))!).YourAddress[3];
+        var b = ParseReply(dhcp.Answer(DhcpFrame(MacB, 1))!).YourAddress[3];
+
+        Assert.Equal(new[] { 50, 51 }, new[] { (int)a, b }.Order());
+    }
+
+    [Fact]
+    public void A_range_can_never_hand_out_the_pc_s_or_the_server_s_address()
+    {
+        var dhcp = new DhcpResponder(Scope(0, 255));
+        var leased = Enumerable.Range(0, 40)
+            .Select(i => ParseReply(dhcp.Answer(DhcpFrame(new byte[] { 0x52, 0x54, 0, 0, 1, (byte)i }, 1))!).YourAddress[3])
+            .ToList();
+
+        Assert.DoesNotContain((byte)1, leased);
+        Assert.DoesNotContain((byte)254, leased);
+        Assert.DoesNotContain((byte)0, leased);
+    }
+
+    [Theory]
+    [InlineData("10.77.1.0", 24, "", "", null)]
+    [InlineData("10.77.1.0", 24, "10.77.1.1", "10.77.1.199", "entre 10.77.1.2 et 10.77.1.253")]
+    [InlineData("10.77.1.0", 24, "10.77.1.10", "10.77.1.254", "entre 10.77.1.2 et 10.77.1.253")]
+    [InlineData("10.77.1.0", 24, "10.77.1.150", "10.77.1.120", "précéder")]
+    [InlineData("10.77.1.0", 24, "10.77.1", "", "adresses IPv4 complètes")]
+    [InlineData("10.77.1.5", 24, "", "", "ce serait 10.77.1.0")]
+    [InlineData("10.77.1.0", 30, "", "", "/29")]
+    [InlineData("réseau", 24, "", "", "n'est pas une adresse")]
+    [InlineData("192.168.0.0", 16, "192.168.10.1", "192.168.20.254", null)]
+    public void Impossible_addresses_are_explained(string subnet, int prefixLength, string start, string end, string? expected)
+    {
+        var problem = new VirtualNetwork { Subnet = subnet, PrefixLength = prefixLength, DhcpStart = start, DhcpEnd = end }.Problem;
+
+        if (expected is null)
+            Assert.Null(problem);
+        else
+            Assert.Contains(expected, problem);
+    }
+
+    [Fact]
+    public void A_larger_subnet_announces_its_own_mask_and_leases_beyond_the_last_byte()
+    {
+        var network = new VirtualNetwork { Subnet = "192.168.0.0", PrefixLength = 16, DhcpStart = "192.168.10.0", DhcpEnd = "192.168.10.0" };
+        var dhcp = new DhcpResponder(network.Scope!);
+
+        var offer = ParseReply(dhcp.Answer(DhcpFrame(MacA, 1))!);
+
+        Assert.Equal(new byte[] { 192, 168, 10, 0 }, offer.YourAddress);
+        Assert.Equal(new byte[] { 255, 255, 0, 0 }, offer.Mask);
+        // The server sits at the end of the subnet, this PC at its start.
+        Assert.Equal("192.168.255.254", DhcpScope.Format(network.Scope!.ServerAddress));
+        Assert.Equal("192.168.0.1", network.HostAddress);
+    }
+
+    [Fact]
+    public void Without_a_range_set_the_default_follows_the_subnet()
+    {
+        Assert.Equal(("10.77.1.100", "10.77.1.199"),
+            (new VirtualNetwork { Subnet = "10.77.1.0" }.DefaultDhcpStart, new VirtualNetwork { Subnet = "10.77.1.0" }.DefaultDhcpEnd));
+        // Too small for .100-.199: everything between this PC and the server.
+        var small = new VirtualNetwork { Subnet = "10.77.1.0", PrefixLength = 26 };
+        Assert.Equal(("10.77.1.2", "10.77.1.61"), (small.DefaultDhcpStart, small.DefaultDhcpEnd));
     }
 
     [Fact]
@@ -261,6 +337,7 @@ public class VirtualNetworkTests
 
         Assert.Equal("10.77.4.1", network.HostAddress);
         Assert.Contains("ce PC en 10.77.4.1 sur « Ethernet 3 »", network.SubnetText);
+        Assert.Contains("10.77.4.0/24, DHCP de 10.77.4.100 à 10.77.4.199", network.SubnetText);
     }
 
     [Fact]
@@ -269,7 +346,7 @@ public class VirtualNetworkTests
         var existing = new[] { new VirtualNetwork { Subnet = "10.77.1.0" }, new VirtualNetwork { Subnet = "10.77.2.0" } };
 
         Assert.Equal("10.77.3.0", VirtualNetwork.FreeSubnet(existing));
-        Assert.Equal(new byte[] { 10, 77, 3 }, new VirtualNetwork { Subnet = "10.77.3.0" }.Prefix);
-        Assert.Null(new VirtualNetwork { Subnet = "pas une adresse" }.Prefix);
+        Assert.Equal(DhcpScope.Parse("10.77.3.0"), new VirtualNetwork { Subnet = "10.77.3.0" }.Network);
+        Assert.Null(new VirtualNetwork { Subnet = "pas une adresse" }.Network);
     }
 }

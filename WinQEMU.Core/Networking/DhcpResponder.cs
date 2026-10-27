@@ -5,44 +5,49 @@ namespace WinQEMU.Core.Networking
 {
     /// <summary>
     /// The DHCP server of a virtual network, answering from inside the switch: DISCOVER, REQUEST, and ARP
-    /// for its own address. Leases .100-.199 of the network's /24, the same address to the same card for
-    /// as long as WinQEMU runs, and the first free one from a hash of the MAC otherwise, so a machine
-    /// usually keeps its address across restarts of the application too.
+    /// for its own address. Leases the network's range (<see cref="DhcpScope"/>), the same address to the
+    /// same card for as long as WinQEMU runs, and the first free one from a hash of the MAC otherwise, so a
+    /// machine usually keeps its address across restarts of the application too.
     /// </summary>
     /// <remarks>
-    /// Its own address is .254: .1 is left for this PC on an internal network. No router and no DNS are
-    /// announced — the network does not lead anywhere — so a guest's NAT card keeps the default route.
+    /// Its own address is the subnet's last usable one (.254 of a /24): the first (.1) is left for this PC
+    /// on an internal network. No router and no DNS are announced — the network does not lead anywhere —
+    /// so a guest's NAT card keeps the default route.
     /// </remarks>
     public sealed class DhcpResponder
     {
-        private const int First = 100, Last = 199;
         private const uint LeaseSeconds = 86400;
 
         /// <summary>A locally administered MAC no QEMU card gets (QEMU uses 52:54:00).</summary>
         public static readonly byte[] Mac = { 0x02, 0x57, 0x51, 0x00, 0x00, 0xFE };
 
-        private readonly byte[] _prefix;
-        private readonly Dictionary<string, byte> _leases = new();
+        private readonly DhcpScope _scope;
+        private readonly uint _first;
+        private readonly uint _last;
+        private readonly Dictionary<string, uint> _leases = new();
         private readonly object _lock = new();
 
         /// <param name="reserved">
-        /// Fixed addresses by MAC, outside the pool: this PC's TAP adapter gets .1 on an internal network,
-        /// so machines can be told where to find it.
+        /// Fixed addresses by MAC, outside the pool: this PC's TAP adapter gets the first usable address on
+        /// an internal network, so machines can be told where to find it.
         /// </param>
-        public DhcpResponder(byte[] prefix, IReadOnlyDictionary<PhysicalAddress, byte>? reserved = null)
+        public DhcpResponder(DhcpScope scope, IReadOnlyDictionary<PhysicalAddress, uint>? reserved = null)
         {
-            _prefix = prefix;
-            foreach (var (mac, host) in reserved ?? new Dictionary<PhysicalAddress, byte>())
-                _leases[mac.ToString()] = host;
+            _scope = scope;
+            // Never this PC's address nor the server's, whatever the range says.
+            _first = Math.Max(Math.Min(scope.First, scope.Last), scope.HostAddress + 1);
+            _last = Math.Min(Math.Max(scope.First, scope.Last), scope.ServerAddress - 1);
+            foreach (var (mac, address) in reserved ?? new Dictionary<PhysicalAddress, uint>())
+                _leases[mac.ToString()] = address;
         }
 
-        private byte[] ServerAddress => new[] { _prefix[0], _prefix[1], _prefix[2], (byte)254 };
+        private byte[] ServerAddress => DhcpScope.Bytes(_scope.ServerAddress);
 
         /// <summary>The address leased to a MAC, if any.</summary>
-        public byte[]? LeaseOf(PhysicalAddress mac)
+        public string? LeaseOf(PhysicalAddress mac)
         {
             lock (_lock)
-                return _leases.TryGetValue(mac.ToString(), out var host) ? new[] { _prefix[0], _prefix[1], _prefix[2], host } : null;
+                return _leases.TryGetValue(mac.ToString(), out var address) ? DhcpScope.Format(address) : null;
         }
 
         /// <summary>The reply to a frame from a guest, or null when it is not for this server.</summary>
@@ -114,8 +119,8 @@ namespace WinQEMU.Core.Networking
                     if (serverId is not null && !serverId.AsSpan().SequenceEqual(ServerAddress))
                         return null;
                     var lease = Lease(clientMac);
-                    var asked = requested ?? message.Slice(12, 4).ToArray();   // ciaddr when renewing
-                    return asked[3] == lease && asked.AsSpan(0, 3).SequenceEqual(_prefix)
+                    var asked = BinaryPrimitives.ReadUInt32BigEndian(requested ?? message.Slice(12, 4).ToArray());   // ciaddr when renewing
+                    return asked == lease
                         ? Reply(message, 5, lease)
                         : Reply(message, 6, null);   // NAK: the guest starts over and is offered its lease
                 default:
@@ -123,7 +128,7 @@ namespace WinQEMU.Core.Networking
             }
         }
 
-        private byte Lease(PhysicalAddress mac)
+        private uint Lease(PhysicalAddress mac)
         {
             lock (_lock)
             {
@@ -132,10 +137,12 @@ namespace WinQEMU.Core.Networking
                     return existing;
 
                 var taken = _leases.Values.ToHashSet();
-                var start = (int)(Fnv(mac.GetAddressBytes()) % (Last - First + 1));
-                for (var i = 0; i <= Last - First; i++)
+                var size = (ulong)(_last - _first) + 1;
+                var start = Fnv(mac.GetAddressBytes()) % size;
+                // Walks the range from the hashed start: a few probes at most, as leases are few.
+                for (ulong i = 0; i < size; i++)
                 {
-                    var candidate = (byte)(First + (start + i) % (Last - First + 1));
+                    var candidate = (uint)(_first + (start + i) % size);
                     if (!taken.Contains(candidate))
                         return _leases[key] = candidate;
                 }
@@ -152,13 +159,15 @@ namespace WinQEMU.Core.Networking
         }
 
         /// <summary>An OFFER (2), ACK (5) or NAK (6), broadcast as clients without an address expect.</summary>
-        private byte[] Reply(ReadOnlySpan<byte> request, byte type, byte? host)
+        private byte[] Reply(ReadOnlySpan<byte> request, byte type, uint? address)
         {
             var options = new List<byte> { 53, 1, type, 54, 4 };
             options.AddRange(ServerAddress);
-            if (host is not null)
+            if (address is not null)
             {
-                options.AddRange(new byte[] { 1, 4, 255, 255, 255, 0, 51, 4 });
+                options.AddRange(new byte[] { 1, 4 });
+                options.AddRange(DhcpScope.Bytes(_scope.Mask));
+                options.AddRange(new byte[] { 51, 4 });
                 options.AddRange(BitConverter.GetBytes(BinaryPrimitives.ReverseEndianness(LeaseSeconds)));
             }
             options.Add(255);
@@ -168,8 +177,8 @@ namespace WinQEMU.Core.Networking
             bootp[1] = 1; bootp[2] = 6;                  // Ethernet
             request.Slice(4, 4).CopyTo(bootp.AsSpan(4)); // xid
             request.Slice(10, 2).CopyTo(bootp.AsSpan(10)); // flags
-            if (host is { } h)
-                new[] { _prefix[0], _prefix[1], _prefix[2], h }.CopyTo(bootp, 16);   // yiaddr
+            if (address is { } yours)
+                DhcpScope.Bytes(yours).CopyTo(bootp, 16);   // yiaddr
             ServerAddress.CopyTo(bootp, 20);             // siaddr
             request.Slice(28, 16).CopyTo(bootp.AsSpan(28)); // chaddr
             BinaryPrimitives.WriteUInt32BigEndian(bootp.AsSpan(236), 0x63825363);

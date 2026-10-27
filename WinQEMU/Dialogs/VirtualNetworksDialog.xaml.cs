@@ -1,9 +1,11 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Networking;
 using WinQEMU.Core.Services;
 
 namespace WinQEMU.Dialogs
@@ -153,6 +155,43 @@ namespace WinQEMU.Dialogs
             Save();
         }
 
+        /// <summary>The masks offered, /8 to /29, shown as Windows shows them: 255.255.255.0 (/24).</summary>
+        private static readonly IReadOnlyList<(int Length, string Text)> Masks =
+            Enumerable.Range(8, 22).Reverse().Select(length => (length, $"{DhcpScope.MaskText(length)} (/{length})")).ToList();
+
+        private void OnMaskBoxLoaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ComboBox box || box.DataContext is not VirtualNetwork network || box.Items.Count > 0)
+                return;
+            foreach (var (_, text) in Masks)
+                box.Items.Add(text);
+            box.SelectedIndex = Masks.ToList().FindIndex(m => m.Length == network.PrefixLength);
+        }
+
+        private void OnMaskChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is not ComboBox { SelectedIndex: >= 0 } box || box.DataContext is not VirtualNetwork network)
+                return;
+            network.PrefixLength = Masks[box.SelectedIndex].Length;
+            Check(network);
+        }
+
+        /// <summary>
+        /// Saved even when wrong, so nothing typed is lost; the network's line says what is wrong, and its
+        /// switch refuses to start until it is fixed. Takes effect when the switch next starts.
+        /// </summary>
+        private void OnAddressLostFocus(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is VirtualNetwork network)
+                Check(network);
+        }
+
+        private void Check(VirtualNetwork network)
+        {
+            ShowError(network.Problem is { } problem ? $"{network.Name} : {problem}" : null);
+            Save();
+        }
+
         /// <summary>Takes effect when the network's switch next starts, i.e. once no machine uses it any more.</summary>
         private void OnDhcpToggled(object sender, RoutedEventArgs e) => Save();
 
@@ -174,19 +213,47 @@ namespace WinQEMU.Dialogs
             ErrorText.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        private void OnCloseClick(object sender, RoutedEventArgs e)
-        {
-            Save();
-            Hide();
-        }
+        private void OnBackgroundPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) =>
+            NetworkScroller.Focus(FocusState.Pointer);
+
+        private void OnCloseClick(object sender, RoutedEventArgs e) => TryClose();
 
         private void OnDialogKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             if (e.Key == Windows.System.VirtualKey.Escape)
             {
                 e.Handled = true;
-                Save();
-                Hide();
+                TryClose();
+            }
+        }
+
+        /// <summary>
+        /// Closes only once every network's addresses are usable: a network left wrong would refuse to start
+        /// with the next machine plugged into it, far from here, where the fields to fix it are.
+        /// </summary>
+        private void TryClose()
+        {
+            Save();
+            if (FirstProblem() is { } problem)
+            {
+                ShowError($"{problem} Corrigez-le avant de fermer.");
+                return;
+            }
+            Hide();
+        }
+
+        private string? FirstProblem() =>
+            _manager.Settings.VirtualNetworks.FirstOrDefault(n => n.Problem is not null) is { } wrong
+                ? $"{wrong.Name} : {wrong.Problem}"
+                : null;
+
+        /// <summary>The same rule for any other way the dialog could close.</summary>
+        private void OnClosing(ContentDialog sender, ContentDialogClosingEventArgs args)
+        {
+            if (FirstProblem() is { } problem)
+            {
+                args.Cancel = true;
+                ShowError($"{problem} Corrigez-le avant de fermer.");
             }
         }
     }

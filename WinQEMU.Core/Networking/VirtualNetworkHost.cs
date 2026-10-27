@@ -20,14 +20,14 @@ namespace WinQEMU.Core.Networking
                 if (_switches.TryGetValue(network.Id, out var running))
                     return running.Port;
 
-                var prefix = network.Prefix ?? throw new InvalidOperationException(
-                    $"Le réseau {network.Name} a un sous-réseau invalide : {network.Subnet}.");
+                var scope = network.Scope ?? throw new InvalidOperationException(
+                    $"Les adresses du réseau {network.Name} ne conviennent pas : {network.Problem}");
 
                 // An internal network is this PC's too: its TAP adapter becomes one more port, and the
                 // DHCP server keeps .1 for it. Opened before anything starts, so a missing or refused
                 // adapter stops the machine with the reason instead of leaving a network without the PC.
                 TapDevice? device = null;
-                var reserved = new Dictionary<System.Net.NetworkInformation.PhysicalAddress, byte>();
+                var reserved = new Dictionary<System.Net.NetworkInformation.PhysicalAddress, uint>();
                 if (network.Type == VirtualNetworkType.Internal)
                 {
                     var adapter = TapAdapter.List().FirstOrDefault(a => a.Id.Equals(network.TapAdapterId, StringComparison.OrdinalIgnoreCase))
@@ -36,10 +36,10 @@ namespace WinQEMU.Core.Networking
                             "le pilote a-t-il été désinstallé ? Choisissez une autre carte dans Réseaux virtuels.");
                     device = TapDevice.Open(adapter);
                     if (adapter.Mac is { } mac)
-                        reserved[mac] = 1;
+                        reserved[mac] = scope.HostAddress;
                 }
 
-                var created = new VirtualSwitch(network.Dhcp ? new DhcpResponder(prefix, reserved) : null);
+                var created = new VirtualSwitch(network.Dhcp ? new DhcpResponder(scope, reserved) : null);
                 created.Start();
                 if (device is not null)
                     created.Attach(device);
@@ -57,7 +57,7 @@ namespace WinQEMU.Core.Networking
             if (found?.Dhcp is not { } dhcp
                 || !System.Net.NetworkInformation.PhysicalAddress.TryParse(macAddress.Replace(':', '-').ToUpperInvariant(), out var mac))
                 return null;
-            return dhcp.LeaseOf(mac) is { } lease ? string.Join('.', lease) : null;
+            return dhcp.LeaseOf(mac);
         }
 
         /// <summary>Stops a network's switch, cutting off the machines on it (deletion, or a subnet change).</summary>

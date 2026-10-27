@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <ContentDialog
     x:Class="WinQEMU.Dialogs.VirtualNetworksDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -8,6 +8,7 @@
     mc:Ignorable="d"
     Background="Transparent"
     BorderThickness="0"
+    Closing="OnClosing"
     KeyDown="OnDialogKeyDown"
     Padding="0">
 
@@ -15,12 +16,18 @@
         Own chrome, as the other dialogs. Changes apply as they are made, like the settings: a network
         renamed here is renamed in every machine's card at once, since cards refer to it by id.
     -->
+    <!--
+        PointerPressed: a click on nothing in particular hands focus to the list (a tab stop), so the
+        field being edited lets go — and commits, since its binding updates on losing focus. Buttons,
+        fields and lists handle their own clicks, which never reach here.
+    -->
     <Border
         Padding="24"
         Background="{ThemeResource ContentDialogBackground}"
         BorderBrush="{ThemeResource ContentDialogBorderBrush}"
         BorderThickness="1"
-        CornerRadius="8">
+        CornerRadius="8"
+        PointerPressed="OnBackgroundPressed">
         <Grid Width="640" RowSpacing="10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -37,7 +44,12 @@
                     TextWrapping="Wrap" />
             </StackPanel>
 
-            <ScrollViewer Grid.Row="1" MaxHeight="380" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer
+                x:Name="NetworkScroller"
+                Grid.Row="1"
+                MaxHeight="380"
+                IsTabStop="True"
+                VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="8">
                     <TextBlock
                         x:Name="EmptyText"
@@ -57,6 +69,7 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
@@ -81,6 +94,45 @@
                                             OffContent="DHCP"
                                             OnContent="DHCP"
                                             Toggled="OnDhcpToggled" />
+                                        <!--
+                                            Addresses are edited in place and take effect when the network's
+                                            switch next starts. Text boxes update on losing focus, which is
+                                            also when the settings are saved and the result checked.
+                                        -->
+                                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="6">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Width="110" VerticalAlignment="Center" Text="Sous-réseau" />
+                                                <TextBox
+                                                    Width="150"
+                                                    AutomationProperties.Name="Adresse du sous-réseau"
+                                                    LostFocus="OnAddressLostFocus"
+                                                    Text="{Binding Subnet, Mode=TwoWay}" />
+                                                <ComboBox
+                                                    Width="200"
+                                                    AutomationProperties.Name="Masque du sous-réseau"
+                                                    Loaded="OnMaskBoxLoaded"
+                                                    SelectionChanged="OnMaskChanged" />
+                                            </StackPanel>
+                                            <StackPanel
+                                                Orientation="Horizontal"
+                                                Spacing="6"
+                                                Visibility="{Binding Dhcp, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Width="110" VerticalAlignment="Center" Text="DHCP, de" />
+                                                <TextBox
+                                                    Width="150"
+                                                    AutomationProperties.Name="Première adresse distribuée"
+                                                    LostFocus="OnAddressLostFocus"
+                                                    PlaceholderText="{Binding DefaultDhcpStart, Mode=OneWay}"
+                                                    Text="{Binding DhcpStart, Mode=TwoWay}" />
+                                                <TextBlock VerticalAlignment="Center" Text="à" />
+                                                <TextBox
+                                                    Width="150"
+                                                    AutomationProperties.Name="Dernière adresse distribuée"
+                                                    LostFocus="OnAddressLostFocus"
+                                                    PlaceholderText="{Binding DefaultDhcpEnd, Mode=OneWay}"
+                                                    Text="{Binding DhcpEnd, Mode=TwoWay}" />
+                                            </StackPanel>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

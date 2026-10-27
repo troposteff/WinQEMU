@@ -275,9 +275,13 @@ Bouton à côté des Paramètres (`VirtualNetworksDialog`).
   `stream` cliente en TCP local (`reconnect-ms=1000` : elle revient seule si le commutateur redémarre).
   Trames préfixées de leur longueur sur 4 octets big-endian. Commutateur à apprentissage : diffusion,
   multicast et inconnus vers tous les autres ports.
-- **DHCP intégré** (`DhcpResponder`) : .100–.199 du /24 (`10.77.N.0`, un N par réseau), serveur en .254
-  (le .1 est réservé à ce PC pour les réseaux internes), ni routeur ni DNS annoncés (la route par
-  défaut reste celle de la carte NAT). Même adresse pour une même MAC (hachage).
+- **Adresses réglables** dans l'éditeur, comme chez VMware : adresse du sous-réseau, masque (/8 à /29), plage DHCP en
+  adresses complètes (vide = défaut : .100–.199 si le sous-réseau le permet, sinon tout l'intervalle). Ce PC prend la
+  première adresse utilisable (.1 en /24), le serveur DHCP la dernière (.254). `DhcpScope` fait les calculs en entiers
+  (masque quelconque) ; `VirtualNetwork.Problem` explique une saisie impossible (adresse qui n'est pas un début de
+  sous-réseau, plage hors limites…), et le commutateur refuse de démarrer tant qu'elle l'est. Pris en compte au prochain
+  démarrage du commutateur. Ni routeur ni DNS annoncés (la route par défaut reste celle de la carte NAT) ; même adresse
+  pour une même MAC (hachage).
 - **Remplace le mode « Interne » par multicast** (`socket,mcast=`), qui envoyait aussi le trafic des VM
   par la carte de l'hôte à quiconque rejoignait le groupe. Les cartes qui l'utilisaient sont rebranchées au
   chargement sur un réseau privé « Segment N » (`VmManager.MoveMulticastSegmentsToNetworks`).

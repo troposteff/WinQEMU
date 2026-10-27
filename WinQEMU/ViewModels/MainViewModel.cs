@@ -583,6 +583,7 @@ namespace WinQEMU.ViewModels
             // is the only thread allowed to raise PropertyChanged on a data-bound config.
             config.LastStartedUtc = DateTime.UtcNow;
             MountSharedFolders(session);
+            PrepareGuestDisplay(session);
         }
 
         private Task PauseOrResumeAsync()
@@ -686,7 +687,10 @@ namespace WinQEMU.ViewModels
 
                 // Also after the cold restart the session makes of a guest reboot: a new QEMU, unmounted.
                 if (state == VmState.Running && SelectedSession is { } running)
+                {
                     MountSharedFolders(running);
+                    PrepareGuestDisplay(running);
+                }
 
                 if (state == VmState.Error && SelectedSession?.LastError is { Length: > 0 } error)
                 {
@@ -1099,6 +1103,84 @@ namespace WinQEMU.ViewModels
             "pas encore pris en charge.";
 
         private readonly Dictionary<VmConfig, GuestShareReport> _shareReports = new();
+
+        // ---- Windows guest resolution (see WindowsGuestDisplay) ----
+
+        /// <summary>QEMU runs whose Windows guest has the resolution helper set up, by agent port.</summary>
+        private readonly HashSet<(VmSession Session, int Port)> _displayRuns = new();
+        private readonly HashSet<(VmSession Session, int Port)> _displayReady = new();
+        private (int Width, int Height) _consoleSize;
+        private int _resolutionRequest;
+
+        /// <summary>
+        /// Sets up the resolution helper in a Windows guest, once per QEMU process, then asks for the
+        /// console's size. Linux guests follow the window by themselves.
+        /// </summary>
+        private void PrepareGuestDisplay(VmSession session)
+        {
+            if (GuestOsCatalog.Find(session.Config.GuestOs)?.Family != "Windows"
+                || session.GuestAgentPort is not { } port || !_displayRuns.Add((session, port)))
+                return;
+            _ = PrepareGuestDisplayAsync(session, port);
+        }
+
+        private async Task PrepareGuestDisplayAsync(VmSession session, int port)
+        {
+            // As for the shared folders: the agent answers before Windows can start programs.
+            for (var attempt = 1; attempt <= 5 && session.IsRunning && session.GuestAgentPort == port; attempt++)
+            {
+                try
+                {
+                    await using var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(5));
+                    if (agent is null)
+                        return;
+                    await WindowsGuestDisplay.SetupAsync(agent);
+                    _displayReady.Add((session, port));
+                    AppendDiagnostic("Display: the guest's resolution now follows the console.");
+                    RequestGuestResolution(_consoleSize.Width, _consoleSize.Height);
+                    return;
+                }
+                catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
+                {
+                    if (attempt == 5)
+                        AppendDiagnostic($"Display: the guest's resolution will not follow the console ({ex.Message}).");
+                    else
+                        await Task.Delay(TimeSpan.FromSeconds(20));
+                }
+            }
+        }
+
+        /// <summary>
+        /// The console's size in physical pixels, from "Ajuster" or full screen. Asked of the guest once
+        /// it has stopped changing for a moment: dragging the window's edge reports dozens of sizes.
+        /// </summary>
+        public void RequestGuestResolution(int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+                return;
+            _consoleSize = (width, height);
+            var request = ++_resolutionRequest;
+            _ = SendResolutionAsync(request, width, height);
+        }
+
+        private async Task SendResolutionAsync(int request, int width, int height)
+        {
+            await Task.Delay(800);
+            if (request != _resolutionRequest || SelectedSession is not { IsRunning: true } session
+                || session.GuestAgentPort is not { } port || !_displayReady.Contains((session, port)))
+                return;
+
+            try
+            {
+                await using var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(10));
+                if (agent is not null)
+                    await WindowsGuestDisplay.RequestAsync(agent, width, height);
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
+            {
+                AppendDiagnostic($"Display: {width}x{height} could not be asked of the guest ({ex.Message}).");
+            }
+        }
         private readonly HashSet<(VmSession Session, int Port)> _mountRuns = new();
 
         /// <summary>Where the selection's folders stand inside the running guest, or null when it is not running.</summary>

@@ -429,6 +429,17 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   1280×800 du microprogramme, et Windows démarrait en 1280×800 même en plein écran. Windows sans pilote d'affichage reste en
   1280×800 (le mode GOP d'OVMF) : la résolution préférée annoncée par EDID (`virtio-vga,xres=,yres=`) est
   ignorée par le microprogramme comme par l'installation de Windows (vérifié).
+- **La résolution d'un invité Windows suit la console** (`WindowsGuestDisplay`, comme les VMware Tools) : seule la
+  session de l'utilisateur peut changer la résolution, pas l'agent (SYSTEM, session 0). L'agent compile une fois par
+  démarrage un petit programme avec le .NET Framework de Windows (`Add-Type -OutputAssembly`, sans fenêtre, rien de
+  téléchargé) dans `%ProgramData%\WinQEMU`, et enregistre la tâche `WinQEMU-Resolution` du groupe Users ; à chaque
+  changement de taille en « Ajuster » ou plein écran (`VmConsoleHost.PreferredSizeChanged`, 800 ms d'attente), le
+  shell écrit la taille dans `HKLM\SOFTWARE\WinQEMU\Resolution` et lance la tâche par `cmd`/`schtasks` (0,6 s ;
+  nom sans espace, l'agent requote les arguments). **Le pilote d'affichage de virtio-win n'offre qu'une liste fixe**
+  (modes standard + la taille de la fenêtre au démarrage) et n'en ajoute pas ensuite : le programme prend la taille
+  exacte si elle existe (1920×1080 en plein écran), sinon le plus grand mode qui tient (1400×800 → 1280×800), que la
+  console met à l'échelle. Changement non enregistré dans Windows (sinon il primerait sur la taille de la fenêtre au
+  démarrage suivant). Vérifié sur le Windows 11 de l'utilisateur.
 - **Un clic dans la console ne donne pas le clavier à XAML** : il va au processus de QEMU, et le focus restait
   sur le dernier contrôle utilisé (la liste « Ajuster » prenait les touches : impossible de saisir un nom dans
   l'installation de Windows). `ChildClickWatcher` sous-classe la fenêtre du shell et reçoit `WM_PARENTNOTIFY`,

@@ -773,6 +773,13 @@ namespace WinQEMU.Controls
             }
         }
 
+        /// <summary>
+        /// Raised with QEMU's window size, in physical pixels, when it changes in "Ajuster" (full screen
+        /// included): the size the guest should take. A guest that follows the window does on its own; the
+        /// shell asks a Windows guest to (see WindowsGuestDisplay).
+        /// </summary>
+        public event Action<int, int>? PreferredSizeChanged;
+
         /// <summary>Raised when the guest changes video mode, so the shell can show the new resolution.</summary>
         public event EventHandler? GuestSizeChanged;
 
@@ -909,6 +916,9 @@ namespace WinQEMU.Controls
             _lastY = y;
             _lastWidth = width;
             _lastHeight = height;
+
+            if (_scaleMode == ConsoleScaleMode.Fit)
+                PreferredSizeChanged?.Invoke(width, height);
 
             // QEMU points right only when its window is the guest's size; otherwise the overlay takes the
             // mouse, and QEMU's window is kept just under it.

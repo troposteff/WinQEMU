@@ -31,6 +31,7 @@ namespace WinQEMU
             // embedded console window cannot receive them.
             ConsoleHost.KeyForwarder = _viewModel.ForwardKeysAsync;
             ConsoleHost.PointerForwarder = _viewModel.ForwardPointerAsync;
+            ConsoleHost.PreferredSizeChanged += _viewModel.RequestGuestResolution;
 
             // Keep the newest QEMU output in view without stealing focus.
             _viewModel.LogUpdated += OnLogUpdated;

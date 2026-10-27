@@ -270,7 +270,7 @@ namespace WinQEMU.Core.Services
         /// A synchronised agent connection, or null when none answered in time. Each attempt uses a fresh
         /// connection: a failed synchronisation leaves the old one mid-read.
         /// </summary>
-        private static async Task<GuestAgentClient?> WaitForAgentAsync(VmSession session, TimeSpan wait, CancellationToken cancellationToken)
+        public static async Task<GuestAgentClient?> WaitForAgentAsync(VmSession session, TimeSpan wait, CancellationToken cancellationToken = default)
         {
             var end = DateTime.UtcNow + wait;
             while (session.IsRunning)

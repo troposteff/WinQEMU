@@ -263,8 +263,19 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
 - **Abandonné : le partage Windows (SMB) joint par le NAT à 10.0.2.2.** Windows refusait le compte Entra ID
   de l'utilisateur venant de l'invité (journal NTLM, évènements 4023 `AzureAD\…`), et il fallait UAC, un
   mot de passe stocké et un partage visible du réseau local.
-- **Invités Windows** : pas de client 9P intégré ; il faudra un outil WinQEMU dans l'invité (WinFsp), à la
-  manière des VMware Tools.
+- **Invités Windows : WebDAV** (choix de l'utilisateur, plutôt que WinFsp + un outil invité : rien à installer à part
+  l'agent). `Sharing.WebDavServer`, un par exécution de QEMU, démarré seulement pour un invité Windows
+  (`VmSession.StartWebDavShares`), sur `127.0.0.1` derrière un premier segment secret ; l'invité le joint par sa carte
+  NAT, où `10.0.2.2` est le loopback de ce PC : `\\10.0.2.2@port\secret`. Le client intégré de Windows (WebClient) ;
+  corps des PUT écrits en flux (Windows envoie un fichier entier d'un coup, jusqu'à 4 Go) ; PROPPATCH toujours acquitté
+  (Windows déclare la copie échouée sinon) ; LOCK acquitté sans verrouiller. Configuré par l'agent en SYSTEM
+  (`GuestShareMounter.WindowsSetupScript`) : WebClient automatique, limite de fichier 50 Mo → 4 Go, adresse dans
+  `HKLM\SOFTWARE\WinQEMU`, puis une **tâche d'ouverture de session du groupe Users** (SID `S-1-5-32-545`, les noms
+  de groupe sont traduits) qui monte le lecteur dans la session de l'utilisateur (`WindowsMapScript` : un `net use`
+  fait en SYSTEM ne serait visible que de SYSTEM), de Z: vers le bas, nommé « Partages WinQEMU », 10.0.2.2 en zone
+  intranet. Vérifié sur le Windows 11 de l'utilisateur (lecture, écriture, lecteur dans l'Explorateur).
+- **L'agent invité n'est pas dans virtio-win-guest-tools** (qui n'apporte que spice-vdagent) : `guest-agent\qemu-ga-x86_64.msi`
+  du même lecteur, à installer à part ; le message de WinQEMU le dit pour un invité Windows.
 
 ## Réseaux virtuels
 
@@ -403,17 +414,19 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
 - **QEMU 11.1 ne sait pas pointer dans une image mise à l'échelle** : SDL convertit le pointeur en coordonnées
   de l'image (bandes comprises), puis QEMU les rapporte à la taille de la **fenêtre** au lieu de celle de
   l'image. Mesuré par la trace `input_event_abs` (invité 1280×800, fenêtre 1578×944 : le centre arrive à 81 % et
-  85 %). Le pointeur n'est juste que fenêtre = image. D'où, en « Ajuster », un invité qui garde sa résolution
-  ~2,5 s après qu'on lui a donné le panneau (installation de Windows, invité sans pilote d'affichage) est montré
-  à sa taille native, centré (`VmConsoleHost._guestIgnoresWindow`, remis à zéro à chaque changement de mode).
-  Un invité plus grand que le panneau est réduit, et **WinQEMU pointe alors à la place de QEMU** :
+  85 %). Le pointeur n'est juste que fenêtre = image. Dès que l'image est mise à l'échelle, **WinQEMU pointe à
+  la place de QEMU** :
   `PointerOverlay`, une fenêtre enfant à nous, superposée (couche à alpha 1/255 : invisible mais touchée par la
   souris ; à 0 elle ne l'est plus), prend la souris et envoie la position calculée (bandes comprises,
   `PointerEvent.ToAbsolute`) et les boutons par QMP `input-send-event` (`abs`, `btn`), mouvements fusionnés
   le temps d'un aller-retour. La fenêtre de QEMU est gardée juste en dessous (`SetBounds(..., below)`). Prix :
   le curseur est la flèche de Windows (les formes de l'invité n'existent que dans la fenêtre de QEMU). À taille
-  native, la couche est cachée et QEMU garde la souris. Windows, même avec le pilote d'affichage de virtio-win,
-  ne suit pas la taille de la fenêtre (constaté). Windows sans pilote d'affichage reste en
+  native, la couche est cachée et QEMU garde la souris.
+- **« Ajuster » donne toujours tout le panneau à QEMU**, même à un invité d'une autre résolution : la taille de la
+  fenêtre est le mode préféré de l'invité. Windows avec le pilote d'affichage de virtio-win l'adopte **au
+  chargement du pilote, au démarrage**, puis ne suit plus la fenêtre. Une ancienne règle montrait à taille
+  native un invité qui ne suivait pas la fenêtre ; pendant le démarrage elle réduisait donc la fenêtre aux
+  1280×800 du microprogramme, et Windows démarrait en 1280×800 même en plein écran. Windows sans pilote d'affichage reste en
   1280×800 (le mode GOP d'OVMF) : la résolution préférée annoncée par EDID (`virtio-vga,xres=,yres=`) est
   ignorée par le microprogramme comme par l'installation de Windows (vérifié).
 - **Un clic dans la console ne donne pas le clavier à XAML** : il va au processus de QEMU, et le focus restait

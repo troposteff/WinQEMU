@@ -1130,7 +1130,9 @@ namespace WinQEMU.ViewModels
             try
             {
                 // Five minutes: a first boot, or one that runs a disk check, can take that long.
-                report = await GuestShareMounter.MountAsync(session, TimeSpan.FromMinutes(5));
+                var hasNatCard = config.NetworkAdapters.Any(a => a.Mode == NetworkMode.Nat && a.Connected);
+                var windowsGuest = GuestOsCatalog.Find(config.GuestOs)?.Family == "Windows";
+                report = await GuestShareMounter.MountAsync(session, TimeSpan.FromMinutes(5), hasNatCard, windowsGuest);
             }
             catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException)
             {

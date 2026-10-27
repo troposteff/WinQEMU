@@ -1571,6 +1571,33 @@
                     VerticalAlignment="Center"
                     FontWeight="SemiBold"
                     TextTrimming="CharacterEllipsis" />
+                <!-- The machine's own commands, as in the toolbar the full screen hides: same bindings, so each
+                     is enabled exactly when it is there. -->
+                <Button Command="{Binding StartCommand}" ToolTipService.ToolTip="Démarre la machine virtuelle">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE768;" />
+                        <TextBlock Text="Démarrer" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding PauseResumeCommand}" ToolTipService.ToolTip="Fige l'exécution de la machine sans l'arrêter, ou la reprend exactement où elle en était">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE769;" />
+                        <TextBlock Text="{Binding PauseResumeLabel, Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding ShutdownCommand}" ToolTipService.ToolTip="Demande au système invité de s'arrêter proprement (bouton d'alimentation ACPI)">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE71A;" />
+                        <TextBlock Text="Arrêter" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding PowerOffCommand}" ToolTipService.ToolTip="Éteint la machine immédiatement, sans prévenir l'invité, comme si on débranchait l'alimentation">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE711;" />
+                        <TextBlock Text="Éteindre" />
+                    </StackPanel>
+                </Button>
+                <Border Width="1" Height="24" Margin="4,0" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                 <Button Command="{Binding SendCtrlAltDeleteCommand}" Content="Ctrl+Alt+Suppr" />
                 <Button x:Name="FullScreenUsbButton" Click="OnUsbClick" Content="USB" />
                 <Button Click="OnToggleFullScreenClick" Content="Quitter le plein écran" Style="{StaticResource AccentButtonStyle}" />

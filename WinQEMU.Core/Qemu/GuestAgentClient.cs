@@ -145,7 +145,8 @@ namespace WinQEMU.Core.Qemu
             if (input is not null)
                 request["input-data"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(input));
 
-            var started = await ExecuteAsync("guest-exec", request, TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
+            // Starting a program can take a while in a guest that is still booting (Windows took more than 10 s).
+            var started = await ExecuteAsync("guest-exec", request, TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
             var pid = started?["pid"]?.GetValue<long>() ?? throw new GuestAgentException("guest-exec returned no pid.");
 
             var end = DateTime.UtcNow + timeout;

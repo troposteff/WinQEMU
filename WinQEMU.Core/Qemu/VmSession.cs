@@ -1052,6 +1052,10 @@ namespace WinQEMU.Core.Qemu
             if (clipboard is not null)
                 _ = clipboard.DisposeAsync().AsTask();
 
+            var webDav = Interlocked.Exchange(ref _webDav, null);
+            if (webDav is not null)
+                _ = webDav.DisposeAsync().AsTask();
+
             var exitCode = 0;
             try
             {
@@ -1190,6 +1194,28 @@ namespace WinQEMU.Core.Qemu
             }
         }
 
+        private Sharing.WebDavServer? _webDav;
+
+        /// <summary>
+        /// Serves the shared folders over WebDAV for a Windows guest, which has no 9P client: started on
+        /// first use, for this run of QEMU only (a new port and secret each time). Returns how the guest
+        /// reaches it through its NAT card, where 10.0.2.2 is this PC's loopback.
+        /// </summary>
+        public string StartWebDavShares()
+        {
+            if (_webDav is null)
+            {
+                var server = new Sharing.WebDavServer(() => _sharedFolders);
+                server.Trace += AppendLog;
+                server.Start();
+                if (Interlocked.CompareExchange(ref _webDav, server, null) is null)
+                    AppendLog($"Shared folders: served over WebDAV on 127.0.0.1:{server.Port.ToString(CultureInfo.InvariantCulture)} for the Windows guest.");
+                else
+                    _ = server.DisposeAsync().AsTask();
+            }
+            return $@"\\10.0.2.2@{_webDav!.Port.ToString(CultureInfo.InvariantCulture)}\{_webDav.Secret}";
+        }
+
         /// <summary>Loopback port of the qemu-guest-agent channel of the current run.</summary>
         public int? GuestAgentPort { get; private set; }
 
@@ -1265,6 +1291,9 @@ namespace WinQEMU.Core.Qemu
             _qmp = null;
             if (qmp is not null)
                 await qmp.DisposeAsync().ConfigureAwait(false);
+
+            if (Interlocked.Exchange(ref _webDav, null) is { } webDav)
+                await webDav.DisposeAsync().ConfigureAwait(false);
 
             _transitionLock.Dispose();
         }

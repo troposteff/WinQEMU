@@ -181,7 +181,7 @@ namespace WinQEMU
             var (width, height) = ConsoleHost.GuestSize;
             GuestSizeText.Text = width <= 0 || height <= 0 ? string.Empty
                 : ConsoleHost.IsPointerImprecise
-                    ? $"{width} × {height} réduite : pointeur décalé (F11 ou Taille réelle)"
+                    ? $"{width} × {height} mise à l'échelle : pointeur décalé (Taille réelle pour viser juste)"
                     : $"{width} × {height}";
         }
 

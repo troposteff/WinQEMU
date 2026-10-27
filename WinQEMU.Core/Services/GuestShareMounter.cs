@@ -91,6 +91,79 @@ namespace WinQEMU.Core.Services
             echo "$dir"
             """;
 
+        /// <summary>The drive's name in the guest's Explorer.</summary>
+        public const string WindowsDriveLabel = "Partages WinQEMU";
+
+        /// <summary>
+        /// Run in each user's own session by a logon task (see <see cref="WindowsSetupScript"/>): maps the
+        /// shares to a free drive letter, from Z: down, as VMware maps its own. A mapping made by the agent
+        /// would be SYSTEM's alone, invisible to the user.
+        /// </summary>
+        /// <remarks>
+        /// The address changes with every run of QEMU (a new port and secret), so it is read from the
+        /// registry, where the agent left it, and a mapping to an earlier address is removed first.
+        /// 10.0.2.2 is put in the Local intranet zone, or Windows treats files opened from it as downloaded
+        /// from the Internet (security warnings, Office's protected view).
+        /// </remarks>
+        public const string WindowsMapScript = """
+            $ProgressPreference = 'SilentlyContinue'
+            $url = (Get-ItemProperty 'HKLM:\SOFTWARE\WinQEMU' -ErrorAction SilentlyContinue).SharesUrl
+            if (-not $url) { exit 0 }
+            $zone = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ZoneMap\Ranges\WinQEMU'
+            New-Item $zone -Force | Out-Null
+            Set-ItemProperty $zone ':Range' '10.0.2.2'
+            Set-ItemProperty $zone 'file' 1 -Type DWord
+            Set-ItemProperty $zone 'http' 1 -Type DWord
+            $drives = Get-PSDrive -PSProvider FileSystem
+            if ($drives | Where-Object { $_.DisplayRoot -eq $url }) { exit 0 }
+            foreach ($old in $drives | Where-Object { $_.DisplayRoot -like '\\10.0.2.2@*' }) { net use "$($old.Name):" /delete /y | Out-Null }
+            $letter = 'ZYXWVUTSRQPONMLKJIHGFE'.ToCharArray() | Where-Object { -not (Test-Path "$($_):\") } | Select-Object -First 1
+            if (-not $letter) { exit 1 }
+            net use "$($letter):" $url /persistent:no | Out-Null
+            $label = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\MountPoints2\' + ($url -replace '\\', '#')
+            New-Item $label -Force | Out-Null
+            Set-ItemProperty $label '_LabelFromReg' 'Partages WinQEMU'
+            """;
+
+        /// <summary>
+        /// Run as SYSTEM by the agent in a Windows guest, with {URL} the shares' address for this run. Prints
+        /// the address; exit codes 20-21 are explained by <see cref="Explain"/>.
+        /// </summary>
+        /// <remarks>
+        /// Windows' WebDAV client (the WebClient service) is set to start with Windows and to take files up
+        /// to 4 GB (its default stops at 50 MB). The drive itself is mapped by a logon task of the Users group
+        /// (S-1-5-32-545: group names are translated, "Utilisateurs" here), started at once for whoever is
+        /// logged on; conhost --headless keeps PowerShell's window from flashing up. Progress is silenced:
+        /// PowerShell writes it to standard error as CLIXML, which would read as a failure in the journal.
+        /// </remarks>
+        public const string WindowsSetupScript = """
+            $ErrorActionPreference = 'Stop'
+            $ProgressPreference = 'SilentlyContinue'
+            $url = '{URL}'
+            $client = 'HKLM:\SYSTEM\CurrentControlSet\Services\WebClient\Parameters'
+            if (-not (Test-Path $client)) { exit 20 }
+            $restart = (Get-ItemProperty $client).FileSizeLimitInBytes -ne 4294967295
+            if ($restart) { Set-ItemProperty $client 'FileSizeLimitInBytes' 4294967295 -Type DWord }
+            Set-Service WebClient -StartupType Automatic
+            if ($restart) { Restart-Service WebClient -Force } else { Start-Service WebClient }
+            New-Item 'HKLM:\SOFTWARE\WinQEMU' -Force | Out-Null
+            Set-ItemProperty 'HKLM:\SOFTWARE\WinQEMU' 'SharesUrl' $url
+            try {
+              $map = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes('{MAP}'))
+              $action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless powershell.exe -NoProfile -NonInteractive -EncodedCommand $map"
+              $principal = New-ScheduledTaskPrincipal -GroupId 'S-1-5-32-545' -RunLevel Limited
+              $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
+              Register-ScheduledTask -TaskName 'WinQEMU Partages' -Action $action -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal $principal -Settings $settings -Force | Out-Null
+              Start-ScheduledTask -TaskName 'WinQEMU Partages'
+            } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 21 }
+            Write-Output $url
+            """;
+
+        /// <summary>The setup script for one run, with the address and the map script in place.</summary>
+        public static string WindowsSetupFor(string url) =>
+            WindowsSetupScript.Replace("{URL}", url, StringComparison.Ordinal)
+                .Replace("{MAP}", WindowsMapScript.Replace("'", "''", StringComparison.Ordinal), StringComparison.Ordinal);
+
         public static string Explain(GuestExecResult result) => result.ExitCode switch
         {
             10 => "l'invité n'a aucun compte utilisateur où les placer",
@@ -98,6 +171,8 @@ namespace WinQEMU.Core.Services
             13 => "la machine n'a pas le canal des dossiers partagés : arrêtez-la puis redémarrez-la depuis WinQEMU",
             14 => "le relais du canal n'a pas pu démarrer dans /run/winqemu",
             15 => "l'invité n'a ni perl ni python3 pour relayer le canal",
+            20 => "le client WebDAV de Windows (service WebClient) est absent ; sous Windows Server, ajoutez la fonctionnalité « Redirecteur WebDAV »",
+            21 => "la tâche qui crée le lecteur à l'ouverture de session n'a pas pu être créée : " + result.Error.Trim(),
             _ => $"le script s'est arrêté avec le code {result.ExitCode} : {result.Error.Trim()}"
         };
 
@@ -105,22 +180,33 @@ namespace WinQEMU.Core.Services
         /// Waits for the guest agent, then mounts. Gives up on the agent after <paramref name="agentWait"/>:
         /// it may not be installed, which the report says.
         /// </summary>
-        public static async Task<GuestShareReport> MountAsync(VmSession session, TimeSpan agentWait, CancellationToken cancellationToken = default)
+        /// <param name="hasNatCard">
+        /// Whether the machine has a connected NAT card: a Windows guest reaches the shares through it.
+        /// Read by the caller, on the thread that may read the configuration.
+        /// </param>
+        /// <param name="windowsGuest">Whether the machine's profile is a Windows one, for how to install the agent.</param>
+        public static async Task<GuestShareReport> MountAsync(VmSession session, TimeSpan agentWait, bool hasNatCard,
+            bool windowsGuest, CancellationToken cancellationToken = default)
         {
             await using var agent = await WaitForAgentAsync(session, agentWait, cancellationToken).ConfigureAwait(false);
             if (agent is null)
             {
-                return new GuestShareReport(GuestShareState.NoAgent,
-                    "L'agent invité ne répond pas. Installez-le une fois dans l'invité (sudo apt install " +
-                    "qemu-guest-agent) et redémarrez-le : les dossiers apparaîtront dans ~/Partages.");
+                // virtio-win's guest tools bring the clipboard agent but not this one, which is a separate
+                // installer on the same drive.
+                return new GuestShareReport(GuestShareState.NoAgent, windowsGuest
+                    ? "L'agent invité ne répond pas. Installez-le une fois dans Windows, depuis le lecteur virtio-win : " +
+                      @"guest-agent\qemu-ga-x86_64.msi. Les dossiers apparaîtront ensuite dans un lecteur « Partages WinQEMU »."
+                    : "L'agent invité ne répond pas. Installez-le une fois dans l'invité (sudo apt install " +
+                      "qemu-guest-agent) et redémarrez-le : les dossiers apparaîtront dans ~/Partages.");
             }
 
             var os = await agent.ExecuteAsync("guest-get-osinfo", null, TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
-            if (os?["kernel-version"] is null || os["id"]?.GetValue<string>() == "mswindows")
+            if (os?["id"]?.GetValue<string>() == "mswindows")
+                return await MountInWindowsAsync(session, agent, hasNatCard, cancellationToken).ConfigureAwait(false);
+            if (os?["kernel-version"] is null)
             {
                 return new GuestShareReport(GuestShareState.NotLinux,
-                    "Les dossiers partagés ne s'ouvrent que dans les invités Linux pour l'instant : Windows n'a pas " +
-                    "de client 9P, il lui faudra un outil WinQEMU à installer, comme les VMware Tools.");
+                    "Cet invité n'est ni Linux ni Windows : les dossiers partagés ne s'y ouvrent pas.");
             }
 
             var result = await agent.RunAsync("/bin/sh", new[] { "-c", MountScript }, null,
@@ -128,6 +214,56 @@ namespace WinQEMU.Core.Services
             return result.ExitCode == 0
                 ? new GuestShareReport(GuestShareState.Mounted, $"Dans l'invité : {result.Output.Trim()}")
                 : new GuestShareReport(GuestShareState.Failed, $"Les dossiers n'ont pas pu être montés dans l'invité : {Explain(result)}.");
+        }
+
+        /// <summary>
+        /// Windows has no 9P client, so the folders reach it over WebDAV, which Windows reads with its own
+        /// client, through the machine's NAT card; nothing is installed in the guest.
+        /// </summary>
+        private static async Task<GuestShareReport> MountInWindowsAsync(VmSession session, GuestAgentClient agent, bool hasNatCard,
+            CancellationToken cancellationToken)
+        {
+            if (!hasNatCard)
+            {
+                return new GuestShareReport(GuestShareState.Failed,
+                    "Dans un invité Windows, les dossiers partagés passent par la carte réseau NAT : ajoutez-en une " +
+                    "dans Matériel (ou rebranchez son câble), puis redémarrez la machine.");
+            }
+
+            var url = session.StartWebDavShares();
+            // Encoded rather than on standard input: "-Command -" runs input line by line, which splits
+            // multi-line blocks such as try/catch.
+            var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(WindowsSetupFor(url)));
+            var arguments = new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded };
+
+            // The agent answers early in Windows' boot, while starting a program still takes longer than the
+            // agent's own wait: "The guest agent did not answer guest-exec in time", seen 25 s after the
+            // agent first answered. A timed-out connection is out of step for good, so each try gets a
+            // fresh one.
+            GuestExecResult? result = null;
+            var connection = agent;
+            for (var attempt = 1; result is null; attempt++)
+            {
+                try
+                {
+                    result = await connection.RunAsync("powershell.exe", arguments, null,
+                        TimeSpan.FromSeconds(120), cancellationToken).ConfigureAwait(false);
+                }
+                catch (GuestAgentException) when (attempt < 5 && session.IsRunning)
+                {
+                    if (connection != agent)
+                        await connection.DisposeAsync().ConfigureAwait(false);
+                    await Task.Delay(TimeSpan.FromSeconds(20), cancellationToken).ConfigureAwait(false);
+                    connection = await WaitForAgentAsync(session, TimeSpan.FromMinutes(2), cancellationToken).ConfigureAwait(false)
+                        ?? throw new GuestAgentException("The guest agent stopped answering while Windows was starting.");
+                }
+            }
+            if (connection != agent)
+                await connection.DisposeAsync().ConfigureAwait(false);
+
+            return result.ExitCode == 0
+                ? new GuestShareReport(GuestShareState.Mounted, $"Dans l'invité : lecteur « {WindowsDriveLabel} » dans Ce PC.")
+                : new GuestShareReport(GuestShareState.Failed, $"Les dossiers n'ont pas pu être ouverts dans l'invité : {Explain(result)}.");
         }
 
         /// <summary>

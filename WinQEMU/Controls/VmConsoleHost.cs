@@ -27,8 +27,8 @@ namespace WinQEMU.Controls
     public enum ConsoleScaleMode
     {
         /// <summary>
-        /// The whole panel goes to QEMU, which passes the size on to the guest; a guest that does not
-        /// adopt it is shown at its native size, centred, where QEMU's pointer lands right (see FitGuest).
+        /// The whole panel goes to QEMU, which passes the size on to the guest as its preferred mode and
+        /// scales the image of a guest that has not adopted it (see FitGuest).
         /// </summary>
         Fit,
 
@@ -345,7 +345,6 @@ namespace WinQEMU.Controls
             ResetCachedBounds();
             _guestSizeTimer.Stop();
             _guestSize = (0, 0);
-            _guestIgnoresWindow = false;
             GuestSizeChanged?.Invoke(this, EventArgs.Empty);
 
             PlaceholderText = IdlePlaceholder;
@@ -729,20 +728,10 @@ namespace WinQEMU.Controls
             }
         }
 
-        /// <summary>
-        /// Set once the guest, given the whole panel in Fit, kept a resolution of its own: Fit then shows
-        /// it at native size (see FitGuest). Cleared when the guest changes mode, which may be a driver
-        /// that now follows the window.
-        /// </summary>
-        private bool _guestIgnoresWindow;
-
-        /// <summary>When the native window was last moved or resized, to give the guest time to follow it.</summary>
-        private long _boundsSetAt;
-
         private (int Width, int Height) _guestSize;
         /// <summary>
-        /// Whether the image is scaled down for a guest that keeps a resolution larger than the panel,
-        /// where QEMU's pointer lands short of the host's (see FitGuest).
+        /// Whether the image is scaled with no pointer overlay to point for QEMU, which then lands short
+        /// of the host's pointer (see PointerOverlay).
         /// </summary>
         public bool IsPointerImprecise { get; private set; }
 
@@ -768,24 +757,10 @@ namespace WinQEMU.Controls
             try
             {
                 var size = await GuestSizeProvider();
-                if (size.Width <= 0 || size.Height <= 0)
+                if (size.Width <= 0 || size.Height <= 0 || size == _guestSize)
                     return;
-
-                if (size == _guestSize)
-                {
-                    // A guest that follows the window does so within a second or two of a resize.
-                    if (_scaleMode == ConsoleScaleMode.Fit && !_guestIgnoresWindow
-                        && size != (_lastWidth, _lastHeight) && Environment.TickCount64 - _boundsSetAt > 2500)
-                    {
-                        _guestIgnoresWindow = true;
-                        InvalidateLastBounds();
-                        UpdateNativeBounds();
-                    }
-                    return;
-                }
 
                 _guestSize = size;
-                _guestIgnoresWindow = false;
 
                 // The panel has not moved, so the usual no-op guard would skip the new letterbox.
                 InvalidateLastBounds();
@@ -822,25 +797,22 @@ namespace WinQEMU.Controls
             if (guest.Width <= 0 || guest.Height <= 0)
                 return (panelX, panelY, panelWidth, panelHeight);
 
-            // Fit first hands QEMU the whole panel: its window size becomes the guest's preferred mode,
-            // which a virtio-gpu guest adopts, and the image then needs no scaling at all. A guest that
-            // keeps its own mode (Windows, with or without its virtio display driver) is shown at its
-            // native size instead, centred, when it fits: QEMU cannot point at a scaled image (SDL converts
-            // the pointer into image coordinates, letterbox included, and QEMU then scales that against
-            // the window size rather than the image's; measured on a 1280x800 guest in a 1578x944 window,
-            // the window's centre reached the guest at 81% and 85% of the way). A guest larger than the
-            // panel is scaled down, and PointerOverlay then points for QEMU, with a plain arrow for cursor.
-            var scaledDown = _scaleMode == ConsoleScaleMode.Fit && _guestIgnoresWindow
-                && (guest.Width > panelWidth || guest.Height > panelHeight);
-            // The pointer overlay points right in a scaled image; only without it is the pointer off.
-            var imprecise = scaledDown && _pointerOverlay is null;
-            if (imprecise != IsPointerImprecise)
+            // Fit always hands QEMU the whole panel, even to a guest whose mode differs: the window's size
+            // is the guest's preferred mode, which a virtio-gpu guest adopts (Ubuntu at once, Windows when
+            // its display driver loads at boot). Shrinking the window to a guest that had not adopted it
+            // yet told that guest a smaller size: Windows started in full screen at the 1280x800 of the
+            // firmware. QEMU cannot point in the scaled image meanwhile (it scales the pointer against the
+            // window, not the image), so PointerOverlay points for it.
+            if (_scaleMode == ConsoleScaleMode.Fit)
             {
-                IsPointerImprecise = imprecise;
-                GuestSizeChanged?.Invoke(this, EventArgs.Empty);
-            }
-            if (_scaleMode == ConsoleScaleMode.Fit && (!_guestIgnoresWindow || scaledDown))
+                var imprecise = (guest.Width, guest.Height) != (panelWidth, panelHeight) && _pointerOverlay is null;
+                if (imprecise != IsPointerImprecise)
+                {
+                    IsPointerImprecise = imprecise;
+                    GuestSizeChanged?.Invoke(this, EventArgs.Empty);
+                }
                 return (panelX, panelY, panelWidth, panelHeight);
+            }
 
             var (width, height) = guest;
 
@@ -960,7 +932,6 @@ namespace WinQEMU.Controls
                 _pointerOverlay?.Hide();
                 _console.SetBounds(x, y, width, height);
             }
-            _boundsSetAt = Environment.TickCount64;
             _console.RequestRedraw();
             // The guest may adopt the new window size as its resolution: read it again in a moment.
             _ticksSinceGuestSizeRead = Math.Max(_ticksSinceGuestSizeRead, 3);

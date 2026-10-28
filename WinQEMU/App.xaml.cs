@@ -26,7 +26,7 @@ namespace WinQEMU
     /// </summary>
     public partial class App : Application
     {
-        private Window? _window;
+        private static MainWindow? _window;
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -44,7 +44,20 @@ namespace WinQEMU
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
             _window = new MainWindow();
-            _window.Activate();
+            // Started at the Windows logon (the package's startup task): straight to the notification area,
+            // where the machines marked to start with WinQEMU come up behind the scenes.
+            if (Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs().Kind
+                == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.StartupTask)
+                _window.StartInBackground();
+            else
+                _window.Activate();
+        }
+
+        /// <summary>WinQEMU was started again while running: its window comes back. Called on any thread.</summary>
+        public static void ShowMainWindow()
+        {
+            var window = _window;
+            window?.DispatcherQueue.TryEnqueue(window.ShowFromBackground);
         }
     }
 }

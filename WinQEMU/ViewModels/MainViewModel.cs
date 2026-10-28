@@ -37,6 +37,7 @@ namespace WinQEMU.ViewModels
 
             // Follows every session the manager creates, so it must exist before the first one is.
             _clipboard = new ClipboardBridge(Manager, _dispatcher) { Log = AppendDiagnostic };
+            Manager.SessionCreated += (_, session) => session.StateChanged += OnAnySessionStateChanged;
 
             RefreshCommand = new AsyncRelayCommand(_ => InitializeAsync(), onError: ReportError);
             StartCommand = new AsyncRelayCommand(_ => StartAsync(), _ => CanStart, ReportError);
@@ -487,6 +488,85 @@ namespace WinQEMU.ViewModels
             // Sessions only become available once QEMU is found, so the rows are built after detection
             // rather than relying on the collection-changed hook alone.
             RebuildItems();
+
+            if (!_autoStarted && Manager.IsQemuAvailable)
+            {
+                _autoStarted = true;
+                _ = StartWithWinQemuAsync();
+            }
+        }
+
+        // ---- Start with WinQEMU ----
+
+        private bool _autoStarted;
+
+        /// <summary>
+        /// Starts the machines marked to start with WinQEMU, each after its own delay from now, as Hyper-V's
+        /// automatic start does. A machine the user started (or deleted) in the meantime is left alone.
+        /// </summary>
+        private async Task StartWithWinQemuAsync()
+        {
+            var opened = DateTime.UtcNow;
+            foreach (var entry in AutoStartPlan.For(Manager.VirtualMachines))
+            {
+                var wait = opened + entry.After - DateTime.UtcNow;
+                if (wait > TimeSpan.Zero)
+                    await Task.Delay(wait);
+                if (!Manager.VirtualMachines.Contains(entry.Machine))
+                    continue;
+
+                var session = Manager.GetSession(entry.Machine);
+                if (session.State != VmState.Stopped)
+                    continue;
+                try
+                {
+                    AppendDiagnostic($"Start with WinQEMU: starting {entry.Machine.Name}.");
+                    await StartMachineAsync(session);
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or IOException or QmpException
+                                               or System.ComponentModel.Win32Exception or TimeoutException)
+                {
+                    ReportError(new InvalidOperationException(
+                        $"« {entry.Machine.Name} » n'a pas pu démarrer avec WinQEMU : {ex.Message}", ex));
+                }
+            }
+        }
+
+        /// <summary>
+        /// A machine other than the selected one came up: started with WinQEMU, or relaunched by its session
+        /// when the guest rebooted. The view takes its console out of sight (VmConsoleHost.AdoptAsync); its
+        /// shared folders and display are seen to as for the selected one.
+        /// </summary>
+        public event Action<int>? BackgroundConsoleStarted;
+
+        private void OnAnySessionStateChanged(object? sender, VmState state)
+        {
+            if (state != VmState.Running || sender is not VmSession session)
+                return;
+            _dispatcher.TryEnqueue(() =>
+            {
+                if (ReferenceEquals(session, SelectedSession) || session.ProcessId is not { } processId)
+                    return;
+                BackgroundConsoleStarted?.Invoke(processId);
+                MountSharedFolders(session);
+                PrepareGuestDisplay(session);
+            });
+        }
+
+        /// <summary>Asks every running machine's guest to shut down, as its Arrêter button does.</summary>
+        public async Task RequestShutdownOfAllAsync()
+        {
+            foreach (var session in Manager.RunningSessions.ToList())
+            {
+                try
+                {
+                    await session.RequestShutdownAsync();
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or QmpException or IOException)
+                {
+                    AppendDiagnostic($"{session.Config.Name}: shutdown could not be asked for ({ex.Message}).");
+                }
+            }
         }
 
         /// <summary>
@@ -588,9 +668,13 @@ namespace WinQEMU.ViewModels
                 return;
 
             ClearError();
-            var config = SelectedSession.Config;
+            await StartMachineAsync(SelectedSession);
+        }
 
-            var session = SelectedSession;
+        /// <summary>Starts a machine, selected or not: the Démarrer button and the start with WinQEMU.</summary>
+        private async Task StartMachineAsync(VmSession session)
+        {
+            var config = session.Config;
             session.UpdateSharedFolders(config.SharedFolders);
             await session.StartAsync();
 

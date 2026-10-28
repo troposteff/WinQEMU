@@ -90,8 +90,9 @@ namespace WinQEMU
             RootGrid.Loaded += async (_, _) =>
             {
                 ApplyAdaptiveLayout();
-                await _viewModel.InitializeAsync();
+                await InitializeOnceAsync();
             };
+            _viewModel.BackgroundConsoleStarted += processId => _ = ConsoleHost.AdoptAsync(processId);
 
             // The window carried no icon at all — WM_GETICON returned nothing — so the title bar fell
             // back to whatever the shell had cached for the package. Setting it explicitly makes the
@@ -1431,6 +1432,7 @@ namespace WinQEMU
             if (running.Count == 0)
             {
                 ConsoleHost.Detach();
+                _tray?.Dispose();
                 await _viewModel.Manager.DisposeAsync();
                 return;
             }
@@ -1438,25 +1440,133 @@ namespace WinQEMU
             args.Cancel = true;
 
             var names = string.Join(", ", running.Select(s => s.Config.Name));
-            var confirmed = await ShowDialogAsync(new ContentDialog
+            var choice = await ShowDialogAsync(new ContentDialog
             {
                 Title = "Des machines virtuelles sont en cours d'exécution",
-                // Same wording as the Éteindre button, since it is the same brutal action: the label
-                // alone sounds like an ordinary shutdown, so the consequence has to be spelled out.
                 Content = DialogBody(
-                    $"{names}\n\nQuitter maintenant les éteint immédiatement, sans prévenir l'invité, " +
-                    "comme si on débranchait l'alimentation : les données non écrites sont perdues."),
-                PrimaryButtonText = "Éteindre et quitter",
+                    $"{names}\n\nEn arrière-plan, elles continuent de tourner et WinQEMU reste dans la zone de " +
+                    "notification, d'où sa fenêtre se rouvre. Arrêter les éteint proprement, comme le bouton Arrêter, " +
+                    "avant de quitter."),
+                PrimaryButtonText = "Laisser en arrière-plan",
+                SecondaryButtonText = "Arrêter et quitter",
                 CloseButtonText = "Annuler",
-                DefaultButton = ContentDialogButton.Close,
+                DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             });
 
-            if (confirmed != ContentDialogResult.Primary)
-                return;
+            if (choice == ContentDialogResult.Primary)
+                HideToBackground();
+            else if (choice == ContentDialogResult.Secondary)
+                await StopMachinesAndQuitAsync();
+        }
+
+        // ---- Background ----
+
+        private TrayIcon? _tray;
+        private bool _backgroundExplained;
+        private Task? _initialization;
+
+        /// <summary>Detects QEMU and loads the library once, whether the window is shown or not.</summary>
+        private Task InitializeOnceAsync() => _initialization ??= _viewModel.InitializeAsync();
+
+        /// <summary>Started at the Windows logon: the window stays hidden, WinQEMU waits in the notification area.</summary>
+        public void StartInBackground()
+        {
+            _ = InitializeOnceAsync();
+            ShowTray("WinQEMU a démarré avec Windows. Les machines à démarrer avec WinQEMU démarrent.");
+        }
+
+        /// <summary>
+        /// Hides the window and leaves the machines running. The consoles stay children of the hidden window,
+        /// so nothing has to be found again when it comes back.
+        /// </summary>
+        private void HideToBackground()
+        {
+            AppWindow.Hide();
+            ShowTray(_backgroundExplained ? null
+                : "Les machines continuent de tourner. Cliquez sur l'icône de WinQEMU pour rouvrir sa fenêtre.");
+            _backgroundExplained = true;
+        }
+
+        private void ShowTray(string? balloon)
+        {
+            if (_tray is null)
+            {
+                _tray = new TrayIcon();
+                _tray.OpenRequested += () => DispatcherQueue.TryEnqueue(ShowFromBackground);
+                _tray.QuitRequested += () => DispatcherQueue.TryEnqueue(async () =>
+                {
+                    ShowFromBackground();
+                    await StopMachinesAndQuitAsync();
+                });
+            }
+            var count = _viewModel.Manager.RunningSessions.Count();
+            var tip = count switch
+            {
+                0 => "WinQEMU",
+                1 => "WinQEMU — 1 machine en marche",
+                _ => $"WinQEMU — {count} machines en marche"
+            };
+            _tray.Show(tip, balloon is null ? null : "WinQEMU continue en arrière-plan", balloon);
+        }
+
+        /// <summary>Brings the window back from the notification area, or forward when started again.</summary>
+        public void ShowFromBackground()
+        {
+            AppWindow.Show();
+            Activate();
+            _tray?.Hide();
+        }
+
+        /// <summary>
+        /// Asks every guest to shut down (ACPI, as the Arrêter button), shows them going, and quits once all
+        /// are stopped. A guest that does not answer the power button can be switched off from there.
+        /// </summary>
+        private async Task StopMachinesAndQuitAsync()
+        {
+            await _viewModel.RequestShutdownOfAllAsync();
+
+            var status = DialogBody(string.Empty);
+            var dialog = new ContentDialog
+            {
+                Title = "Arrêt des machines virtuelles",
+                Content = status,
+                PrimaryButtonText = "Éteindre maintenant",
+                CloseButtonText = "Annuler",
+                XamlRoot = Content.XamlRoot
+            };
+            var allStopped = false;
+            var timer = DispatcherQueue.CreateTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(500);
+            void Refresh()
+            {
+                var left = _viewModel.Manager.RunningSessions.Select(s => s.Config.Name).ToList();
+                if (left.Count == 0)
+                {
+                    allStopped = true;
+                    timer.Stop();
+                    dialog.Hide();
+                    return;
+                }
+                status.Text = "Les systèmes invités s'arrêtent, comme avec le bouton Arrêter. WinQEMU se fermera ensuite.\n\n" +
+                              $"Encore en marche : {string.Join(", ", left)}\n\n" +
+                              "« Éteindre maintenant » coupe celles qui restent, comme si on débranchait l'alimentation.";
+            }
+            timer.Tick += (_, _) => Refresh();
+            Refresh();
+            if (!allStopped)
+            {
+                timer.Start();
+                var choice = await ShowDialogAsync(dialog);
+                timer.Stop();
+                if (!allStopped && choice != ContentDialogResult.Primary)
+                    return;
+            }
 
             // Release the console before the process dies, so no stale child HWND outlives it.
             ConsoleHost.Detach();
+            _tray?.Dispose();
+            _tray = null;
             await _viewModel.Manager.DisposeAsync();
             _closeConfirmed = true;
             Close();

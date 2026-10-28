@@ -1262,6 +1262,31 @@
                                     </StackPanel>
                                 </muxc:Expander>
 
+                                <!-- Start with WinQEMU (Models.AutoStartPlan), as Hyper-V's automatic start: any time, running or not. -->
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Démarrage automatique" />
+                                    </muxc:Expander.Header>
+                                    <StackPanel Spacing="8">
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="La machine démarre quand WinQEMU s'ouvre, à l'ouverture de session Windows aussi si WinQEMU démarre alors (Paramètres). Le délai, compté depuis l'ouverture de WinQEMU, fixe l'ordre entre les machines."
+                                            TextWrapping="Wrap" />
+                                        <CheckBox Content="Démarrer avec WinQEMU" IsChecked="{Binding SelectedVm.AutoStart, Mode=TwoWay}" />
+                                        <muxc:NumberBox
+                                            HorizontalAlignment="Left"
+                                            MinWidth="200"
+                                            Header="Délai (secondes)"
+                                            IsEnabled="{Binding SelectedVm.AutoStart, Mode=OneWay}"
+                                            Maximum="3600"
+                                            Minimum="0"
+                                            SpinButtonPlacementMode="Compact"
+                                            Value="{Binding SelectedVm.AutoStartDelaySeconds, Mode=TwoWay}" />
+                                    </StackPanel>
+                                </muxc:Expander>
+
                                 <!--
                                     Shared folders, served by WinQEMU itself (Sharing.NinePServer). Not behind
                                     Hardware.CanEdit: they are served live, so they can change while it runs.

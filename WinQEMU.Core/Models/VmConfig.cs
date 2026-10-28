@@ -176,6 +176,18 @@ namespace WinQEMU.Core.Models
         private DateTime? _lastStartedUtc;
         public DateTime? LastStartedUtc { get => _lastStartedUtc; set => SetProperty(ref _lastStartedUtc, value); }
 
+        private bool _autoStart;
+        /// <summary>Started by WinQEMU as it opens, at the Windows logon too when WinQEMU starts then (see <see cref="AutoStartPlan"/>).</summary>
+        public bool AutoStart { get => _autoStart; set => SetProperty(ref _autoStart, value); }
+
+        private int _autoStartDelaySeconds;
+        /// <summary>How long after WinQEMU opens the machine starts, as Hyper-V's automatic start delay: it sets the order.</summary>
+        public int AutoStartDelaySeconds
+        {
+            get => _autoStartDelaySeconds;
+            set => SetProperty(ref _autoStartDelaySeconds, Math.Clamp(value, 0, AutoStartPlan.MaxDelaySeconds));
+        }
+
         /// <summary>
         /// Absolute path of the folder holding this VM's descriptor and disks. Assigned by the
         /// library on load, never serialised, so moving a folder just works.

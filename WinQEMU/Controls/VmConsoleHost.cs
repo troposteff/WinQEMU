@@ -198,6 +198,48 @@ namespace WinQEMU.Controls
             set => _placeholder.Text = value;
         }
 
+        private readonly Dictionary<int, Task> _adoptions = new();
+
+        /// <summary>
+        /// Takes the console of a machine that started while another is shown, and parks it: a machine
+        /// started with WinQEMU, or one whose guest rebooted (the session starts a new QEMU then). Its SDL
+        /// window would otherwise stay on the desktop as a framed "QEMU" window of its own.
+        /// </summary>
+        public Task AdoptAsync(int processId)
+        {
+            if (processId == _consoleProcessId || _parked.ContainsKey(processId) || _adoptions.ContainsKey(processId)
+                || _shellWindow == IntPtr.Zero || _parkingWindow == IntPtr.Zero)
+                return Task.CompletedTask;
+            var adoption = AdoptCoreAsync(processId);
+            _adoptions[processId] = adoption;
+            return adoption;
+        }
+
+        private async Task AdoptCoreAsync(int processId)
+        {
+            try
+            {
+                var console = await QemuConsoleWindow.LocateAsync(processId, TimeSpan.FromSeconds(15), CancellationToken.None, Log);
+                if (console is null)
+                {
+                    Log?.Invoke($"Console: the window of QEMU process {processId} was not found to park it.");
+                    return;
+                }
+                // Embedded first (Park needs a child window), hidden, then parked: off the UI thread, both
+                // wait on QEMU's message loop.
+                var shell = _shellWindow;
+                var parking = _parkingWindow;
+                if (await Task.Run(() => console.Embed(shell) && console.Park(parking)))
+                    _parked[processId] = console;
+                else
+                    Log?.Invoke($"Console: the window of QEMU process {processId} could not be parked.");
+            }
+            finally
+            {
+                _adoptions.Remove(processId);
+            }
+        }
+
         /// <summary>
         /// Locates the console window of the given QEMU process and embeds it. Returns false when no
         /// window appeared in time or reparenting failed, leaving an explanatory placeholder.
@@ -214,11 +256,20 @@ namespace WinQEMU.Controls
 
             PlaceholderText = "Connexion à la console…";
 
+            // Being taken in the background: wait for it, it will then be among the parked ones.
+            if (_adoptions.TryGetValue(processId, out var adoption))
+                await adoption;
+            if (token.IsCancellationRequested)
+                return false;
+
             foreach (var dead in _parked.Where(entry => !entry.Value.IsAlive).Select(entry => entry.Key).ToList())
                 _parked.Remove(dead);
 
             if (_parked.Remove(processId, out var parked))
             {
+                // Not done yet if this is the first console shown: one started with WinQEMU was parked
+                // before any was attached, and came back black, the XAML surface painted over it.
+                WinUiHostWindow.EnableSiblingClipping(_shellWindow, Log);
                 // Seen before and parked when the user switched away: it is still a child window, so
                 // it only needs moving back, not finding again among the desktop's windows.
                 if (await Task.Run(() => parked.Unpark(_shellWindow)))

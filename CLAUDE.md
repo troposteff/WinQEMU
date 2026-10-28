@@ -324,6 +324,31 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
 - **L'agent invité n'est pas dans virtio-win-guest-tools** (qui n'apporte que spice-vdagent) : `guest-agent\qemu-ga-x86_64.msi`
   du même lecteur, à installer à part ; le message de WinQEMU le dit pour un invité Windows.
 
+## Démarrage automatique et arrière-plan
+
+- **Démarrer avec WinQEMU** (section Démarrage automatique du résumé, `VmConfig.AutoStart` /
+  `AutoStartDelaySeconds`) : comme le démarrage automatique de Hyper-V, chaque machine après son délai compté depuis
+  l'ouverture de WinQEMU, le plus court d'abord (`Models.AutoStartPlan`). Même chemin que le bouton Démarrer
+  (`MainViewModel.StartMachineAsync`). Une machine démarrée ou supprimée entre-temps est laissée.
+- **Consoles des machines non affichées** : seule la machine sélectionnée était suivie ; une autre qui démarre (avec
+  WinQEMU, ou relancée par sa session au redémarrage de l'invité) aurait laissé sa fenêtre SDL sur le bureau.
+  `MainViewModel` suit toutes les sessions (`BackgroundConsoleStarted`) et `VmConsoleHost.AdoptAsync` la gare aussitôt
+  (intégrée, puis garée ; `AttachAsync` attend une adoption en cours). Aucune fenêtre QEMU visible vérifié toutes les
+  0,5 s. **Piège** : la première console affichée pouvait sortir du garage sans que `WS_CLIPSIBLINGS` soit posé sur le
+  pont XAML (seul le chemin « trouver et intégrer » le faisait) : console noire, XAML peint par-dessus.
+- **Fermer avec des machines en marche** : « Laisser en arrière-plan » (par défaut), « Arrêter et quitter » (ACPI pour
+  toutes, progression, « Éteindre maintenant » pour celles qui ne répondent pas), « Annuler ». En arrière-plan la
+  fenêtre est seulement cachée (`AppWindow.Hide`) : les consoles restent ses enfants, rien à retrouver au retour.
+  Icône de zone de notification Win32 (`TrayIcon`, WinUI n'en a pas ; remise à « TaskbarCreated »).
+- **Une seule instance** (`Program.Main`, `DISABLE_XAML_GENERATED_MAIN`) : relancé, WinQEMU passe l'activation à
+  celui qui tourne (`AppInstance.RedirectActivationToAsync`), qui réaffiche sa fenêtre. Deux instances listeraient les
+  mêmes machines sans se voir.
+- **Ouverture de session** : tâche de démarrage du paquet (`uap5:StartupTask` `WinQEMUStartup`, désactivée par
+  défaut), interrupteur dans les Paramètres (`StartupTask.RequestEnableAsync`) ; désactivée dans Windows
+  (`DisabledByUser`), seul Windows peut la réactiver, c'est dit. Lancé ainsi (`ExtendedActivationKind.StartupTask`),
+  WinQEMU reste dans la zone de notification ; l'initialisation ne dépend plus du `Loaded` de la fenêtre.
+- **Pas géré** : l'arrêt ou la déconnexion de Windows avec des machines en marche les coupe, comme avant.
+
 ## Son
 
 Carte `intel-hda` jouée par la sortie **DirectSound** de QEMU (`-audiodev dsound`), son propre vérifié à l'oreille.

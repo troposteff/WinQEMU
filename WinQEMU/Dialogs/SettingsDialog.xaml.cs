@@ -34,6 +34,69 @@ namespace WinQEMU.Dialogs
             // plugged in since the last time.
             AudioOutputBox.ItemsSource = viewModel.AudioOutputChoices;
             AudioOutputBox.SelectedValue = viewModel.SelectedAudioOutputId;
+
+            _ = ReadStartAtLogonAsync();
+        }
+
+        // ---- Start at the Windows logon ----
+
+        private const string StartupTaskId = "WinQEMUStartup";
+        private bool _readingStartup;
+
+        /// <summary>The package's startup task, as Windows has it: the user may have turned it off there.</summary>
+        private async Task ReadStartAtLogonAsync()
+        {
+            _readingStartup = true;
+            try
+            {
+                var task = await Windows.ApplicationModel.StartupTask.GetAsync(StartupTaskId);
+                ShowStartupState(task.State);
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or ArgumentException)
+            {
+                StartAtLogonSwitch.IsEnabled = false;
+                StartAtLogonHint.Text = $"Windows ne donne pas accès au démarrage de WinQEMU : {ex.Message}";
+            }
+            finally
+            {
+                _readingStartup = false;
+            }
+        }
+
+        private void ShowStartupState(Windows.ApplicationModel.StartupTaskState state)
+        {
+            _readingStartup = true;
+            StartAtLogonSwitch.IsOn = state is Windows.ApplicationModel.StartupTaskState.Enabled
+                or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
+            _readingStartup = false;
+            // Turned off in Windows' settings, or by policy: only Windows can turn it back on.
+            if (state == Windows.ApplicationModel.StartupTaskState.DisabledByUser)
+                StartAtLogonHint.Text = "Désactivé dans Windows : réactivez WinQEMU dans Paramètres > Applications > Démarrage.";
+            else if (state is Windows.ApplicationModel.StartupTaskState.DisabledByPolicy or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy)
+                StartAtLogonHint.Text = "Fixé par une stratégie de l'organisation.";
+            StartAtLogonSwitch.IsEnabled = state is Windows.ApplicationModel.StartupTaskState.Enabled
+                or Windows.ApplicationModel.StartupTaskState.Disabled;
+        }
+
+        private async void OnStartAtLogonToggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            if (_readingStartup)
+                return;
+            try
+            {
+                var task = await Windows.ApplicationModel.StartupTask.GetAsync(StartupTaskId);
+                if (StartAtLogonSwitch.IsOn)
+                    ShowStartupState(await task.RequestEnableAsync());
+                else
+                {
+                    task.Disable();
+                    ShowStartupState(task.State);
+                }
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or ArgumentException)
+            {
+                StartAtLogonHint.Text = $"Windows a refusé : {ex.Message}";
+            }
         }
 
         // ---- Sound ----

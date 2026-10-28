@@ -133,6 +133,22 @@
                         Severity="Error"
                         Title="QEMU est introuvable" />
 
+                    <!-- Start at the Windows logon -->
+                    <StackPanel Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="Démarrage" />
+                        <ToggleSwitch
+                            x:Name="StartAtLogonSwitch"
+                            Header="Lancer WinQEMU à l'ouverture de session Windows"
+                            OffContent="Non"
+                            OnContent="Oui"
+                            Toggled="OnStartAtLogonToggled" />
+                        <TextBlock
+                            x:Name="StartAtLogonHint"
+                            Style="{StaticResource Hint}"
+                            Text="WinQEMU s'ouvre alors dans la zone de notification et démarre les machines marquées « Démarrer avec WinQEMU » (section Démarrage automatique de chaque machine). Windows le liste aussi dans ses applications de démarrage."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+
                     <!-- Sound -->
                     <StackPanel Spacing="8">
                         <TextBlock FontWeight="SemiBold" Text="Son des machines virtuelles" />

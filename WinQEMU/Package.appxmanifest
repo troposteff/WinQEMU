@@ -6,12 +6,13 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   xmlns:systemai="http://schemas.microsoft.com/appx/manifest/systemai/windows10"
-  IgnorableNamespaces="uap rescap systemai">
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  IgnorableNamespaces="uap rescap systemai uap5">
 
   <Identity
     Name="cfde84db-a7f2-4241-ae31-4fd9bc34967b"
     Publisher="CN=troposteff"
-    Version="1.0.1.0" />
+    Version="1.0.2.0" />
 
   <mp:PhoneIdentity PhoneProductId="cfde84db-a7f2-4241-ae31-4fd9bc34967b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -43,6 +44,16 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+        <!-- WinQEMU at the Windows logon, off until asked for in its settings (StartupTask); listed in
+             Windows' own startup apps too, where it can be turned off. -->
+        <uap5:Extension
+          Category="windows.startupTask"
+          Executable="WinQEMU.exe"
+          EntryPoint="Windows.FullTrustApplication">
+          <uap5:StartupTask TaskId="WinQEMUStartup" Enabled="false" DisplayName="WinQEMU" />
+        </uap5:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

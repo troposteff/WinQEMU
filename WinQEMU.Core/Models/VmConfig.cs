@@ -103,6 +103,21 @@ namespace WinQEMU.Core.Models
         private bool _enableAudio = true;
         public bool EnableAudio { get => _enableAudio; set => SetProperty(ref _enableAudio, value); }
 
+        private bool _enableMicrophone;
+        /// <summary>
+        /// The guest's sound card also has an input, fed by this PC's microphone. Off unless asked for: every
+        /// machine with sound had it before, without anyone choosing to hand the microphone to a guest.
+        /// </summary>
+        public bool EnableMicrophone { get => _enableMicrophone; set => SetProperty(ref _enableMicrophone, value); }
+
+        private int _audioVolume = 100;
+        /// <summary>The machine's volume on this PC, 0 to 100, as in Windows' volume mixer (see Interop.HostAudio).</summary>
+        public int AudioVolume { get => _audioVolume; set => SetProperty(ref _audioVolume, Math.Clamp(value, 0, 100)); }
+
+        private bool _audioMuted;
+        /// <summary>The machine's sound is cut on this PC; the guest still plays, unaware.</summary>
+        public bool AudioMuted { get => _audioMuted; set => SetProperty(ref _audioMuted, value); }
+
         private bool _enableUsbTablet = true;
         /// <summary>Absolute pointing device. Without it the guest cursor drifts from the host cursor.</summary>
         public bool EnableUsbTablet { get => _enableUsbTablet; set => SetProperty(ref _enableUsbTablet, value); }

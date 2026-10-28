@@ -226,6 +226,7 @@
                 and, like any unknown property, it makes XamlCompiler.exe exit with no diagnostic.
             -->
             <StackPanel
+                x:Name="MachineToolbar"
                 Grid.Row="0" Grid.Column="1"
                 HorizontalAlignment="Left"
                 Orientation="Horizontal">
@@ -296,6 +297,17 @@
                         </muxc:AppBarButton.Icon>
                     </muxc:AppBarButton>
                     <muxc:AppBarButton
+                        x:Name="SoundButton"
+                        Click="OnSoundClick"
+                        IsEnabled="{Binding CanAdjustSound, Mode=OneWay}"
+                        Label="{Binding SoundLabel, Mode=OneWay}"
+                        ToolTipService.ToolTip="Coupe le son de cette machine ou règle son volume sur ce PC">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="{Binding SoundGlyph, Mode=OneWay}" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                    <muxc:AppBarButton
+                        x:Name="SendFilesButton"
                         Click="OnSendFilesClick"
                         IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
                         Label="Envoyer"
@@ -304,8 +316,9 @@
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE898;" />
                         </muxc:AppBarButton.Icon>
                     </muxc:AppBarButton>
-                    <muxc:AppBarSeparator />
+                    <muxc:AppBarSeparator x:Name="LibrarySeparator" />
                     <muxc:AppBarButton
+                        x:Name="CloneButton"
                         Click="OnCloneClick"
                         IsEnabled="{Binding CanClone, Mode=OneWay}"
                         Label="Cloner"
@@ -315,6 +328,7 @@
                         </muxc:AppBarButton.Icon>
                     </muxc:AppBarButton>
                     <muxc:AppBarButton
+                        x:Name="ExportButton"
                         Click="OnExportClick"
                         IsEnabled="{Binding CanClone, Mode=OneWay}"
                         Label="Exporter"
@@ -330,6 +344,17 @@
                         ToolTipService.ToolTip="Retire la machine virtuelle sélectionnée de la liste, ou supprime aussi ses fichiers ; le choix est demandé avant toute action">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE74D;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                    <!-- What the window is too narrow for (FitMachineToolbar). -->
+                    <muxc:AppBarButton
+                        x:Name="MoreButton"
+                        Click="OnMoreClick"
+                        Label="Plus"
+                        ToolTipService.ToolTip="Les commandes que la largeur de la fenêtre ne laisse pas afficher"
+                        Visibility="Collapsed">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE712;" />
                         </muxc:AppBarButton.Icon>
                     </muxc:AppBarButton>
                 </StackPanel>
@@ -701,6 +726,11 @@
 
                                         <StackPanel Orientation="Horizontal" Spacing="16">
                                             <CheckBox Content="Son" IsChecked="{Binding EnableAudio, Mode=TwoWay}" />
+                                            <CheckBox
+                                                Content="Micro"
+                                                IsChecked="{Binding EnableMicrophone, Mode=TwoWay}"
+                                                IsEnabled="{Binding EnableAudio, Mode=OneWay}"
+                                                ToolTipService.ToolTip="Donne à l'invité le micro de ce PC. Windows demande l'autorisation la première fois." />
                                             <CheckBox
                                                 Content="Tablette USB"
                                                 IsChecked="{Binding EnableUsbTablet, Mode=TwoWay}"
@@ -1647,6 +1677,7 @@
                 <Button Command="{Binding SendCtrlAltDeleteCommand}" Content="Ctrl+Alt+Suppr" />
                 <Button x:Name="FullScreenUsbButton" Click="OnUsbClick" Content="USB" />
                 <Button Click="OnSendFilesClick" Content="Envoyer des fichiers" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
+                <Button Click="OnSoundClick" Content="{Binding SoundLabel, Mode=OneWay}" IsEnabled="{Binding CanAdjustSound, Mode=OneWay}" />
                 <Button Click="OnToggleFullScreenClick" Content="Quitter le plein écran" Style="{StaticResource AccentButtonStyle}" />
             </StackPanel>
         </Border>

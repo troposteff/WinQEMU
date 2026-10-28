@@ -29,6 +29,19 @@ namespace WinQEMU.Dialogs
             _viewModel = viewModel;
             _ownerWindow = ownerWindow;
             DataContext = viewModel;
+
+            // Listed now rather than bound: the outputs are read from Windows, and a headset may have been
+            // plugged in since the last time.
+            AudioOutputBox.ItemsSource = viewModel.AudioOutputChoices;
+            AudioOutputBox.SelectedValue = viewModel.SelectedAudioOutputId;
+        }
+
+        // ---- Sound ----
+
+        private void OnAudioOutputChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (AudioOutputBox.SelectedValue is string id)
+                _viewModel.SelectedAudioOutputId = id;
         }
 
         // ---- QEMU ----

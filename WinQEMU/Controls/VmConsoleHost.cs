@@ -421,8 +421,17 @@ namespace WinQEMU.Controls
             if (_console is null || _suspended || _lastWidth <= 0)
                 return;
             if (x >= _lastX && x < _lastX + _lastWidth && y >= _lastY && y < _lastY + _lastHeight)
+            {
                 FocusGuest();
+                ConsoleClicked?.Invoke(this, EventArgs.Empty);
+            }
         }
+
+        /// <summary>
+        /// A click landed on the guest. XAML never hears of it (the console is another process's window), so
+        /// a menu open over it would not close by itself.
+        /// </summary>
+        public event EventHandler? ConsoleClicked;
 
         /// <summary>
         /// Sends pointer events to the guest over QMP, for the scaled image QEMU cannot point in (see

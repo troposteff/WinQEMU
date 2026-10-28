@@ -47,6 +47,7 @@ namespace WinQEMU
             _viewModel.ConsoleTargetChanged += OnConsoleTargetChanged;
 
             ConsoleHost.GuestSizeChanged += (_, _) => UpdateGuestSizeText();
+            ConsoleHost.ConsoleClicked += (_, _) => _openMenu?.Hide();
 
             // The snapshot tree is drawn in code (boxes and lines), redrawn when the tree or the selection changes.
             _viewModel.Snapshots.PropertyChanged += (_, e) =>
@@ -422,6 +423,7 @@ namespace WinQEMU
             var narrow = RootGrid.ActualWidth > 0 && RootGrid.ActualWidth < narrowThreshold;
 
             SidebarColumn.Width = new GridLength(narrow ? 240 : 320);
+            FitMachineToolbar();
 
             // The summary tab's content is only realised while that tab is selected, so these may not
             // exist yet when a resize happens with the console showing.
@@ -433,6 +435,68 @@ namespace WinQEMU
             Grid.SetRow(ResourcesPanel, narrow ? 1 : 0);
             Grid.SetRowSpan(ResourcesPanel, narrow ? 1 : 3);
             ResourcesPanel.Margin = narrow ? new Thickness(0, 12, 0, 0) : new Thickness(0);
+        }
+
+        /// <summary>How many groups of the toolbar are folded into "Plus": 0, 1 (the library's) or 2 (and Son, Envoyer).</summary>
+        private int _foldedGroups;
+
+        /// <summary>
+        /// Folds commands into a "Plus" menu while the toolbar would run under the Réseaux virtuels and
+        /// Paramètres buttons, as it did at 1440 px once Son and Envoyer were added. The library's actions go
+        /// first (Cloner, Exporter, Supprimer), then Envoyer and Son; the machine's power and USB stay in view.
+        /// </summary>
+        private void FitMachineToolbar()
+        {
+            if (ContentGrid.ActualWidth <= 0)
+                return;
+
+            // The two round buttons at the right of the band, and their margins.
+            const double rightButtons = 92;
+            for (var folded = 0; folded <= 2; folded++)
+            {
+                FoldToolbar(folded);
+                MachineToolbar.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+                if (MachineToolbar.DesiredSize.Width <= ContentGrid.ActualWidth - rightButtons)
+                    break;
+            }
+        }
+
+        private void FoldToolbar(int groups)
+        {
+            _foldedGroups = groups;
+            var library = groups >= 1 ? Visibility.Collapsed : Visibility.Visible;
+            LibrarySeparator.Visibility = library;
+            CloneButton.Visibility = library;
+            ExportButton.Visibility = library;
+            DeleteButton.Visibility = library;
+            var guest = groups >= 2 ? Visibility.Collapsed : Visibility.Visible;
+            SoundButton.Visibility = guest;
+            SendFilesButton.Visibility = guest;
+            MoreButton.Visibility = groups > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void OnMoreClick(object sender, RoutedEventArgs e)
+        {
+            if (OnlyClosedItsMenu(sender))
+                return;
+            var menu = new MenuFlyout();
+            void Add(string text, string glyph, bool enabled, RoutedEventHandler click)
+            {
+                var item = new MenuFlyoutItem { Text = text, Icon = new FontIcon { Glyph = glyph }, IsEnabled = enabled };
+                item.Click += click;
+                menu.Items.Add(item);
+            }
+            if (_foldedGroups >= 2)
+            {
+                // Opened under "Plus": the menu item is gone by the time the flyout shows.
+                Add(_viewModel.SoundLabel + "…", _viewModel.SoundGlyph, _viewModel.CanAdjustSound, (_, _) => ShowSoundFlyout(MoreButton));
+                Add("Envoyer des fichiers…", "\uE898", _viewModel.CanSendFiles, OnSendFilesClick);
+                menu.Items.Add(new MenuFlyoutSeparator());
+            }
+            Add("Cloner…", "\uE8C8", _viewModel.CanClone, OnCloneClick);
+            Add("Exporter…", "\uEDE1", _viewModel.CanClone, OnExportClick);
+            Add("Supprimer…", "\uE74D", _viewModel.SelectedVm is not null, OnDeleteClick);
+            ShowAboveConsole(menu, MoreButton);
         }
 
         private void OnDismissErrorClick(InfoBar sender, object args) => _viewModel.ClearError();
@@ -879,6 +943,95 @@ namespace WinQEMU
         /// connect at every start. Built on each click from Windows and from QEMU, since a device can be
         /// plugged, unplugged or rebound to WinUSB at any time.
         /// </summary>
+        /// <summary>
+        /// The machine's sound on this PC: cut, and its volume, as in Windows' volume mixer. Built on each
+        /// click, like the USB menu, for the machine selected now.
+        /// </summary>
+        private void OnSoundClick(object sender, RoutedEventArgs e)
+        {
+            if (!OnlyClosedItsMenu(sender))
+                ShowSoundFlyout(sender as FrameworkElement ?? SoundButton);
+        }
+
+        private void ShowSoundFlyout(FrameworkElement target)
+        {
+            if (_viewModel.SelectedVm is not { } vm)
+                return;
+
+            var on = new ToggleSwitch
+            {
+                Header = "Son de la machine sur ce PC",
+                OnContent = "Activé",
+                OffContent = "Coupé",
+                IsOn = !vm.AudioMuted
+            };
+            on.Toggled += (_, _) => vm.AudioMuted = !on.IsOn;
+            var volume = new Slider
+            {
+                Header = "Volume",
+                Minimum = 0,
+                Maximum = 100,
+                StepFrequency = 1,
+                Value = vm.AudioVolume,
+                Width = 260
+            };
+            volume.ValueChanged += (_, args) => vm.AudioVolume = (int)Math.Round(args.NewValue);
+            var output = _viewModel.AudioOutputChoices.FirstOrDefault(c => c.Id == _viewModel.SelectedAudioOutputId)?.Name
+                         ?? "Sortie par défaut de Windows";
+            var panel = new StackPanel { Spacing = 12 };
+            panel.Children.Add(on);
+            panel.Children.Add(volume);
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"Sortie : {output}. Elle se change dans les Paramètres, pour toutes les machines.",
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 260,
+                FontSize = 12,
+                Opacity = 0.7
+            });
+
+            ShowAboveConsole(new Flyout { Content = panel }, target);
+        }
+
+        private Microsoft.UI.Xaml.Controls.Primitives.FlyoutBase? _openMenu;
+        private FrameworkElement? _closedMenuTarget;
+        private DateTime _closedMenuAt;
+
+        /// <summary>
+        /// Opens a menu or flyout of the toolbar or of the full-screen bar, which hang over the console, in a
+        /// window of its own: Windows draws that above QEMU's, so the guest stays in view behind it.
+        /// </summary>
+        /// <remarks>
+        /// Drawn by XAML in the shell's window, a popup is covered by the console, a native window, and the
+        /// console used to be hidden while one was open: the guest vanished for as long as the volume was
+        /// being set.
+        ///
+        /// A click elsewhere in the window closes it and still reaches what was clicked
+        /// (OverlayInputPassThroughElement): Son open, a click on USB opens USB, where it used to only close
+        /// Son. A click on the guest closes it too (ConsoleClicked).
+        /// </remarks>
+        private void ShowAboveConsole(Microsoft.UI.Xaml.Controls.Primitives.FlyoutBase flyout, FrameworkElement target)
+        {
+            flyout.ShouldConstrainToRootBounds = false;
+            flyout.OverlayInputPassThroughElement = RootGrid;
+            flyout.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_openMenu, flyout))
+                    _openMenu = null;
+                _closedMenuTarget = target;
+                _closedMenuAt = DateTime.UtcNow;
+            };
+            _openMenu = flyout;
+            flyout.ShowAt(target);
+        }
+
+        /// <summary>
+        /// Whether a click on a menu's own button only closed that menu. The click passes through to the
+        /// button once the menu is closed, which would open it again at once instead of toggling it.
+        /// </summary>
+        private bool OnlyClosedItsMenu(object sender) =>
+            ReferenceEquals(sender, _closedMenuTarget) && DateTime.UtcNow - _closedMenuAt < TimeSpan.FromMilliseconds(500);
+
         private async void OnSendFilesClick(object sender, RoutedEventArgs e)
         {
             var picker = new Windows.Storage.Pickers.FileOpenPicker();
@@ -944,7 +1097,7 @@ namespace WinQEMU
 
         private async void OnUsbClick(object sender, RoutedEventArgs e)
         {
-            if (_viewModel.SelectedVm is null)
+            if (_viewModel.SelectedVm is null || OnlyClosedItsMenu(sender))
                 return;
 
             var entries = await _viewModel.GetUsbEntriesAsync();
@@ -996,11 +1149,8 @@ namespace WinQEMU
             help.Click += async (_, _) => await ShowWinUsbHelpAsync();
             menu.Items.Add(help);
 
-            // The console is a native window drawn above all XAML, the menu included.
-            ConsoleHost.Suspend();
-            menu.Closed += (_, _) => ConsoleHost.Resume();
             // Under whichever button opened it: the toolbar's, or the full-screen bar's.
-            menu.ShowAt(sender as FrameworkElement ?? UsbButton);
+            ShowAboveConsole(menu, sender as FrameworkElement ?? UsbButton);
         }
 
         private static string UsbStatus(MainViewModel.UsbMenuEntry entry) =>

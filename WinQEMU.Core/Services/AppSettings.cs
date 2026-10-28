@@ -31,6 +31,14 @@ namespace WinQEMU.Core.Services
         /// </summary>
         public System.Collections.ObjectModel.ObservableCollection<Models.VirtualNetwork> VirtualNetworks { get; set; } = new();
 
+        private string _audioOutputId = string.Empty;
+        /// <summary>
+        /// The output every machine's sound goes to, by Windows endpoint id; empty for Windows' default one.
+        /// One for all machines, because Windows keeps it per program, and they are all qemu-system-x86_64.exe
+        /// (see Interop.HostAudio.RouteProgramOutput).
+        /// </summary>
+        public string AudioOutputId { get => _audioOutputId; set => SetProperty(ref _audioOutputId, value ?? string.Empty); }
+
         [JsonIgnore]
         public string EffectiveLibraryRoot =>
             string.IsNullOrWhiteSpace(LibraryRoot) ? DefaultLibraryRoot : LibraryRoot;

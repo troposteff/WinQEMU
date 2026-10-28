@@ -36,6 +36,9 @@ dotnet build WinQEMU\WinQEMU.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifie
   oblige à désenregistrer, sauvegarder d'abord
   `%LOCALAPPDATA%\Packages\<PFN>\LocalCache\Local\WinQEMU\settings.json`.
 - Méfiance envers un sous-dossier `AppX\` resté dans la sortie : l'enregistrer fait tourner du vieux code.
+- **Changement du manifeste** (une capacité, par exemple) : il n'est lu qu'à l'enregistrement, et Windows refuse de
+  réenregistrer la même version en mode développeur (0x80073CFB). Incrémenter `Version` dans `Package.appxmanifest`,
+  compiler, puis `Add-AppxPackage -Register` : c'est une mise à jour en place, le stockage local est gardé.
 - Après un déploiement, vérifier que la DLL installée contient bien le changement plutôt que de supposer.
 
 ## Décisions d'architecture
@@ -321,6 +324,28 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
 - **L'agent invité n'est pas dans virtio-win-guest-tools** (qui n'apporte que spice-vdagent) : `guest-agent\qemu-ga-x86_64.msi`
   du même lecteur, à installer à part ; le message de WinQEMU le dit pour un invité Windows.
 
+## Son
+
+Carte `intel-hda` jouée par la sortie **DirectSound** de QEMU (`-audiodev dsound`), son propre vérifié à l'oreille.
+SDL, l'autre sortie de ce build, garde une session audio ouverte dès le démarrage, invité muet ou non ; DirectSound
+n'en ouvre une qu'au premier son de l'invité. Ce build n'a ni `virtio-snd` ni WASAPI.
+
+- **Micro sur demande** (`VmConfig.EnableMicrophone`) : `hda-output` par défaut, `hda-duplex` (entrée ligne alimentée
+  par le micro de ce PC) si coché. Avant, toute VM avec son recevait le micro. QEMU tourne au nom du paquet : capacité
+  `microphone` déclarée dans le manifeste.
+- **Couper et volume par VM** (bouton **Son**, `VmConfig.AudioMuted` / `AudioVolume`) : QEMU n'a aucune commande de
+  son. Chaque processus QEMU a sa **session audio Windows** (celle du mélangeur de volume), réglée par
+  `Interop.HostAudio.SetProcessVolume`. Réglage propre à chaque processus (mesuré), **mais** Windows retient le dernier
+  posé pour `qemu-system-x86_64.exe` et le donne à la session suivante : une VM démarrée après une VM coupée démarrait
+  coupée. D'où `MainViewModel.KeepAudioAsync`, toutes les 500 ms : le réglage de chaque VM en marche est posé sur
+  toute nouvelle session de son processus, 100 % non coupé compris.
+- **Sortie commune** (Paramètres, `AppSettings.AudioOutputId`) : QEMU n'a pas de choix de périphérique. Windows sait
+  envoyer une application vers une sortie (« Volume des applications et préférences de périphériques »), par
+  l'interface non documentée `Windows.Media.Internal.AudioPolicyConfig` (celle d'EarTrumpet ; IID différent avant
+  Windows 10 21H2), mais **par programme, pas par processus** : un QEMU envoyé vers le casque y entraînait les autres,
+  et ceux démarrés ensuite (mesuré). D'où un réglage pour toutes les VM (choix de l'utilisateur), reposé au
+  démarrage de chacune, avant son premier son. Vide : sortie par défaut de Windows (la préférence est effacée).
+
 ## Glisser-déposer de fichiers vers l'invité
 
 Comme VMware : des fichiers ou dossiers glissés de l'Explorateur sur la console (ou choisis par le bouton
@@ -525,8 +550,15 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   sortir `XamlCompiler.exe` en erreur **sans aucun message** ; seule une bissection le trouve. Envelopper
   le panneau dans un `ContentControl`.
 - **Un HWND enfant passe toujours au-dessus de XAML** et n'est pas rogné par lui : masquer la console
-  (`Suspend`) avant tout dialogue ou menu, et la rogner à son panneau (`SetWindowRgn`) quand l'image est
-  plus grande (« Taille réelle »).
+  (`Suspend`) avant tout dialogue, et la rogner à son panneau (`SetWindowRgn`) quand l'image est plus grande
+  (« Taille réelle »). **Menus et volets** de la barre d'outils et du plein écran : dans une fenêtre à eux
+  (`ShouldConstrainToRootBounds = false`, `MainWindow.ShowAboveConsole`), que Windows dessine au-dessus de la
+  console ; la masquer faisait disparaître l'invité pendant qu'on réglait son volume. Un clic ailleurs dans la
+  fenêtre ferme le menu **et** atteint ce qu'il vise (`OverlayInputPassThroughElement`, sinon Son ouvert, un clic
+  sur USB ne faisait que fermer Son) ; un clic sur le bouton du menu ouvert ne fait que le fermer
+  (`OnlyClosedItsMenu`) ; un clic dans la console, que XAML ne voit pas, le ferme par `ConsoleClicked`.
+- **Barre d'outils trop large** (`FitMachineToolbar`) : elle passait sous Réseaux virtuels et Paramètres à
+  1440 px. Replis successifs dans « Plus » : Cloner, Exporter, Supprimer, puis Son et Envoyer.
 - **Visibilité réelle** : tester la visibilité de tous les ancêtres, pas seulement de l'élément (la vue
   Résumé masque la console en repliant son conteneur).
 - **Boutons de `CommandBar`** : ils ne prennent pas le focus par défaut, donc une `NumberBox` en cours de

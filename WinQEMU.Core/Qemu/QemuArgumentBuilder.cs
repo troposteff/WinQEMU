@@ -655,12 +655,16 @@ namespace WinQEMU.Core.Qemu
 
             if (config.EnableAudio)
             {
+                // DirectSound: this build's other output on Windows, SDL, opens an audio session as QEMU starts
+                // and keeps it active, guest silent or not; DirectSound opens one when the guest first plays.
                 args.Add("-audiodev");
                 args.Add("dsound,id=snd0");
                 args.Add("-device");
                 args.Add("intel-hda");
+                // Output only unless the microphone is asked for: hda-duplex gives the guest a line-in fed by
+                // this PC's microphone, which every machine with sound used to get.
                 args.Add("-device");
-                args.Add("hda-duplex,audiodev=snd0");
+                args.Add(config.EnableMicrophone ? "hda-duplex,audiodev=snd0" : "hda-output,audiodev=snd0");
             }
         }
 

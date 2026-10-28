@@ -133,6 +133,20 @@
                         Severity="Error"
                         Title="QEMU est introuvable" />
 
+                    <!-- Sound -->
+                    <StackPanel Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="Son des machines virtuelles" />
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="La sortie où toutes les machines jouent leur son. Windows ne la retient que pour le programme QEMU dans son ensemble : elle ne peut pas différer d'une machine à l'autre. Le volume et la coupure, eux, se règlent pour chaque machine par le bouton Son." />
+                        <ComboBox
+                            x:Name="AudioOutputBox"
+                            MinWidth="320"
+                            AutomationProperties.Name="Sortie audio des machines virtuelles"
+                            DisplayMemberPath="Name"
+                            SelectedValuePath="Id"
+                            SelectionChanged="OnAudioOutputChanged" />
+                    </StackPanel>
+
                     <!-- VM library -->
                     <StackPanel Spacing="8">
                         <TextBlock FontWeight="SemiBold" Text="Bibliothèque de machines virtuelles" />

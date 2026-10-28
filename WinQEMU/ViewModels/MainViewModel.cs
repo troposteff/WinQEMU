@@ -21,6 +21,7 @@ namespace WinQEMU.ViewModels
         private readonly DispatcherQueue _dispatcher;
         private readonly ClipboardBridge _clipboard;
         private readonly DispatcherQueueTimer _metricsTimer;
+        private readonly DispatcherQueueTimer _audioTimer;
         private readonly DispatcherQueueTimer _saveDebounceTimer;
         private readonly DispatcherQueueTimer _logFlushTimer;
         private readonly List<string> _logBuffer = new();
@@ -45,6 +46,11 @@ namespace WinQEMU.ViewModels
             DeleteCommand = new AsyncRelayCommand(p => DeleteAsync(p is true), _ => SelectedVm is not null, ReportError);
             SendCtrlAltDeleteCommand = new AsyncRelayCommand(_ => SendCtrlAltDeleteAsync(), _ => IsSelectedRunning, ReportError);
             CancelSendFilesCommand = new RelayCommand(_ => CancelSendFiles());
+
+            _audioTimer = _dispatcher.CreateTimer();
+            _audioTimer.Interval = TimeSpan.FromMilliseconds(500);
+            _audioTimer.Tick += (_, _) => _ = KeepAudioAsync();
+            _audioTimer.Start();
 
             // Metrics come from sampling the QEMU process and QMP, so they are polled rather than pushed.
             _metricsTimer = _dispatcher.CreateTimer();
@@ -783,6 +789,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(SharedFolderStatus));
             RaisePropertyChanged(nameof(HasSharedFolderStatus));
             RaiseFileTransferProperties();
+            RaiseSoundProperties();
 
             // Boot order, disks and adapters are only read when QEMU starts, so they stay locked for
             // as long as a process exists — including while it is stopping.
@@ -926,6 +933,17 @@ namespace WinQEMU.ViewModels
 
         private void OnSelectedVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            if (e.PropertyName is nameof(VmConfig.AudioVolume) or nameof(VmConfig.AudioMuted) or nameof(VmConfig.EnableAudio)
+                && sender is VmConfig config)
+            {
+                _dispatcher.TryEnqueue(() =>
+                {
+                    ForgetAppliedAudio(config);
+                    RaiseSoundProperties();
+                    _ = KeepAudioAsync();
+                });
+            }
+
             // The core mutates the config from background threads too — VmSession stamps
             // LastStartedUtc once the VM is up. A DispatcherQueueTimer may only be touched from
             // its own thread, so this has to marshal rather than assume a UI-thread caller.
@@ -1561,6 +1579,149 @@ namespace WinQEMU.ViewModels
         {
             if (e.PropertyName == nameof(ErrorMessage))
                 RaisePropertyChanged(nameof(HasError));
+        }
+
+        // ---- Sound ----
+
+        /// <summary>What has been laid on one running machine's audio: its sessions, and the output it was sent to.</summary>
+        private sealed class AudioRun
+        {
+            public int ProcessId;
+            public bool Routed;
+            public HashSet<string> Applied { get; } = new();
+        }
+
+        private readonly Dictionary<VmConfig, AudioRun> _audioRuns = new();
+        private bool _audioBusy;
+
+        /// <summary>The selection's sound can be cut or turned down: it has a sound card.</summary>
+        public bool CanAdjustSound => SelectedVm?.EnableAudio == true;
+
+        public string SoundLabel => SelectedVm is { EnableAudio: true, AudioMuted: true } ? "Son coupé" : "Son";
+
+        /// <summary>Segoe Fluent's speaker, crossed out when the sound is cut.</summary>
+        public string SoundGlyph => SelectedVm is { EnableAudio: true, AudioMuted: true } ? "\uE74F" : "\uE767";
+
+        private void RaiseSoundProperties()
+        {
+            RaisePropertyChanged(nameof(CanAdjustSound));
+            RaisePropertyChanged(nameof(SoundLabel));
+            RaisePropertyChanged(nameof(SoundGlyph));
+        }
+
+        /// <summary>
+        /// Every half second, lays each running machine's own volume and mute on the audio sessions its QEMU
+        /// has opened (one appears when the guest first plays), and sends its sound to the chosen output.
+        /// Off the UI thread: the audio API enumerates every output and session.
+        /// </summary>
+        /// <remarks>
+        /// Laid on every new session, the machine's setting at 100 % and unmuted included: Windows gives a new
+        /// session of qemu-system-x86_64.exe whatever was last set on another, so a machine started after a
+        /// muted one started muted.
+        /// </remarks>
+        private async Task KeepAudioAsync()
+        {
+            if (_audioBusy)
+                return;
+            _audioBusy = true;
+            try
+            {
+                var outputId = Settings.AudioOutputId;
+                var work = new List<(AudioRun Run, float Level, bool Muted, bool Route)>();
+                foreach (var session in Manager.RunningSessions)
+                {
+                    var config = session.Config;
+                    if (!config.EnableAudio || session.ProcessId is not { } pid)
+                        continue;
+                    if (!_audioRuns.TryGetValue(config, out var run) || run.ProcessId != pid)
+                        _audioRuns[config] = run = new AudioRun { ProcessId = pid };
+                    work.Add((run, config.AudioVolume / 100f, config.AudioMuted, !run.Routed));
+                    run.Routed = true;
+                }
+                foreach (var gone in _audioRuns.Keys.Where(c => Manager.FindSession(c) is not { IsRunning: true }).ToList())
+                    _audioRuns.Remove(gone);
+                if (work.Count == 0)
+                    return;
+
+                var unrouted = await Task.Run(() =>
+                {
+                    var failed = false;
+                    foreach (var (run, level, muted, route) in work)
+                    {
+                        // Before the guest's first sound, which opens the session on whichever output is chosen.
+                        if (route && !Core.Interop.HostAudio.RouteProgramOutput(run.ProcessId, outputId))
+                            failed = true;
+                        lock (run.Applied)
+                            Core.Interop.HostAudio.SetProcessVolume(run.ProcessId, level, muted, run.Applied);
+                    }
+                    return failed;
+                });
+                if (unrouted && !string.IsNullOrEmpty(outputId))
+                    AppendDiagnostic("Sound: Windows did not let WinQEMU choose the machines' audio output; they use its default one.");
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidCastException)
+            {
+                AppendDiagnostic($"Sound: the machine's volume could not be set ({ex.Message}).");
+            }
+            finally
+            {
+                _audioBusy = false;
+            }
+        }
+
+        /// <summary>The machine's volume or mute changed: laid again on its sessions at the next pass.</summary>
+        private void ForgetAppliedAudio(VmConfig config)
+        {
+            if (_audioRuns.TryGetValue(config, out var run))
+            {
+                lock (run.Applied)
+                    run.Applied.Clear();
+            }
+        }
+
+        /// <summary>A choice of output for the settings: Windows' default first, then each active output.</summary>
+        public sealed record AudioOutputChoice(string Id, string Name)
+        {
+            public override string ToString() => Name;
+        }
+
+        public IReadOnlyList<AudioOutputChoice> AudioOutputChoices
+        {
+            get
+            {
+                var choices = new List<AudioOutputChoice> { new(string.Empty, "Sortie par défaut de Windows") };
+                try
+                {
+                    choices.AddRange(Core.Interop.HostAudio.ListOutputs().Select(o => new AudioOutputChoice(o.Id, o.Name)));
+                }
+                catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidCastException)
+                {
+                    AppendDiagnostic($"Sound: this PC's outputs could not be listed ({ex.Message}).");
+                }
+                // A headset chosen earlier and unplugged now stays chosen: Windows sends the sound to it again
+                // when it comes back.
+                if (Settings.AudioOutputId.Length > 0 && choices.All(c => c.Id != Settings.AudioOutputId))
+                    choices.Add(new AudioOutputChoice(Settings.AudioOutputId, "Sortie choisie (débranchée)"));
+                return choices;
+            }
+        }
+
+        public string SelectedAudioOutputId
+        {
+            get => Settings.AudioOutputId;
+            set
+            {
+                if ((value ?? string.Empty) == Settings.AudioOutputId)
+                    return;
+                Settings.AudioOutputId = value ?? string.Empty;
+                Settings.Save();
+                RaisePropertyChanged();
+                // Machines already running move to it at once (the choice is the program's, so one call
+                // would do; each is asked again on the next pass anyway).
+                foreach (var run in _audioRuns.Values)
+                    run.Routed = false;
+                _ = KeepAudioAsync();
+            }
         }
 
         // ---- Files sent to the guest ----

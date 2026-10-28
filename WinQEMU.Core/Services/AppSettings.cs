@@ -50,6 +50,13 @@ namespace WinQEMU.Core.Services
         /// </summary>
         public string Language { get => _language; set => SetProperty(ref _language, value ?? string.Empty); }
 
+        private Models.LibraryTree _library = new();
+        /// <summary>
+        /// The library's folders and which machine is in which, as VMware's inventory: the application's view
+        /// of its machines, so kept here and not in their descriptors. Absent from older files: an empty tree.
+        /// </summary>
+        public Models.LibraryTree Library { get => _library; set => _library = value ?? new(); }
+
         [JsonIgnore]
         public string EffectiveLibraryRoot =>
             string.IsNullOrWhiteSpace(LibraryRoot) ? DefaultLibraryRoot : LibraryRoot;

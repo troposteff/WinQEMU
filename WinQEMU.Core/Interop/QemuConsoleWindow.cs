@@ -317,19 +317,22 @@ namespace WinQEMU.Core.Interop
         /// panel — "Taille réelle" on a small window — spilled over the shell's toolbar. A window region
         /// limits both painting and mouse hit-testing to the part inside the panel. It reaches into
         /// QEMU's message loop, so callers should not make it from the UI thread.
+        /// <paramref name="hole"/> is cut out of it: the full-screen bar, over the guest.
         /// </remarks>
-        public void SetVisibleRegion((int Left, int Top, int Right, int Bottom)? visible)
+        public void SetVisibleRegion((int Left, int Top, int Right, int Bottom)? visible,
+            (int Left, int Top, int Right, int Bottom)? hole = null, int windowWidth = 0, int windowHeight = 0,
+            int holeRadius = 0)
         {
             if (!IsAlive)
                 return;
 
-            if (visible is not { } rect)
+            if (visible is null && hole is null)
             {
                 NativeMethods.SetWindowRgn(Handle, IntPtr.Zero, true);
                 return;
             }
 
-            var region = NativeMethods.CreateRectRgn(rect.Left, rect.Top, rect.Right, rect.Bottom);
+            var region = NativeMethods.CreateRegion(visible, hole, windowWidth, windowHeight, holeRadius);
             if (region == IntPtr.Zero)
                 return;
 

@@ -9,6 +9,7 @@ bibliothèque de VM, assistant de création, console intégrée, instantanés, a
 |---|---|
 | `WinQEMU.Core` | Tout ce qui ne dépend pas de l'interface : modèles (`VmConfig`…), construction de la ligne de commande (`QemuArgumentBuilder`), cycle de vie d'une VM (`VmSession`), QMP (`QmpClient`), `qemu-img`, détection de QEMU, interop Win32 de la console. |
 | `WinQEMU` | Shell WinUI 3 empaqueté MSIX : `MainWindow`, view-models, dialogues, `VmConsoleHost` (console intégrée), `ClipboardBridge`. |
+| `WinQEMU.Cli` | La commande `winqemu` (programme console du paquet) : transmet chaque commande à WinQEMU (voir Ligne de commande). |
 | `WinQEMU.Core.Tests` | Tests xUnit du cœur. Il n'y a pas de tests du shell. |
 | `tools/Generate-Logo.ps1` | Régénère les 64 PNG et l'ICO du logo depuis sa géométrie (voir plus bas). |
 
@@ -263,6 +264,25 @@ le clone sans aucune erreur**. Tout le dispositif sert à ce que F ne bouge plus
   `LinkedBaseFileName`), sauf si ce disque porte des superpositions : sa chaîne enregistrée finit alors
   encore sur l'image qui lit F, le lien est gardé. Ou bien faire une copie complète du clone.
 
+## Dossiers de la bibliothèque
+
+Comme l'inventaire de VMware Workstation : des dossiers imbriqués, vue de l'application sur ses machines, **pas
+une propriété des machines** : `AppSettings.Library` (`Models.LibraryTree`), jamais dans les `.wqvm`. Arbre à plat
+(chaque dossier nomme son parent), dossier de chaque machine par `VmConfig.Id`, état ouvert/fermé, tri.
+
+- **Liste = ListView de l'arbre aplati** (`Controls.LibraryListView`, `MainViewModel.Library.cs`), pas un TreeView :
+  toute l'app dépend de la sélection de la liste (console, barre d'outils, résumé), et celle du ListView marchait.
+  `Rows` est mise à jour **en place** (`LibraryLayout.Synchronize`) sans jamais retirer la ligne sélectionnée :
+  vider la liste fait perdre la sélection au ListView, donc détache la console, à chaque dépliage ou changement
+  d'état trié par état. `SelectedItem` reste la seule entrée « machine » ; un dossier sélectionné = aucune machine.
+- Un dossier qui n'existe plus → racine ; machines supprimées oubliées (à la suppression, et au chargement **sauf
+  si le dossier de la bibliothèque est introuvable** : un disque débranché aurait tout désaffecté).
+- Supprimer un dossier ne supprime jamais une machine : son contenu remonte au parent (sous-dossier homonyme
+  numéroté). Noms uniques entre frères, insensibles à la casse. Pendant une recherche : résultats à plat avec leur
+  chemin, dossiers masqués. Nouvelle machine (création, clone, import) : dans le dossier courant.
+- Accessibilité : motif développer/réduire et niveau sur chaque ligne (`LibraryListViewItemPeer`), nom « Dossier
+  Travail, 3 machines ».
+
 ## Import (VMware, VirtualBox, Hyper-V, OVF)
 
 `WinQEMU.Core/Import` : un fichier choisi devient un `ImportPlan` (montré, puis confirmé), puis
@@ -327,6 +347,32 @@ manifeste `.mf` (SHA-256), puis chaque disque en **VMDK streamOptimized** (`qemu
 - **Tar écrit à la main** (`TarArchive`) : ustar simple, et au-delà de 8 Gio la taille en base 256 de GNU (lue par
   GNU tar, VirtualBox, 7-Zip, Python), pas un en-tête PAX qu'un lecteur qui ne le connaît pas prendrait pour un fichier
   « PaxHeader/… ». Vérifié avec Python et GNU tar. Annulé ou échoué : paquet et fichiers de travail supprimés.
+
+## Chiffrement des disques (`Qemu.DiskKey`)
+
+Comme le chiffrement de VM de VMware, **disques seulement** (choix de l'utilisateur) : qcow2 LUKS (AES-256 XTS, défaut de
+QEMU), un mot de passe pour toutes les images d'une machine (`VmConfig.DisksEncrypted`). Descripteur et NVRAM en clair.
+
+- **Vérifié sur ce build (QEMU 11.1)** : create, info, check, snapshot -c/-a/-d, convert dans les deux sens, commit,
+  rebase -u, resize, amend (emplacements de clé), map, measure, qemu-system. `info` lit l'en-tête **sans** mot de passe
+  (instantanés compris) ; `snapshot -l`, lui, en veut un. Ouvrir une image coûte 2,3 s (PBKDF, bon ou mauvais mot de
+  passe). Compression et chiffrement sont incompatibles (« not supported at the same time »).
+- **Jamais de mot de passe en ligne de commande** : objet `secret,file=\\.\pipe\winqemu-<hex>`, tube servi une fois
+  (`SecretPipe` : DACL de l'utilisateur, `FirstPipeInstance`, PID du client vérifié). **Fin de fichier = fermer le
+  tube** : après `DisconnectNamedPipe`, QEMU lisait « Invalid argument ».
+- **Chaque niveau d'une chaîne veut sa clé** (`backing.backing.encrypt.key-secret=…`) et nommer un niveau absent échoue :
+  les niveaux sont lus par `qemu-img info -U --backing-chain` (sans mot de passe), pas déduits du descripteur (la base
+  d'un clone lié continue chez l'original). `rebase -u` : clé du haut seulement (la base n'est pas ouverte).
+- `QemuImgService.WithKey` : toute image chiffrée ouverte avec la clé, toute image créée ou convertie chiffrée (qcow2
+  seulement, sinon refus) ; seules exceptions voulues : export VMDK (le dialogue le dit) et déchiffrement.
+- **Instantané à chaud** : `blockdev-snapshot-sync` créerait une superposition en clair. À la place : `qemu-img create -u`
+  chiffrée, `blockdev-add` avec le secret déjà dans QEMU, `blockdev-snapshot` (vérifié sur un vrai QEMU).
+- Mot de passe vérifié à la saisie (`qemu-img map --max-length=512`), gardé en mémoire pour la durée de WinQEMU, ou dans
+  le Gestionnaire d'identification (`DiskPasswordStore`, « WinQEMU/<Id> ») si « Mémoriser ». Démarrage automatique :
+  seulement avec un mot de passe mémorisé, sinon la machine est laissée et c'est dit.
+- **Chiffrer / déchiffrer** = `convert` de chaque chaîne puis échange (instantanés perdus, anciennes images supprimées,
+  pas effacées) ; **changer le mot de passe** = `amend` en deux passes (ajout partout, puis retrait de l'ancien).
+  Clones liés : même mot de passe des deux côtés, et chiffrer, déchiffrer ou changer le mot de passe y est refusé.
 
 ## Périphériques USB de l'hôte
 
@@ -465,6 +511,38 @@ refusé en le nommant, sans moitié de texte tapée. Confirmation au-delà de 30
   s'arrêter passe « Arrêt en cours », que `RunningSessions` exclut. Les premières versions de « Arrêter et quitter »
   la croyaient donc arrêtée aussitôt et coupaient QEMU en quittant (Ubuntu « arrêté » en 3 s). Une machine en pause est
   reprise avant le bouton d'alimentation : figée, elle ne l'entendrait pas.
+
+## Ligne de commande (`winqemu`)
+
+Comme `vmrun` de VMware : `winqemu list | status | start | stop | poweroff | pause | resume | snapshot … | show | help`
+(aide complète dans `CliText.Usage`). **La commande pilote WinQEMU, pas QEMU** (choix de l'utilisateur) : une machine
+démarrée d'un terminal est celle que montre la fenêtre, avec sa console, et rien ne tourne deux fois.
+
+- **`WinQEMU.Cli`**, programme console autonome copié à côté de `WinQEMU.exe` par la référence de projet du shell (il y
+  partage le runtime .NET autonome du shell ; `RuntimeIdentifier` déduit de la plateforme, sinon NETSDK1150 : un exe
+  autonome ne référence qu'un exe autonome). **Alias `winqemu.exe`** dans le manifeste, sur une **application à part**
+  (`Id="Cli"`, absente du menu Démarrer) : un alias console exige `SupportsMultipleInstances`, que WinQEMU lui-même ne
+  doit pas avoir (Windows refusait le manifeste : 0x80080204).
+- **Canal** : tube nommé `WinQEMU.cli.<SID>` (`Core.Cli.CliProtocol` : longueur sur 4 octets puis JSON), réservé à
+  l'utilisateur (`Cli.CommandServer`), servi une fois la bibliothèque lue. Chaque requête s'exécute sur le fil de
+  l'interface (`MainViewModel.RunCommandAsync`) : mêmes chemins que les boutons (`StartMachineAsync`, instantané
+  automatique, dossiers partagés…) ; instantanés par un `VmSnapshotsViewModel` à part, avec les mêmes refus.
+- **WinQEMU fermé** : la commande le démarre par `IApplicationActivationManager` avec `--background` (seul moyen de
+  passer un argument à une application empaquetée) et attend son tube jusqu'à une minute. L'argument se lit dans
+  `AppInstance.GetActivatedEventArgs()` : celui d'`OnLaunched` arrivait vide et la fenêtre s'ouvrait devant le terminal.
+- Codes de sortie : 0, 1 échec, 2 commande incorrecte ; 10 en interne quand une machine chiffrée attend son mot de
+  passe (demandé sans écho si un humain tape, sinon `--password-stdin`). `list --json` : noms et états stables
+  (anglais), pour les scripts.
+- `stop --wait` : un bouton d'alimentation pressé pendant que l'invité démarre est ignoré (Debian, 20 s après le
+  démarrage) ; la commande le dit au bout du délai sans éteindre (`poweroff` le fait).
+- **Machine chiffrée** : jamais la boîte de mot de passe de la fenêtre (WinQEMU caché ne la montrerait à personne) :
+  `UnlockForCommandAsync` prend le mot de passe donné, sinon celui mémorisé ou déjà saisi, sinon renvoie le code 10.
+  Les instantanés aussi (déverrouillés machine arrêtée). Le `VmSnapshotsViewModel` de la commande reçoit
+  `IsMachineOff` de la session : la fenêtre le pose pour le sien, et sans lui tout était refusé.
+- Vérifié dans le paquet : WinQEMU démarré en arrière-plan par `winqemu list` (4 s, fenêtre cachée), `start --wait`,
+  `stop --wait`, `status`, `show`, erreurs (code 2) ; sur une machine de test chiffrée : refus sans mot de passe,
+  mauvais mot de passe, démarrage (seul le nom du tube sur la ligne de commande de QEMU), instantané à chaud
+  (superposition `encrypted: yes`), instantané hors ligne, restauration, `qemu-img check` propre.
 
 ## Son
 
@@ -721,8 +799,27 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   fenêtre ferme le menu **et** atteint ce qu'il vise (`OverlayInputPassThroughElement`, sinon Son ouvert, un clic
   sur USB ne faisait que fermer Son) ; un clic sur le bouton du menu ouvert ne fait que le fermer
   (`OnlyClosedItsMenu`) ; un clic dans la console, que XAML ne voit pas, le ferme par `ConsoleClicked`.
-- **Barre d'outils trop large** (`FitMachineToolbar`) : elle passait sous Réseaux virtuels et Paramètres à
-  1440 px. Replis successifs dans « Plus » : Cloner, Exporter, Supprimer, puis Son et Envoyer.
+- **Barres d'outils en icônes** (demande de l'utilisateur ; écran 1920 x 1200 à 150 %, soit 1280 px pour la fenêtre) :
+  `ToolbarIconButton` (bouton simple, 44 x 40, nom accessible par `AutomationProperties.Name` ; un AppBarButton compact
+  garde la place de son libellé sous l'icône, qui se retrouvait plus haut que les boutons de la bibliothèque) et
+  `FullScreenIconButton` (« Quitter le plein écran » compris, en couleur d'accent) ;
+  l'info-bulle donne le nom en gras puis ce que fait la commande (`MainWindow.NameInTooltips`, construite à
+  l'ouverture pour suivre Pause/Reprendre). Les actions d'un disque aussi (`DiskIconButton`) : avec leurs libellés,
+  le nom du fichier se lisait « disk0.qco ». En dessous de la largeur nécessaire, repli dans « Plus »
+  (`FitMachineToolbar` : Cloner, Exporter, Supprimer, puis Son et les fichiers).
+- **Mise en page vérifiée à 1280, 1024 et 800 px** (captures `PrintWindow` d'un script rendu *per-monitor aware* :
+  sinon Windows multiplie les tailles demandées par 1,5). `ApplyAdaptiveLayout` : Ressources sous le résumé en
+  dessous de 1200 px (à 1024 le résumé, coincé, rognait disques, listes et boutons), liste à 280 px en dessous de
+  1000. **Taille minimale de la fenêtre 800 x 600** (`ApplyMinimumSize`, à reposer après le plein écran : le
+  présentateur par défaut revient neuf). Dialogues larges (assistant, Paramètres, réseaux) : `DialogWidth.Fit`
+  (l'assistant de 700 px débordait à 800). Rangées de boutons qui peuvent manquer de place : `Controls.WrapPanel`
+  (WinUI n'en a pas), et seules les actions applicables (Chiffrement).
+- **Une InfoBar fermée compte encore dans l'espacement d'un StackPanel** (hauteur nulle, mais `Spacing` de part et
+  d'autre) : les sections du résumé n'étaient pas également espacées, et le panneau des notifications laissait une bande
+  vide sous la barre de titre. Toute InfoBar liée par `IsOpen` l'est aussi par `Visibility`.
+- **`x:DataType` obligatoire sur un DataTemplate qui lie ses textes par `{x:Bind t:…}`** : sans lui, la liaison
+  compile mais ne s'exécute jamais — boutons et cases des disques sans texte. `LanServiceItem` n'est plus imbriqué
+  dans `MainViewModel` pour cela (XAML ne nomme pas un type imbriqué).
 - **Visibilité réelle** : tester la visibilité de tous les ancêtres, pas seulement de l'élément (la vue
   Résumé masque la console en repliant son conteneur).
 - **Boutons de `CommandBar`** : ils ne prennent pas le focus par défaut, donc une `NumberBox` en cours de
@@ -772,8 +869,11 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   `FocusGuest`. « Étirer » n'existait plus en
   pratique et a disparu. Seule « Taille réelle » a besoin de la résolution, relue toutes les 5 s et après
   chaque redimensionnement (une adoption de mode par l'invité ne redimensionne pas la fenêtre de QEMU).
-- **Barre du plein écran** : XAML ne peut pas passer au-dessus de la console ; la bande de la barre est
-  retirée de la région visible de la fenêtre native (`VmConsoleHost.TopOverlayHeight`). Le pointeur est
+- **Barre du plein écran** : XAML ne peut pas passer au-dessus de la console ; le **rectangle de la barre** est
+  retiré de la région visible de la fenêtre native et de la couche du pointeur (`VmConsoleHost.Overlay`,
+  `NativeMethods.CreateRegion` : région moins le trou). Une bande de toute la largeur de l'écran masquait l'invité de
+  part et d'autre de la barre (demande de l'utilisateur : « seulement le menu »). Barre flottante à 8 px du haut, coins
+  arrondis comme le reste de l'application, trou aux mêmes coins (`CreateRoundRectRgn`) : carré, ses coins restaient noirs. Le pointeur est
   sondé (`GetCursorPos`) : au-dessus de l'invité il appartient à la fenêtre de QEMU, XAML n'en sait rien.
 - **Tab** : la navigation au clavier de WinUI déplace le focus même si `PreviewKeyDown` est marqué traité,
   et la touche arrive **sans scancode**. La console annule les pertes de focus clavier et retrouve le

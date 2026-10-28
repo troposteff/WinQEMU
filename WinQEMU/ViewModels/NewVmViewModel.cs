@@ -17,7 +17,7 @@ namespace WinQEMU.ViewModels
     /// State and validation for the VM creation wizard. Each step reports why it is not satisfied,
     /// so the user is never left with a disabled button and no explanation.
     /// </summary>
-    public class NewVmViewModel : ObservableObject
+    public partial class NewVmViewModel : ObservableObject
     {
         public const int StepCount = 6;
 
@@ -241,6 +241,9 @@ namespace WinQEMU.ViewModels
 
         private (string? Error, string? Advisory) ValidateDisk()
         {
+            if (ValidateEncryption() is { } encryptionProblem)
+                return (encryptionProblem, null);
+
             if (!CreateNewDisk)
             {
                 if (string.IsNullOrWhiteSpace(ExistingDiskPath))
@@ -602,6 +605,8 @@ namespace WinQEMU.ViewModels
                     ? string.Format(culture, DialogText.NewVmSummaryNewDisk, Sizes.Format(DiskCapacityBytes),
                         DiskFormat.ToString().ToLowerInvariant(), DescribeBus(DiskBus))
                     : string.Format(culture, DialogText.NewVmSummaryExistingDisk, ExistingDiskPath, DescribeBus(DiskBus)));
+                if (UseEncryption)
+                    builder.AppendLine(RememberDiskPassword ? EncryptionText.WizardSummaryRemembered : EncryptionText.WizardSummaryAsked);
 
                 builder.AppendLine(string.IsNullOrWhiteSpace(IsoPath)
                     ? DialogText.NewVmSummaryNoMedia
@@ -710,7 +715,9 @@ namespace WinQEMU.ViewModels
                 : null,
             UnattendedLinux = UseUnattended && IsLinuxUnattended
                 ? UbuntuUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, Name.Trim())
-                : null
+                : null,
+            DiskKey = UseEncryption ? new DiskKey(DiskPassword) : null,
+            RememberDiskPassword = UseEncryption && RememberDiskPassword
         };
 
         // ---- Display helpers ----

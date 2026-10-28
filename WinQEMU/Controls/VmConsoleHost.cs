@@ -768,21 +768,25 @@ namespace WinQEMU.Controls
             }
         }
 
-        private double _topOverlayHeight;
+        private Windows.Foundation.Rect? _overlay;
         /// <summary>
-        /// Height, in DIPs, of a XAML strip along the top of this element that the console must leave
-        /// visible: the native window would otherwise draw over it. The strip is cut out of the window's
-        /// visible region; the guest image keeps its size and place, so nothing reflows under the pointer.
+        /// A XAML element over the console that the native window must leave visible, in DIPs relative to this
+        /// element: the full-screen bar. Only its rectangle is cut out of the window's visible region — a strip the
+        /// width of the screen hid the guest on both sides of the bar. The guest image keeps its size and place, so
+        /// nothing reflows under the pointer.
         /// </summary>
-        public double TopOverlayHeight
+        /// <summary>The overlay's corner radius, in DIPs: cut square, its rounded corners showed black.</summary>
+        public double OverlayCornerRadius { get; set; }
+
+        public Windows.Foundation.Rect? Overlay
         {
-            get => _topOverlayHeight;
+            get => _overlay;
             set
             {
-                if (_topOverlayHeight == value)
+                if (_overlay == value)
                     return;
 
-                _topOverlayHeight = value;
+                _overlay = value;
                 // Bounds unchanged as far as layout is concerned: force the region to be recomputed.
                 InvalidateLastBounds();
                 UpdateNativeBounds();
@@ -922,7 +926,8 @@ namespace WinQEMU.Controls
         /// updates applied out of order would leave the older crop in place.
         /// </remarks>
         private void ClipToPanel(QemuConsoleWindow console, int x, int y, int width, int height,
-            int panelX, int panelY, int panelWidth, int panelHeight)
+            int panelX, int panelY, int panelWidth, int panelHeight, (int Left, int Top, int Right, int Bottom)? hole = null,
+            int holeRadius = 0)
         {
             // The visible part, in the console window's own coordinates.
             var left = Math.Max(x, panelX) - x;
@@ -935,9 +940,9 @@ namespace WinQEMU.Controls
                 : (left, top, right, bottom);
 
             _regionUpdates = _regionUpdates.ContinueWith(
-                _ => console.SetVisibleRegion(visible), TaskScheduler.Default);
+                _ => console.SetVisibleRegion(visible, hole, width, height, holeRadius), TaskScheduler.Default);
             // Its own window, on this thread: set here directly. Keeps the bar of full screen clickable.
-            _pointerOverlay?.SetVisibleRegion(visible);
+            _pointerOverlay?.SetVisibleRegion(visible, hole, width, height, holeRadius);
         }
 
         private void UpdateNativeBounds()
@@ -1006,8 +1011,12 @@ namespace WinQEMU.Controls
             _console.RequestRedraw();
             // The guest may adopt the new window size as its resolution: read it again in a moment.
             _ticksSinceGuestSizeRead = Math.Max(_ticksSinceGuestSizeRead, 3);
-            var overlay = Math.Min(panelHeight - 1, (int)Math.Round(_topOverlayHeight * scale));
-            ClipToPanel(_console, x, y, width, height, panelX, panelY + overlay, panelWidth, panelHeight - overlay);
+            (int, int, int, int)? hole = _overlay is { } cut
+                ? (panelX + (int)Math.Round(cut.Left * scale) - x, panelY + (int)Math.Round(cut.Top * scale) - y,
+                   panelX + (int)Math.Round(cut.Right * scale) - x, panelY + (int)Math.Round(cut.Bottom * scale) - y)
+                : null;
+            ClipToPanel(_console, x, y, width, height, panelX, panelY, panelWidth, panelHeight, hole,
+                (int)Math.Round(OverlayCornerRadius * scale));
 
             // The guest now covers this element, so the waiting message would only ever be seen
             // through a gap. Collapsing it also makes it obvious when the console is genuinely blank.

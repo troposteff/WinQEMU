@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
@@ -35,7 +36,13 @@ namespace WinQEMU
             }
 
             ApplyLanguage(Core.Services.AppSettings.Load().Language);
-            main.Activated += (_, _) => App.ShowMainWindow();
+            // The winqemu command starting WinQEMU while it was still starting: no window for that one either.
+            main.Activated += (_, e) =>
+            {
+                if (!(e.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launch
+                      && launch.Arguments.Split(' ').Contains("--background")))
+                    App.ShowMainWindow();
+            };
             Application.Start(_ =>
             {
                 SynchronizationContext.SetSynchronizationContext(

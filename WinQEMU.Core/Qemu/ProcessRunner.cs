@@ -26,7 +26,8 @@ namespace WinQEMU.Core.Qemu
             string executablePath,
             IEnumerable<string> arguments,
             CancellationToken cancellationToken = default,
-            Action<string>? onOutputLine = null)
+            Action<string>? onOutputLine = null,
+            Action<int>? onStarted = null)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -56,6 +57,9 @@ namespace WinQEMU.Core.Qemu
 
             if (!process.Start())
                 throw new InvalidOperationException($"Unable to start '{executablePath}'.");
+
+            // Who may read a secret pipe (SecretPipe): known only now.
+            onStarted?.Invoke(process.Id);
 
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();

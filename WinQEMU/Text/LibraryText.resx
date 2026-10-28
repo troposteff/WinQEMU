@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="NewFolder" xml:space="preserve"><value>New folder</value></data>
+  <data name="NewFolderTip" xml:space="preserve"><value>New folder, inside the selected folder</value></data>
+  <data name="NewSubfolder" xml:space="preserve"><value>New folder inside</value></data>
+  <data name="DefaultFolderName" xml:space="preserve"><value>New folder</value></data>
+  <data name="UnnamedFolder" xml:space="preserve"><value>Unnamed folder</value></data>
+  <data name="RenameFolder" xml:space="preserve"><value>Rename…</value></data>
+  <data name="RenameFolderTitle" xml:space="preserve"><value>Rename the folder</value></data>
+  <data name="RenameButton" xml:space="preserve"><value>Rename</value></data>
+  <data name="CreateButton" xml:space="preserve"><value>Create</value></data>
+  <data name="FolderNameLabel" xml:space="preserve"><value>Name</value></data>
+  <data name="NewFolderIn" xml:space="preserve"><value>In “{0}”.</value></data>
+  <data name="NewFolderAtRoot" xml:space="preserve"><value>At the root of the library.</value></data>
+  <data name="DeleteFolder" xml:space="preserve"><value>Delete folder</value></data>
+  <data name="DeleteFolderTitle" xml:space="preserve"><value>Delete the folder “{0}”?</value></data>
+  <data name="DeleteFolderToRoot" xml:space="preserve"><value>What it holds ({0}) moves to the root of the library. No virtual machine and no file is deleted.</value></data>
+  <data name="DeleteFolderToParent" xml:space="preserve"><value>What it holds ({0}) moves to the folder “{1}”. No virtual machine and no file is deleted.</value></data>
+  <data name="MoveTo" xml:space="preserve"><value>Move to</value></data>
+  <data name="LibraryRoot" xml:space="preserve"><value>Library root</value></data>
+  <data name="Expand" xml:space="preserve"><value>Expand</value></data>
+  <data name="Collapse" xml:space="preserve"><value>Collapse</value></data>
+  <data name="FolderAutomationName" xml:space="preserve"><value>Folder {0}, {1}</value></data>
+  <data name="MachineCountNone" xml:space="preserve"><value>empty</value></data>
+  <data name="MachineCountOne" xml:space="preserve"><value>1 machine</value></data>
+  <data name="MachineCountMany" xml:space="preserve"><value>{0} machines</value></data>
+  <data name="FolderCountOne" xml:space="preserve"><value>1 folder</value></data>
+  <data name="FolderCountMany" xml:space="preserve"><value>{0} folders</value></data>
+  <data name="RunningCount" xml:space="preserve"><value>{0} running</value></data>
+  <data name="SortTip" xml:space="preserve"><value>Sort the machines</value></data>
+  <data name="SortByName" xml:space="preserve"><value>By name</value></data>
+  <data name="SortByState" xml:space="preserve"><value>By state, running first</value></data>
+  <data name="SortByLastUsed" xml:space="preserve"><value>By last use</value></data>
+  <data name="SortNote" xml:space="preserve"><value>Folders stay in alphabetical order.</value></data>
+  <data name="FolderNameEmpty" xml:space="preserve"><value>Give the folder a name.</value></data>
+  <data name="FolderNameTaken" xml:space="preserve"><value>There is already a folder named “{0}” there.</value></data>
+  <data name="FolderNotFound" xml:space="preserve"><value>This folder no longer exists.</value></data>
+  <data name="FolderIntoItself" xml:space="preserve"><value>A folder cannot go into itself or one of its own subfolders.</value></data>
+  <data name="DragMoveInto" xml:space="preserve"><value>Move to “{0}”</value></data>
+  <data name="DragMoveToRoot" xml:space="preserve"><value>Move to the library root</value></data>
+  <data name="FolderSummaryHint" xml:space="preserve"><value>Select a machine to see its details and its console. To file a machine or a folder elsewhere, right-click it or drag it.</value></data>
+  <data name="FolderLabel" xml:space="preserve"><value>Folder</value></data>
+</root>

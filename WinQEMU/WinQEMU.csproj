@@ -45,6 +45,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WinQEMU.Core\WinQEMU.Core.csproj" />
+    <!-- The winqemu command: its exe, runtimeconfig and deps are copied next to WinQEMU.exe (alias in the manifest). -->
+    <ProjectReference Include="..\WinQEMU.Cli\WinQEMU.Cli.csproj" />
   </ItemGroup>
 
   <!-- Interface text, as in WinQEMU.Core: English in Text\X.resx, French in Text\X.fr.resx, a class per English
@@ -57,6 +59,7 @@
     <EmbeddedResource Update="Text\WindowText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Text" StronglyTypedClassName="WindowText" StronglyTypedFileName="$(IntermediateOutputPath)WindowText.g.cs" />
     <EmbeddedResource Update="Text\ShellText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Text" StronglyTypedClassName="ShellText" StronglyTypedFileName="$(IntermediateOutputPath)ShellText.g.cs" />
     <EmbeddedResource Update="Text\DialogText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Text" StronglyTypedClassName="DialogText" StronglyTypedFileName="$(IntermediateOutputPath)DialogText.g.cs" />
+    <EmbeddedResource Update="Text\LibraryText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Text" StronglyTypedClassName="LibraryText" StronglyTypedFileName="$(IntermediateOutputPath)LibraryText.g.cs" />
   </ItemGroup>
   <!-- The XAML compiler runs its passes at the start of PrepareResources, before ResGen writes these classes:
        XAML that binds to them then failed in pass 2, exit code 1 and no message at all. -->

@@ -23,6 +23,7 @@ namespace WinQEMU.Dialogs
         public VirtualNetworksDialog(VmManager manager)
         {
             InitializeComponent();
+            DialogWidth.Fit(this, 640);
             _manager = manager;
             NetworkList.ItemsSource = manager.Settings.VirtualNetworks;
             manager.Settings.VirtualNetworks.CollectionChanged += OnNetworksChanged;

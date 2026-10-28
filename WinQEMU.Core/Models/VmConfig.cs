@@ -90,6 +90,14 @@ namespace WinQEMU.Core.Models
         /// </summary>
         public ObservableCollection<string> BootOrder { get; set; } = new();
 
+        private bool _disksEncrypted;
+        /// <summary>
+        /// The machine's disks are qcow2 images encrypted with LUKS under one password (Qemu.DiskKey), every level of
+        /// their chains included. The descriptor and the UEFI variable store stay in clear (the user's choice): this
+        /// flag says a password is needed, the images themselves say whether one is.
+        /// </summary>
+        public bool DisksEncrypted { get => _disksEncrypted; set => SetProperty(ref _disksEncrypted, value); }
+
         // ---- Devices ----
 
         public ObservableCollection<NetworkAdapterConfig> NetworkAdapters { get; set; } = new();

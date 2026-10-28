@@ -9,7 +9,7 @@ namespace WinQEMU.Core.Services
     /// Application-level entry point to the core: owns QEMU discovery, the VM library and the
     /// live sessions. The UI talks to this and never to QEMU directly.
     /// </summary>
-    public sealed class VmManager : ObservableBase, IAsyncDisposable
+    public sealed partial class VmManager : ObservableBase, IAsyncDisposable
     {
         private readonly Dictionary<Guid, VmSession> _sessions = new();
 
@@ -144,6 +144,8 @@ namespace WinQEMU.Core.Services
             var library = Library ?? throw new InvalidOperationException("The VM library is not initialised.");
             // Resumes on the caller's context on purpose — VirtualMachines is data-bound.
             var config = await library.CreateAsync(request, cancellationToken);
+            if (request.DiskKey is { } key)
+                KeepDiskKey(config, key, request.RememberDiskPassword);
             VirtualMachines.Add(config);
             return config;
         }
@@ -165,7 +167,8 @@ namespace WinQEMU.Core.Services
                 throw new InvalidOperationException(CoreText.ManagerStopBeforeClone);
 
             // Resumes on the caller's context on purpose — VirtualMachines is data-bound.
-            var clone = await library.CloneAsync(source, name, progress, cancellationToken);
+            var clone = await library.CloneAsync(source, name, progress, cancellationToken, ImagesFor(source));
+            ShareDiskKey(source, clone);
             VirtualMachines.Add(clone);
             return clone;
         }
@@ -180,7 +183,9 @@ namespace WinQEMU.Core.Services
             IProgress<double>? progress = null,
             CancellationToken cancellationToken = default)
         {
-            var images = DiskService ?? throw new QemuNotAvailableException("QEMU is required to export a virtual machine.");
+            var images = DiskService is null
+                ? throw new QemuNotAvailableException("QEMU is required to export a virtual machine.")
+                : ImagesFor(source);
 
             if (FindSession(source) is { } session && session.State != VmState.Stopped)
                 throw new InvalidOperationException(CoreText.ManagerStopBeforeExport);
@@ -225,7 +230,7 @@ namespace WinQEMU.Core.Services
                 throw new InvalidOperationException(CoreText.ManagerStopBeforeClone);
 
             // Resumes on the caller's context on purpose — the source's disks are data-bound.
-            var plan = await library.PrepareLinkedCloneAsync(source, name, cancellationToken);
+            var plan = await library.PrepareLinkedCloneAsync(source, name, cancellationToken, ImagesFor(source));
 
             var pushed = new List<DiskConfig>();
             try
@@ -251,6 +256,7 @@ namespace WinQEMU.Core.Services
                 throw;
             }
 
+            ShareDiskKey(source, plan.CloneConfig);
             VirtualMachines.Add(plan.CloneConfig);
             return plan.CloneConfig;
         }
@@ -428,6 +434,9 @@ namespace WinQEMU.Core.Services
 
             Library?.Delete(config, deleteFiles);
             VirtualMachines.Remove(config);
+            // Its disks are gone: a remembered password would only linger in the Credential Manager.
+            if (deleteFiles && config.DisksEncrypted)
+                ForgetDiskPasswordQuietly(config);
 
             // Only for a real deletion: a clone merely removed from the list still exists on disk and may
             // be added back, so what it reads stays.

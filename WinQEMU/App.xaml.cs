@@ -45,9 +45,14 @@ namespace WinQEMU
         {
             _window = new MainWindow();
             // Started at the Windows logon (the package's startup task): straight to the notification area,
-            // where the machines marked to start with WinQEMU come up behind the scenes.
-            if (Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs().Kind
-                == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.StartupTask)
+            // where the machines marked to start with WinQEMU come up behind the scenes. Started by the winqemu
+            // command too ("--background"): its window would otherwise jump in front of the terminal.
+            // The argument is read from the activation, not from args: WinUI gave an empty Arguments there, and
+            // the window opened in front of the terminal.
+            var activation = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+            if (activation.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.StartupTask
+                || (activation.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launch
+                    && launch.Arguments.Split(' ').Contains("--background")))
                 _window.StartInBackground();
             else
                 _window.Activate();

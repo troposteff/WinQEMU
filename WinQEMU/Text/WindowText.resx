@@ -186,4 +186,6 @@
   <data name="FullScreenSendFiles" xml:space="preserve"><value>Send files</value></data>
   <data name="FullScreenPullFiles" xml:space="preserve"><value>Get files</value></data>
   <data name="FullScreenExit" xml:space="preserve"><value>Exit full screen</value></data>
+  <data name="SummaryDescription" xml:space="preserve"><value>Description (optional)</value></data>
+  <data name="ResourcesWhenOff" xml:space="preserve"><value>Processor, memory, disk and network show here while the machine runs.</value></data>
 </root>

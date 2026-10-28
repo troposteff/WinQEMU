@@ -20,7 +20,7 @@ namespace WinQEMU.Core.Qemu
     /// Wraps <c>qemu-img</c>. Everything here operates on images while the VM is stopped;
     /// live snapshot work goes through <see cref="QmpClient"/> instead.
     /// </summary>
-    public sealed class QemuImgService
+    public sealed partial class QemuImgService
     {
         private readonly string _qemuImgPath;
 
@@ -45,6 +45,13 @@ namespace WinQEMU.Core.Qemu
                 Directory.CreateDirectory(directory);
 
             var arguments = new List<string> { "create", "-f", FormatName(format) };
+            // An encrypted machine's new images are encrypted too: a clear one would be written in clear.
+            var encrypted = Key is not null && RequireEncryptable(format);
+            if (encrypted)
+            {
+                arguments.Add("-o");
+                arguments.Add(Key!.CreateOptions(SecretId));
+            }
 
             if (!string.IsNullOrWhiteSpace(backingFile))
             {
@@ -58,7 +65,7 @@ namespace WinQEMU.Core.Qemu
             arguments.Add(path);
             arguments.Add(capacityBytes.ToString(CultureInfo.InvariantCulture));
 
-            await RunAsync(arguments, cancellationToken).ConfigureAwait(false);
+            await RunAsync(arguments, cancellationToken, secrets: encrypted ? KeySecrets() : null).ConfigureAwait(false);
         }
 
         public async Task<DiskImageInfo> GetInfoAsync(string path, CancellationToken cancellationToken = default)
@@ -107,9 +114,8 @@ namespace WinQEMU.Core.Qemu
                     nameof(newCapacityBytes));
             }
 
-            await RunAsync(
-                new[] { "resize", path, newCapacityBytes.ToString(CultureInfo.InvariantCulture) },
-                cancellationToken).ConfigureAwait(false);
+            await RunOnImageAsync(path, false, cancellationToken, new[] { "resize" },
+                newCapacityBytes.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -124,14 +130,31 @@ namespace WinQEMU.Core.Qemu
             DiskFormat destinationFormat,
             bool compress = false,
             IProgress<double>? progress = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool? encryptDestination = null)
         {
-            var arguments = new List<string> { "convert", "-p", "-O", FormatName(destinationFormat) };
+            var source = await OpenAsync(sourcePath, topOnly: false, cancellationToken).ConfigureAwait(false);
+            var arguments = new List<string> { "convert", "-p" };
+            if (source.ImageOpts)
+                arguments.Add("--image-opts");
+            arguments.Add("-O");
+            arguments.Add(FormatName(destinationFormat));
+
+            var encrypt = DestinationEncrypted(destinationFormat, encryptDestination);
+            if (encrypt)
+            {
+                // "Compression and encryption not supported at the same time", says qemu-img.
+                if (compress)
+                    throw new InvalidOperationException(EncryptionText.NoCompression);
+                arguments.Add("-o");
+                arguments.Add(Key!.CreateOptions(SecretId));
+            }
+
             if (compress && destinationFormat == DiskFormat.Qcow2)
                 arguments.Add("-c");
-            arguments.Add(sourcePath);
+            arguments.Add(source.Spec);
             arguments.Add(destinationPath);
-            await RunConvertAsync(arguments, progress, cancellationToken).ConfigureAwait(false);
+            await RunConvertAsync(arguments, progress, cancellationToken, source.Secrets ?? (encrypt ? KeySecrets() : null)).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -139,22 +162,27 @@ namespace WinQEMU.Core.Qemu
         /// carry and VMware, VirtualBox and Proxmox import.
         /// </summary>
         /// <param name="adapterType">What the descriptor records ("ide", "lsilogic"); the OVF's controller is what counts.</param>
-        public Task ConvertToStreamOptimizedVmdkAsync(
+        /// <remarks>
+        /// An encrypted machine's disks are read with its password and written in clear: VMDK has no encryption that
+        /// VMware or VirtualBox would read. The export dialog says so.
+        /// </remarks>
+        public async Task ConvertToStreamOptimizedVmdkAsync(
             string sourcePath,
             string destinationPath,
             string adapterType,
             IProgress<double>? progress = null,
-            CancellationToken cancellationToken = default) =>
-            RunConvertAsync(
-                new List<string>
-                {
-                    "convert", "-p", "-O", "vmdk", "-o", $"subformat=streamOptimized,adapter_type={adapterType}",
-                    sourcePath, destinationPath
-                },
-                progress,
-                cancellationToken);
+            CancellationToken cancellationToken = default)
+        {
+            var source = await OpenAsync(sourcePath, topOnly: false, cancellationToken).ConfigureAwait(false);
+            var arguments = new List<string> { "convert", "-p" };
+            if (source.ImageOpts)
+                arguments.Add("--image-opts");
+            arguments.AddRange(new[] { "-O", "vmdk", "-o", $"subformat=streamOptimized,adapter_type={adapterType}", source.Spec, destinationPath });
+            await RunConvertAsync(arguments, progress, cancellationToken, source.Secrets).ConfigureAwait(false);
+        }
 
-        private async Task RunConvertAsync(List<string> arguments, IProgress<double>? progress, CancellationToken cancellationToken)
+        private async Task RunConvertAsync(List<string> arguments, IProgress<double>? progress, CancellationToken cancellationToken,
+            IReadOnlyList<(string Id, DiskKey Key)>? secrets = null)
         {
             await RunAsync(
                 arguments,
@@ -163,7 +191,8 @@ namespace WinQEMU.Core.Qemu
                 {
                     if (ParseProgress(line) is { } fraction)
                         progress.Report(fraction);
-                }).ConfigureAwait(false);
+                },
+                secrets).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -248,7 +277,7 @@ namespace WinQEMU.Core.Qemu
             if (ValidateSnapshotName(name) is { } problem)
                 throw new ArgumentException(problem, nameof(name));
 
-            return RunAsync(new[] { "snapshot", "-c", name.Trim(), path }, cancellationToken);
+            return RunOnImageAsync(path, false, cancellationToken, new[] { "snapshot", "-c", name.Trim() });
         }
 
         /// <summary>
@@ -260,7 +289,7 @@ namespace WinQEMU.Core.Qemu
         /// everything since.
         /// </remarks>
         public Task CommitAsync(string overlayPath, CancellationToken cancellationToken = default) =>
-            RunAsync(new[] { "commit", overlayPath }, cancellationToken);
+            RunOnImageAsync(overlayPath, false, cancellationToken, new[] { "commit" });
 
         /// <summary>
         /// Points <paramref name="path"/> at a different backing image without copying anything
@@ -268,24 +297,51 @@ namespace WinQEMU.Core.Qemu
         /// which is what committing the old base into it guarantees.
         /// </summary>
         public Task RebaseUnsafeAsync(string path, string backingFile, DiskFormat backingFormat, CancellationToken cancellationToken = default) =>
-            RunAsync(new[] { "rebase", "-u", "-b", backingFile, "-F", FormatName(backingFormat), path }, cancellationToken);
+            // -u leaves the backing closed, and naming a key for a level it does not open fails: the top's key only.
+            RunOnImageAsync(path, true, cancellationToken, new[] { "rebase", "-u", "-b", backingFile, "-F", FormatName(backingFormat) });
 
         public Task DeleteOfflineSnapshotAsync(string path, string name, CancellationToken cancellationToken = default) =>
-            RunAsync(new[] { "snapshot", "-d", name, path }, cancellationToken);
+            RunOnImageAsync(path, false, cancellationToken, new[] { "snapshot", "-d", name });
 
         public Task ApplyOfflineSnapshotAsync(string path, string name, CancellationToken cancellationToken = default) =>
-            RunAsync(new[] { "snapshot", "-a", name, path }, cancellationToken);
+            RunOnImageAsync(path, false, cancellationToken, new[] { "snapshot", "-a", name });
 
         private async Task<ProcessResult> RunAsync(
             IEnumerable<string> arguments,
             CancellationToken cancellationToken,
-            Action<string>? onOutputLine = null)
+            Action<string>? onOutputLine = null,
+            IReadOnlyList<(string Id, DiskKey Key)>? secrets = null)
         {
             var argumentList = arguments.ToList();
-            var result = await ProcessRunner.RunAsync(_qemuImgPath, argumentList, cancellationToken, onOutputLine).ConfigureAwait(false);
+            var pipes = new List<SecretPipe>();
+            ProcessResult result;
+            try
+            {
+                // Each secret is a pipe served once (SecretPipe): the command line names the pipe, never the password.
+                foreach (var (id, key) in secrets ?? Array.Empty<(string, DiskKey)>())
+                {
+                    var pipe = SecretPipe.Serve(key.ToBytes());
+                    pipes.Add(pipe);
+                    argumentList.InsertRange(1, new[] { "--object", SecretObject(id, pipe.Path) });
+                }
+
+                LastArguments = argumentList;
+                result = await ProcessRunner.RunAsync(_qemuImgPath, argumentList, cancellationToken, onOutputLine,
+                    pid => pipes.ForEach(p => p.ExpectClient(pid))).ConfigureAwait(false);
+            }
+            finally
+            {
+                foreach (var pipe in pipes)
+                    await pipe.DisposeAsync().ConfigureAwait(false);
+            }
 
             if (!result.Succeeded)
             {
+                if (DiskPasswordException.IsWrongPasswordMessage(result.Diagnostics))
+                    throw new DiskPasswordException(EncryptionText.WrongPassword, isWrongPassword: true);
+                if (DiskPasswordException.IsMissingKeyMessage(result.Diagnostics))
+                    throw new DiskPasswordException(EncryptionText.ImageLocked, isWrongPassword: false);
+
                 throw new QemuImgException(
                     $"qemu-img {argumentList[0]} failed (exit code {result.ExitCode.ToString(CultureInfo.InvariantCulture)}): {result.Diagnostics}");
             }

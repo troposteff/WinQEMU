@@ -89,6 +89,38 @@ namespace WinQEMU.Core.Interop
         [DllImport("gdi32.dll")]
         public static extern bool DeleteObject(IntPtr handle);
 
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr CreateRoundRectRgn(int left, int top, int right, int bottom, int ellipseWidth, int ellipseHeight);
+
+        [DllImport("gdi32.dll")]
+        public static extern int CombineRgn(IntPtr destination, IntPtr source1, IntPtr source2, int mode);
+
+        /// <summary>
+        /// A window region: <paramref name="visible"/> (or the whole window when null and there is a hole), less
+        /// <paramref name="hole"/>, with corners of <paramref name="holeRadius"/> pixels like the element it leaves
+        /// visible; zero for no region at all. The caller owns it until SetWindowRgn accepts it.
+        /// </summary>
+        public static IntPtr CreateRegion((int Left, int Top, int Right, int Bottom)? visible, (int Left, int Top, int Right, int Bottom)? hole,
+            int windowWidth, int windowHeight, int holeRadius = 0)
+        {
+            if (visible is null && hole is null)
+                return IntPtr.Zero;
+            var area = visible ?? (0, 0, windowWidth, windowHeight);
+            var region = CreateRectRgn(area.Left, area.Top, area.Right, area.Bottom);
+            if (region == IntPtr.Zero || hole is not { } cut)
+                return region;
+            // A round-rectangle region excludes its right and bottom edges, hence the extra pixel.
+            var holeRegion = holeRadius > 0
+                ? CreateRoundRectRgn(cut.Left, cut.Top, cut.Right + 1, cut.Bottom + 1, 2 * holeRadius, 2 * holeRadius)
+                : CreateRectRgn(cut.Left, cut.Top, cut.Right, cut.Bottom);
+            if (holeRegion != IntPtr.Zero)
+            {
+                CombineRgn(region, region, holeRegion, 4); // RGN_DIFF
+                DeleteObject(holeRegion);
+            }
+            return region;
+        }
+
         [DllImport("user32.dll", SetLastError = true)]
         public static extern int SetWindowRgn(IntPtr hWnd, IntPtr region, bool redraw);
 

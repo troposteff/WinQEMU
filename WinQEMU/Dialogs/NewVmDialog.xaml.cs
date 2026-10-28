@@ -18,6 +18,7 @@ namespace WinQEMU.Dialogs
         public NewVmDialog(VmManager manager, IntPtr ownerWindow)
         {
             InitializeComponent();
+            DialogWidth.Fit(this, 700);
 
             _ownerWindow = ownerWindow;
             ViewModel = new NewVmViewModel(manager);
@@ -95,6 +96,10 @@ namespace WinQEMU.Dialogs
         /// <summary>PasswordBox has no bindable password: copied to the view model, kept in memory only.</summary>
         private void OnUnattendedPasswordChanged(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
             ViewModel.UnattendedPassword = UnattendedPasswordBox.Password;
+
+        /// <summary>The disks' password, typed twice; kept in the view model's memory only.</summary>
+        private void OnDiskPasswordChanged(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
+            ViewModel.SetDiskPassword(DiskPasswordBox.Password, DiskPasswordConfirmationBox.Password);
 
         private async void OnBrowseDriversClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {

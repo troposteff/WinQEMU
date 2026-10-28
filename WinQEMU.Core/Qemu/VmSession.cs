@@ -17,7 +17,7 @@ namespace WinQEMU.Core.Qemu
     /// Events are raised on background threads (the process watcher and the QMP read loop).
     /// UI consumers must marshal onto the dispatcher themselves.
     /// </remarks>
-    public sealed class VmSession : ObservableBase, IAsyncDisposable
+    public sealed partial class VmSession : ObservableBase, IAsyncDisposable
     {
         private const int MaxLogLines = 2000;
 
@@ -95,11 +95,16 @@ namespace WinQEMU.Core.Qemu
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
         {
+            SecretPipe? keyPipe = null;
             await _transitionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 if (State != VmState.Stopped)
                     throw new InvalidOperationException(PlatformText.SessionAlreadyStarted);
+
+                // Before anything is launched: a machine whose password is missing simply does not start.
+                if (Config.DisksEncrypted && DiskKey is null)
+                    throw new DiskPasswordException(EncryptionText.ImageLocked, isWrongPassword: false);
 
                 var problems = QemuArgumentBuilder.Validate(Config, _installation);
                 if (problems.Count > 0)
@@ -121,8 +126,10 @@ namespace WinQEMU.Core.Qemu
                 var sharesPort = ReserveLoopbackPort();
                 FileDropPort = ReserveLoopbackPort();
                 var executable = _installation.GetSystemBinary(Config.Architecture);
+                var diskKey = await PrepareDiskKeyAsync(cancellationToken).ConfigureAwait(false);
+                keyPipe = diskKey?.Pipe;
                 var arguments = QemuArgumentBuilder.Build(Config, _installation, qmpPort, clipboardPort, GuestAgentPort, sharesPort, _networkPorts,
-                    FileDropPort);
+                    FileDropPort, diskKey?.Arguments);
                 var unplugged = Config.NetworkAdapters.Where(a => a.Mode != NetworkMode.None && !a.Connected).Select(a => a.Id).ToList();
 
                 LaunchCommandLine = QemuArgumentBuilder.ToDisplayString(executable, arguments);
@@ -136,6 +143,8 @@ namespace WinQEMU.Core.Qemu
                 }
 
                 StartProcess(executable, arguments);
+                if (keyPipe is not null && _process is { } started)
+                    keyPipe.ExpectClient(started.Id);
 
                 try
                 {
@@ -148,6 +157,9 @@ namespace WinQEMU.Core.Qemu
                     await KillProcessAsync().ConfigureAwait(false);
                     LastError = ex.Message;
                     State = VmState.Error;
+                    // The shell checks the password before starting; this is for one changed meanwhile.
+                    if (keyPipe is not null && DiskPasswordException.IsWrongPasswordMessage(_lastQemuMessage))
+                        throw new DiskPasswordException(EncryptionText.WrongPassword, isWrongPassword: true);
                     throw;
                 }
 
@@ -191,6 +203,8 @@ namespace WinQEMU.Core.Qemu
             }
             finally
             {
+                if (keyPipe is not null)
+                    await keyPipe.DisposeAsync().ConfigureAwait(false);
                 _transitionLock.Release();
             }
         }
@@ -366,6 +380,15 @@ namespace WinQEMU.Core.Qemu
 
                 if (File.Exists(overlayPath))
                     throw new IOException(string.Format(CultureInfo.CurrentCulture, PlatformText.SessionOverlayExists, overlayPath));
+
+                // blockdev-snapshot-sync creates a clear overlay, so everything written afterwards would be in clear.
+                if (Config.DisksEncrypted || DiskKey is not null)
+                {
+                    await CreateEncryptedOverlayAsync(qmp, disk, overlayPath, cancellationToken).ConfigureAwait(false);
+                    overlays[disk.Id] = overlayPath;
+                    AppendLog($"Disk '{disk.Id}' now writes to the encrypted overlay {Path.GetFileName(overlayPath)}.");
+                    continue;
+                }
 
                 await qmp.ExecuteAsync(
                     "blockdev-snapshot-sync",

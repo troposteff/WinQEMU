@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The winqemu command, a console program in WinQEMU's package (alias "winqemu.exe" in Package.appxmanifest). It
+    only carries the command to the running WinQEMU (CliProtocol), so it stays small; the shell's project reference
+    copies it next to WinQEMU.exe, where it shares the shell's self-contained .NET runtime.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>WinQEMU.Cli</RootNamespace>
+    <AssemblyName>WinQEMU.Cli</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <!-- A project reference does not pass the shell's RuntimeIdentifier down, and a self-contained exe (WinQEMU)
+         may only reference a self-contained one (NETSDK1150): taken from the platform, as the shell's is. -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x86'">win-x86</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WinQEMU.Core\WinQEMU.Core.csproj" />
+  </ItemGroup>
+</Project>

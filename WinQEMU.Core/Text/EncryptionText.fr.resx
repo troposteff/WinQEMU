@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PasswordRequired" xml:space="preserve"><value>Saisissez un mot de passe.</value></data>
+  <data name="PasswordMismatch" xml:space="preserve"><value>Les deux mots de passe ne sont pas identiques.</value></data>
+  <data name="PasswordUnchanged" xml:space="preserve"><value>Le nouveau mot de passe est identique à l'actuel.</value></data>
+  <data name="UnlockCanceled" xml:space="preserve"><value>Aucun mot de passe n'a été donné : rien n'a été fait.</value></data>
+  <data name="NoCompression" xml:space="preserve"><value>Un disque chiffré ne peut pas être compressé : qemu-img ne combine pas compression et chiffrement.</value></data>
+  <data name="NeedsQcow2" xml:space="preserve"><value>Les disques de cette machine sont chiffrés, et seul le format qcow2 peut l'être : un autre format contiendrait ses données en clair.</value></data>
+  <data name="WrongPassword" xml:space="preserve"><value>Mot de passe incorrect : il n'ouvre pas les disques de cette machine.</value></data>
+  <data name="WrongPasswordRetry" xml:space="preserve"><value>Mot de passe incorrect. Réessayez.</value></data>
+  <data name="RememberedPasswordWrong" xml:space="preserve"><value>Le mot de passe mémorisé n'ouvre plus les disques (modifié ailleurs ?). Saisissez le mot de passe actuel.</value></data>
+  <data name="ImageLocked" xml:space="preserve"><value>Les disques de cette machine sont chiffrés et son mot de passe n'a pas été donné.</value></data>
+  <data name="ImageNotEncrypted" xml:space="preserve"><value>Cette image n'est pas chiffrée : {0}</value></data>
+  <data name="WizardExistingDisk" xml:space="preserve"><value>Une image existante est attachée telle quelle. Créez la machine, puis chiffrez ses disques depuis son résumé.</value></data>
+  <data name="AlreadyEncrypted" xml:space="preserve"><value>Les disques de cette machine sont déjà chiffrés.</value></data>
+  <data name="NotEncrypted" xml:space="preserve"><value>Les disques de cette machine ne sont pas chiffrés.</value></data>
+  <data name="NoDisks" xml:space="preserve"><value>Cette machine n'a aucun disque.</value></data>
+  <data name="NeedsQcow2Disks" xml:space="preserve"><value>Seuls les disques qcow2 peuvent être chiffrés. Convertissez d'abord ceux-ci en qcow2 : {0}.</value></data>
+  <data name="DiskMissing" xml:space="preserve"><value>Le disque {0} est introuvable : {1}</value></data>
+  <data name="RefusedLinkedClone" xml:space="preserve"><value>Cette machine est un clone lié : elle lit les images d'une autre machine, qui ne doivent pas changer. Rendez-la d'abord indépendante (« Convertir… » sur ses disques) ou faites-en une copie complète.</value></data>
+  <data name="RefusedHasLinkedClones" xml:space="preserve"><value>Des clones liés lisent les images de cette machine, qui ne doivent pas changer. Supprimez d'abord les clones ou rendez-les indépendants.</value></data>
+  <data name="NoSpace" xml:space="preserve"><value>Pas assez d'espace libre : la copie demande environ {0}, le lecteur en a {1}.</value></data>
+  <data name="MustBeStopped" xml:space="preserve"><value>Arrêtez d'abord la machine.</value></data>
+  <data name="AttachClearImage" xml:space="preserve"><value>Les disques de cette machine sont chiffrés, et cette image ne l'est pas : la machine y écrirait en clair. Attachez une image chiffrée avec le mot de passe de la machine, ou déchiffrez d'abord la machine.</value></data>
+  <data name="AutoStartNeedsPassword" xml:space="preserve"><value>{0} n'a pas été démarrée : ses disques sont chiffrés et aucun mot de passe n'est mémorisé. Démarrez-la vous-même pour le saisir.</value></data>
+  <data name="StatusClear" xml:space="preserve"><value>Les disques ne sont pas chiffrés.</value></data>
+  <data name="StatusEncrypted" xml:space="preserve"><value>Les disques sont chiffrés (LUKS, AES-256).</value></data>
+  <data name="StatusRemembered" xml:space="preserve"><value>Le mot de passe est mémorisé par Windows pour votre compte.</value></data>
+  <data name="StatusAsked" xml:space="preserve"><value>Le mot de passe est demandé au premier démarrage après l'ouverture de WinQEMU.</value></data>
+  <data name="PasswordLabel" xml:space="preserve"><value>Mot de passe</value></data>
+  <data name="NewPasswordLabel" xml:space="preserve"><value>Nouveau mot de passe</value></data>
+  <data name="ConfirmPasswordLabel" xml:space="preserve"><value>Confirmez le mot de passe</value></data>
+  <data name="Remember" xml:space="preserve"><value>Mémoriser</value></data>
+  <data name="RememberHint" xml:space="preserve"><value>Mémorisé, le mot de passe est gardé dans le Gestionnaire d'identification de Windows, protégé par votre session Windows, et la machine peut démarrer avec WinQEMU. Sinon, il reste en mémoire jusqu'à la fermeture de WinQEMU.</value></data>
+  <data name="PromptTitle" xml:space="preserve"><value>Disques chiffrés</value></data>
+  <data name="PromptBody" xml:space="preserve"><value>Les disques de {0} sont chiffrés. Saisissez leur mot de passe.</value></data>
+  <data name="Unlock" xml:space="preserve"><value>Déverrouiller</value></data>
+  <data name="UnlockFailedTitle" xml:space="preserve"><value>Impossible de déverrouiller les disques</value></data>
+  <data name="OperationFailedTitle" xml:space="preserve"><value>L'opération a échoué</value></data>
+  <data name="EncryptNotPossibleTitle" xml:space="preserve"><value>Impossible de chiffrer les disques</value></data>
+  <data name="EncryptTitle" xml:space="preserve"><value>Chiffrer les disques de {0}</value></data>
+  <data name="EncryptBody" xml:space="preserve"><value>Chaque disque est copié dans une nouvelle image chiffrée (LUKS, AES-256), qui le remplace ensuite :
+• les instantanés sont perdus (une copie ne contient que l'état actuel) ;
+• il faut l'espace libre d'une copie de chaque disque ;
+• les anciennes images sont supprimées, pas effacées : leurs données peuvent rester lisibles sur le lecteur ;
+• le descripteur et les variables UEFI restent en clair ;
+• sans le mot de passe, les données sont irrécupérables. Personne ne peut le réinitialiser.</value></data>
+  <data name="EncryptButton" xml:space="preserve"><value>Chiffrer</value></data>
+  <data name="EncryptProgress" xml:space="preserve"><value>Chiffrement des disques…</value></data>
+  <data name="DecryptNotPossibleTitle" xml:space="preserve"><value>Impossible de déchiffrer les disques</value></data>
+  <data name="DecryptTitle" xml:space="preserve"><value>Déchiffrer les disques de {0} ?</value></data>
+  <data name="DecryptBody" xml:space="preserve"><value>Chaque disque est copié dans une nouvelle image en clair, qui le remplace ensuite. Les instantanés sont perdus, il faut l'espace libre d'une copie de chaque disque, et le mot de passe mémorisé est oublié.</value></data>
+  <data name="DecryptButton" xml:space="preserve"><value>Déchiffrer</value></data>
+  <data name="DecryptProgress" xml:space="preserve"><value>Déchiffrement des disques…</value></data>
+  <data name="ChangeNotPossibleTitle" xml:space="preserve"><value>Impossible de changer le mot de passe</value></data>
+  <data name="ChangeTitle" xml:space="preserve"><value>Changer le mot de passe des disques de {0}</value></data>
+  <data name="ChangeBody" xml:space="preserve"><value>Chaque image de la machine reçoit le nouveau mot de passe ; rien n'est copié et les instantanés restent. Comptez quelques secondes par image.</value></data>
+  <data name="ChangeButton" xml:space="preserve"><value>Changer</value></data>
+  <data name="ChangeProgress" xml:space="preserve"><value>Changement du mot de passe…</value></data>
+  <data name="ForgetTitle" xml:space="preserve"><value>Oublier le mot de passe ?</value></data>
+  <data name="ForgetBody" xml:space="preserve"><value>Le mot de passe de {0} est retiré du Gestionnaire d'identification de Windows. Il sera demandé au prochain démarrage, et la machine ne démarrera plus seule avec WinQEMU.</value></data>
+  <data name="ForgetButton" xml:space="preserve"><value>Oublier</value></data>
+  <data name="LeftInPlaceTitle" xml:space="preserve"><value>Images laissées en place</value></data>
+  <data name="LeftInPlaceBody" xml:space="preserve"><value>Ces images sont hors du dossier de la machine et n'ont pas été supprimées. La machine ne les utilise plus, mais elles contiennent ses données telles qu'elles étaient :
+{0}</value></data>
+  <data name="SectionHeader" xml:space="preserve"><value>Chiffrement des disques</value></data>
+  <data name="SectionHint" xml:space="preserve"><value>Comme avec VMware, les disques sont chiffrés par un mot de passe (LUKS, AES-256). La machine doit être arrêtée pour chiffrer, déchiffrer ou changer le mot de passe.</value></data>
+  <data name="EncryptAction" xml:space="preserve"><value>Chiffrer…</value></data>
+  <data name="ChangeAction" xml:space="preserve"><value>Changer le mot de passe…</value></data>
+  <data name="DecryptAction" xml:space="preserve"><value>Déchiffrer…</value></data>
+  <data name="ForgetAction" xml:space="preserve"><value>Oublier le mot de passe</value></data>
+  <data name="WizardEncrypt" xml:space="preserve"><value>Chiffrer les disques</value></data>
+  <data name="WizardHint" xml:space="preserve"><value>LUKS, AES-256, qcow2 uniquement. Sans le mot de passe, les données sont irrécupérables. Il est demandé au démarrage, sauf s'il est mémorisé.</value></data>
+  <data name="WizardNeedsQcow2" xml:space="preserve"><value>Seul un disque qcow2 peut être chiffré.</value></data>
+  <data name="WizardSummaryRemembered" xml:space="preserve"><value>Disques chiffrés, mot de passe mémorisé par Windows</value></data>
+  <data name="WizardSummaryAsked" xml:space="preserve"><value>Disques chiffrés, mot de passe demandé au démarrage</value></data>
+  <data name="ExportInClear" xml:space="preserve"><value>Les disques sont chiffrés ici, mais pas dans le paquet : VMware et VirtualBox ne savent pas lire le chiffrement de QEMU, le fichier .ova contient donc leurs données en clair. Gardez-le en lieu sûr.</value></data>
+</root>

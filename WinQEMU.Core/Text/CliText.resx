@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Usage" xml:space="preserve"><value>winqemu — drives WinQEMU's virtual machines from a terminal (WinQEMU is started in the notification area if needed).
+
+Usage: winqemu &lt;command&gt; [arguments]
+
+  list [--folder &lt;folder&gt;] [--json]     Lists the machines, their state and folder.
+  status &lt;machine&gt;                      Shows a machine's state.
+  start &lt;machine&gt; [--wait] [--password-stdin]
+                                        Starts a machine; --wait waits until it runs.
+                                        An encrypted machine's password is read from the
+                                        standard input, or asked for, unless remembered.
+  stop &lt;machine&gt; [--wait] [--timeout &lt;seconds&gt;]
+                                        Asks the guest to shut down (power button).
+  poweroff &lt;machine&gt;                    Turns the machine off at once, like pulling the plug.
+  pause &lt;machine&gt; | resume &lt;machine&gt;    Pauses or resumes a running machine.
+  snapshot list &lt;machine&gt;
+  snapshot create &lt;machine&gt; &lt;name&gt;
+  snapshot restore &lt;machine&gt; &lt;name&gt;
+  snapshot delete &lt;machine&gt; &lt;name&gt;      Manages a machine's snapshots.
+  show [&lt;machine&gt;]                      Shows WinQEMU's window, on that machine.
+  help                                  Shows this help.
+
+A machine is named as in WinQEMU's library (case does not matter) or by its id.
+Exit codes: 0 success, 1 failure, 2 incorrect command.</value></data>
+  <data name="Cancelled" xml:space="preserve"><value>Stopped waiting; the machine is left as it is.</value></data>
+  <data name="ConnectionLost" xml:space="preserve"><value>WinQEMU closed the connection without answering.</value></data>
+  <data name="NoAnswer" xml:space="preserve"><value>WinQEMU did not answer within a minute.</value></data>
+  <data name="NotPackaged" xml:space="preserve"><value>WinQEMU is not running, and this command can only start it when run as "winqemu" (the alias installed with WinQEMU).</value></data>
+  <data name="Closing" xml:space="preserve"><value>WinQEMU is closing.</value></data>
+  <data name="UnknownCommand" xml:space="preserve"><value>Unknown command: {0}.</value></data>
+  <data name="SeeHelp" xml:space="preserve"><value>See: winqemu help</value></data>
+  <data name="MissingArgument" xml:space="preserve"><value>Missing argument: {0}.</value></data>
+  <data name="ArgumentMachine" xml:space="preserve"><value>the machine</value></data>
+  <data name="ArgumentAction" xml:space="preserve"><value>the action (list, create, restore, delete)</value></data>
+  <data name="ArgumentSnapshotName" xml:space="preserve"><value>the snapshot's name</value></data>
+  <data name="AmbiguousMachine" xml:space="preserve"><value>Several machines are named “{0}”: give its id instead ({1}).</value></data>
+  <data name="UnknownMachine" xml:space="preserve"><value>No machine named “{0}” in the library (winqemu list shows them).</value></data>
+  <data name="NoMachines" xml:space="preserve"><value>No machine.</value></data>
+  <data name="ColumnName" xml:space="preserve"><value>Name</value></data>
+  <data name="ColumnState" xml:space="preserve"><value>State</value></data>
+  <data name="ColumnFolder" xml:space="preserve"><value>Folder</value></data>
+  <data name="StatusFolder" xml:space="preserve"><value>Folder: {0}</value></data>
+  <data name="StatusLocation" xml:space="preserve"><value>Files: {0}</value></data>
+  <data name="NoQemu" xml:space="preserve"><value>WinQEMU does not find QEMU: see its settings.</value></data>
+  <data name="AlreadyStarted" xml:space="preserve"><value>{0} is not off ({1}).</value></data>
+  <data name="Started" xml:space="preserve"><value>{0} started.</value></data>
+  <data name="ShutdownRequested" xml:space="preserve"><value>{0} was asked to shut down.</value></data>
+  <data name="BadTimeout" xml:space="preserve"><value>Incorrect timeout: {0} (seconds expected).</value></data>
+  <data name="StillRunning" xml:space="preserve"><value>{0} is still running after {1} s; it was not turned off (winqemu poweroff does).</value></data>
+  <data name="Stopped" xml:space="preserve"><value>{0} is off.</value></data>
+  <data name="NotRunning" xml:space="preserve"><value>{0} is not running.</value></data>
+  <data name="PoweredOff" xml:space="preserve"><value>{0} powered off.</value></data>
+  <data name="Paused" xml:space="preserve"><value>{0} paused.</value></data>
+  <data name="Resumed" xml:space="preserve"><value>{0} resumed.</value></data>
+  <data name="NoSnapshots" xml:space="preserve"><value>No snapshot.</value></data>
+  <data name="SnapshotNotPossible" xml:space="preserve"><value>Not possible for this machine now: its Snapshots section in WinQEMU says why.</value></data>
+  <data name="SnapshotNeedsStoppedMachine" xml:space="preserve"><value>Shut the machine down first.</value></data>
+  <data name="UnknownSnapshot" xml:space="preserve"><value>No snapshot “{0}” for {1}.</value></data>
+  <data name="UnknownSnapshotAction" xml:space="preserve"><value>Unknown snapshot action: {0}.</value></data>
+  <data name="SnapshotCreated" xml:space="preserve"><value>Snapshot “{0}” taken of {1}.</value></data>
+  <data name="SnapshotRestored" xml:space="preserve"><value>{1} restored to “{0}”.</value></data>
+  <data name="SnapshotDeleted" xml:space="preserve"><value>Snapshot “{0}” of {1} deleted.</value></data>
+  <data name="PasswordPrompt" xml:space="preserve"><value>Password of {0}’s disks:</value></data>
+  <data name="PasswordNeeded" xml:space="preserve"><value>This machine's disks are encrypted: give the password with --password-stdin, or have WinQEMU remember it.</value></data>
+</root>

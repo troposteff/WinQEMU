@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PasswordRequired" xml:space="preserve"><value>Type a password.</value></data>
+  <data name="PasswordMismatch" xml:space="preserve"><value>The two passwords are not the same.</value></data>
+  <data name="PasswordUnchanged" xml:space="preserve"><value>The new password is the same as the current one.</value></data>
+  <data name="UnlockCanceled" xml:space="preserve"><value>No password was given: nothing was done.</value></data>
+  <data name="NoCompression" xml:space="preserve"><value>An encrypted disk cannot be compressed: qemu-img does not combine compression and encryption.</value></data>
+  <data name="NeedsQcow2" xml:space="preserve"><value>This machine's disks are encrypted, and only qcow2 can be: another format would hold its data in clear.</value></data>
+  <data name="WrongPassword" xml:space="preserve"><value>Wrong password: it does not open this machine's disks.</value></data>
+  <data name="WrongPasswordRetry" xml:space="preserve"><value>Wrong password. Try again.</value></data>
+  <data name="RememberedPasswordWrong" xml:space="preserve"><value>The remembered password no longer opens the disks (changed elsewhere?). Type the current one.</value></data>
+  <data name="ImageLocked" xml:space="preserve"><value>This machine's disks are encrypted and its password has not been given.</value></data>
+  <data name="ImageNotEncrypted" xml:space="preserve"><value>This image is not encrypted: {0}</value></data>
+  <data name="WizardExistingDisk" xml:space="preserve"><value>An existing image is attached as it is. Create the machine, then encrypt its disks from its summary.</value></data>
+  <data name="AlreadyEncrypted" xml:space="preserve"><value>The disks of this machine are already encrypted.</value></data>
+  <data name="NotEncrypted" xml:space="preserve"><value>The disks of this machine are not encrypted.</value></data>
+  <data name="NoDisks" xml:space="preserve"><value>This machine has no disk.</value></data>
+  <data name="NeedsQcow2Disks" xml:space="preserve"><value>Only qcow2 disks can be encrypted. Convert these to qcow2 first: {0}.</value></data>
+  <data name="DiskMissing" xml:space="preserve"><value>Disk {0} was not found: {1}</value></data>
+  <data name="RefusedLinkedClone" xml:space="preserve"><value>This machine is a linked clone: it reads another machine's images, which must not change. Make it independent first (« Convert… » on its disks) or make a full copy.</value></data>
+  <data name="RefusedHasLinkedClones" xml:space="preserve"><value>Linked clones read this machine's images, which must not change. Delete the clones or make them independent first.</value></data>
+  <data name="NoSpace" xml:space="preserve"><value>Not enough free space: the copy needs about {0}, the drive has {1}.</value></data>
+  <data name="MustBeStopped" xml:space="preserve"><value>Stop the machine first.</value></data>
+  <data name="AttachClearImage" xml:space="preserve"><value>This machine's disks are encrypted, and this image is not: the machine would write to it in clear. Attach an image encrypted with the machine's password, or decrypt the machine first.</value></data>
+  <data name="AutoStartNeedsPassword" xml:space="preserve"><value>{0} was not started: its disks are encrypted and no password is remembered. Start it yourself to type it.</value></data>
+  <data name="StatusClear" xml:space="preserve"><value>The disks are not encrypted.</value></data>
+  <data name="StatusEncrypted" xml:space="preserve"><value>The disks are encrypted (LUKS, AES-256).</value></data>
+  <data name="StatusRemembered" xml:space="preserve"><value>The password is remembered by Windows for your account.</value></data>
+  <data name="StatusAsked" xml:space="preserve"><value>The password is asked at the first start after WinQEMU opens.</value></data>
+  <data name="PasswordLabel" xml:space="preserve"><value>Password</value></data>
+  <data name="NewPasswordLabel" xml:space="preserve"><value>New password</value></data>
+  <data name="ConfirmPasswordLabel" xml:space="preserve"><value>Confirm the password</value></data>
+  <data name="Remember" xml:space="preserve"><value>Remember</value></data>
+  <data name="RememberHint" xml:space="preserve"><value>Remembered, the password is kept in the Windows Credential Manager, protected by your Windows session, and the machine can start with WinQEMU. Otherwise it stays in memory until WinQEMU closes.</value></data>
+  <data name="PromptTitle" xml:space="preserve"><value>Encrypted disks</value></data>
+  <data name="PromptBody" xml:space="preserve"><value>The disks of {0} are encrypted. Type their password.</value></data>
+  <data name="Unlock" xml:space="preserve"><value>Unlock</value></data>
+  <data name="UnlockFailedTitle" xml:space="preserve"><value>The disks could not be unlocked</value></data>
+  <data name="OperationFailedTitle" xml:space="preserve"><value>The operation failed</value></data>
+  <data name="EncryptNotPossibleTitle" xml:space="preserve"><value>The disks cannot be encrypted</value></data>
+  <data name="EncryptTitle" xml:space="preserve"><value>Encrypt the disks of {0}</value></data>
+  <data name="EncryptBody" xml:space="preserve"><value>Each disk is copied into a new encrypted image (LUKS, AES-256), which then replaces it:
+• the snapshots are lost (a copy holds the current state only);
+• it needs free space for a copy of each disk;
+• the old images are deleted, not wiped: their data may stay readable on the drive;
+• the descriptor and the UEFI variables stay in clear;
+• without the password, the data cannot be recovered. Nobody can reset it.</value></data>
+  <data name="EncryptButton" xml:space="preserve"><value>Encrypt</value></data>
+  <data name="EncryptProgress" xml:space="preserve"><value>Encrypting the disks…</value></data>
+  <data name="DecryptNotPossibleTitle" xml:space="preserve"><value>The disks cannot be decrypted</value></data>
+  <data name="DecryptTitle" xml:space="preserve"><value>Decrypt the disks of {0}?</value></data>
+  <data name="DecryptBody" xml:space="preserve"><value>Each disk is copied into a new image in clear, which then replaces it. The snapshots are lost, it needs free space for a copy of each disk, and the remembered password is forgotten.</value></data>
+  <data name="DecryptButton" xml:space="preserve"><value>Decrypt</value></data>
+  <data name="DecryptProgress" xml:space="preserve"><value>Decrypting the disks…</value></data>
+  <data name="ChangeNotPossibleTitle" xml:space="preserve"><value>The password cannot be changed</value></data>
+  <data name="ChangeTitle" xml:space="preserve"><value>Change the disk password of {0}</value></data>
+  <data name="ChangeBody" xml:space="preserve"><value>Every image of the machine gets the new password; nothing is copied and the snapshots stay. It takes a few seconds per image.</value></data>
+  <data name="ChangeButton" xml:space="preserve"><value>Change</value></data>
+  <data name="ChangeProgress" xml:space="preserve"><value>Changing the password…</value></data>
+  <data name="ForgetTitle" xml:space="preserve"><value>Forget the password?</value></data>
+  <data name="ForgetBody" xml:space="preserve"><value>The password of {0} is removed from the Windows Credential Manager. It will be asked at the next start, and the machine will no longer start with WinQEMU by itself.</value></data>
+  <data name="ForgetButton" xml:space="preserve"><value>Forget</value></data>
+  <data name="LeftInPlaceTitle" xml:space="preserve"><value>Images left in place</value></data>
+  <data name="LeftInPlaceBody" xml:space="preserve"><value>These images are outside the machine's folder and were not deleted. The machine no longer uses them, but they hold its data as it was:
+{0}</value></data>
+  <data name="SectionHeader" xml:space="preserve"><value>Disk encryption</value></data>
+  <data name="SectionHint" xml:space="preserve"><value>As with VMware, the disks are encrypted with a password (LUKS, AES-256). The machine must be stopped to encrypt, decrypt or change the password.</value></data>
+  <data name="EncryptAction" xml:space="preserve"><value>Encrypt…</value></data>
+  <data name="ChangeAction" xml:space="preserve"><value>Change password…</value></data>
+  <data name="DecryptAction" xml:space="preserve"><value>Decrypt…</value></data>
+  <data name="ForgetAction" xml:space="preserve"><value>Forget the password</value></data>
+  <data name="WizardEncrypt" xml:space="preserve"><value>Encrypt the disks</value></data>
+  <data name="WizardHint" xml:space="preserve"><value>LUKS, AES-256, qcow2 only. Without the password the data cannot be recovered. Starts ask for it unless it is remembered.</value></data>
+  <data name="WizardNeedsQcow2" xml:space="preserve"><value>Only a qcow2 disk can be encrypted.</value></data>
+  <data name="WizardSummaryRemembered" xml:space="preserve"><value>Encrypted disks, password remembered by Windows</value></data>
+  <data name="WizardSummaryAsked" xml:space="preserve"><value>Encrypted disks, password asked at start</value></data>
+  <data name="ExportInClear" xml:space="preserve"><value>The disks are encrypted here, but not in the package: VMware and VirtualBox cannot read QEMU's encryption, so the .ova holds their data in clear. Keep it somewhere safe.</value></data>
+</root>

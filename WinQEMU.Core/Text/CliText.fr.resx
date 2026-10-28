@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Usage" xml:space="preserve"><value>winqemu — pilote les machines virtuelles de WinQEMU depuis un terminal (WinQEMU est lancé dans la zone de notification si besoin).
+
+Usage : winqemu &lt;commande&gt; [arguments]
+
+  list [--folder &lt;dossier&gt;] [--json]    Liste les machines, leur état et leur dossier.
+  status &lt;machine&gt;                      Affiche l'état d'une machine.
+  start &lt;machine&gt; [--wait] [--password-stdin]
+                                        Démarre une machine ; --wait attend qu'elle tourne.
+                                        Le mot de passe d'une machine chiffrée est lu sur
+                                        l'entrée standard, ou demandé, s'il n'est pas mémorisé.
+  stop &lt;machine&gt; [--wait] [--timeout &lt;secondes&gt;]
+                                        Demande à l'invité de s'arrêter (bouton d'alimentation).
+  poweroff &lt;machine&gt;                    Éteint la machine aussitôt, comme en débranchant la prise.
+  pause &lt;machine&gt; | resume &lt;machine&gt;    Met en pause ou reprend une machine en marche.
+  snapshot list &lt;machine&gt;
+  snapshot create &lt;machine&gt; &lt;nom&gt;
+  snapshot restore &lt;machine&gt; &lt;nom&gt;
+  snapshot delete &lt;machine&gt; &lt;nom&gt;       Gère les instantanés d'une machine.
+  show [&lt;machine&gt;]                      Affiche la fenêtre de WinQEMU, sur cette machine.
+  help                                  Affiche cette aide.
+
+Une machine se désigne par son nom dans la bibliothèque de WinQEMU (sans tenir compte de la casse) ou par son identifiant.
+Codes de sortie : 0 réussite, 1 échec, 2 commande incorrecte.</value></data>
+  <data name="Cancelled" xml:space="preserve"><value>Attente interrompue ; la machine est laissée telle quelle.</value></data>
+  <data name="ConnectionLost" xml:space="preserve"><value>WinQEMU a fermé la connexion sans répondre.</value></data>
+  <data name="NoAnswer" xml:space="preserve"><value>WinQEMU n'a pas répondu en une minute.</value></data>
+  <data name="NotPackaged" xml:space="preserve"><value>WinQEMU n'est pas lancé, et cette commande ne peut le démarrer que lancée sous le nom « winqemu » (l'alias installé avec WinQEMU).</value></data>
+  <data name="Closing" xml:space="preserve"><value>WinQEMU se ferme.</value></data>
+  <data name="UnknownCommand" xml:space="preserve"><value>Commande inconnue : {0}.</value></data>
+  <data name="SeeHelp" xml:space="preserve"><value>Voir : winqemu help</value></data>
+  <data name="MissingArgument" xml:space="preserve"><value>Argument manquant : {0}.</value></data>
+  <data name="ArgumentMachine" xml:space="preserve"><value>la machine</value></data>
+  <data name="ArgumentAction" xml:space="preserve"><value>l'action (list, create, restore, delete)</value></data>
+  <data name="ArgumentSnapshotName" xml:space="preserve"><value>le nom de l'instantané</value></data>
+  <data name="AmbiguousMachine" xml:space="preserve"><value>Plusieurs machines s'appellent « {0} » : donnez plutôt son identifiant ({1}).</value></data>
+  <data name="UnknownMachine" xml:space="preserve"><value>Aucune machine « {0} » dans la bibliothèque (winqemu list les montre).</value></data>
+  <data name="NoMachines" xml:space="preserve"><value>Aucune machine.</value></data>
+  <data name="ColumnName" xml:space="preserve"><value>Nom</value></data>
+  <data name="ColumnState" xml:space="preserve"><value>État</value></data>
+  <data name="ColumnFolder" xml:space="preserve"><value>Dossier</value></data>
+  <data name="StatusFolder" xml:space="preserve"><value>Dossier : {0}</value></data>
+  <data name="StatusLocation" xml:space="preserve"><value>Fichiers : {0}</value></data>
+  <data name="NoQemu" xml:space="preserve"><value>WinQEMU ne trouve pas QEMU : voir ses paramètres.</value></data>
+  <data name="AlreadyStarted" xml:space="preserve"><value>{0} n'est pas arrêtée ({1}).</value></data>
+  <data name="Started" xml:space="preserve"><value>{0} démarrée.</value></data>
+  <data name="ShutdownRequested" xml:space="preserve"><value>Arrêt demandé à {0}.</value></data>
+  <data name="BadTimeout" xml:space="preserve"><value>Délai incorrect : {0} (des secondes sont attendues).</value></data>
+  <data name="StillRunning" xml:space="preserve"><value>{0} tourne encore après {1} s ; elle n'a pas été éteinte (winqemu poweroff le fait).</value></data>
+  <data name="Stopped" xml:space="preserve"><value>{0} est arrêtée.</value></data>
+  <data name="NotRunning" xml:space="preserve"><value>{0} n'est pas en marche.</value></data>
+  <data name="PoweredOff" xml:space="preserve"><value>{0} éteinte.</value></data>
+  <data name="Paused" xml:space="preserve"><value>{0} en pause.</value></data>
+  <data name="Resumed" xml:space="preserve"><value>{0} reprise.</value></data>
+  <data name="NoSnapshots" xml:space="preserve"><value>Aucun instantané.</value></data>
+  <data name="SnapshotNotPossible" xml:space="preserve"><value>Impossible pour cette machine en ce moment : sa section Instantanés, dans WinQEMU, dit pourquoi.</value></data>
+  <data name="SnapshotNeedsStoppedMachine" xml:space="preserve"><value>Arrêtez d'abord la machine.</value></data>
+  <data name="UnknownSnapshot" xml:space="preserve"><value>Aucun instantané « {0} » pour {1}.</value></data>
+  <data name="UnknownSnapshotAction" xml:space="preserve"><value>Action d'instantané inconnue : {0}.</value></data>
+  <data name="SnapshotCreated" xml:space="preserve"><value>Instantané « {0} » de {1} pris.</value></data>
+  <data name="SnapshotRestored" xml:space="preserve"><value>{1} restaurée à « {0} ».</value></data>
+  <data name="SnapshotDeleted" xml:space="preserve"><value>Instantané « {0} » de {1} supprimé.</value></data>
+  <data name="PasswordPrompt" xml:space="preserve"><value>Mot de passe des disques de {0} :</value></data>
+  <data name="PasswordNeeded" xml:space="preserve"><value>Les disques de cette machine sont chiffrés : donnez le mot de passe par --password-stdin, ou faites-le mémoriser par WinQEMU.</value></data>
+</root>

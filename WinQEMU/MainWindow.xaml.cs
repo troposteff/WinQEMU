@@ -32,6 +32,8 @@ namespace WinQEMU
 
             ConsoleHost.Initialize(WinRT.Interop.WindowNative.GetWindowHandle(this));
             ConsoleHost.Log = _viewModel.AppendDiagnostic;
+            // An encrypted machine's password, asked when something needs it (MainWindow.Encryption.cs).
+            _viewModel.Manager.DiskPasswordPrompt = PromptDiskPasswordAsync;
 
             // Files dragged from Explorer onto the console are copied to the guest's desktop. Queued: the
             // drop arrives inside OLE's drag loop, too early for a dialog. The outcome is said each time a
@@ -91,6 +93,10 @@ namespace WinQEMU
 
             RootGrid.Loaded += async (_, _) =>
             {
+                ApplyMinimumSize();
+                NameInTooltips(MachineToolbar);
+                if (FullScreenBar.Child is Panel fullScreenCommands)
+                    NameInTooltips(fullScreenCommands);
                 ApplyAdaptiveLayout();
                 await InitializeOnceAsync();
             };
@@ -111,6 +117,19 @@ namespace WinQEMU
             ApplyTitleBarTheme();
 
             AppWindow.Closing += OnAppWindowClosing;
+        }
+
+        /// <summary>
+        /// The narrowest window the layout was checked at, 800 x 600 (at 150 % on the user's 1920 x 1200 screen): below
+        /// it the toolbar, the summary and the wizard had nothing left to give. In physical pixels, hence the scale.
+        /// </summary>
+        private void ApplyMinimumSize()
+        {
+            if (AppWindow.Presenter is not OverlappedPresenter presenter)
+                return;
+            var scale = Content.XamlRoot?.RasterizationScale ?? 1;
+            presenter.PreferredMinimumWidth = (int)(800 * scale);
+            presenter.PreferredMinimumHeight = (int)(600 * scale);
         }
 
         // ---- Title bar theme ----
@@ -312,11 +331,20 @@ namespace WinQEMU
 
             _fullScreenBarShown = show;
             FullScreenBar.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            ConsoleHost.TopOverlayHeight = show ? FullScreenBar.Height : 0;
+            ConsoleHost.OverlayCornerRadius = FullScreenBar.CornerRadius.TopLeft;
+            ConsoleHost.Overlay = show ? FullScreenBarBounds() : null;
 
             // Back to the guest once the bar is gone, so typing resumes without a click.
             if (!show && _consoleFullScreen)
                 ConsoleHost.FocusGuest();
+        }
+
+        /// <summary>The bar's rectangle over the console, measured now that it is shown.</summary>
+        private Windows.Foundation.Rect FullScreenBarBounds()
+        {
+            FullScreenBar.UpdateLayout();
+            return FullScreenBar.TransformToVisual(ConsoleHost)
+                .TransformBounds(new Windows.Foundation.Rect(0, 0, FullScreenBar.ActualWidth, FullScreenBar.ActualHeight));
         }
 
         private void SetConsoleFullScreen(bool fullScreen)
@@ -333,9 +361,11 @@ namespace WinQEMU
             var collapsed = fullScreen ? Visibility.Collapsed : Visibility.Visible;
             NotificationsPanel.Visibility = collapsed;
             ViewSwitcher.Visibility = collapsed;
+            StatePanel.Visibility = collapsed;
             ConsoleBar.Visibility = collapsed;
             SidebarColumn.Width = fullScreen ? new GridLength(0) : new GridLength(320);
             HeaderRow.Height = fullScreen ? new GridLength(0) : GridLength.Auto;
+            HeaderRow.MinHeight = fullScreen ? 0 : 64;
             SubHeaderRow.Height = fullScreen ? new GridLength(0) : GridLength.Auto;
             // The footer belongs to the sidebar column; a zero-width column still lends it its height.
             FooterRow.Height = fullScreen ? new GridLength(0) : GridLength.Auto;
@@ -350,6 +380,9 @@ namespace WinQEMU
             AppWindow.SetPresenter(fullScreen
                 ? Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen
                 : Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
+            // The default presenter comes back new, without the minimum size.
+            if (!fullScreen)
+                ApplyMinimumSize();
 
             FullScreenTitle.Text = _viewModel.SelectedVm?.Name ?? string.Empty;
             ShowFullScreenBar(false);
@@ -417,10 +450,16 @@ namespace WinQEMU
             if (_consoleFullScreen)
                 return;
 
+            // Two steps, measured at 150 % on the user's 1920 x 1200 screen: at 1024 px the summary, squeezed between
+            // the list and the resources, clipped a disk's file name, its lists and its buttons, so the resources go
+            // under the summary below 1200 px; below 1000 the list narrows too, to the width its title still fits in
+            // (at 240 it read "Machines virtuel…").
             const double narrowThreshold = 1000;
+            const double stackedThreshold = 1200;
             var narrow = RootGrid.ActualWidth > 0 && RootGrid.ActualWidth < narrowThreshold;
+            var stacked = RootGrid.ActualWidth > 0 && RootGrid.ActualWidth < stackedThreshold;
 
-            SidebarColumn.Width = new GridLength(narrow ? 240 : 320);
+            SidebarColumn.Width = new GridLength(narrow ? 280 : 320);
             FitMachineToolbar();
 
             // The summary tab's content is only realised while that tab is selected, so these may not
@@ -428,15 +467,48 @@ namespace WinQEMU
             if (ResourcesColumn is null || ResourcesPanel is null)
                 return;
 
-            ResourcesColumn.Width = new GridLength(narrow ? 0 : 320);
-            Grid.SetColumn(ResourcesPanel, narrow ? 0 : 1);
-            Grid.SetRow(ResourcesPanel, narrow ? 1 : 0);
-            Grid.SetRowSpan(ResourcesPanel, narrow ? 1 : 3);
-            ResourcesPanel.Margin = narrow ? new Thickness(0, 12, 0, 0) : new Thickness(0);
+            ResourcesColumn.Width = new GridLength(stacked ? 0 : 320);
+            Grid.SetColumn(ResourcesPanel, stacked ? 0 : 1);
+            Grid.SetRow(ResourcesPanel, stacked ? 1 : 0);
+            Grid.SetRowSpan(ResourcesPanel, stacked ? 1 : 3);
+            ResourcesPanel.Margin = stacked ? new Thickness(0, 12, 0, 0) : new Thickness(0);
         }
 
         /// <summary>How many groups of the toolbar are folded into "Plus": 0, 1 (the library's) or 2 (and Son, Envoyer).</summary>
         private int _foldedGroups;
+
+        /// <summary>
+        /// The toolbars show icons alone (ToolbarIconButton in App.xaml): each tooltip then says which command it is,
+        /// its name in bold above what it does. Built as the tooltip opens, so Pause/Reprendre and the sound's
+        /// name are the current ones.
+        /// </summary>
+        private static void NameInTooltips(Panel bar)
+        {
+            foreach (var button in bar.Children.OfType<Control>())
+            {
+                var description = ToolTipService.GetToolTip(button) as string;
+                var tip = new ToolTip();
+                tip.Opened += (_, _) =>
+                {
+                    var name = button is AppBarButton appBarButton
+                        ? appBarButton.Label
+                        : Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(button);
+                    tip.Content = string.IsNullOrEmpty(description) || description == name
+                        ? name
+                        : new StackPanel
+                        {
+                            Spacing = 2,
+                            MaxWidth = 320,
+                            Children =
+                            {
+                                new TextBlock { Text = name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
+                                new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap }
+                            }
+                        };
+                };
+                ToolTipService.SetToolTip(button, tip);
+            }
+        }
 
         /// <summary>
         /// Folds commands into a "Plus" menu while the toolbar would run under the Réseaux virtuels and
@@ -686,6 +758,9 @@ namespace WinQEMU
                 XamlRoot = Content.XamlRoot
             });
             if (choice != ContentDialogResult.Primary)
+                return;
+            // Asked now: no second dialog can open over the progress one.
+            if (!await UnlockSelectedAsync())
                 return;
 
             var bar = new ProgressBar { Maximum = 1, MinWidth = 360 };
@@ -1452,7 +1527,7 @@ namespace WinQEMU
 
         private async void OnCloseServiceClick(object sender, RoutedEventArgs e)
         {
-            if ((sender as FrameworkElement)?.Tag is MainViewModel.LanServiceItem item)
+            if ((sender as FrameworkElement)?.Tag is LanServiceItem item)
                 await _viewModel.CloseServiceAsync(item);
         }
 
@@ -1504,6 +1579,9 @@ namespace WinQEMU
             var selected = _viewModel.SelectedVm;
             if (selected is null || !_viewModel.CanClone)
                 return;
+            // The copy is encrypted with the source's password, asked before the dialog that runs it opens.
+            if (!await UnlockSelectedAsync())
+                return;
 
             // The dialog runs the clone itself and reports failures in place, so there is nothing to do
             // here afterwards: on success the view model has already selected the clone.
@@ -1522,6 +1600,8 @@ namespace WinQEMU
         {
             var selected = _viewModel.SelectedVm;
             if (selected is null || !_viewModel.CanClone)
+                return;
+            if (!await UnlockSelectedAsync())
                 return;
 
             var dialog = new Dialogs.ExportVmDialog(selected, PickOvaAsync, _viewModel.ExportSelectedAsync)
@@ -1697,7 +1777,21 @@ namespace WinQEMU
         private Task? _initialization;
 
         /// <summary>Detects QEMU and loads the library once, whether the window is shown or not.</summary>
-        private Task InitializeOnceAsync() => _initialization ??= _viewModel.InitializeAsync();
+        private Task InitializeOnceAsync() => _initialization ??= InitializeAndServeAsync();
+
+        private Cli.CommandServer? _commandServer;
+
+        /// <summary>
+        /// The winqemu command is answered once the library is read: one typed earlier waits on its pipe (the command
+        /// gives WinQEMU a minute) rather than being told its machine does not exist.
+        /// </summary>
+        private async Task InitializeAndServeAsync()
+        {
+            await _viewModel.InitializeAsync();
+            _viewModel.ShowRequested += ShowFromBackground;
+            _commandServer = new Cli.CommandServer(_viewModel.RunCommandAsync, DispatcherQueue);
+            _commandServer.Start();
+        }
 
         /// <summary>Started at the Windows logon: the window stays hidden, WinQEMU waits in the notification area.</summary>
         public void StartInBackground()

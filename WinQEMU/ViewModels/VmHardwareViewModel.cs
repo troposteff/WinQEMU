@@ -11,6 +11,7 @@ using System.Windows.Input;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
 using WinQEMU.Core.Services;
+using WinQEMU.Core.Text;
 using WinQEMU.Text;
 
 namespace WinQEMU.ViewModels
@@ -233,6 +234,10 @@ namespace WinQEMU.ViewModels
                 if (_manager.WhyImageCannotBeAttached(full) is { } reason)
                     throw new InvalidOperationException(reason);
 
+                // An encrypted machine writes nothing in clear: a clear image would be.
+                if (_config.DisksEncrypted && _manager.DiskService is { } probe && !await probe.IsEncryptedAsync(full).ConfigureAwait(true))
+                    throw new InvalidOperationException(EncryptionText.AttachClearImage);
+
                 var format = DiskFormat.Qcow2;
                 long capacity = 0;
 
@@ -278,7 +283,9 @@ namespace WinQEMU.ViewModels
                 if (File.Exists(fullPath))
                     throw new IOException(string.Format(CultureInfo.CurrentCulture, DialogText.HardwareFileExists, fileName));
 
-                await _manager.DiskService.CreateAsync(fullPath, format, capacityBytes, backingFile: null)
+                // Encrypted with the machine's password when its disks are.
+                var images = await _manager.ImagesForAsync(_config).ConfigureAwait(true);
+                await images.CreateAsync(fullPath, format, capacityBytes, backingFile: null)
                     .ConfigureAwait(true);
 
                 _config.Disks.Add(new DiskConfig
@@ -310,7 +317,8 @@ namespace WinQEMU.ViewModels
                 if (_manager.DiskService is null)
                     throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
-                await _manager.DiskService.GrowAsync(ResolveDiskPath(disk), newCapacityBytes).ConfigureAwait(true);
+                var images = await _manager.ImagesForAsync(_config).ConfigureAwait(true);
+                await images.GrowAsync(ResolveDiskPath(disk), newCapacityBytes).ConfigureAwait(true);
 
                 // Read the geometry back rather than assuming the requested value was applied verbatim.
                 var info = await _manager.DiskService.GetInfoAsync(ResolveDiskPath(disk)).ConfigureAwait(true);
@@ -349,7 +357,9 @@ namespace WinQEMU.ViewModels
                 if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase) || File.Exists(target))
                     throw new IOException(string.Format(CultureInfo.CurrentCulture, DialogText.HardwareFileExists, targetName));
 
-                await _manager.DiskService.ConvertAsync(source, target, format, compress).ConfigureAwait(true);
+                // An encrypted machine's copy is encrypted too (qcow2 only, uncompressed: see QemuImgService).
+                var images = await _manager.ImagesForAsync(_config).ConfigureAwait(true);
+                await images.ConvertAsync(source, target, format, compress).ConfigureAwait(true);
 
                 // Relative, so the VM folder stays movable as a unit.
                 disk.FileName = targetName;
@@ -396,7 +406,8 @@ namespace WinQEMU.ViewModels
                 return null;
             try
             {
-                return await DiskCompaction.CompactAsync(_manager.DiskService, ResolveDiskPath(disk), progress).ConfigureAwait(true);
+                // Unlocked by the shell before its progress dialog opened: no prompt can show from here.
+                return await DiskCompaction.CompactAsync(_manager.ImagesFor(_config), ResolveDiskPath(disk), progress).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -420,7 +431,7 @@ namespace WinQEMU.ViewModels
                 if (_manager.DiskService is null)
                     throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
-                await new LiveSnapshotOperations(_manager.DiskService)
+                await new LiveSnapshotOperations(await _manager.ImagesForAsync(_config).ConfigureAwait(true))
                     .RevertTopAsync(_config, disk, _manager.ProtectedImages).ConfigureAwait(true);
                 _requestSave();
             }
@@ -450,7 +461,8 @@ namespace WinQEMU.ViewModels
                 var overlay = ResolveDiskPath(disk);
                 // qemu-img commit writes into the overlay's own base, which is the next level down even
                 // when overlays are stacked.
-                await _manager.DiskService.CommitAsync(overlay).ConfigureAwait(true);
+                var images = await _manager.ImagesForAsync(_config).ConfigureAwait(true);
+                await images.CommitAsync(overlay).ConfigureAwait(true);
 
                 disk.PopOverlay();
                 _requestSave();

@@ -46,6 +46,15 @@ namespace WinQEMU.Core.Services
         /// <summary>For an unattended Ubuntu installation, its answers; null to install by hand.</summary>
         public UnattendedLinux? UnattendedLinux { get; init; }
         public bool RtcLocalTime { get; init; }
+
+        /// <summary>
+        /// The password of the machine's disks, to create them encrypted (Qemu.DiskKey); null for clear disks. A new
+        /// disk only: an existing image is attached as it is, and encrypted later from the summary.
+        /// </summary>
+        public Qemu.DiskKey? DiskKey { get; init; }
+
+        /// <summary>Keep <see cref="DiskKey"/> in the Windows Credential Manager (DiskPasswordStore).</summary>
+        public bool RememberDiskPassword { get; init; }
     }
 
     /// <summary>
@@ -169,7 +178,8 @@ namespace WinQEMU.Core.Services
                 SecondaryIsoPath = request.SecondaryIsoPath,
                 BootFromIso = request.BootFromIso && !string.IsNullOrWhiteSpace(request.IsoPath),
                 RtcLocalTime = request.RtcLocalTime,
-                FolderPath = folder
+                FolderPath = folder,
+                DisksEncrypted = request.DiskKey is not null
             };
 
             await AddSystemDiskAsync(config, request, folder, cancellationToken).ConfigureAwait(false);
@@ -228,9 +238,12 @@ namespace WinQEMU.Core.Services
             VmConfig source,
             string name,
             IProgress<double>? progress = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            QemuImgService? images = null)
         {
-            if (_imgService is null)
+            // An encrypted source comes with a service that has its password: the copy is encrypted with it too.
+            var imgService = images ?? _imgService;
+            if (imgService is null)
                 throw new QemuNotAvailableException("QEMU is required to clone a virtual machine.");
 
             if (ValidateName(name) is { } nameProblem)
@@ -245,7 +258,7 @@ namespace WinQEMU.Core.Services
                 if (!File.Exists(path))
                     throw new FileNotFoundException(string.Format(CultureInfo.CurrentCulture, CoreText.LibraryDiskNotFound, disk.Id, path), path);
 
-                var info = await _imgService.GetInfoAsync(path, cancellationToken).ConfigureAwait(false);
+                var info = await imgService.GetInfoAsync(path, cancellationToken).ConfigureAwait(false);
                 sizes.Add(Math.Max(1, info.VirtualSizeBytes));
             }
 
@@ -272,7 +285,7 @@ namespace WinQEMU.Core.Services
 
                     var weight = sizes[index];
                     var before = done;
-                    await _imgService.ConvertAsync(
+                    await imgService.ConvertAsync(
                         sourcePath,
                         Path.Combine(folder, fileName),
                         disk.Format,
@@ -458,9 +471,12 @@ namespace WinQEMU.Core.Services
         public async Task<LinkedClonePlan> PrepareLinkedCloneAsync(
             VmConfig source,
             string name,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            QemuImgService? images = null)
         {
-            if (_imgService is null)
+            // An encrypted source: both new overlays, the clone's and the source's, are encrypted with its password.
+            var imgService = images ?? _imgService;
+            if (imgService is null)
                 throw new QemuNotAvailableException("QEMU is required to clone a virtual machine.");
 
             if (ValidateName(name) is { } nameProblem)
@@ -476,7 +492,7 @@ namespace WinQEMU.Core.Services
                 if (!File.Exists(path))
                     throw new FileNotFoundException(string.Format(CultureInfo.CurrentCulture, CoreText.LibraryDiskNotFound, disk.Id, path), path);
 
-                var info = await _imgService.GetInfoAsync(path, cancellationToken).ConfigureAwait(false);
+                var info = await imgService.GetInfoAsync(path, cancellationToken).ConfigureAwait(false);
                 bases.Add((path, info.VirtualSizeBytes));
             }
 
@@ -496,7 +512,7 @@ namespace WinQEMU.Core.Services
 
                     var fileName = $"{disk.Id}.qcow2";
                     var linkedBase = Path.GetRelativePath(folder, basePath);
-                    await _imgService.CreateAsync(
+                    await imgService.CreateAsync(
                         Path.Combine(folder, fileName), DiskFormat.Qcow2, size, linkedBase, cancellationToken).ConfigureAwait(false);
 
                     disk.FileName = fileName;
@@ -506,7 +522,7 @@ namespace WinQEMU.Core.Services
 
                     var sourceDisk = source.Disks[index];
                     var overlayFileName = $"{sourceDisk.Id}-{snapshotName}.qcow2";
-                    await _imgService.CreateAsync(
+                    await imgService.CreateAsync(
                         Path.Combine(source.FolderPath, overlayFileName),
                         DiskFormat.Qcow2,
                         size,
@@ -637,6 +653,8 @@ namespace WinQEMU.Core.Services
         {
             if (!string.IsNullOrWhiteSpace(request.ExistingDiskPath))
             {
+                if (request.DiskKey is not null)
+                    throw new InvalidOperationException(EncryptionText.WizardExistingDisk);
                 var existing = Path.GetFullPath(request.ExistingDiskPath);
                 if (!File.Exists(existing))
                     throw new FileNotFoundException($"The disk image was not found: {existing}", existing);
@@ -661,7 +679,8 @@ namespace WinQEMU.Core.Services
                 return;
 
             var diskFileName = "disk0." + DiskExtension(request.DiskFormat);
-            await _imgService!.CreateAsync(
+            // With a password, the service creates the disk encrypted, and refuses any format but qcow2.
+            await _imgService!.WithKey(request.DiskKey).CreateAsync(
                 Path.Combine(folder, diskFileName),
                 request.DiskFormat,
                 request.DiskCapacityBytes,

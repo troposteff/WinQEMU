@@ -18,7 +18,7 @@ namespace WinQEMU.ViewModels
     /// nothing in the inventory showed which machines were running. State lives on the session, hence
     /// this wrapper.
     /// </remarks>
-    public sealed class VmListItem : ObservableObject, IDisposable
+    public sealed class VmListItem : LibraryRow, IDisposable
     {
         private readonly DispatcherQueue _dispatcher;
         private readonly VmSession? _session;

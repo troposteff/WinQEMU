@@ -28,10 +28,40 @@
             <Thickness x:Key="ContentDialogBorderWidth">0</Thickness>
 
             <!--
-                Glyph size for the toolbar buttons. The stock 20 px of SymbolIcon sits badly above a
-                12 px label; one resource keeps the whole row consistent.
+                Glyph size for the toolbar buttons, which show icons alone (ToolbarIconButton). The stock 20 px
+                of SymbolIcon was too big beside the labels they had; one resource keeps the rows consistent.
             -->
-            <x:Double x:Key="IconFontSize">13</x:Double>
+            <x:Double x:Key="IconFontSize">16</x:Double>
+
+            <!--
+                The toolbar's commands as icons, their name and what they do in the tooltip (MainWindow.NameInTooltips).
+                With labels, the row ran under Réseaux virtuels and Paramètres on the user's 1920 x 1200 screen at
+                150 % (1280 px for the window). Plain buttons rather than compact AppBarButtons: those keep the room
+                of their hidden label under the icon, which then sat above the library's Nouvelle VM and Importer.
+                Their background stays clear even disabled (brushes in MachineToolbar's resources).
+            -->
+            <Style x:Key="ToolbarIconButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Width" Value="44" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+            </Style>
+
+            <!-- A disk's actions in the Disques section, square beside its file name. -->
+            <Style x:Key="DiskIconButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Width" Value="36" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="Padding" Value="0" />
+            </Style>
+
+            <!-- The full-screen bar's commands, icons alone too. -->
+            <Style x:Key="FullScreenIconButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Width" Value="40" />
+                <Setter Property="Height" Value="34" />
+                <Setter Property="Padding" Value="0" />
+            </Style>
 
             <local:BoolToVisibilityConverter x:Key="BoolToVisibility" />
             <local:EnumLabelConverter x:Key="EnumLabel" />

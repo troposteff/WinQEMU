@@ -27,6 +27,7 @@ namespace WinQEMU.Dialogs
         public SettingsDialog(MainViewModel viewModel, IntPtr ownerWindow)
         {
             InitializeComponent();
+            DialogWidth.Fit(this, 680);
 
             _viewModel = viewModel;
             _ownerWindow = ownerWindow;

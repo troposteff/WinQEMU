@@ -39,6 +39,11 @@ namespace WinQEMU.Core.Export
             var notes = new List<string>();
             var family = GuestOsCatalog.Find(config.GuestOs)?.Family;
 
+            // First, as the one note about security: the VMDKs are written in clear (neither VMware nor VirtualBox
+            // would read QEMU's LUKS), so the package holds the encrypted disks' data unprotected.
+            if (config.DisksEncrypted)
+                notes.Add(EncryptionText.ExportInClear);
+
             if (config.Disks.Any(d => d.Bus == DiskBus.VirtioBlk))
             {
                 notes.Add(family switch

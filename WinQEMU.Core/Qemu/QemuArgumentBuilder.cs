@@ -144,14 +144,15 @@ namespace WinQEMU.Core.Qemu
         public static IReadOnlyList<string> Build(
             VmConfig config, QemuInstallation installation, int qmpPort, int? clipboardVncPort = null,
             int? guestAgentPort = null, int? sharedFoldersPort = null, Func<string, int?>? networkPorts = null,
-            int? fileDropPort = null)
+            int? fileDropPort = null, DiskKeyArguments? diskKey = null)
         {
             var args = new List<string>();
 
             AppendPlatform(args, config, installation);
             AppendFirmware(args, config, installation);
             AppendInstallerKernel(args, config);
-            AppendStorage(args, config);
+            AppendDiskKey(args, diskKey);
+            AppendStorage(args, config, diskKey);
             AppendNetworking(args, config, networkPorts);
             AppendDisplayAndInput(args, config);
             AppendClipboard(args, clipboardVncPort);
@@ -435,7 +436,7 @@ namespace WinQEMU.Core.Qemu
             [DiskBus.Pvscsi] = ("pvscsi", "pvscsi")
         };
 
-        private static void AppendStorage(List<string> args, VmConfig config)
+        private static void AppendStorage(List<string> args, VmConfig config, DiskKeyArguments? diskKey = null)
         {
             var ideUnit = 0;
             var bootOrder = BuildBootOrder(config);
@@ -455,6 +456,8 @@ namespace WinQEMU.Core.Qemu
                 var path = config.ResolvePath(disk.FileName);
                 var drive = new StringBuilder($"if=none,id={disk.Id},file={FileOption(path)}");
                 drive.Append($",format={FormatName(disk.Format)}");
+                if (diskKey is not null && diskKey.EncryptedLevels.TryGetValue(disk.Id, out var encryptedLevels))
+                    drive.Append(DiskKeyArguments.KeyOptions(encryptedLevels, DiskKeySecretId));
                 drive.Append($",cache={CacheName(disk.Cache)}");
                 if (disk.Discard)
                     drive.Append(",discard=unmap");
@@ -888,6 +891,22 @@ namespace WinQEMU.Core.Qemu
         public static string EscapeOptionValue(string value) => value.Replace(",", ",,");
 
         /// <summary>A file or folder as a QEMU option value: readable by QEMU, commas doubled.</summary>
+        /// <summary>The secret object holding an encrypted machine's password in its QEMU process (see DiskKey).</summary>
+        public const string DiskKeySecretId = "wq-disk-key";
+
+        /// <summary>
+        /// Declares the password of an encrypted machine's disks: a secret object reading the pipe WinQEMU serves once
+        /// (SecretPipe), so the command line shown in the log names the pipe, never the password. It stays in the
+        /// process, which is what lets a live snapshot open its encrypted overlay with the same key.
+        /// </summary>
+        private static void AppendDiskKey(List<string> args, DiskKeyArguments? diskKey)
+        {
+            if (diskKey is null)
+                return;
+            args.Add("-object");
+            args.Add($"secret,id={DiskKeySecretId},file={EscapeOptionValue(diskKey.SecretFile)}");
+        }
+
         private static string FileOption(string path) => EscapeOptionValue(QemuReadablePath(path));
 
         /// <summary>

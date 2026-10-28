@@ -16,7 +16,7 @@ using WinQEMU.Text;
 
 namespace WinQEMU.ViewModels
 {
-    public class MainViewModel : ObservableObject
+    public partial class MainViewModel : ObservableObject
     {
         private const int MaxDisplayedLogLines = 500;
 
@@ -83,6 +83,9 @@ namespace WinQEMU.ViewModels
 
             // The library is reloaded on refresh, creation and deletion; the inventory rows follow it.
             Manager.VirtualMachines.CollectionChanged += (_, _) => RebuildItems();
+
+            InitializeLibraryFolders();
+            InitializeEncryption();
         }
 
         /// <summary>Boot order, disks and network adapters of the selected machine.</summary>
@@ -126,6 +129,8 @@ namespace WinQEMU.ViewModels
 
                 // The list is the only place selection originates; SelectedVm follows it.
                 SelectedVm = value?.Config;
+
+                OnSelectedItemChanged(value);
             }
         }
 
@@ -182,8 +187,11 @@ namespace WinQEMU.ViewModels
 
             ApplyFilter();
 
-            SelectedItem = _allItems.FirstOrDefault(i => ReferenceEquals(i.Config, previous))
-                ?? Items.FirstOrDefault();
+            // ApplyFilter has already chosen a fallback (a folder kept selected, or the first line shown).
+            if (_allItems.FirstOrDefault(i => ReferenceEquals(i.Config, previous)) is { } kept)
+                SelectedItem = kept;
+            else if (SelectedRow is null)
+                SelectFirstRow();
         }
 
         private void ApplyFilter()
@@ -192,11 +200,22 @@ namespace WinQEMU.ViewModels
             foreach (var item in _allItems.Where(i => i.Matches(SearchText)))
                 Items.Add(item);
 
+            // The list shows Rows (the tree, or the matches), built from Items.
+            RefreshLibraryRows();
+
             // Restore what the user had chosen if it survived the filter, otherwise fall back to the
             // first visible row. Without this, typing in the search box silently deselected the machine.
+            // A folder selected in the tree stays selected.
             var wanted = _allItems.FirstOrDefault(i => ReferenceEquals(i.Config, _intendedSelection));
-            SelectedItem = wanted is not null && Items.Contains(wanted) ? wanted : Items.FirstOrDefault();
+            if (!KeepsSelectedFolder())
+            {
+                if (wanted is not null && Items.Contains(wanted))
+                    SelectedItem = wanted;
+                else
+                    SelectFirstRow();
+            }
 
+            RaisePropertyChanged(nameof(IsSearching));
             RaisePropertyChanged(nameof(HasNoVirtualMachines));
             RaisePropertyChanged(nameof(HasNoSearchResults));
         }
@@ -286,6 +305,9 @@ namespace WinQEMU.ViewModels
         /// that has not completed. Cutting the power has to stay available then — a guest that ignores
         /// the ACPI button (a boot menu, a hung system) would otherwise leave the VM with no way out.
         /// </summary>
+        /// <summary>A machine selected and not running: the resources panel says so instead of drawing empty charts.</summary>
+        public bool IsSelectedOff => SelectedVm is not null && !IsSelectedAlive;
+
         public bool IsSelectedAlive =>
             SelectedSession is { } session
             && session.State is VmState.Running or VmState.Paused or VmState.Stopping;
@@ -462,6 +484,7 @@ namespace WinQEMU.ViewModels
         {
             await Manager.InitializeAsync();
             _hasProbedQemu = true;
+            RepairLibraryFolders();
 
             var installation = Manager.Installation;
             if (installation is null)
@@ -518,6 +541,9 @@ namespace WinQEMU.ViewModels
 
                 var session = Manager.GetSession(entry.Machine);
                 if (session.State != VmState.Stopped)
+                    continue;
+                // Nobody is there to type a password: an encrypted machine starts only with a remembered one.
+                if (!await CanStartUnattendedAsync(session))
                     continue;
                 try
                 {
@@ -664,10 +690,14 @@ namespace WinQEMU.ViewModels
             return imported;
         }
 
-        private void SelectConfig(VmConfig? config) =>
+        private void SelectConfig(VmConfig? config)
+        {
+            if (config is not null)
+                PlaceNewMachine(config);
             SelectedItem = config is null
                 ? null
                 : _allItems.FirstOrDefault(item => ReferenceEquals(item.Config, config));
+        }
 
         private async Task StartAsync()
         {
@@ -687,6 +717,8 @@ namespace WinQEMU.ViewModels
         private async Task StartMachineAsync(VmSession session)
         {
             var config = session.Config;
+            // The password first: the automatic snapshot opens the disks too.
+            await PrepareDiskKeyAsync(session);
             await TakeAutoSnapshotAsync(config);
             session.UpdateSharedFolders(config.SharedFolders);
             await session.StartAsync();
@@ -880,6 +912,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(SelectedStateText));
             RaisePropertyChanged(nameof(IsSelectedRunning));
             RaisePropertyChanged(nameof(IsSelectedAlive));
+            RaisePropertyChanged(nameof(IsSelectedOff));
             RaisePropertyChanged(nameof(CanStart));
             RaisePropertyChanged(nameof(CanPauseOrResume));
             RaisePropertyChanged(nameof(PauseResumeLabel));
@@ -1087,27 +1120,6 @@ namespace WinQEMU.ViewModels
 
         // ---- Access from the network ----
 
-        /// <summary>A service of the selected guest reachable through a host forward, as one line of the section.</summary>
-        public sealed class LanServiceItem
-        {
-            public LanServiceItem(NetworkAdapterConfig adapter, PortForward forward, IReadOnlyList<string> addresses)
-            {
-                Adapter = adapter;
-                Forward = forward;
-                Title = string.Format(CultureInfo.CurrentCulture, ShellText.LanServiceTitle, LanAccess.LabelOf(forward),
-                    forward.HostPort.ToString(CultureInfo.InvariantCulture), forward.GuestPort.ToString(CultureInfo.InvariantCulture));
-                Usage = !LanAccess.IsOnNetwork(forward)
-                    ? string.Format(CultureInfo.CurrentCulture, ShellText.LanServiceLocalOnly, LanAccess.UsageOf(forward, "127.0.0.1"))
-                    : addresses.Count == 0
-                        ? ShellText.LanServiceNoAddress
-                        : string.Join("   ", addresses.Select(a => LanAccess.UsageOf(forward, a)));
-            }
-
-            public NetworkAdapterConfig Adapter { get; }
-            public PortForward Forward { get; }
-            public string Title { get; }
-            public string Usage { get; }
-        }
 
         public ObservableCollection<LanServiceItem> LanServices { get; } = new();
 
@@ -1675,10 +1687,12 @@ namespace WinQEMU.ViewModels
         /// </summary>
         private async Task TakeAutoSnapshotAsync(VmConfig config)
         {
-            if (Manager.DiskService is not { } images || !AutoSnapshots.IsDue(config, DateTime.UtcNow))
+            if (Manager.DiskService is null || !AutoSnapshots.IsDue(config, DateTime.UtcNow))
                 return;
             try
             {
+                // With the machine's password when its disks are encrypted (unlocked just before, at the start).
+                var images = Manager.ImagesFor(config);
                 var name = await AutoSnapshots.TakeIfDueAsync(config, images, Manager.VirtualMachines.ToList(), DateTime.UtcNow);
                 Manager.Save(config);
                 if (name is not null)
@@ -2339,11 +2353,39 @@ namespace WinQEMU.ViewModels
 
         private void ReportError(Exception exception)
         {
+            // The user closed the password prompt: nothing to report, that was the answer.
+            if (exception is DiskUnlockCanceledException)
+                return;
             _dispatcher.TryEnqueue(() =>
             {
                 ErrorMessage = exception.Message;
                 RaisePropertyChanged(nameof(HasError));
             });
         }
+    }
+
+    /// <summary>
+    /// A service of the selected guest reachable through a host forward, as one line of the section. Not nested in
+    /// MainViewModel: its template names it in x:DataType, which XAML cannot do for a nested type.
+    /// </summary>
+    public sealed class LanServiceItem
+    {
+        public LanServiceItem(NetworkAdapterConfig adapter, PortForward forward, IReadOnlyList<string> addresses)
+        {
+            Adapter = adapter;
+            Forward = forward;
+            Title = string.Format(CultureInfo.CurrentCulture, ShellText.LanServiceTitle, LanAccess.LabelOf(forward),
+                forward.HostPort.ToString(CultureInfo.InvariantCulture), forward.GuestPort.ToString(CultureInfo.InvariantCulture));
+            Usage = !LanAccess.IsOnNetwork(forward)
+                ? string.Format(CultureInfo.CurrentCulture, ShellText.LanServiceLocalOnly, LanAccess.UsageOf(forward, "127.0.0.1"))
+                : addresses.Count == 0
+                    ? ShellText.LanServiceNoAddress
+                    : string.Join("   ", addresses.Select(a => LanAccess.UsageOf(forward, a)));
+        }
+
+        public NetworkAdapterConfig Adapter { get; }
+        public PortForward Forward { get; }
+        public string Title { get; }
+        public string Usage { get; }
     }
 }

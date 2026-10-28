@@ -185,6 +185,37 @@
                         </ComboBox>
                         <TextBlock Style="{StaticResource Hint}"
                                    Text="{x:Bind t:DialogText.NewVmFormatHint}" />
+
+                        <!--
+                            Encrypted disks (Core.Qemu.DiskKey): qcow2 only, a new disk only. The password stays in
+                            memory, or in the Credential Manager when « Mémoriser » is checked; never in the descriptor.
+                        -->
+                        <StackPanel Padding="12" Background="#11000000" CornerRadius="6" Spacing="8">
+                            <CheckBox Content="{x:Bind ct:EncryptionText.WizardEncrypt}" IsChecked="{Binding EncryptDisks, Mode=TwoWay}" />
+                            <TextBlock Style="{StaticResource Hint}" Text="{x:Bind ct:EncryptionText.WizardHint}" TextWrapping="Wrap" />
+                            <Grid
+                                ColumnSpacing="8"
+                                Visibility="{Binding EncryptDisks, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <PasswordBox
+                                    x:Name="DiskPasswordBox"
+                                    Grid.Column="0"
+                                    Header="{x:Bind ct:EncryptionText.PasswordLabel}"
+                                    PasswordChanged="OnDiskPasswordChanged" />
+                                <PasswordBox
+                                    x:Name="DiskPasswordConfirmationBox"
+                                    Grid.Column="1"
+                                    Header="{x:Bind ct:EncryptionText.ConfirmPasswordLabel}"
+                                    PasswordChanged="OnDiskPasswordChanged" />
+                            </Grid>
+                            <CheckBox
+                                Content="{x:Bind ct:EncryptionText.Remember}"
+                                IsChecked="{Binding RememberDiskPassword, Mode=TwoWay}"
+                                Visibility="{Binding EncryptDisks, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
                     </StackPanel>
 
                     <RadioButton Content="{x:Bind t:DialogText.NewVmExistingDisk}" IsChecked="{Binding UseExistingDisk, Mode=TwoWay}" />

@@ -15,5 +15,7 @@
     <EmbeddedResource Update="Text\CommonText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Core.Text" StronglyTypedClassName="CommonText" StronglyTypedFileName="$(IntermediateOutputPath)CommonText.g.cs" PublicClass="true" />
     <EmbeddedResource Update="Text\CoreText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Core.Text" StronglyTypedClassName="CoreText" StronglyTypedFileName="$(IntermediateOutputPath)CoreText.g.cs" PublicClass="true" />
     <EmbeddedResource Update="Text\PlatformText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Core.Text" StronglyTypedClassName="PlatformText" StronglyTypedFileName="$(IntermediateOutputPath)PlatformText.g.cs" PublicClass="true" />
+    <EmbeddedResource Update="Text\EncryptionText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Core.Text" StronglyTypedClassName="EncryptionText" StronglyTypedFileName="$(IntermediateOutputPath)EncryptionText.g.cs" PublicClass="true" />
+    <EmbeddedResource Update="Text\CliText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Core.Text" StronglyTypedClassName="CliText" StronglyTypedFileName="$(IntermediateOutputPath)CliText.g.cs" PublicClass="true" />
   </ItemGroup>
 </Project>

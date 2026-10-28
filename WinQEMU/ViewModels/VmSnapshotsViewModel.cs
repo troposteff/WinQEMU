@@ -529,8 +529,9 @@ namespace WinQEMU.ViewModels
             try
             {
                 var parent = CurrentParent;
+                var images = await _manager.ImagesForAsync(_config);
                 foreach (var disk in SnapshotableDisks)
-                    await _manager.DiskService.CreateOfflineSnapshotAsync(_config.ResolvePath(disk.FileName), name);
+                    await images.CreateOfflineSnapshotAsync(_config.ResolvePath(disk.FileName), name);
 
                 Record(c => SnapshotTree.RecordTaken(c, name, parent));
                 NewName = string.Empty;
@@ -596,11 +597,12 @@ namespace WinQEMU.ViewModels
             Status = string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsRestoring, item.Name);
             try
             {
+                var images = await _manager.ImagesForAsync(_config);
                 if (item.Snapshot.IsLive)
                 {
                     // Images a linked clone reads are kept rather than deleted, and the machine restarts from
                     // the snapshot on a fresh layer. The protection is read now, not when the list was.
-                    await new LiveSnapshotOperations(_manager.DiskService).RevertAsync(_config, item.Name, _manager.ProtectedImages);
+                    await new LiveSnapshotOperations(images).RevertAsync(_config, item.Name, _manager.ProtectedImages);
                     // The chain now says where the machine stands: on the snapshot again when a protected
                     // layer made it start a fresh one, or on the snapshot before when the overlay was unstacked.
                     Record(c => c.CurrentSnapshot = string.Empty);
@@ -608,7 +610,7 @@ namespace WinQEMU.ViewModels
                 else
                 {
                     foreach (var disk in SnapshotableDisks)
-                        await _manager.DiskService.ApplyOfflineSnapshotAsync(_config.ResolvePath(disk.FileName), item.Name);
+                        await images.ApplyOfflineSnapshotAsync(_config.ResolvePath(disk.FileName), item.Name);
                     Record(c => SnapshotTree.RecordRestored(c, item.Name));
                 }
             }
@@ -633,6 +635,7 @@ namespace WinQEMU.ViewModels
             var parent = Tree is { } tree ? SnapshotTree.ParentOf(tree, item.Name) : string.Empty;
             try
             {
+                var images = await _manager.ImagesForAsync(_config);
                 if (item.Snapshot.IsLive)
                 {
                     // Asked again rather than trusting the item: a clone may have been made since the list was read.
@@ -640,7 +643,7 @@ namespace WinQEMU.ViewModels
                         throw new InvalidOperationException(reason);
 
                     // Keeps what the disks hold now: the overlay is merged downwards, not thrown away.
-                    await new LiveSnapshotOperations(_manager.DiskService).MergeAsync(_config, item.Name);
+                    await new LiveSnapshotOperations(images).MergeAsync(_config, item.Name);
                     Record(c => SnapshotTree.RecordDeleted(c, item.Name, parent));
                     return;
                 }
@@ -650,7 +653,7 @@ namespace WinQEMU.ViewModels
                     var path = _config.ResolvePath(disk.FileName);
                     try
                     {
-                        await _manager.DiskService.DeleteOfflineSnapshotAsync(path, item.Name);
+                        await images.DeleteOfflineSnapshotAsync(path, item.Name);
                     }
                     catch (QemuImgException)
                     {

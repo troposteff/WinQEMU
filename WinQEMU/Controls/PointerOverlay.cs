@@ -105,16 +105,18 @@ namespace WinQEMU.Controls
         }
 
         /// <summary>Limits the window to a rectangle of its own client area (null: all of it), like the console's region.</summary>
-        public void SetVisibleRegion((int Left, int Top, int Right, int Bottom)? visible)
+        public void SetVisibleRegion((int Left, int Top, int Right, int Bottom)? visible,
+            (int Left, int Top, int Right, int Bottom)? hole = null, int windowWidth = 0, int windowHeight = 0,
+            int holeRadius = 0)
         {
             if (_handle == IntPtr.Zero)
                 return;
-            if (visible is not { } rect)
+            if (visible is null && hole is null)
             {
                 SetWindowRgn(_handle, IntPtr.Zero, true);
                 return;
             }
-            var region = CreateRectRgn(rect.Left, rect.Top, rect.Right, rect.Bottom);
+            var region = Core.Interop.NativeMethods.CreateRegion(visible, hole, windowWidth, windowHeight, holeRadius);
             if (region != IntPtr.Zero && SetWindowRgn(_handle, region, true) == 0)
                 DeleteObject(region);
         }

@@ -3,6 +3,8 @@
     x:Class="WinQEMU.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:WinQEMU.ViewModels"
+    xmlns:models="using:WinQEMU.Core.Models"
     xmlns:controls="using:WinQEMU.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:WinQEMU"
@@ -40,9 +42,13 @@
         -->
 
         <!-- Environment and error notifications -->
-        <StackPanel x:Name="NotificationsPanel" Grid.Row="0" Margin="12,12,12,0" Spacing="8">
+        <!-- No top margin of its own: the empty panel left a 12-pixel band, plus the spacing of its closed bars,
+             between the title bar and the library; an open bar brings its own (InfoBar Margin). -->
+        <StackPanel x:Name="NotificationsPanel" Grid.Row="0" Margin="12,0,12,0" Spacing="8">
             <muxc:InfoBar
+                Margin="0,12,0,0"
                 IsOpen="{Binding IsQemuMissing, Mode=OneWay}"
+                Visibility="{Binding IsQemuMissing, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                 IsClosable="False"
                 Severity="Error"
                 Title="{x:Bind t:WindowText.NotifyQemuMissing}"
@@ -61,7 +67,9 @@
 
             <muxc:InfoBar
                 CloseButtonClick="OnDismissErrorClick"
+                Margin="0,12,0,0"
                 IsOpen="{Binding HasError, Mode=OneWay}"
+                Visibility="{Binding HasError, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                 Severity="Warning"
                 Title="{x:Bind t:WindowText.NotifyOperationFailed}"
                 Message="{Binding ErrorMessage, Mode=OneWay}" />
@@ -81,7 +89,9 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition x:Name="HeaderRow" Height="Auto" />
+                <!-- At least 64 px: the toolbar's plain buttons (40 px) left the search box and the state line
+                     pressed against it, where the labelled AppBarButtons used to give the row its height. -->
+                <RowDefinition x:Name="HeaderRow" Height="Auto" MinHeight="64" />
                 <RowDefinition x:Name="SubHeaderRow" Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition x:Name="FooterRow" Height="Auto" />
@@ -134,24 +144,84 @@
                 <TextBox
                     x:Name="VmSearchBox"
                     Grid.Row="1" Grid.Column="0"
-                    Margin="0,0,0,8"
+                    Margin="0,0,76,8"
                     VerticalAlignment="Center"
                     AutomationProperties.Name="{x:Bind t:WindowText.LibrarySearchName}"
                     PlaceholderText="{x:Bind t:WindowText.LibrarySearchPlaceholder}"
                     Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
+                <!-- Beside the search box rather than in the header: there, a fourth button trimmed the
+                     library's title to a few letters in the narrow layout (240 px). -->
+                <StackPanel
+                    Grid.Row="1" Grid.Column="0"
+                    Margin="0,0,0,8"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="4">
+                    <Button
+                        Width="34" Height="32" Padding="0"
+                        AutomationProperties.Name="{x:Bind t:LibraryText.SortTip}"
+                        Click="OnSortClick"
+                        ToolTipService.ToolTip="{x:Bind t:LibraryText.SortTip}">
+                        <FontIcon FontSize="16" Glyph="&#xE8CB;" />
+                    </Button>
+                    <Button
+                        Width="34" Height="32" Padding="0"
+                        AutomationProperties.Name="{x:Bind t:LibraryText.NewFolder}"
+                        Click="OnNewFolderClick"
+                        ToolTipService.ToolTip="{x:Bind t:LibraryText.NewFolderTip}">
+                        <FontIcon FontSize="16" Glyph="&#xE8F4;" />
+                    </Button>
+                </StackPanel>
+
                 <Grid Grid.Row="2" Grid.Column="0">
-                    <ListView
-                        x:Name="VmList"
-                        ItemsSource="{Binding Items}"
-                        SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                        SelectionMode="Single">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
+                    <Grid.Resources>
+                        <DataTemplate x:Key="LibraryFolderTemplate">
+                            <!-- Chevron, folder, name, and what it holds. The chevron's Tag is how a tap on it is told
+                                 from a tap on the rest of the line (MainWindow.LineOf). -->
+                            <Grid
+                                Margin="0,6"
+                                Padding="{Binding Indent}"
+                                AutomationProperties.Name="{Binding AutomationName}"
+                                ColumnSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border
+                                    Grid.Column="0"
+                                    Width="20" Height="20"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    Tag="Chevron">
+                                    <FontIcon FontSize="10" Glyph="{Binding ChevronGlyph}" />
+                                </Border>
+                                <FontIcon
+                                    Grid.Column="1"
+                                    Margin="0,0,6,0"
+                                    VerticalAlignment="Center"
+                                    FontSize="16"
+                                    Glyph="{Binding FolderGlyph}" />
+                                <StackPanel Grid.Column="2" Spacing="1">
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        FontSize="12"
+                                        Opacity="0.6"
+                                        Text="{Binding Summary}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+
+                        <DataTemplate x:Key="LibraryMachineTemplate">
                                 <!-- Status dot first: which machines are running is the question the
                                      inventory has to answer at a glance. -->
                                 <Grid
                                     Margin="0,6"
+                                    Padding="{Binding Indent}"
                                     AutomationProperties.Name="{Binding AutomationName}"
                                     ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
@@ -172,11 +242,39 @@
                                             Opacity="0.6"
                                             Text="{Binding StateText}"
                                             TextTrimming="CharacterEllipsis" />
+                                        <!-- While searching: the folders the match is in. -->
+                                        <TextBlock
+                                            FontSize="12"
+                                            Opacity="0.6"
+                                            Text="{Binding Location}"
+                                            TextTrimming="CharacterEllipsis"
+                                            Visibility="{Binding HasLocation, Converter={StaticResource BoolToVisibility}}" />
                                     </StackPanel>
                                 </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                        </DataTemplate>
+
+                        <controls:LibraryRowTemplateSelector
+                            x:Key="LibraryRowTemplates"
+                            FolderTemplate="{StaticResource LibraryFolderTemplate}"
+                            MachineTemplate="{StaticResource LibraryMachineTemplate}" />
+                    </Grid.Resources>
+
+                    <!-- Folders and machines as one flattened tree: see Controls.LibraryListView for why not a TreeView. -->
+                    <controls:LibraryListView
+                        x:Name="VmList"
+                        AllowDrop="True"
+                        CanDragItems="True"
+                        ContextRequested="OnLibraryContextRequested"
+                        DragItemsCompleted="OnLibraryDragCompleted"
+                        DragItemsStarting="OnLibraryDragStarting"
+                        DragOver="OnLibraryDragOver"
+                        Drop="OnLibraryDrop"
+                        ItemTemplateSelector="{StaticResource LibraryRowTemplates}"
+                        ItemsSource="{Binding Rows}"
+                        Loaded="OnLibraryListLoaded"
+                        PreviewKeyDown="OnLibraryKeyDown"
+                        SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                        SelectionMode="Single" />
 
                     <!-- Empty states, so a blank panel is never left unexplained. -->
                     <TextBlock
@@ -187,7 +285,7 @@
                         Text="{x:Bind t:WindowText.LibraryEmpty}"
                         TextAlignment="Center"
                         TextWrapping="Wrap"
-                        Visibility="{Binding HasNoVirtualMachines, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        Visibility="{Binding ShowsLibraryEmpty, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                     <TextBlock
                         Margin="8,24,8,0"
                         HorizontalAlignment="Center"
@@ -209,29 +307,28 @@
                     TextWrapping="Wrap" />
 
             <!--
-                Selected VM. Labels stay under the icons rather than beside them: with side labels the
-                five commands plus the state text overflow a 1280 px window and scroll off screen.
-            -->
-            <!--
-                A plain row of AppBarButtons rather than a CommandBar.
+                Selected VM: a row of icon buttons (ToolbarIconButton), their names in the tooltips.
 
-                The CommandBar had an overflow menu holding one command, disabled whenever the machine
-                was not running, and its flyout was a large mostly-empty panel drawn over the content
-                below. Removing the overflow exposed the rest of the problem: a closed CommandBar shows
-                icons only, so the labels appeared solely while that flyout was open. Forcing IsOpen
-                brought them back but any click elsewhere light-dismissed the bar and they vanished
-                again. Standalone AppBarButtons keep the same look and hover behaviour with no
-                open/closed state to fight, and Ctrl+Alt+Suppr becomes an ordinary button.
-
-                They place their labels under the icons by default here, which is what we want.
-                Do not try to state it with LabelPosition: that property is not resolvable in this SDK
-                and, like any unknown property, it makes XamlCompiler.exe exit with no diagnostic.
+                Not a CommandBar: its overflow menu held one command and drew a mostly empty panel over the
+                content, and a closed bar showed its labels only while that flyout was open. Then standalone
+                AppBarButtons with labels under the icons, until the labels made the row run under Réseaux
+                virtuels and Paramètres at the user's 1280 px; compact, they kept the room of the label under
+                the icon, which then sat above the library's buttons. Plain buttons centre their icon.
             -->
             <StackPanel
                 x:Name="MachineToolbar"
                 Grid.Row="0" Grid.Column="1"
                 HorizontalAlignment="Left"
+                VerticalAlignment="Center"
                 Orientation="Horizontal">
+                    <StackPanel.Resources>
+                        <!-- Clear in every state but hover and press, as the icons of a command bar. -->
+                        <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="Transparent" />
+                        <SolidColorBrush x:Key="ButtonBorderBrush" Color="Transparent" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="Transparent" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="Transparent" />
+                    </StackPanel.Resources>
                     <!--
                         FontIcon everywhere rather than Icon="Play": the built-in SymbolIcon draws at 20 px
                         against a 12 px label, which reads as oversized. FontIcon is the only one of the two
@@ -244,131 +341,117 @@
                         with the old one (a port forward launched with guest port 0). Taking focus on press
                         commits the edit before the command runs on release.
                     -->
-                    <muxc:AppBarButton
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         AllowFocusOnInteraction="True"
                         Command="{Binding StartCommand}"
-                        Label="{x:Bind ct:CommonText.Start}"
+                        AutomationProperties.Name="{x:Bind ct:CommonText.Start}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarStartTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE768;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
-                    <muxc:AppBarButton
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE768;" />
+                    </Button>
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         Command="{Binding PauseResumeCommand}"
-                        Label="{Binding PauseResumeLabel, Mode=OneWay}"
+                        AutomationProperties.Name="{Binding PauseResumeLabel, Mode=OneWay}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPauseTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE769;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
-                    <muxc:AppBarButton
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE769;" />
+                    </Button>
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         Command="{Binding ShutdownCommand}"
-                        Label="{x:Bind ct:CommonText.Stop}"
+                        AutomationProperties.Name="{x:Bind ct:CommonText.Stop}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarShutDownTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE71A;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
-                    <muxc:AppBarButton
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE71A;" />
+                    </Button>
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         Command="{Binding PowerOffCommand}"
-                        Label="{x:Bind ct:CommonText.PowerOff}"
+                        AutomationProperties.Name="{x:Bind ct:CommonText.PowerOff}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPowerOffTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE711;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE711;" />
+                    </Button>
                     <muxc:AppBarSeparator />
-                    <muxc:AppBarButton
-                        Width="112"
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         Command="{Binding SendCtrlAltDeleteCommand}"
-                        Label="{x:Bind t:WindowText.ToolbarCtrlAltDel}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarCtrlAltDel}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarCtrlAltDelTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE765;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE765;" />
+                    </Button>
                     <!-- The menu is built on each click: the host's devices and the guest's hold on them
                          change behind the application's back. -->
-                    <muxc:AppBarButton
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         x:Name="UsbButton"
                         Click="OnUsbClick"
-                        Label="USB"
+                        AutomationProperties.Name="USB"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarUsbTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE88E;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
-                    <muxc:AppBarButton
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE88E;" />
+                    </Button>
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         x:Name="SoundButton"
                         Click="OnSoundClick"
                         IsEnabled="{Binding CanAdjustSound, Mode=OneWay}"
-                        Label="{Binding SoundLabel, Mode=OneWay}"
+                        AutomationProperties.Name="{Binding SoundLabel, Mode=OneWay}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarSoundTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="{Binding SoundGlyph, Mode=OneWay}" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
-                    <muxc:AppBarButton
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="{Binding SoundGlyph, Mode=OneWay}" />
+                    </Button>
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         x:Name="PullFilesButton"
                         Click="OnPullFilesClick"
                         IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
-                        Label="{x:Bind t:WindowText.ToolbarPullFiles}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarPullFiles}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPullFilesTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE896;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
-                    <muxc:AppBarButton
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE896;" />
+                    </Button>
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         x:Name="SendFilesButton"
                         Click="OnSendFilesClick"
                         IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
-                        Label="{x:Bind t:WindowText.ToolbarSendFiles}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarSendFiles}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarSendFilesTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE898;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE898;" />
+                    </Button>
                     <muxc:AppBarSeparator x:Name="LibrarySeparator" />
-                    <muxc:AppBarButton
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         x:Name="CloneButton"
                         Click="OnCloneClick"
                         IsEnabled="{Binding CanClone, Mode=OneWay}"
-                        Label="{x:Bind t:WindowText.ToolbarClone}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarClone}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarCloneTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE8C8;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
-                    <muxc:AppBarButton
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE8C8;" />
+                    </Button>
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         x:Name="ExportButton"
                         Click="OnExportClick"
                         IsEnabled="{Binding CanClone, Mode=OneWay}"
-                        Label="{x:Bind t:WindowText.ToolbarExport}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarExport}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarExportTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xEDE1;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
-                    <muxc:AppBarButton
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xEDE1;" />
+                    </Button>
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         x:Name="DeleteButton"
                         Click="OnDeleteClick"
-                        Label="{x:Bind ct:CommonText.Delete}"
+                        AutomationProperties.Name="{x:Bind ct:CommonText.Delete}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarDeleteTip}">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE74D;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE74D;" />
+                    </Button>
                     <!-- What the window is too narrow for (FitMachineToolbar). -->
-                    <muxc:AppBarButton
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         x:Name="MoreButton"
                         Click="OnMoreClick"
-                        Label="{x:Bind t:WindowText.ToolbarMore}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarMore}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarMoreTip}"
                         Visibility="Collapsed">
-                        <muxc:AppBarButton.Icon>
-                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE712;" />
-                        </muxc:AppBarButton.Icon>
-                    </muxc:AppBarButton>
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE712;" />
+                    </Button>
                 </StackPanel>
 
             <!--
@@ -399,18 +482,6 @@
                 <FontIcon FontSize="16" Glyph="&#xE968;" />
             </Button>
 
-            <StackPanel
-                Grid.Row="1" Grid.Column="1"
-                Margin="4,0,0,8"
-                VerticalAlignment="Center"
-                Orientation="Horizontal">
-                <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{x:Bind t:WindowText.HeaderState}" />
-                <TextBlock
-                    VerticalAlignment="Center"
-                    FontWeight="SemiBold"
-                    Text="{Binding SelectedStateText, Mode=OneWay}" />
-            </StackPanel>
-
             <!--
                 A switcher plus two views, rather than a TabView. TabView does not bound the height of
                 its content, so a ScrollViewer placed inside it never got a viewport smaller than its
@@ -418,7 +489,9 @@
                 the resources panel. Here the content row is star-sized inside an already-bounded grid,
                 which is what makes scrolling possible at all.
             -->
-            <Grid x:Name="ContentGrid" Grid.Row="2" Grid.Column="1" RowSpacing="12">
+            <!-- From the search box's row down: the state, on a line of its own above the switcher, pushed the
+                 summary down a row for one word. -->
+            <Grid x:Name="ContentGrid" Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" RowSpacing="12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -426,19 +499,33 @@
 
                 <!-- Segmented switcher. Exclusivity is enforced in code so a click on the active view
                      cannot leave both views hidden. -->
-                <StackPanel x:Name="ViewSwitcher" Grid.Row="0" Orientation="Horizontal" Spacing="4">
-                    <ToggleButton
-                        x:Name="SummaryViewButton"
-                        MinWidth="120"
-                        Click="OnSummaryViewClick"
-                        Content="{x:Bind t:WindowText.ViewSummary}"
-                        IsChecked="True" />
-                    <ToggleButton
-                        x:Name="ConsoleViewButton"
-                        MinWidth="120"
-                        Click="OnConsoleViewClick"
-                        Content="{x:Bind t:WindowText.ViewConsole}" />
-                </StackPanel>
+                <Grid Grid.Row="0">
+                    <StackPanel x:Name="ViewSwitcher" Orientation="Horizontal" Spacing="4">
+                        <ToggleButton
+                            x:Name="SummaryViewButton"
+                            MinWidth="120"
+                            Click="OnSummaryViewClick"
+                            Content="{x:Bind t:WindowText.ViewSummary}"
+                            IsChecked="True" />
+                        <ToggleButton
+                            x:Name="ConsoleViewButton"
+                            MinWidth="120"
+                            Click="OnConsoleViewClick"
+                            Content="{x:Bind t:WindowText.ViewConsole}" />
+                    </StackPanel>
+                    <StackPanel
+                        x:Name="StatePanel"
+                        Margin="0,0,4,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal">
+                        <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{x:Bind t:WindowText.HeaderState}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontWeight="SemiBold"
+                            Text="{Binding SelectedStateText, Mode=OneWay}" />
+                    </StackPanel>
+                </Grid>
 
                 <!--
                     IsTabStop="True": a click on an empty part of the summary (below Ressources, say)
@@ -519,10 +606,14 @@
                                         Style="{StaticResource Hint}"
                                         Text="{Binding DataContext.NameError, ElementName=RootGrid, Mode=OneWay}"
                                         Visibility="{Binding DataContext.HasNameError, ElementName=RootGrid, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                    <!-- One line until something is written: the empty 60-pixel box was the biggest thing in the summary. -->
                                     <TextBox
-                                        Height="60"
+                                        MinHeight="32"
+                                        MaxHeight="120"
                                         Margin="0,6,0,0"
                                         AcceptsReturn="True"
+                                        AutomationProperties.Name="{x:Bind t:WindowText.SummaryDescription}"
+                                        PlaceholderText="{x:Bind t:WindowText.SummaryDescription}"
                                         Text="{Binding Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                         TextWrapping="Wrap" />
 
@@ -792,6 +883,7 @@
                                 <muxc:InfoBar
                                     IsClosable="False"
                                     IsOpen="{Binding Hardware.HasPlatformProblems, Mode=OneWay}"
+                                    Visibility="{Binding Hardware.HasPlatformProblems, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                                     Message="{Binding Hardware.PlatformProblems, Mode=OneWay}"
                                     Severity="Error"
                                     Title="{x:Bind t:WindowText.PlatformProblemsTitle}" />
@@ -826,6 +918,7 @@
                                 <muxc:InfoBar
                                     IsClosable="False"
                                     IsOpen="{Binding Hardware.IsLocked, Mode=OneWay}"
+                                    Visibility="{Binding Hardware.IsLocked, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                                     Message="{x:Bind t:WindowText.HardwareLocked}"
                                     Severity="Informational" />
 
@@ -896,7 +989,9 @@
                                     <StackPanel Spacing="8">
                                         <ItemsControl ItemsSource="{Binding Hardware.Disks, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
+                                                <!-- x:DataType on every template whose texts come from x:Bind to the text classes: without it, WinUI
+                                                     compiles those bindings but never runs them, and the disk buttons and boxes showed no text. -->
+                                                <DataTemplate x:DataType="models:DiskConfig">
                                                     <Border
                                                         Margin="0,0,0,8"
                                                         Padding="10"
@@ -919,24 +1014,42 @@
                                                                     AutomationProperties.Name="{x:Bind t:WindowText.DiskImageFile}"
                                                                     Text="{Binding FileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                                                    <!-- Icons, their names in the tooltips: four labelled buttons left the file name "disk0.qco" at
+                                                                         the user's 1280 px (1920 x 1200 at 150 %). -->
                                                                     <Button
+                                                                        Style="{StaticResource DiskIconButton}"
                                                                         AutomationProperties.Name="{x:Bind t:WindowText.DiskGrowName}"
                                                                         Click="OnGrowDiskClick"
-                                                                        Content="{x:Bind t:WindowText.DiskGrow}" />
+                                                                        ToolTipService.ToolTip="{x:Bind t:WindowText.DiskGrow}">
+                                                                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE740;" />
+                                                                    </Button>
                                                                     <Button
+                                                                        Style="{StaticResource DiskIconButton}"
                                                                         AutomationProperties.Name="{x:Bind t:WindowText.DiskConvertName}"
                                                                         Click="OnConvertDiskClick"
-                                                                        Content="{x:Bind t:WindowText.DiskConvert}" />
+                                                                        ToolTipService.ToolTip="{x:Bind t:WindowText.DiskConvert}">
+                                                                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE8AB;" />
+                                                                    </Button>
                                                                     <Button
+                                                                        Style="{StaticResource DiskIconButton}"
                                                                         AutomationProperties.Name="{x:Bind t:WindowText.DiskCompactName}"
-                                                                        Click="OnCompactDiskClick"
-                                                                        Content="{x:Bind t:WindowText.DiskCompact}"
-                                                                        ToolTipService.ToolTip="{x:Bind t:WindowText.DiskCompactTip}" />
+                                                                        Click="OnCompactDiskClick">
+                                                                        <ToolTipService.ToolTip>
+                                                                            <StackPanel MaxWidth="320" Spacing="2">
+                                                                                <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.DiskCompact}" />
+                                                                                <TextBlock Text="{x:Bind t:WindowText.DiskCompactTip}" TextWrapping="Wrap" />
+                                                                            </StackPanel>
+                                                                        </ToolTipService.ToolTip>
+                                                                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE73F;" />
+                                                                    </Button>
                                                                     <Button
+                                                                        Style="{StaticResource DiskIconButton}"
                                                                         AutomationProperties.Name="{x:Bind t:WindowText.DiskDetachName}"
                                                                         Command="{Binding DataContext.Hardware.RemoveDiskCommand, ElementName=RootGrid}"
                                                                         CommandParameter="{Binding}"
-                                                                        Content="{x:Bind t:WindowText.DiskDetach}" />
+                                                                        ToolTipService.ToolTip="{x:Bind t:WindowText.DiskDetach}">
+                                                                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE77A;" />
+                                                                    </Button>
                                                                 </StackPanel>
                                                             </Grid>
 
@@ -1050,7 +1163,7 @@
                                     <StackPanel Spacing="8">
                                         <ItemsControl ItemsSource="{Binding Hardware.Adapters, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
+                                                <DataTemplate x:DataType="models:NetworkAdapterConfig">
                                                     <Border
                                                         Margin="0,0,0,8"
                                                         Padding="10"
@@ -1150,7 +1263,7 @@
                                                                            Text="{x:Bind t:WindowText.NetworkNatHint}" />
                                                                 <ItemsControl ItemsSource="{Binding PortForwards}">
                                                                     <ItemsControl.ItemTemplate>
-                                                                        <DataTemplate>
+                                                                        <DataTemplate x:DataType="models:PortForward">
                                                                             <Grid Margin="0,0,0,6" ColumnSpacing="8">
                                                                                 <Grid.ColumnDefinitions>
                                                                                     <ColumnDefinition Width="Auto" />
@@ -1231,6 +1344,7 @@
                                         <muxc:InfoBar
                                             IsClosable="False"
                                             IsOpen="{Binding HasFirewallWarning, Mode=OneWay}"
+                                            Visibility="{Binding HasFirewallWarning, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                                             Message="{Binding FirewallWarning, Mode=OneWay}"
                                             Severity="Warning"
                                             Title="{x:Bind t:WindowText.LanAccessFirewall}">
@@ -1240,7 +1354,7 @@
                                         </muxc:InfoBar>
                                         <ItemsControl ItemsSource="{Binding LanServices}">
                                             <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
+                                                <DataTemplate x:DataType="vm:LanServiceItem">
                                                     <Border
                                                         Margin="0,0,0,8"
                                                         Padding="10"
@@ -1333,6 +1447,49 @@
                                 </muxc:Expander>
 
                                 <!--
+                                    Disk encryption (Core.Qemu.DiskKey), as VMware's VM encryption for the disks: LUKS
+                                    qcow2 under one password. Rewriting needs the machine stopped; why an action is
+                                    refused is said on click (MainWindow.Encryption.cs).
+                                -->
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ct:EncryptionText.SectionHeader}" />
+                                    </muxc:Expander.Header>
+                                    <StackPanel Spacing="8">
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="{x:Bind ct:EncryptionText.SectionHint}"
+                                            TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding EncryptionStatusText, Mode=OneWay}" TextWrapping="Wrap" />
+                                        <!-- Only the actions that apply to this machine, on as many lines as the column needs. -->
+                                        <controls:WrapPanel>
+                                            <Button
+                                                Click="OnEncryptDisksClick"
+                                                Content="{x:Bind ct:EncryptionText.EncryptAction}"
+                                                IsEnabled="{Binding CanEncryptSelected, Mode=OneWay}"
+                                                Visibility="{Binding IsSelectedClear, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                            <Button
+                                                Click="OnChangeDiskPasswordClick"
+                                                Content="{x:Bind ct:EncryptionText.ChangeAction}"
+                                                IsEnabled="{Binding CanChangeSelectedPassword, Mode=OneWay}"
+                                                Visibility="{Binding IsSelectedEncrypted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                            <Button
+                                                Click="OnDecryptDisksClick"
+                                                Content="{x:Bind ct:EncryptionText.DecryptAction}"
+                                                IsEnabled="{Binding CanDecryptSelected, Mode=OneWay}"
+                                                Visibility="{Binding IsSelectedEncrypted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                            <Button
+                                                Click="OnForgetDiskPasswordClick"
+                                                Content="{x:Bind ct:EncryptionText.ForgetAction}"
+                                                IsEnabled="{Binding CanForgetSelectedPassword, Mode=OneWay}"
+                                                Visibility="{Binding IsSelectedPasswordRemembered, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                        </controls:WrapPanel>
+                                    </StackPanel>
+                                </muxc:Expander>
+
+                                <!--
                                     Shared folders, served by WinQEMU itself (Sharing.NinePServer). Not behind
                                     Hardware.CanEdit: they are served live, so they can change while it runs.
                                 -->
@@ -1354,7 +1511,7 @@
                                             Visibility="{Binding HasSharedFolderStatus, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                                         <ItemsControl ItemsSource="{Binding SelectedVm.SharedFolders, Mode=OneWay}">
                                             <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
+                                                <DataTemplate x:DataType="models:SharedFolderConfig">
                                                     <Border
                                                         Margin="0,0,0,8"
                                                         Padding="10"
@@ -1416,33 +1573,37 @@
                                         <muxc:InfoBar
                                             IsClosable="False"
                                             IsOpen="{Binding Snapshots.HasExcludedDisks, Mode=OneWay}"
+                                            Visibility="{Binding Snapshots.HasExcludedDisks, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                                             Message="{Binding Snapshots.ExcludedDisksText, Mode=OneWay}"
                                             Severity="Warning" />
 
                                         <!-- Automatic snapshots (Services.AutoSnapshots): any time, running or not. -->
-                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                        <!-- Wraps: on one line it ran past the section's edge in an 800-pixel window. -->
+                                        <controls:WrapPanel HorizontalSpacing="12">
                                             <CheckBox
                                                 VerticalAlignment="Center"
                                                 Content="{x:Bind t:WindowText.SnapshotsAuto}"
                                                 IsChecked="{Binding SelectedVm.AutoSnapshot, Mode=TwoWay}"
                                                 ToolTipService.ToolTip="{x:Bind t:WindowText.SnapshotsAutoTip}" />
-                                            <ComboBox
-                                                MinWidth="230"
-                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsAutoFrequency}"
-                                                DisplayMemberPath="Label"
-                                                IsEnabled="{Binding SelectedVm.AutoSnapshot, Mode=OneWay}"
-                                                ItemsSource="{Binding AutoSnapshotIntervals, Mode=OneTime}"
-                                                SelectedValue="{Binding SelectedVm.AutoSnapshotHours, Mode=TwoWay}"
-                                                SelectedValuePath="Hours" />
-                                            <muxc:NumberBox
-                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsAutoKeepName}"
-                                                IsEnabled="{Binding SelectedVm.AutoSnapshot, Mode=OneWay}"
-                                                Maximum="50"
-                                                Minimum="1"
-                                                SpinButtonPlacementMode="Compact"
-                                                Value="{Binding SelectedVm.AutoSnapshotKeep, Mode=TwoWay}" />
-                                            <TextBlock VerticalAlignment="Center" Style="{StaticResource Hint}" Text="{x:Bind t:WindowText.SnapshotsAutoKept}" />
-                                        </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                                <ComboBox
+                                                    MinWidth="230"
+                                                    AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsAutoFrequency}"
+                                                    DisplayMemberPath="Label"
+                                                    IsEnabled="{Binding SelectedVm.AutoSnapshot, Mode=OneWay}"
+                                                    ItemsSource="{Binding AutoSnapshotIntervals, Mode=OneTime}"
+                                                    SelectedValue="{Binding SelectedVm.AutoSnapshotHours, Mode=TwoWay}"
+                                                    SelectedValuePath="Hours" />
+                                                <muxc:NumberBox
+                                                    AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsAutoKeepName}"
+                                                    IsEnabled="{Binding SelectedVm.AutoSnapshot, Mode=OneWay}"
+                                                    Maximum="50"
+                                                    Minimum="1"
+                                                    SpinButtonPlacementMode="Compact"
+                                                    Value="{Binding SelectedVm.AutoSnapshotKeep, Mode=TwoWay}" />
+                                                <TextBlock VerticalAlignment="Center" Style="{StaticResource Hint}" Text="{x:Bind t:WindowText.SnapshotsAutoKept}" />
+                                            </StackPanel>
+                                        </controls:WrapPanel>
 
                                         <!--
                                             The snapshots as a tree, as VMware's snapshot manager draws them
@@ -1505,6 +1666,7 @@
                                         <muxc:InfoBar
                                             IsClosable="False"
                                             IsOpen="{Binding Snapshots.HasMemorySnapshotCaveat, Mode=OneWay}"
+                                            Visibility="{Binding Snapshots.HasMemorySnapshotCaveat, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                                             Message="{Binding Snapshots.MemorySnapshotUnavailableReason, Mode=OneWay}"
                                             Severity="Informational" />
 
@@ -1614,11 +1776,19 @@
                                 -->
                                 <StackPanel MinWidth="260" Spacing="14">
                                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="{x:Bind t:WindowText.ResourcesHeader}" />
-                                    <controls:MetricChart x:Name="CpuChart" Title="{x:Bind t:WindowText.ResourcesCpu}" />
-                                    <controls:MetricChart x:Name="MemoryChart" Title="{x:Bind t:WindowText.ResourcesMemory}" />
-                                    <controls:MetricChart x:Name="DiskChart" Title="{x:Bind t:WindowText.ResourcesDisk}" />
-                                    <controls:MetricChart x:Name="NetworkChart" Title="{x:Bind t:WindowText.Network}" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="{Binding CpuText, Mode=OneWay}" />
+                                    <!-- Empty charts for a machine that is off said nothing a line of text does not say better. -->
+                                    <TextBlock
+                                        Style="{StaticResource Hint}"
+                                        Text="{x:Bind t:WindowText.ResourcesWhenOff}"
+                                        TextWrapping="Wrap"
+                                        Visibility="{Binding IsSelectedOff, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                    <StackPanel Spacing="14" Visibility="{Binding IsSelectedAlive, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                        <controls:MetricChart x:Name="CpuChart" Title="{x:Bind t:WindowText.ResourcesCpu}" />
+                                        <controls:MetricChart x:Name="MemoryChart" Title="{x:Bind t:WindowText.ResourcesMemory}" />
+                                        <controls:MetricChart x:Name="DiskChart" Title="{x:Bind t:WindowText.ResourcesDisk}" />
+                                        <controls:MetricChart x:Name="NetworkChart" Title="{x:Bind t:WindowText.Network}" />
+                                        <TextBlock Style="{StaticResource Hint}" Text="{Binding CpuText, Mode=OneWay}" />
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </Grid>
@@ -1743,6 +1913,49 @@
                     </Border>
                 </Grid>
             </Grid>
+
+            <!--
+                A folder selected: its summary, over the machine's views (empty then: no machine is selected).
+                Laid over them rather than hiding them, so the views and the console's place in the layout never
+                change; the console itself is detached while a folder is selected, so nothing native covers this.
+            -->
+            <Grid
+                Grid.Row="2" Grid.Column="1"
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                Visibility="{Binding IsFolderSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                <Border
+                    Padding="16"
+                    VerticalAlignment="Top"
+                    Background="#11000000"
+                    CornerRadius="8">
+                    <StackPanel Spacing="8">
+                        <TextBlock FontSize="12" Opacity="0.6" Text="{x:Bind t:LibraryText.FolderLabel}" />
+                        <TextBlock
+                            FontSize="20"
+                            FontWeight="SemiBold"
+                            Text="{Binding SelectedFolder.Name, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding SelectedFolder.Summary, Mode=OneWay}" />
+                        <TextBlock Opacity="0.7" Text="{Binding SelectedFolder.ParentPathText, Mode=OneWay}" TextWrapping="Wrap" />
+                        <StackPanel Margin="0,8,0,0" Orientation="Horizontal" Spacing="8">
+                            <Button Click="OnNewFolderClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="16" Glyph="&#xE8F4;" />
+                                    <TextBlock Text="{x:Bind t:LibraryText.NewSubfolder}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Click="OnRenameFolderClick" Content="{x:Bind t:LibraryText.RenameFolder}" />
+                            <Button Click="OnDeleteFolderClick" Content="{x:Bind t:LibraryText.DeleteFolder}" />
+                        </StackPanel>
+                        <TextBlock
+                            Margin="0,8,0,0"
+                            FontSize="12"
+                            Opacity="0.6"
+                            Text="{x:Bind t:LibraryText.FolderSummaryHint}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Grid>
         <!--
             Full screen's only chrome, shown while the pointer touches the top of the screen. It cannot
@@ -1754,13 +1967,14 @@
             x:Name="FullScreenBar"
             Grid.Row="0" Grid.RowSpan="2"
             Height="48"
+            Margin="0,8,0,0"
             Padding="12,0"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
             Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1,0,1,1"
-            CornerRadius="0,0,8,8"
+            BorderThickness="1"
+            CornerRadius="8"
             Visibility="Collapsed">
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <TextBlock
@@ -1771,39 +1985,53 @@
                     FontWeight="SemiBold"
                     TextTrimming="CharacterEllipsis" />
                 <!-- The machine's own commands, as in the toolbar the full screen hides: same bindings, so each
-                     is enabled exactly when it is there. -->
-                <Button Command="{Binding StartCommand}" ToolTipService.ToolTip="{x:Bind t:WindowText.FullScreenStartTip}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE768;" />
-                        <TextBlock Text="{x:Bind ct:CommonText.Start}" />
-                    </StackPanel>
+                     is enabled exactly when it is there. Icons alone, as there, their names in the tooltips. -->
+                <Button Style="{StaticResource FullScreenIconButton}" Command="{Binding StartCommand}"
+                        AutomationProperties.Name="{x:Bind ct:CommonText.Start}" ToolTipService.ToolTip="{x:Bind t:WindowText.FullScreenStartTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE768;" />
                 </Button>
-                <Button Command="{Binding PauseResumeCommand}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPauseTip}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE769;" />
-                        <TextBlock Text="{Binding PauseResumeLabel, Mode=OneWay}" />
-                    </StackPanel>
+                <Button Style="{StaticResource FullScreenIconButton}" Command="{Binding PauseResumeCommand}"
+                        AutomationProperties.Name="{Binding PauseResumeLabel, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPauseTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE769;" />
                 </Button>
-                <Button Command="{Binding ShutdownCommand}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarShutDownTip}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE71A;" />
-                        <TextBlock Text="{x:Bind ct:CommonText.Stop}" />
-                    </StackPanel>
+                <Button Style="{StaticResource FullScreenIconButton}" Command="{Binding ShutdownCommand}"
+                        AutomationProperties.Name="{x:Bind ct:CommonText.Stop}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarShutDownTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE71A;" />
                 </Button>
-                <Button Command="{Binding PowerOffCommand}" ToolTipService.ToolTip="{x:Bind t:WindowText.FullScreenPowerOffTip}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE711;" />
-                        <TextBlock Text="{x:Bind ct:CommonText.PowerOff}" />
-                    </StackPanel>
+                <Button Style="{StaticResource FullScreenIconButton}" Command="{Binding PowerOffCommand}"
+                        AutomationProperties.Name="{x:Bind ct:CommonText.PowerOff}" ToolTipService.ToolTip="{x:Bind t:WindowText.FullScreenPowerOffTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE711;" />
                 </Button>
                 <Border Width="1" Height="24" Margin="4,0" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                <Button Command="{Binding SendCtrlAltDeleteCommand}" Content="{x:Bind t:WindowText.ToolbarCtrlAltDel}" />
-                <Button x:Name="FullScreenUsbButton" Click="OnUsbClick" Content="USB" />
-                <Button Click="OnSendFilesClick" Content="{x:Bind t:WindowText.FullScreenSendFiles}" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
-                <Button Click="OnSoundClick" Content="{Binding SoundLabel, Mode=OneWay}" IsEnabled="{Binding CanAdjustSound, Mode=OneWay}" />
-                <Button Click="OnTypeClipboardClick" Content="{x:Bind t:WindowText.ConsoleTypeClipboard}" IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}" />
-                <Button Click="OnPullFilesClick" Content="{x:Bind t:WindowText.FullScreenPullFiles}" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
-                <Button Click="OnToggleFullScreenClick" Content="{x:Bind t:WindowText.FullScreenExit}" Style="{StaticResource AccentButtonStyle}" />
+                <Button Style="{StaticResource FullScreenIconButton}" Command="{Binding SendCtrlAltDeleteCommand}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarCtrlAltDel}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarCtrlAltDelTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE765;" />
+                </Button>
+                <Button Style="{StaticResource FullScreenIconButton}" x:Name="FullScreenUsbButton" Click="OnUsbClick"
+                        AutomationProperties.Name="USB" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarUsbTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE88E;" />
+                </Button>
+                <Button Style="{StaticResource FullScreenIconButton}" Click="OnSendFilesClick" IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.FullScreenSendFiles}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarSendFilesTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE898;" />
+                </Button>
+                <Button Style="{StaticResource FullScreenIconButton}" Click="OnPullFilesClick" IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.FullScreenPullFiles}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPullFilesTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE896;" />
+                </Button>
+                <Button Style="{StaticResource FullScreenIconButton}" Click="OnSoundClick" IsEnabled="{Binding CanAdjustSound, Mode=OneWay}"
+                        AutomationProperties.Name="{Binding SoundLabel, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarSoundTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="{Binding SoundGlyph, Mode=OneWay}" />
+                </Button>
+                <Button Style="{StaticResource FullScreenIconButton}" Click="OnTypeClipboardClick" IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ConsoleTypeClipboard}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE77F;" />
+                </Button>
+                <!-- The way out, the same size as the others; the accent colour tells it apart. -->
+                <Button Width="40" Height="34" Padding="0" Click="OnToggleFullScreenClick" Style="{StaticResource AccentButtonStyle}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.FullScreenExit}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE73F;" />
+                </Button>
             </StackPanel>
         </Border>
     </Grid>

@@ -118,8 +118,10 @@ namespace WinQEMU.Core.Qemu
                 // The folders themselves come from the shell (UpdateSharedFolders), not from Config: this
                 // runs off the UI thread, which alone may read the data-bound configuration.
                 var sharesPort = ReserveLoopbackPort();
+                FileDropPort = ReserveLoopbackPort();
                 var executable = _installation.GetSystemBinary(Config.Architecture);
-                var arguments = QemuArgumentBuilder.Build(Config, _installation, qmpPort, clipboardPort, GuestAgentPort, sharesPort, _networkPorts);
+                var arguments = QemuArgumentBuilder.Build(Config, _installation, qmpPort, clipboardPort, GuestAgentPort, sharesPort, _networkPorts,
+                    FileDropPort);
                 var unplugged = Config.NetworkAdapters.Where(a => a.Mode != NetworkMode.None && !a.Connected).Select(a => a.Id).ToList();
 
                 LaunchCommandLine = QemuArgumentBuilder.ToDisplayString(executable, arguments);
@@ -1291,6 +1293,9 @@ namespace WinQEMU.Core.Qemu
 
         /// <summary>Loopback port of the qemu-guest-agent channel of the current run.</summary>
         public int? GuestAgentPort { get; private set; }
+
+        /// <summary>Loopback port of the file drop channel of the current run (see Sharing.GuestFileDrop).</summary>
+        public int? FileDropPort { get; private set; }
 
         /// <summary>
         /// A connection to the guest agent. It may lead nowhere: whether an agent answers is for

@@ -36,7 +36,7 @@ namespace WinQEMU.Controls
         Actual
     }
 
-    public sealed class VmConsoleHost : Grid
+    public sealed partial class VmConsoleHost : Grid
     {
         private const string IdlePlaceholder = "Démarrez la machine virtuelle pour afficher sa console.";
 

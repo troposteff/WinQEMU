@@ -156,7 +156,10 @@ namespace WinQEMU.Core.Interop
                          | NativeMethods.WsExClientEdge
                          | NativeMethods.WsExWindowEdge
                          | NativeMethods.WsExStaticEdge
-                         | NativeMethods.WsExAppWindow);
+                         | NativeMethods.WsExAppWindow
+                         // SDL takes dropped files (WS_EX_ACCEPTFILES), which QEMU ignores: the pointer would
+                         // promise a copy that never happens. Files are taken by the shell (DropCatcher).
+                         | NativeMethods.WsExAcceptFiles);
 
             NativeMethods.SetWindowStyle(Handle, NativeMethods.GwlStyle, style);
             NativeMethods.SetWindowStyle(Handle, NativeMethods.GwlExStyle, exStyle);

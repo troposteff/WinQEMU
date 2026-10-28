@@ -15,6 +15,8 @@ namespace WinQEMU
     public sealed partial class MainWindow : Window
     {
         private readonly MainViewModel _viewModel;
+        private readonly string _dropTargetStatus;
+        private bool _xamlDragSeen;
         private bool _closeConfirmed;
         private int? _attachedProcessId;
 
@@ -28,6 +30,12 @@ namespace WinQEMU
 
             ConsoleHost.Initialize(WinRT.Interop.WindowNative.GetWindowHandle(this));
             ConsoleHost.Log = _viewModel.AppendDiagnostic;
+
+            // Files dragged from Explorer onto the console are copied to the guest's desktop. Queued: the
+            // drop arrives inside OLE's drag loop, too early for a dialog. The outcome is said each time a
+            // console is shown: the journal belongs to the selected machine and starts empty.
+            _dropTargetStatus = ConsoleHost.EnableFileDrop(() => _viewModel.CanSendFiles,
+                files => DispatcherQueue.TryEnqueue(() => _ = SendFilesAsync(files)));
             // Keys captured by the host travel to the guest over the control channel, because an
             // embedded console window cannot receive them.
             ConsoleHost.KeyForwarder = _viewModel.ForwardKeysAsync;
@@ -122,6 +130,7 @@ namespace WinQEMU
             }
 
             await ConsoleHost.AttachAsync(processId.Value);
+            _viewModel.AppendDiagnostic(_dropTargetStatus);
         }
 
         private void OnSummaryViewClick(object sender, RoutedEventArgs e) => ShowView(console: false);
@@ -870,6 +879,69 @@ namespace WinQEMU
         /// connect at every start. Built on each click from Windows and from QEMU, since a device can be
         /// plugged, unplugged or rebound to WinUSB at any time.
         /// </summary>
+        private async void OnSendFilesClick(object sender, RoutedEventArgs e)
+        {
+            var picker = new Windows.Storage.Pickers.FileOpenPicker();
+            picker.FileTypeFilter.Add("*");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            var files = await picker.PickMultipleFilesAsync();
+            var paths = files?.Select(f => f.Path).Where(p => !string.IsNullOrEmpty(p)).ToList();
+            if (paths is { Count: > 0 })
+                await SendFilesAsync(paths);
+        }
+
+        private void OnConsoleDragEnter(object sender, DragEventArgs e) => _xamlDragSeen = false;
+
+        private void OnConsoleDragOver(object sender, DragEventArgs e)
+        {
+            if (!_xamlDragSeen)
+            {
+                _xamlDragSeen = true;
+                _viewModel.AppendDiagnostic($"Console: a drag reached the console through XAML (taken: {_viewModel.CanSendFiles}).");
+            }
+            if (!_viewModel.CanSendFiles || !e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+                return;
+            e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            e.DragUIOverride.Caption = "Copier sur le Bureau de l'invité";
+        }
+
+        private async void OnConsoleDrop(object sender, DragEventArgs e)
+        {
+            if (!_viewModel.CanSendFiles || !e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+                return;
+            var items = await e.DataView.GetStorageItemsAsync();
+            var paths = items.Select(i => i.Path).Where(p => !string.IsNullOrEmpty(p)).ToList();
+            if (paths.Count > 0)
+                await SendFilesAsync(paths);
+        }
+
+        private async Task SendFilesAsync(System.Collections.Generic.IReadOnlyList<string> paths)
+        {
+            string message;
+            try
+            {
+                await _viewModel.SendFilesAsync(paths);
+                return;
+            }
+            catch (Exception ex) when (ex is Core.Sharing.GuestFileDropException or InvalidOperationException
+                                           or System.IO.IOException or UnauthorizedAccessException)
+            {
+                message = ex.Message;
+            }
+            catch (Core.Qemu.GuestAgentException ex)
+            {
+                message = $"L'agent invité a répondu par une erreur : {ex.Message}";
+            }
+
+            await ShowDialogAsync(new ContentDialog
+            {
+                Title = "Fichiers non copiés",
+                Content = DialogBody(message),
+                CloseButtonText = "Fermer",
+                XamlRoot = Content.XamlRoot
+            });
+        }
+
         private async void OnUsbClick(object sender, RoutedEventArgs e)
         {
             if (_viewModel.SelectedVm is null)

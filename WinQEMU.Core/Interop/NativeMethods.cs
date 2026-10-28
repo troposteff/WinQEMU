@@ -29,6 +29,7 @@ namespace WinQEMU.Core.Interop
         public const long WsExClientEdge = 0x00000200L;
         public const long WsExWindowEdge = 0x00000100L;
         public const long WsExAppWindow = 0x00040000L;
+        public const long WsExAcceptFiles = 0x00000010;
         public const long WsExStaticEdge = 0x00020000L;
 
         public const uint SwpNoSize = 0x0001;

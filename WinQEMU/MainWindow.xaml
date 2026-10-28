@@ -295,6 +295,15 @@
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE88E;" />
                         </muxc:AppBarButton.Icon>
                     </muxc:AppBarButton>
+                    <muxc:AppBarButton
+                        Click="OnSendFilesClick"
+                        IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
+                        Label="Envoyer"
+                        ToolTipService.ToolTip="Copie des fichiers de ce PC sur le Bureau de l'invité. Vous pouvez aussi les glisser sur la console, dossiers compris.">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE898;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
                     <muxc:AppBarSeparator />
                     <muxc:AppBarButton
                         Click="OnCloneClick"
@@ -1500,7 +1509,9 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Grid x:Name="ConsoleBar" Grid.Row="0" ColumnSpacing="12">
+                    <!-- One line, whatever it shows: a bar that changed height when a copy's progress replaced the hint
+                         resized the console, and the guest's resolution with it, at the start and end of every copy. -->
+                    <Grid x:Name="ConsoleBar" Grid.Row="0" Height="32" ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -1512,8 +1523,33 @@
                             VerticalAlignment="Center"
                             FontSize="12"
                             Opacity="0.6"
-                            Text="Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris."
-                            TextWrapping="Wrap" />
+                            Text="Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris. Glissez des fichiers sur la console pour les copier sur le Bureau de l'invité."
+                            TextTrimming="CharacterEllipsis"
+                            ToolTipService.ToolTip="Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris. Glissez des fichiers sur la console pour les copier sur le Bureau de l'invité."
+                            Visibility="{Binding HasNoSendFilesStatus, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        <!-- Files sent to the guest: the copy under way (with its cancel), then how it ended. -->
+                        <StackPanel
+                            Grid.Column="0"
+                            Orientation="Horizontal"
+                            Spacing="12"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding HasSendFilesStatus, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                            <ProgressBar
+                                Width="160"
+                                VerticalAlignment="Center"
+                                Maximum="100"
+                                Value="{Binding SendFilesPercent, Mode=OneWay}"
+                                Visibility="{Binding IsSendingFiles, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Text="{Binding SendFilesStatus, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <Button
+                                Command="{Binding CancelSendFilesCommand}"
+                                Content="Annuler"
+                                Visibility="{Binding IsSendingFiles, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <StackPanel x:Name="ConsoleScaleControls" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -1539,8 +1575,18 @@
                         </StackPanel>
                     </Grid>
 
-                    <Border x:Name="ConsoleFrame" Grid.Row="1" CornerRadius="8">
-                        <controls:VmConsoleHost x:Name="ConsoleHost" />
+                    <!-- Drops over QEMU's window are taken by DropCatcher; these handlers take those on the frame
+                         around it and on the placeholder. -->
+                    <Border
+                        x:Name="ConsoleFrame"
+                        Grid.Row="1"
+                        AllowDrop="True"
+                        Background="Transparent"
+                        CornerRadius="8"
+                        DragEnter="OnConsoleDragEnter"
+                        DragOver="OnConsoleDragOver"
+                        Drop="OnConsoleDrop">
+                        <controls:VmConsoleHost x:Name="ConsoleHost" AllowDrop="True" />
                     </Border>
                 </Grid>
             </Grid>
@@ -1600,6 +1646,7 @@
                 <Border Width="1" Height="24" Margin="4,0" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                 <Button Command="{Binding SendCtrlAltDeleteCommand}" Content="Ctrl+Alt+Suppr" />
                 <Button x:Name="FullScreenUsbButton" Click="OnUsbClick" Content="USB" />
+                <Button Click="OnSendFilesClick" Content="Envoyer des fichiers" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
                 <Button Click="OnToggleFullScreenClick" Content="Quitter le plein écran" Style="{StaticResource AccentButtonStyle}" />
             </StackPanel>
         </Border>

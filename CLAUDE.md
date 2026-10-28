@@ -321,6 +321,44 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
 - **L'agent invité n'est pas dans virtio-win-guest-tools** (qui n'apporte que spice-vdagent) : `guest-agent\qemu-ga-x86_64.msi`
   du même lecteur, à installer à part ; le message de WinQEMU le dit pour un invité Windows.
 
+## Glisser-déposer de fichiers vers l'invité
+
+Comme VMware : des fichiers ou dossiers glissés de l'Explorateur sur la console (ou choisis par le bouton
+**Envoyer**) sont copiés **sur le Bureau de l'utilisateur de l'invité**, un nom déjà pris devenant `nom (2).ext`.
+Hôte vers invité seulement. `Sharing.GuestFileDrop`, état par machine dans `MainViewModel.SendFilesAsync`.
+
+- **Port virtio dédié** `org.winqemu.drop.0` (chardev `wq-drop`, sur `wq-qga-bus` : aucun slot PCI ne bouge),
+  plutôt que `guest-file-write` de l'agent : mesuré sur Ubuntu, 33 Mo/s par le port contre 11 Mo/s par l'agent
+  (JSON et base64 analysés caractère par caractère). Windows : environ 21 Mo/s.
+- **Récepteur lancé par l'agent à chaque dépôt** : Perl sous Linux (perl-base est essentiel), C# compilé une fois
+  par version par le .NET Framework de Windows (`%ProgramData%\WinQEMU\WinQemuDrop-<empreinte>.dll`, source sur
+  l'entrée standard : dans `-EncodedCommand` elle dépasserait la limite de 32767 caractères). Linux écrit en root
+  puis donne tout au premier compte humain, Bureau lu dans `user-dirs.dirs` (`~/Bureau`) ; Windows écrit en
+  **se faisant passer pour l'utilisateur de la session console** (`WTSQueryUserToken`), Bureau par
+  `SHGetKnownFolderPath` avec son jeton (OneDrive compris), donc fichiers à lui. Pas de session ouverte : refusé.
+- **L'hôte se connecte au port avant de lancer le récepteur** : sous Linux, lire un port sans hôte rend aussitôt
+  « fin de fichier ».
+- **Protocole** : READY + dossier, puis `D` dossier, `F` fichier en morceaux d'1 Mio (longueur 0xFFFFFFFF =
+  abandon), `X` abandon, `E` fin ; réponse DONE (noms donnés), FAIL (raison) ou ABORTED. Annulé ou échoué, le
+  récepteur supprime tout ce que ce dépôt a créé. L'abandon passe **dans** le flux : sous Windows, un hôte qui
+  raccroche sans rien envoyer laisse le récepteur bloqué dans `ReadFile` (vérifié) ; le récepteur suivant arrête
+  donc l'ancien (fichier pid, et nom de processus ou heure de début pour ne pas tuer un autre) : un port n'a
+  qu'un ouvreur. Un récepteur qui meurt sans répondre est découvert par `guest-exec-status` après 15 s de silence.
+- **Agent rendu pendant la copie** : son canal n'accepte qu'un client, que partagent affichage et graphiques.
+- **Fenêtre de détection** (`Controls.DropCatcher`, comme celle des outils VMware) : la fenêtre SDL est à QEMU, et
+  `RegisterDragDrop` n'accepte qu'une fenêtre du processus. Une cible posée sur la fenêtre principale, parente de
+  la console, n'a **jamais été appelée** : OLE interroge la fenêtre sous le pointeur, pas ses parents (vérifié par
+  un glisser simulé, `DoDragDrop` + souris réelle). Donc, toutes les 100 ms, si un bouton enfoncé **hors** de la
+  console (glisser depuis l'Explorateur) est tenu au-dessus d'elle, une fenêtre enfant à nous, invisible (alpha
+  1/255), est posée sur la console avec la cible (`ConsoleDropTarget`) ; retirée au relâchement, à la sortie ou au
+  dépôt. Un bouton enfoncé sur la console reste à l'invité. `WS_EX_ACCEPTFILES` est retiré à la fenêtre de SDL :
+  QEMU ignore ce qu'elle reçoit. Image et légende de glissement par `IDropTargetHelper` et `DropDescription`.
+- **Barre de la console à hauteur fixe** : la progression remplaçant l'aide sur deux lignes changeait la taille de
+  la console, donc la résolution de l'invité, au début et à la fin de chaque copie.
+- Vérifié sur une copie jetable (`-snapshot`) d'Ubuntu 26.04 et de Windows 11 : contenu identique (SHA-256),
+  propriétaire, dates, annulation sans reste, nom numéroté. Le récepteur Windows est aussi testé sur l'hôte, un
+  tube nommé tenant lieu de port (`GuestFileDropTests`).
+
 ## Réseaux virtuels
 
 Comme l'éditeur de réseaux de VMware et les commutateurs d'Hyper-V : des réseaux nommés

@@ -136,6 +136,25 @@ namespace WinQEMU.Core.Qemu
         public async Task<GuestExecResult> RunAsync(string path, IReadOnlyList<string> arguments, string? input,
             TimeSpan timeout, CancellationToken cancellationToken = default)
         {
+            var pid = await StartAsync(path, arguments, input, cancellationToken).ConfigureAwait(false);
+            var end = DateTime.UtcNow + timeout;
+            while (true)
+            {
+                if (await GetExitAsync(pid, cancellationToken).ConfigureAwait(false) is { } result)
+                    return result;
+                if (DateTime.UtcNow > end)
+                    throw new GuestAgentException($"{path} was still running in the guest after {timeout.TotalSeconds:0} s.");
+                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Starts a program in the guest without waiting for it, and returns its process id. Its outcome is
+        /// for <see cref="GetExitAsync"/>, from this connection or a later one: the agent keeps it.
+        /// </summary>
+        public async Task<long> StartAsync(string path, IReadOnlyList<string> arguments, string? input,
+            CancellationToken cancellationToken = default)
+        {
             var request = new JsonObject
             {
                 ["path"] = path,
@@ -147,25 +166,17 @@ namespace WinQEMU.Core.Qemu
 
             // Starting a program can take a while in a guest that is still booting (Windows took more than 10 s).
             var started = await ExecuteAsync("guest-exec", request, TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
-            var pid = started?["pid"]?.GetValue<long>() ?? throw new GuestAgentException("guest-exec returned no pid.");
+            return started?["pid"]?.GetValue<long>() ?? throw new GuestAgentException("guest-exec returned no pid.");
+        }
 
-            var end = DateTime.UtcNow + timeout;
-            while (true)
-            {
-                var status = await ExecuteAsync(
-                    "guest-exec-status", new JsonObject { ["pid"] = pid }, TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
-                if (status?["exited"]?.GetValue<bool>() == true)
-                {
-                    return new GuestExecResult(
-                        status["exitcode"]?.GetValue<int>() ?? -1,
-                        Decode(status["out-data"]),
-                        Decode(status["err-data"]));
-                }
-
-                if (DateTime.UtcNow > end)
-                    throw new GuestAgentException($"{path} was still running in the guest after {timeout.TotalSeconds:0} s.");
-                await Task.Delay(500, cancellationToken).ConfigureAwait(false);
-            }
+        /// <summary>How a program started by <see cref="StartAsync"/> ended, or null while it still runs.</summary>
+        public async Task<GuestExecResult?> GetExitAsync(long pid, CancellationToken cancellationToken = default)
+        {
+            var status = await ExecuteAsync(
+                "guest-exec-status", new JsonObject { ["pid"] = pid }, TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
+            return status?["exited"]?.GetValue<bool>() == true
+                ? new GuestExecResult(status["exitcode"]?.GetValue<int>() ?? -1, Decode(status["out-data"]), Decode(status["err-data"]))
+                : null;
         }
 
         private static string Decode(JsonNode? base64) =>

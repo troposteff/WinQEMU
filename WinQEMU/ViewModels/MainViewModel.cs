@@ -10,6 +10,7 @@ using Microsoft.UI.Dispatching;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
 using WinQEMU.Core.Services;
+using WinQEMU.Core.Sharing;
 
 namespace WinQEMU.ViewModels
 {
@@ -43,6 +44,7 @@ namespace WinQEMU.ViewModels
             PowerOffCommand = new AsyncRelayCommand(_ => PowerOffAsync(), _ => IsSelectedAlive, ReportError);
             DeleteCommand = new AsyncRelayCommand(p => DeleteAsync(p is true), _ => SelectedVm is not null, ReportError);
             SendCtrlAltDeleteCommand = new AsyncRelayCommand(_ => SendCtrlAltDeleteAsync(), _ => IsSelectedRunning, ReportError);
+            CancelSendFilesCommand = new RelayCommand(_ => CancelSendFiles());
 
             // Metrics come from sampling the QEMU process and QMP, so they are polled rather than pushed.
             _metricsTimer = _dispatcher.CreateTimer();
@@ -780,6 +782,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(CanClone));
             RaisePropertyChanged(nameof(SharedFolderStatus));
             RaisePropertyChanged(nameof(HasSharedFolderStatus));
+            RaiseFileTransferProperties();
 
             // Boot order, disks and adapters are only read when QEMU starts, so they stay locked for
             // as long as a process exists — including while it is stopping.
@@ -1558,6 +1561,138 @@ namespace WinQEMU.ViewModels
         {
             if (e.PropertyName == nameof(ErrorMessage))
                 RaisePropertyChanged(nameof(HasError));
+        }
+
+        // ---- Files sent to the guest ----
+
+        /// <summary>A copy under way to one machine; the console bar shows the selection's.</summary>
+        private sealed class FileTransfer
+        {
+            public System.Threading.CancellationTokenSource Cancel { get; } = new();
+            public long Sent;
+            public long Total;
+        }
+
+        private readonly Dictionary<VmConfig, FileTransfer> _transfers = new();
+        private readonly Dictionary<VmConfig, string> _transferOutcomes = new();
+
+        public RelayCommand CancelSendFilesCommand { get; }
+
+        /// <summary>Files can be dropped on, or sent to, the selection: it runs, and is not already receiving some.</summary>
+        public bool CanSendFiles => SelectedVm is { } vm && IsSelectedRunning && !_transfers.ContainsKey(vm);
+
+        public bool IsSendingFiles => SelectedVm is { } vm && _transfers.ContainsKey(vm);
+
+        public double SendFilesPercent =>
+            SelectedVm is { } vm && _transfers.TryGetValue(vm, out var transfer) && transfer.Total > 0
+                ? 100.0 * transfer.Sent / transfer.Total
+                : 0;
+
+        /// <summary>The copy under way, or how the last one ended, for the console bar; null when there is neither.</summary>
+        public string? SendFilesStatus
+        {
+            get
+            {
+                if (SelectedVm is not { } vm)
+                    return null;
+                if (_transfers.TryGetValue(vm, out var transfer))
+                {
+                    return transfer.Total == 0
+                        ? "Copie vers le Bureau de l'invité…"
+                        : $"Copie vers le Bureau de l'invité : {FormatBytes(transfer.Sent)} sur {FormatBytes(transfer.Total)}";
+                }
+                return IsSelectedRunning && _transferOutcomes.TryGetValue(vm, out var outcome) ? outcome : null;
+            }
+        }
+
+        public bool HasSendFilesStatus => SendFilesStatus is not null;
+
+        public bool HasNoSendFilesStatus => !HasSendFilesStatus;
+
+        private void RaiseFileTransferProperties()
+        {
+            RaisePropertyChanged(nameof(CanSendFiles));
+            RaisePropertyChanged(nameof(IsSendingFiles));
+            RaisePropertyChanged(nameof(SendFilesPercent));
+            RaisePropertyChanged(nameof(SendFilesStatus));
+            RaisePropertyChanged(nameof(HasSendFilesStatus));
+            RaisePropertyChanged(nameof(HasNoSendFilesStatus));
+        }
+
+        /// <summary>
+        /// Copies files and folders of this PC onto the desktop of the selection's guest user, as VMware's
+        /// drag and drop does. Failures are thrown for the view to show; a cancel just ends the copy.
+        /// </summary>
+        public async Task SendFilesAsync(IReadOnlyList<string> paths)
+        {
+            if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
+                throw new InvalidOperationException("La machine doit être en marche pour recevoir des fichiers.");
+            if (_transfers.ContainsKey(target))
+                throw new InvalidOperationException("Une copie vers cette machine est déjà en cours : attendez qu'elle se termine.");
+
+            var transfer = new FileTransfer();
+            _transfers[target] = transfer;
+            _transferOutcomes.Remove(target);
+            RaiseFileTransferProperties();
+            var windowsGuest = GuestOsCatalog.Find(target.GuestOs)?.Family == "Windows";
+            try
+            {
+                // Off the UI thread: a large folder takes a while to walk.
+                var entries = await Task.Run(() => GuestFileDrop.Collect(paths));
+                transfer.Total = entries.Where(e => !e.IsDirectory).Sum(e => e.Length);
+                RaiseFileTransferProperties();
+
+                var progress = new Progress<DropProgress>(p =>
+                {
+                    transfer.Sent = p.BytesSent;
+                    if (ReferenceEquals(SelectedVm, target))
+                    {
+                        RaisePropertyChanged(nameof(SendFilesPercent));
+                        RaisePropertyChanged(nameof(SendFilesStatus));
+                    }
+                });
+                var result = await GuestFileDrop.SendAsync(session, entries, windowsGuest, progress, transfer.Cancel.Token);
+
+                var names = result.Names.Count <= 3
+                    ? string.Join(", ", result.Names)
+                    : $"{string.Join(", ", result.Names.Take(2))} et {result.Names.Count - 2} autres";
+                SetTransferOutcome(target, $"Copié sur le Bureau de l'invité : {names}");
+                AppendDiagnostic($"Files: {result.Names.Count} item(s) copied to {result.GuestFolder} in the guest.");
+            }
+            catch (OperationCanceledException) when (transfer.Cancel.IsCancellationRequested)
+            {
+                SetTransferOutcome(target, "Copie annulée : rien n'a été laissé dans l'invité.");
+            }
+            finally
+            {
+                _transfers.Remove(target);
+                transfer.Cancel.Dispose();
+                RaiseFileTransferProperties();
+            }
+        }
+
+        private void CancelSendFiles()
+        {
+            if (SelectedVm is { } vm && _transfers.TryGetValue(vm, out var transfer))
+                transfer.Cancel.Cancel();
+        }
+
+        /// <summary>Shown in the console bar for a while, then the bar's hint comes back.</summary>
+        private void SetTransferOutcome(VmConfig target, string text)
+        {
+            _transferOutcomes[target] = text;
+            RaiseFileTransferProperties();
+            _ = ClearTransferOutcomeAsync(target, text);
+        }
+
+        private async Task ClearTransferOutcomeAsync(VmConfig target, string text)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10));
+            if (_transferOutcomes.TryGetValue(target, out var current) && current == text)
+            {
+                _transferOutcomes.Remove(target);
+                RaiseFileTransferProperties();
+            }
         }
 
         private void ReportError(Exception exception)

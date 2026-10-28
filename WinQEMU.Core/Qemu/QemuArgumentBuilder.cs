@@ -151,7 +151,8 @@ namespace WinQEMU.Core.Qemu
         /// </param>
         public static IReadOnlyList<string> Build(
             VmConfig config, QemuInstallation installation, int qmpPort, int? clipboardVncPort = null,
-            int? guestAgentPort = null, int? sharedFoldersPort = null, Func<string, int?>? networkPorts = null)
+            int? guestAgentPort = null, int? sharedFoldersPort = null, Func<string, int?>? networkPorts = null,
+            int? fileDropPort = null)
         {
             var args = new List<string>();
 
@@ -163,7 +164,7 @@ namespace WinQEMU.Core.Qemu
             AppendDisplayAndInput(args, config);
             AppendClipboard(args, clipboardVncPort);
             AppendUsbPassthrough(args, config);
-            AppendGuestChannels(args, guestAgentPort, sharedFoldersPort);
+            AppendGuestChannels(args, guestAgentPort, sharedFoldersPort, fileDropPort);
             AppendManagement(args, qmpPort);
 
             foreach (var token in TokenizeExtraArguments(config.ExtraArguments))
@@ -806,16 +807,20 @@ namespace WinQEMU.Core.Qemu
         /// <summary>Name of the virtio-serial port shared folders are served on (see Sharing.NinePServer).</summary>
         public const string SharedFoldersPortName = "org.winqemu.shares.0";
 
+        /// <summary>Name of the virtio-serial port files dropped on the console travel on (see Sharing.GuestFileDrop).</summary>
+        public const string FileDropPortName = "org.winqemu.drop.0";
+
         /// <summary>
         /// The qemu-guest-agent port, which mounts shared folders, and the private port they are served
         /// on. Their own virtio-serial controller, declared last for the same reason as the USB one: an
         /// existing machine keeps the PCI slots it had. The clipboard's controller is not reused because
         /// it only exists while the clipboard is shared. Both ports are always there, so folders can be
-        /// shared while the machine runs.
+        /// shared while the machine runs. The file drop port joins them on the same controller: a port
+        /// takes no PCI slot.
         /// </summary>
-        private static void AppendGuestChannels(List<string> args, int? agentPort, int? sharesPort)
+        private static void AppendGuestChannels(List<string> args, int? agentPort, int? sharesPort, int? dropPort)
         {
-            if (agentPort is null && sharesPort is null)
+            if (agentPort is null && sharesPort is null && dropPort is null)
                 return;
 
             args.Add("-device");
@@ -833,6 +838,13 @@ namespace WinQEMU.Core.Qemu
                 args.Add($"socket,id=wq-shares,host=127.0.0.1,port={shares.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
                 args.Add("-device");
                 args.Add($"virtserialport,bus=wq-qga-bus.0,chardev=wq-shares,name={SharedFoldersPortName}");
+            }
+            if (dropPort is { } drop)
+            {
+                args.Add("-chardev");
+                args.Add($"socket,id=wq-drop,host=127.0.0.1,port={drop.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
+                args.Add("-device");
+                args.Add($"virtserialport,bus=wq-qga-bus.0,chardev=wq-drop,name={FileDropPortName}");
             }
         }
 

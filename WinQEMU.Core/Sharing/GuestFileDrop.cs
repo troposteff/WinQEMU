@@ -53,8 +53,10 @@ namespace WinQEMU.Core.Sharing
         public const string LinuxPortPath = "/dev/virtio-ports/" + QemuArgumentBuilder.FileDropPortName;
         public const string WindowsPortPath = @"\\.\Global\" + QemuArgumentBuilder.FileDropPortName;
 
-        /// <summary>One copy at a time per machine: the guest's port takes a single opener.</summary>
+        /// <summary>One copy at a time per machine, either way: the guest's port takes a single opener.</summary>
         private static readonly ConditionalWeakTable<VmSession, SemaphoreSlim> Locks = new();
+
+        internal static SemaphoreSlim LockFor(VmSession session) => Locks.GetValue(session, _ => new SemaphoreSlim(1, 1));
 
         /// <summary>
         /// The entries for dropped files and folders, folders before their contents. Two dropped items with
@@ -234,7 +236,7 @@ namespace WinQEMU.Core.Sharing
               my $old = <$f> // ''; close $f; chomp $old;
               if ($old =~ /^\d+$/ && $old != $$ && open my $c, '<', "/proc/$old/cmdline") {
                 local $/; my $cmd = <$c> // ''; close $c;
-                if ($cmd =~ /^winqemu-drop/) { kill 'KILL', $old; select undef, undef, undef, 0.3 }
+                if ($cmd =~ /^winqemu-(drop|pull)/) { kill 'KILL', $old; select undef, undef, undef, 0.3 }
               }
             }
             if (open my $f, '>', "$run/drop.pid") { print $f $$; close $f }
@@ -514,8 +516,10 @@ namespace WinQEMU.Core.Sharing
             if (-not $work) { $work = "$env:ProgramData\WinQEMU" }
             New-Item $work -ItemType Directory -Force | Out-Null
             $pidFile = "$work\drop.pid"
-            if (Test-Path $pidFile) {
-              $old = (Get-Content $pidFile -Raw).Trim() -split ' '
+            # Read with care: a guest switched off as the file was written left it full of zero bytes, and
+            # every later drop stopped on it ("Impossible de convertir la valeur ... en type System.Int32").
+            $old = "$(Get-Content $pidFile -Raw -ErrorAction SilentlyContinue)".Trim() -split ' '
+            if ($old.Count -eq 2 -and $old[0] -match '^\d+$' -and $old[1] -match '^\d+$') {
               $process = Get-Process -Id ([int]$old[0]) -ErrorAction SilentlyContinue
               if ($process -and $process.Id -ne $PID -and $process.StartTime.Ticks -eq [long]$old[1]) { Stop-Process -Id $process.Id -Force; Start-Sleep -Milliseconds 300 }
             }
@@ -541,7 +545,7 @@ namespace WinQEMU.Core.Sharing
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(WindowsReceiverSource)))[..12].ToLowerInvariant();
 
         /// <summary>For a single-quoted PowerShell string.</summary>
-        private static string Quote(string text) => text.Replace("'", "''", StringComparison.Ordinal);
+        internal static string Quote(string text) => text.Replace("'", "''", StringComparison.Ordinal);
 
         /// <summary>PowerShell's arguments for <see cref="WindowsReceiverScript"/>.</summary>
         public static string[] PowerShellArguments(string script) =>
@@ -692,7 +696,7 @@ namespace WinQEMU.Core.Sharing
         public static async Task<DropResult> SendAsync(VmSession session, IReadOnlyList<DropEntry> entries, bool windowsGuest,
             IProgress<DropProgress>? progress, CancellationToken cancellationToken = default)
         {
-            var gate = Locks.GetValue(session, _ => new SemaphoreSlim(1, 1));
+            var gate = LockFor(session);
             await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {

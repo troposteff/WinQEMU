@@ -374,6 +374,36 @@ namespace WinQEMU.ViewModels
             }
         }
 
+        /// <summary>Why the disk cannot be compacted now, or null (Services.DiskCompaction).</summary>
+        public async Task<string?> WhyDiskCannotBeCompactedAsync(DiskConfig disk)
+        {
+            if (_config is null || !CanEdit)
+                return "La machine doit être arrêtée.";
+            if (_manager.DiskService is null)
+                return "qemu-img n'est pas disponible : QEMU n'a pas été détecté.";
+            var path = ResolveDiskPath(disk);
+            if (!File.Exists(path))
+                return "Le fichier du disque est introuvable.";
+            var info = await _manager.DiskService.GetInfoAsync(path).ConfigureAwait(true);
+            return DiskCompaction.WhyNot(_config, disk, info, _manager.ProtectedImages);
+        }
+
+        /// <summary>Compacts the disk; failures are reported and give null.</summary>
+        public async Task<CompactionResult?> CompactDiskAsync(DiskConfig disk, IProgress<double>? progress)
+        {
+            if (_config is null || !CanEdit || _manager.DiskService is null)
+                return null;
+            try
+            {
+                return await DiskCompaction.CompactAsync(_manager.DiskService, ResolveDiskPath(disk), progress).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                _reportError(ex);
+                return null;
+            }
+        }
+
         /// <summary>
         /// Discards a live-snapshot overlay: the machine goes back to the image underneath and everything
         /// written since the snapshot is lost. When a linked clone reads that image, the machine restarts

@@ -176,6 +176,21 @@ namespace WinQEMU.Core.Models
         private DateTime? _lastStartedUtc;
         public DateTime? LastStartedUtc { get => _lastStartedUtc; set => SetProperty(ref _lastStartedUtc, value); }
 
+        private bool _autoSnapshot;
+        /// <summary>A snapshot taken by itself as the machine starts, at most once an interval (Services.AutoSnapshots).</summary>
+        public bool AutoSnapshot { get => _autoSnapshot; set => SetProperty(ref _autoSnapshot, value); }
+
+        private int _autoSnapshotHours = 24;
+        /// <summary>Hours at least between two automatic snapshots; 0 takes one at every start.</summary>
+        public int AutoSnapshotHours { get => _autoSnapshotHours; set => SetProperty(ref _autoSnapshotHours, Math.Clamp(value, 0, 24 * 31)); }
+
+        private int _autoSnapshotKeep = 3;
+        /// <summary>How many automatic snapshots are kept; older ones are removed, never the user's own.</summary>
+        public int AutoSnapshotKeep { get => _autoSnapshotKeep; set => SetProperty(ref _autoSnapshotKeep, Math.Clamp(value, 1, 50)); }
+
+        private DateTime? _lastAutoSnapshotUtc;
+        public DateTime? LastAutoSnapshotUtc { get => _lastAutoSnapshotUtc; set => SetProperty(ref _lastAutoSnapshotUtc, value); }
+
         private bool _autoStart;
         /// <summary>Started by WinQEMU as it opens, at the Windows logon too when WinQEMU starts then (see <see cref="AutoStartPlan"/>).</summary>
         public bool AutoStart { get => _autoStart; set => SetProperty(ref _autoStart, value); }

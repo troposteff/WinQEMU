@@ -146,6 +146,22 @@ public sealed class GuestFileDropTests : IAsyncLifetime
         Assert.Empty(Directory.EnumerateFileSystemEntries(desktop));
     }
 
+    [Fact]
+    public async Task A_process_file_left_full_of_zero_bytes_does_not_stop_the_next_drop()
+    {
+        // What a guest switched off as the file was written leaves: every later drop stopped on it.
+        var work = Directory.CreateDirectory(Path.Combine(_folder, "work")).FullName;
+        File.WriteAllBytes(Path.Combine(work, "drop.pid"), new byte[64]);
+        var source = Directory.CreateDirectory(Path.Combine(_folder, "source")).FullName;
+        File.WriteAllText(Path.Combine(source, "a.txt"), "a");
+        var desktop = Directory.CreateDirectory(Path.Combine(_folder, "desktop")).FullName;
+
+        var result = await RunWindowsReceiverAsync(desktop, GuestFileDrop.Collect(new[] { Path.Combine(source, "a.txt") }),
+            new Progress(_ => { }), CancellationToken.None);
+
+        Assert.Equal(new[] { "a.txt" }, result.Names);
+    }
+
     /// <summary>
     /// Runs the receiver as a guest's agent would (same script, same standard input), on a named pipe:
     /// CreateFile opens one just as it opens the guest's port.

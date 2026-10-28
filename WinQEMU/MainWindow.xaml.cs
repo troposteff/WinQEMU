@@ -480,6 +480,7 @@ namespace WinQEMU
             var guest = groups >= 2 ? Visibility.Collapsed : Visibility.Visible;
             SoundButton.Visibility = guest;
             SendFilesButton.Visibility = guest;
+            PullFilesButton.Visibility = guest;
             MoreButton.Visibility = groups > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -499,6 +500,7 @@ namespace WinQEMU
                 // Opened under "Plus": the menu item is gone by the time the flyout shows.
                 Add(_viewModel.SoundLabel + "…", _viewModel.SoundGlyph, _viewModel.CanAdjustSound, (_, _) => ShowSoundFlyout(MoreButton));
                 Add("Envoyer des fichiers…", "\uE898", _viewModel.CanSendFiles, OnSendFilesClick);
+                Add("Récupérer des fichiers…", "\uE896", _viewModel.CanSendFiles, OnPullFilesClick);
                 menu.Items.Add(new MenuFlyoutSeparator());
             }
             Add("Cloner…", "\uE8C8", _viewModel.CanClone, OnCloneClick);
@@ -668,6 +670,66 @@ namespace WinQEMU
                 return;
 
             await _viewModel.Hardware.ConvertDiskAsync(disk, dialog.Format, dialog.Compress);
+        }
+
+        /// <summary>
+        /// Compacts a disk (Services.DiskCompaction): says why not, or what it does, then rewrites it with a
+        /// progress bar and gives the size it went from and to.
+        /// </summary>
+        private async void OnCompactDiskClick(object sender, RoutedEventArgs e)
+        {
+            if (DiskOf(sender) is not { } disk)
+                return;
+            if (await _viewModel.Hardware.WhyDiskCannotBeCompactedAsync(disk) is { } reason)
+            {
+                await ShowProblemAsync("Disque non compactable", reason);
+                return;
+            }
+
+            var choice = await ShowDialogAsync(new ContentDialog
+            {
+                Title = $"Compacter {disk.Id}",
+                Content = DialogBody(
+                    "Le disque est réécrit sans les blocs inutilisés, puis remplace l'original ; son contenu ne change pas. " +
+                    "La place des fichiers supprimés dans l'invité n'est rendue que s'il l'a signalée : machine en marche, " +
+                    "« Signaler l'espace libre (TRIM) » (Outils invités), sur un disque avec l'option « Discard ».\n\n" +
+                    "Il faut sur le volume autant de place libre que le disque en occupe, le temps de la copie."),
+                PrimaryButtonText = "Compacter",
+                CloseButtonText = "Annuler",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Content.XamlRoot
+            });
+            if (choice != ContentDialogResult.Primary)
+                return;
+
+            var bar = new ProgressBar { Maximum = 1, MinWidth = 360 };
+            var progressDialog = new ContentDialog { Title = $"Compactage de {disk.Id}…", Content = bar, XamlRoot = Content.XamlRoot };
+            // Shown first, hidden once done: hidden before it opened, it would stay open for good.
+            var showing = ShowDialogAsync(progressDialog);
+            var result = await _viewModel.Hardware.CompactDiskAsync(disk, new Progress<double>(p => bar.Value = p));
+            progressDialog.Hide();
+            await showing;
+            if (result is null)
+                return;
+            await ShowDialogAsync(new ContentDialog
+            {
+                Title = "Disque compacté",
+                Content = DialogBody($"{disk.Id} : {FormatBytes(result.BytesBefore)} → {FormatBytes(result.BytesAfter)}."),
+                CloseButtonText = "OK",
+                XamlRoot = Content.XamlRoot
+            });
+        }
+
+        private async void OnTrimGuestDisksClick(object sender, RoutedEventArgs e)
+        {
+            var text = await _viewModel.TrimGuestDisksAsync();
+            await ShowDialogAsync(new ContentDialog
+            {
+                Title = "Espace libre de l'invité",
+                Content = DialogBody(text),
+                CloseButtonText = "OK",
+                XamlRoot = Content.XamlRoot
+            });
         }
 
         // ---- Optical drive ----
@@ -1133,6 +1195,88 @@ namespace WinQEMU
                 return null;
             _viewModel.RememberVirtioWinIso(file.Path);
             return file.Path;
+        }
+
+        /// <summary>
+        /// Types the text of this PC's clipboard at the guest's keyboard. A long text is confirmed first: it goes
+        /// at about thirty characters a second, and every key reaches whatever has the guest's focus.
+        /// </summary>
+        private async void OnTypeClipboardClick(object sender, RoutedEventArgs e)
+        {
+            string? text = null;
+            try
+            {
+                var content = Windows.ApplicationModel.DataTransfer.Clipboard.GetContent();
+                if (content.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
+                    text = await content.GetTextAsync();
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
+            {
+                // Another program holds the clipboard: said below as empty.
+            }
+            if (string.IsNullOrEmpty(text))
+            {
+                await ShowProblemAsync("Rien à taper", "Le presse-papiers de ce PC ne contient pas de texte.");
+                return;
+            }
+
+            if (text.Length > 300)
+            {
+                var seconds = Math.Max(1, text.Length / 30);
+                var choice = await ShowDialogAsync(new ContentDialog
+                {
+                    Title = "Taper le presse-papiers",
+                    Content = DialogBody($"{text.Length} caractères, à taper en {seconds} s environ. Ne touchez pas au clavier de " +
+                                         "l'invité pendant la saisie : chaque touche va à ce qui y a le focus."),
+                    PrimaryButtonText = "Taper",
+                    CloseButtonText = "Annuler",
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = Content.XamlRoot
+                });
+                if (choice != ContentDialogResult.Primary)
+                    return;
+            }
+
+            // The keys go to the guest's focused window: the console's, as it was before the click.
+            ConsoleHost.FocusGuest();
+            var problem = await _viewModel.TypeIntoGuestAsync(text);
+            if (problem is not null)
+                await ShowProblemAsync("Texte non tapé", problem);
+        }
+
+        /// <summary>
+        /// Copies files of the guest to this PC: chosen in a browser of the guest's folders, then a folder here.
+        /// Opened in the Explorer once there.
+        /// </summary>
+        private async void OnPullFilesClick(object sender, RoutedEventArgs e)
+        {
+            if (!_viewModel.CanSendFiles)
+                return;
+            var browser = new Dialogs.GuestFilesDialog(_viewModel) { XamlRoot = Content.XamlRoot };
+            await ShowDialogAsync(browser);
+            if (browser.Chosen.Count == 0)
+                return;
+
+            var picker = new Windows.Storage.Pickers.FolderPicker { SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Downloads };
+            picker.FileTypeFilter.Add("*");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is null || string.IsNullOrEmpty(folder.Path))
+                return;
+
+            string? problem = null;
+            try
+            {
+                if (await _viewModel.PullFilesAsync(browser.Chosen, folder.Path) is { Names.Count: > 0 } result)
+                    System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{System.IO.Path.Combine(folder.Path, result.Names[0])}\"");
+            }
+            catch (Exception ex) when (ex is Core.Sharing.GuestFileDropException or InvalidOperationException
+                                           or System.IO.IOException or UnauthorizedAccessException or Core.Qemu.GuestAgentException)
+            {
+                problem = ex.Message;
+            }
+            if (problem is not null)
+                await ShowProblemAsync("Fichiers non récupérés", problem);
         }
 
         private async void OnSendFilesClick(object sender, RoutedEventArgs e)

@@ -677,10 +677,16 @@ namespace WinQEMU.ViewModels
             await StartMachineAsync(SelectedSession);
         }
 
+        public sealed record AutoSnapshotInterval(int Hours, string Label);
+
+        public IReadOnlyList<AutoSnapshotInterval> AutoSnapshotIntervals { get; } =
+            AutoSnapshots.Intervals.Select(h => new AutoSnapshotInterval(h, AutoSnapshots.IntervalLabel(h))).ToList();
+
         /// <summary>Starts a machine, selected or not: the Démarrer button and the start with WinQEMU.</summary>
         private async Task StartMachineAsync(VmSession session)
         {
             var config = session.Config;
+            await TakeAutoSnapshotAsync(config);
             session.UpdateSharedFolders(config.SharedFolders);
             await session.StartAsync();
 
@@ -883,6 +889,7 @@ namespace WinQEMU.ViewModels
             RaiseFileTransferProperties();
             RaiseSoundProperties();
             RaiseGuestToolsProperties();
+            RaisePropertyChanged(nameof(CanTypeIntoGuest));
 
             // Boot order, disks and adapters are only read when QEMU starts, so they stay locked for
             // as long as a process exists — including while it is stopping.
@@ -1674,6 +1681,106 @@ namespace WinQEMU.ViewModels
                 RaisePropertyChanged(nameof(HasError));
         }
 
+        /// <summary>
+        /// The automatic snapshot, if one is due, while the machine is still stopped (Services.AutoSnapshots).
+        /// A failure is said but does not keep the machine from starting.
+        /// </summary>
+        private async Task TakeAutoSnapshotAsync(VmConfig config)
+        {
+            if (Manager.DiskService is not { } images || !AutoSnapshots.IsDue(config, DateTime.UtcNow))
+                return;
+            try
+            {
+                var name = await AutoSnapshots.TakeIfDueAsync(config, images, Manager.VirtualMachines.ToList(), DateTime.UtcNow);
+                Manager.Save(config);
+                if (name is not null)
+                    AppendDiagnostic($"Automatic snapshot: {name}.");
+            }
+            catch (Exception ex) when (ex is QemuImgException or IOException or InvalidOperationException)
+            {
+                ReportError(new InvalidOperationException(
+                    $"L'instantané automatique de « {config.Name} » n'a pas pu être pris : {ex.Message}", ex));
+            }
+        }
+
+        /// <summary>
+        /// Has the guest say which blocks of its disks are free (TRIM, through the agent), so that compacting the
+        /// disk afterwards gives that space back. Returns what to tell the user.
+        /// </summary>
+        public async Task<string> TrimGuestDisksAsync()
+        {
+            if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
+                return "La machine doit être en marche.";
+            var withoutDiscard = target.Disks.Where(d => !d.Discard).Select(d => d.Id).ToList();
+            try
+            {
+                await using var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(15));
+                if (agent is null)
+                    return "L'agent invité ne répond pas : installez d'abord les outils invités.";
+                var count = await DiskCompaction.TrimAsync(agent);
+                AppendDiagnostic($"TRIM: {count} filesystem(s) trimmed in the guest.");
+                var text = $"{count} système(s) de fichiers de l'invité ont signalé leur espace libre. Arrêtez la machine, puis " +
+                           "« Compacter… » chaque disque (Matériel) pour rendre cette place à ce PC.";
+                if (withoutDiscard.Count > 0)
+                {
+                    text += $"\n\nLe ou les disques {string.Join(", ", withoutDiscard)} n'ont pas l'option « Discard » : l'espace libre " +
+                            "n'y atteint pas l'image. Cochez-la dans Matériel (machine arrêtée) avant de recommencer.";
+                }
+                return text;
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or InvalidOperationException)
+            {
+                return $"L'invité n'a pas pu signaler son espace libre : {ex.Message}";
+            }
+        }
+
+        public bool CanTrimGuestDisks => IsSelectedRunning && GuestToolsState is GuestToolsState.Complete or GuestToolsState.Incomplete;
+
+        // ---- Typing into the guest ----
+
+        private bool _typing;
+
+        /// <summary>The selection can be typed into: running, and not typing already.</summary>
+        public bool CanTypeIntoGuest => IsSelectedRunning && !_typing;
+
+        /// <summary>
+        /// Types text at the selection's keyboard, in this PC's layout (Input.KeyboardText): the clipboard of a
+        /// guest that shares none, a text console or a login screen. Every character is checked before the first
+        /// key goes, so a text is typed whole or not at all. Returns what went wrong, or null.
+        /// </summary>
+        public async Task<string?> TypeIntoGuestAsync(string text)
+        {
+            if (SelectedSession is not { IsRunning: true } session || _typing)
+                return "La machine doit être en marche.";
+            IReadOnlyList<IReadOnlyList<(int Number, bool Down)>> strokes;
+            try
+            {
+                strokes = Core.Input.KeyboardText.ToKeystrokes(text, Core.Input.KeyboardText.CurrentLayout());
+            }
+            catch (ArgumentException ex)
+            {
+                return ex.Message;
+            }
+
+            _typing = true;
+            RaisePropertyChanged(nameof(CanTypeIntoGuest));
+            try
+            {
+                await session.TypeAsync(strokes);
+                AppendDiagnostic($"Keyboard: {text.Length} character(s) typed in the guest.");
+                return null;
+            }
+            catch (Exception ex) when (ex is QmpException or InvalidOperationException or IOException)
+            {
+                return $"La saisie s'est interrompue : {ex.Message}";
+            }
+            finally
+            {
+                _typing = false;
+                RaisePropertyChanged(nameof(CanTypeIntoGuest));
+            }
+        }
+
         // ---- Guest tools ----
 
         private readonly Dictionary<VmConfig, GuestToolsReport> _toolsReports = new();
@@ -1758,6 +1865,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(ShowGuestToolsWarning));
             RaisePropertyChanged(nameof(ShowConsoleHint));
             RaisePropertyChanged(nameof(GuestToolsWarning));
+            RaisePropertyChanged(nameof(CanTrimGuestDisks));
         }
 
         /// <summary>virtio-win's ISO if one can be found without asking (GuestTools.FindVirtioWinIso).</summary>
@@ -2018,6 +2126,8 @@ namespace WinQEMU.ViewModels
             public System.Threading.CancellationTokenSource Cancel { get; } = new();
             public long Sent;
             public long Total;
+            /// <summary>What the console bar says of it: "Copie vers le Bureau de l'invité", "Copie depuis l'invité".</summary>
+            public string Label = "Copie vers le Bureau de l'invité";
         }
 
         private readonly Dictionary<VmConfig, FileTransfer> _transfers = new();
@@ -2045,8 +2155,8 @@ namespace WinQEMU.ViewModels
                 if (_transfers.TryGetValue(vm, out var transfer))
                 {
                     return transfer.Total == 0
-                        ? "Copie vers le Bureau de l'invité…"
-                        : $"Copie vers le Bureau de l'invité : {FormatBytes(transfer.Sent)} sur {FormatBytes(transfer.Total)}";
+                        ? $"{transfer.Label}…"
+                        : $"{transfer.Label} : {FormatBytes(transfer.Sent)} sur {FormatBytes(transfer.Total)}";
                 }
                 return IsSelectedRunning && _transferOutcomes.TryGetValue(vm, out var outcome) ? outcome : null;
             }
@@ -2118,6 +2228,77 @@ namespace WinQEMU.ViewModels
                 transfer.Cancel.Dispose();
                 RaiseFileTransferProperties();
             }
+        }
+
+        /// <summary>
+        /// Copies files and folders of the selection's guest into a folder of this PC (Sharing.GuestFilePull),
+        /// shown in the console bar as a drop is. Returns where they landed, or null when cancelled; failures are
+        /// thrown for the view to show.
+        /// </summary>
+        public async Task<DropResult?> PullFilesAsync(IReadOnlyList<string> guestPaths, string destination)
+        {
+            if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
+                throw new InvalidOperationException("La machine doit être en marche.");
+            if (_transfers.ContainsKey(target))
+                throw new InvalidOperationException("Une copie avec cette machine est déjà en cours : attendez qu'elle se termine.");
+
+            var transfer = new FileTransfer { Label = "Copie depuis l'invité" };
+            _transfers[target] = transfer;
+            _transferOutcomes.Remove(target);
+            RaiseFileTransferProperties();
+            try
+            {
+                var progress = new Progress<DropProgress>(p =>
+                {
+                    transfer.Sent = p.BytesSent;
+                    transfer.Total = p.TotalBytes;
+                    if (ReferenceEquals(SelectedVm, target))
+                    {
+                        RaisePropertyChanged(nameof(SendFilesPercent));
+                        RaisePropertyChanged(nameof(SendFilesStatus));
+                    }
+                });
+                var result = await GuestFilePull.PullAsync(session, guestPaths, destination, GuestTools.IsWindows(target), progress,
+                    transfer.Cancel.Token);
+                var names = result.Names.Count <= 3
+                    ? string.Join(", ", result.Names)
+                    : $"{string.Join(", ", result.Names.Take(2))} et {result.Names.Count - 2} autres";
+                SetTransferOutcome(target, $"Copié dans {destination} : {names}");
+                AppendDiagnostic($"Files: {result.Names.Count} item(s) copied from the guest to {destination}.");
+                return result;
+            }
+            catch (OperationCanceledException) when (transfer.Cancel.IsCancellationRequested)
+            {
+                SetTransferOutcome(target, "Copie annulée : rien n'a été laissé sur ce PC.");
+                return null;
+            }
+            finally
+            {
+                _transfers.Remove(target);
+                transfer.Cancel.Dispose();
+                RaiseFileTransferProperties();
+            }
+        }
+
+        /// <summary>Where browsing the selection's guest starts, and a folder's entries: through the agent.</summary>
+        public async Task<string> GuestHomeAsync()
+        {
+            await using var agent = await GuestAgentForBrowsingAsync();
+            return await GuestFilePull.HomeAsync(agent, IsSelectedWindowsGuest);
+        }
+
+        public async Task<IReadOnlyList<GuestFileEntry>> ListGuestFolderAsync(string path)
+        {
+            await using var agent = await GuestAgentForBrowsingAsync();
+            return await GuestFilePull.ListAsync(agent, IsSelectedWindowsGuest, path);
+        }
+
+        private async Task<GuestAgentClient> GuestAgentForBrowsingAsync()
+        {
+            if (SelectedSession is not { IsRunning: true } session)
+                throw new InvalidOperationException("La machine doit être en marche.");
+            return await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(15))
+                   ?? throw new GuestAgentException("L'agent invité ne répond pas : installez d'abord les outils invités.");
         }
 
         private void CancelSendFiles()

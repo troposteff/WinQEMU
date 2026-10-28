@@ -131,7 +131,8 @@ namespace WinQEMU.Core.Services
             if (result.Output.Contains("headless", StringComparison.Ordinal))
             {
                 return new GuestToolsReport(GuestToolsState.Complete,
-                    "L'agent invité répond. Sans interface graphique, l'invité n'a pas de presse-papiers à partager.");
+                    "L'agent invité répond. Sans interface graphique, l'invité n'a pas de presse-papiers à partager : pour y " +
+                    "coller du texte, « Taper le presse-papiers » (barre de la console) le tape au clavier.");
             }
             return new GuestToolsReport(GuestToolsState.Incomplete, windowsGuest
                 ? "L'agent invité répond, mais les outils virtio-win (pilotes, presse-papiers) ne sont pas installés."

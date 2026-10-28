@@ -134,6 +134,31 @@ courant, et dit pourquoi les autres ne le sont pas.
   ignorée. Un clone lié lit toute une image, donc l'état où elle a été figée : il pend de l'instantané dont la
   superposition repose sur sa base (« Base de <clone> »), ou de celui de l'image s'il n'y a plus rien dessus.
 
+- **Instantanés automatiques** (`Services.AutoSnapshots`, comme AutoProtect de VMware ; section Instantanés :
+  intervalle « à chaque démarrage » … hebdomadaire, nombre gardé) : `Auto aaaa-MM-jj HHhmm` (ASCII, trié par date).
+  **Pris au démarrage, hors ligne** (`MainViewModel.StartMachineAsync`, avant QEMU), pas pendant que la machine
+  tourne : sous WHPX le seul instantané possible alors est une superposition, qui ne se fusionne que machine arrêtée ;
+  une prise toutes les heures d'une longue session allongerait la chaîne sans moyen de l'élaguer. Les plus anciens
+  au-delà du nombre gardé sont supprimés, **seulement ceux nommés `Auto …`**. Filiation enregistrée comme une prise
+  manuelle. Un échec est signalé sans empêcher le démarrage. Vérifié dans l'app sur Debian (journal + `qemu-img
+  snapshot -l`).
+
+## Compactage des disques
+
+Bouton **Compacter…** d'un disque, machine arrêtée (`Services.DiskCompaction`, comme « Compacter » de VMware) : un
+qcow2 ne fait que grossir, même quand l'invité supprime des fichiers. `qemu-img convert` vers `<disque>.compact` à côté
+(même volume), qui omet les clusters lus comme zéros ou rendus, puis `File.Replace`. Copie supprimée en cas d'échec.
+
+- **Refusé** (`WhyNot`, raison affichée) : disque non qcow2 ; superposition d'instantané à chaud ou disque d'un clone
+  lié (convert lirait toute la chaîne dans un seul fichier : instantané ou lien perdus) ; image protégée par un clone
+  lié ; **instantanés internes** (convert ne les copie pas — les instantanés automatiques comptent) ; place libre
+  insuffisante sur le volume.
+- **La place des fichiers supprimés n'est rendue que si l'invité l'a signalée** : bouton « Signaler l'espace libre
+  (TRIM) » des Outils invités (`guest-fstrim` par l'agent, machine en marche), qui prévient si un disque n'a pas
+  l'option **Discard** (sans elle, les TRIM n'atteignent pas l'image).
+- Vérifié sur le disque Debian de l'utilisateur, depuis l'app : 2,4 Go → 1,5 Go, `qemu-img compare` « Images are
+  identical ». TRIM : 21 systèmes de fichiers sous Ubuntu, 1 sous Windows 11.
+
 ## Clonage
 
 Deux formes, toujours machine source arrêtée (pause comprise : `VmManager` refuse).
@@ -355,6 +380,23 @@ get-default` y répondait pourtant `graphical.target`). Absents : lien dans la b
 - Vérifié sur une copie jetable de Windows 11 : agent désinstallé puis revenu ; outils et agent désinstallés,
   diagnostic par captures `screendump` (PNG) et une console tapée par QMP. Saisie testée en AZERTY et QWERTY.
 
+## Taper le presse-papiers
+
+Bouton de la barre de la console et du plein écran : le texte du presse-papiers de ce PC est **tapé** dans l'invité,
+pour ce qui n'a pas de presse-papiers partagé (console texte d'une Debian serveur, installation, BIOS, invité sans
+outils). Même `Input.KeyboardText` que la commande des outils invités, envoyé par `VmSession.TypeAsync` (un caractère
+par appel QMP, 15 ms entre deux). Tout le texte est converti **avant** la première touche : un caractère sans touche est
+refusé en le nommant, sans moitié de texte tapée. Confirmation au-delà de 300 caractères.
+
+- **Lettre qu'aucune touche ne porte** (ê, ë, ñ en AZERTY) : décomposée (NFD), touche morte de l'accent puis la lettre ;
+  sans touche morte pour cet accent (É en AZERTY), refusée.
+- **Positions de touches, pas caractères** : l'invité doit avoir la disposition de ce PC. Écart vu sur Debian en
+  « fr latin9 », où AltGr+2 n'est pas une touche morte : « ~ » seul (touche morte + espace sous Windows) y devient « ~ ».
+  Tout le reste est juste.
+- Vérifié sur la console texte d'une copie jetable de Debian 13 (relu par `/dev/vcsu1` via l'agent) et dans Exécuter
+  d'un Windows 11. Le presse-papiers n'était pas accessible depuis l'environnement de test : bouton vérifié seulement
+  jusqu'à « Rien à taper ».
+
 ## Démarrage automatique et arrière-plan
 
 - **Démarrer avec WinQEMU** (section Démarrage automatique du résumé, `VmConfig.AutoStart` /
@@ -448,6 +490,28 @@ Hôte vers invité seulement. `Sharing.GuestFileDrop`, état par machine dans `M
 - Vérifié sur une copie jetable (`-snapshot`) d'Ubuntu 26.04 et de Windows 11 : contenu identique (SHA-256),
   propriétaire, dates, annulation sans reste, nom numéroté. Le récepteur Windows est aussi testé sur l'hôte, un
   tube nommé tenant lieu de port (`GuestFileDropTests`).
+- **Fichier pid illisible** : un `drop.pid` rempli d'octets nuls (invité coupé pendant son écriture) arrêtait tout dépôt
+  suivant sous Windows (« Impossible de convertir la valeur … en type System.Int32 »). Lu comme deux nombres ou ignoré.
+
+## Récupérer des fichiers de l'invité
+
+Bouton **Récupérer** (barre d'outils, plein écran) : `Dialogs.GuestFilesDialog` parcourt l'invité par l'agent (départ sur
+le Bureau de l'utilisateur, `GuestFilePull.HomeAsync` : `user-dirs.dirs` sous Linux, profil chargé non spécial de
+`Win32_UserProfile` sous Windows), sélection multiple, puis dossier de destination (Téléchargements proposé) ; l'Explorateur
+s'ouvre sur le résultat. `Sharing.GuestFilePull`, même état par machine que le dépôt (`FileTransfer.Label`).
+
+- **Même port que le dépôt** (`org.winqemu.drop.0`), dans l'autre sens, et même verrou par session
+  (`GuestFileDrop.LockFor`) : un port n'a qu'un ouvreur. Même fichier pid (`drop.pid`), et chaque émetteur arrête un
+  `winqemu-drop` **ou** `winqemu-pull` resté bloqué.
+- **Émetteur lancé par l'agent** : Perl sous Linux (`$0 = 'winqemu-pull'`), C# compilé une fois sous Windows
+  (`WinQemuPull-<empreinte>.dll`). Lit en root / SYSTEM : tout fichier de l'invité est lisible.
+- **Protocole** invité → hôte : `T` total, `D` dossier, `F` nom + taille + date puis morceaux d'1 Mio, `E` fin, `X`
+  erreur. 20 s sans rien reçu : `guest-exec-status` dit si l'émetteur est mort.
+- **Noms** : un nom de premier niveau déjà pris est numéroté ; les caractères interdits par Windows (`:`, `?`…) et
+  points ou espaces finaux sont remplacés (`WindowsName`). Lien symbolique vers un fichier : son contenu est copié ;
+  vers un dossier : ignoré (boucles). Annulé ou échoué : ce que la copie a créé est supprimé.
+- Vérifié sur des copies jetables : Ubuntu (`/usr/share/doc/bash`, empreintes identiques) et Windows 11 (5/5) ;
+  dialogue ouvert dans l'app sur Debian. Émetteur Windows testé sur l'hôte avec un tube nommé (`GuestFilePullTests`).
 
 ## Réseaux virtuels
 

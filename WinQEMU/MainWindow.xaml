@@ -307,6 +307,16 @@
                         </muxc:AppBarButton.Icon>
                     </muxc:AppBarButton>
                     <muxc:AppBarButton
+                        x:Name="PullFilesButton"
+                        Click="OnPullFilesClick"
+                        IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
+                        Label="Récupérer"
+                        ToolTipService.ToolTip="Copie des fichiers ou dossiers de l'invité vers ce PC">
+                        <muxc:AppBarButton.Icon>
+                            <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE896;" />
+                        </muxc:AppBarButton.Icon>
+                    </muxc:AppBarButton>
+                    <muxc:AppBarButton
                         x:Name="SendFilesButton"
                         Click="OnSendFilesClick"
                         IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
@@ -916,6 +926,11 @@
                                                                         Click="OnConvertDiskClick"
                                                                         Content="Convertir…" />
                                                                     <Button
+                                                                        AutomationProperties.Name="Compacter le disque"
+                                                                        Click="OnCompactDiskClick"
+                                                                        Content="Compacter…"
+                                                                        ToolTipService.ToolTip="Rend à ce PC la place que le disque n'utilise plus" />
+                                                                    <Button
                                                                         AutomationProperties.Name="Détacher le disque"
                                                                         Command="{Binding DataContext.Hardware.RemoveDiskCommand, ElementName=RootGrid}"
                                                                         CommandParameter="{Binding}"
@@ -1276,10 +1291,17 @@
                                             TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding GuestToolsText, Mode=OneWay}" TextWrapping="Wrap"
                                                    Visibility="{Binding HasGuestToolsText, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
-                                        <Button
-                                            Click="OnInstallGuestToolsClick"
-                                            Content="Installer les outils invités…"
-                                            IsEnabled="{Binding CanInstallGuestTools, Mode=OneWay}" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Button
+                                                Click="OnInstallGuestToolsClick"
+                                                Content="Installer les outils invités…"
+                                                IsEnabled="{Binding CanInstallGuestTools, Mode=OneWay}" />
+                                            <Button
+                                                Click="OnTrimGuestDisksClick"
+                                                Content="Signaler l'espace libre (TRIM)"
+                                                IsEnabled="{Binding CanTrimGuestDisks, Mode=OneWay}"
+                                                ToolTipService.ToolTip="L'invité signale les blocs libres de ses disques ; « Compacter… » (Matériel, machine arrêtée) rend ensuite cette place à ce PC" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </muxc:Expander>
 
@@ -1394,6 +1416,31 @@
                                             IsOpen="{Binding Snapshots.HasExcludedDisks, Mode=OneWay}"
                                             Message="{Binding Snapshots.ExcludedDisksText, Mode=OneWay}"
                                             Severity="Warning" />
+
+                                        <!-- Automatic snapshots (Services.AutoSnapshots): any time, running or not. -->
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <CheckBox
+                                                VerticalAlignment="Center"
+                                                Content="Instantanés automatiques"
+                                                IsChecked="{Binding SelectedVm.AutoSnapshot, Mode=TwoWay}"
+                                                ToolTipService.ToolTip="Pris au démarrage de la machine, machine arrêtée : sous WHPX, un instantané de machine en marche ne se supprime qu'à l'arrêt. Seuls ceux nommés « Auto … » sont supprimés au-delà du nombre gardé." />
+                                            <ComboBox
+                                                MinWidth="230"
+                                                AutomationProperties.Name="Fréquence des instantanés automatiques"
+                                                DisplayMemberPath="Label"
+                                                IsEnabled="{Binding SelectedVm.AutoSnapshot, Mode=OneWay}"
+                                                ItemsSource="{Binding AutoSnapshotIntervals, Mode=OneTime}"
+                                                SelectedValue="{Binding SelectedVm.AutoSnapshotHours, Mode=TwoWay}"
+                                                SelectedValuePath="Hours" />
+                                            <muxc:NumberBox
+                                                AutomationProperties.Name="Instantanés automatiques gardés"
+                                                IsEnabled="{Binding SelectedVm.AutoSnapshot, Mode=OneWay}"
+                                                Maximum="50"
+                                                Minimum="1"
+                                                SpinButtonPlacementMode="Compact"
+                                                Value="{Binding SelectedVm.AutoSnapshotKeep, Mode=TwoWay}" />
+                                            <TextBlock VerticalAlignment="Center" Style="{StaticResource Hint}" Text="gardés" />
+                                        </StackPanel>
 
                                         <!--
                                             The snapshots as a tree, as VMware's snapshot manager draws them
@@ -1663,6 +1710,14 @@
                             <!-- No AutomationProperties.Name: it would freeze the accessible name at
                                  "Plein écran" while the label alternates with "Quitter le plein écran",
                                  so the content is left to name the button. -->
+                            <!-- For a guest without a clipboard agent (a server's text console): the text is typed. -->
+                            <Button
+                                Click="OnTypeClipboardClick"
+                                IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}"
+                                AutomationProperties.Name="Taper le presse-papiers"
+                                ToolTipService.ToolTip="Tape le texte du presse-papiers de ce PC au clavier de l'invité, pour un invité sans presse-papiers partagé (console texte d'un serveur, écran de connexion)">
+                                <FontIcon FontSize="16" Glyph="&#xE77F;" />
+                            </Button>
                             <Button
                                 x:Name="FullScreenButton"
                                 Click="OnToggleFullScreenClick"
@@ -1744,6 +1799,8 @@
                 <Button x:Name="FullScreenUsbButton" Click="OnUsbClick" Content="USB" />
                 <Button Click="OnSendFilesClick" Content="Envoyer des fichiers" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
                 <Button Click="OnSoundClick" Content="{Binding SoundLabel, Mode=OneWay}" IsEnabled="{Binding CanAdjustSound, Mode=OneWay}" />
+                <Button Click="OnTypeClipboardClick" Content="Taper le presse-papiers" IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}" />
+                <Button Click="OnPullFilesClick" Content="Récupérer des fichiers" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
                 <Button Click="OnToggleFullScreenClick" Content="Quitter le plein écran" Style="{StaticResource AccentButtonStyle}" />
             </StackPanel>
         </Border>

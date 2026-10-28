@@ -65,6 +65,19 @@ public sealed class KeyboardTextTests : IDisposable
     }
 
     [Fact]
+    public void A_letter_no_key_carries_is_its_accents_dead_key_then_the_letter()
+    {
+        var french = Layout("0000040C");
+        // ê: the ^ key (right of P), then E, with no space between them.
+        Assert.Equal(new[] { (0x1A, true), (0x1A, false), (0x12, true), (0x12, false) }, Keys("ê", french));
+        // ñ: AltGr+2 (the dead ~), then N.
+        Assert.Equal(new[] { (KeyboardText.RightAlt, true), (0x03, true), (0x03, false), (KeyboardText.RightAlt, false), (0x31, true), (0x31, false) },
+            Keys("ñ", french));
+        // A French keyboard has no dead acute accent.
+        Assert.Throws<ArgumentException>(() => KeyboardText.ToKeystrokes("É", french));
+    }
+
+    [Fact]
     public void A_line_break_is_Enter_and_each_character_comes_apart()
     {
         var strokes = KeyboardText.ToKeystrokes("ls\n", Layout("00000409"));

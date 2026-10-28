@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Qemu
 {
@@ -53,8 +54,7 @@ namespace WinQEMU.Core.Qemu
                     if (LooksLikeQemu(directory))
                     {
                         rejected.Add(new RejectedQemuCandidate(directory,
-                            "No qemu-system-*.exe emulator found, only QEMU helper tools. This is " +
-                            "typically the QEMU guest agent package (virtio-win) rather than QEMU itself."));
+                            PlatformText.LocatorHelperToolsOnly));
                     }
                     continue;
                 }
@@ -63,7 +63,7 @@ namespace WinQEMU.Core.Qemu
                 if (!File.Exists(qemuImg))
                 {
                     rejected.Add(new RejectedQemuCandidate(directory,
-                        "qemu-img.exe is missing, so disk images cannot be created or inspected."));
+                        PlatformText.LocatorQemuImgMissing));
                     continue;
                 }
 

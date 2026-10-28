@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Globalization;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Networking;
 using WinQEMU.Core.Services;
+using WinQEMU.Text;
 
 namespace WinQEMU.Dialogs
 {
@@ -36,9 +38,9 @@ namespace WinQEMU.Dialogs
         private void OnAddPrivateClick(object sender, RoutedEventArgs e)
         {
             var networks = _manager.Settings.VirtualNetworks;
-            var name = "Réseau privé";
+            var name = DialogText.NetworksDefaultPrivate;
             for (var index = 2; networks.Any(n => n.Name == name); index++)
-                name = $"Réseau privé {index}";
+                name = string.Format(CultureInfo.CurrentCulture, DialogText.NetworksDefaultNumbered, DialogText.NetworksDefaultPrivate, index);
 
             networks.Add(new VirtualNetwork
             {
@@ -66,8 +68,8 @@ namespace WinQEMU.Dialogs
             {
                 var installing = !Core.Networking.TapDriver.IsInstalled;
                 ShowProgress(installing
-                    ? "Installation du pilote TAP-Windows d'OpenVPN… Windows demande l'autorisation administrateur, et peut demander s'il faut faire confiance à OpenVPN."
-                    : "Ajout d'une carte TAP-Windows… Windows demande l'autorisation administrateur.");
+                    ? DialogText.NetworksInstallingTap
+                    : DialogText.NetworksAddingTap);
                 try
                 {
                     if (installing)
@@ -79,13 +81,13 @@ namespace WinQEMU.Dialogs
                     free = await Core.Networking.TapDriver.WaitForNewAdapterAsync(adapters.Select(a => a.Id).ToList(), TimeSpan.FromSeconds(30));
                     if (free is null)
                     {
-                        ShowError("Le pilote a répondu, mais aucune nouvelle carte TAP-Windows n'est apparue. Réessayez dans un instant.");
+                        ShowError(DialogText.NetworksNoNewTap);
                         return;
                     }
                 }
                 catch (OperationCanceledException)
                 {
-                    ShowError("Rien n'a été installé : l'autorisation administrateur a été refusée.");
+                    ShowError(DialogText.NetworksTapRefused);
                     return;
                 }
                 catch (InvalidOperationException ex)
@@ -100,9 +102,9 @@ namespace WinQEMU.Dialogs
             }
 
             ShowError(null);
-            var name = "Réseau interne";
+            var name = DialogText.NetworksDefaultInternal;
             for (var index = 2; networks.Any(n => n.Name == name); index++)
-                name = $"Réseau interne {index}";
+                name = string.Format(CultureInfo.CurrentCulture, DialogText.NetworksDefaultNumbered, DialogText.NetworksDefaultInternal, index);
 
             networks.Add(new VirtualNetwork
             {
@@ -133,7 +135,7 @@ namespace WinQEMU.Dialogs
             var adapter = PhysicalAdapter.List().FirstOrDefault();
             if (adapter is null)
             {
-                ShowError("Aucune carte Wi-Fi ou Ethernet de ce PC n'est connectée : connectez-en une, puis réessayez.");
+                ShowError(DialogText.NetworksNoPhysicalAdapter);
                 return;
             }
             if (WhyUnusable(adapter) is { } reason)
@@ -144,9 +146,9 @@ namespace WinQEMU.Dialogs
 
             ShowError(null);
             var networks = _manager.Settings.VirtualNetworks;
-            var name = "Réseau externe";
+            var name = DialogText.NetworksDefaultExternal;
             for (var index = 2; networks.Any(n => n.Name == name); index++)
-                name = $"Réseau externe {index}";
+                name = string.Format(CultureInfo.CurrentCulture, DialogText.NetworksDefaultNumbered, DialogText.NetworksDefaultExternal, index);
 
             networks.Add(new VirtualNetwork
             {
@@ -183,7 +185,7 @@ namespace WinQEMU.Dialogs
             var index = adapters.ToList().FindIndex(a => a.Id.Equals(network.PhysicalAdapterId, StringComparison.OrdinalIgnoreCase));
             if (index < 0)
             {
-                box.Items.Insert(0, new ComboBoxItem { Content = $"{network.PhysicalAdapterName} (non connectée)", IsEnabled = false });
+                box.Items.Insert(0, new ComboBoxItem { Content = string.Format(CultureInfo.CurrentCulture, DialogText.NetworksAdapterDisconnected, network.PhysicalAdapterName), IsEnabled = false });
                 index = 0;
             }
             box.SelectedIndex = index;
@@ -230,7 +232,7 @@ namespace WinQEMU.Dialogs
                 .ToList();
             if (users.Count > 0)
             {
-                ShowError($"{network.Name} est utilisé par {string.Join(", ", users)} : changez d'abord leur carte réseau dans Matériel.");
+                ShowError(string.Format(CultureInfo.CurrentCulture, DialogText.NetworksInUse, network.Name, string.Join(", ", users)));
                 return;
             }
 
@@ -243,7 +245,7 @@ namespace WinQEMU.Dialogs
         private void OnNameLostFocus(object sender, RoutedEventArgs e)
         {
             if ((sender as FrameworkElement)?.DataContext is VirtualNetwork network && string.IsNullOrWhiteSpace(network.Name))
-                network.Name = "Réseau sans nom";
+                network.Name = DialogText.NetworksDefaultUnnamed;
             Save();
         }
 
@@ -281,7 +283,7 @@ namespace WinQEMU.Dialogs
         private void Check(VirtualNetwork network)
         {
             var problem = network.Problem ?? network.ConflictAmong(_manager.Settings.VirtualNetworks);
-            ShowError(problem is null ? null : $"{network.Name} : {problem}");
+            ShowError(problem is null ? null : string.Format(CultureInfo.CurrentCulture, DialogText.NetworksProblem, network.Name, problem));
             Save();
         }
 
@@ -296,7 +298,7 @@ namespace WinQEMU.Dialogs
             }
             catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
             {
-                ShowError($"Les réseaux n'ont pas pu être enregistrés : {ex.Message}");
+                ShowError(string.Format(CultureInfo.CurrentCulture, DialogText.NetworksSaveFailed, ex.Message));
             }
         }
 
@@ -329,7 +331,7 @@ namespace WinQEMU.Dialogs
             Save();
             if (FirstProblem() is { } problem)
             {
-                ShowError($"{problem} Corrigez-le avant de fermer.");
+                ShowError(string.Format(CultureInfo.CurrentCulture, DialogText.NetworksFixBeforeClosing, problem));
                 return;
             }
             Hide();
@@ -341,7 +343,7 @@ namespace WinQEMU.Dialogs
             foreach (var network in networks)
             {
                 if ((network.Problem ?? network.ConflictAmong(networks)) is { } problem)
-                    return $"{network.Name} : {problem}";
+                    return string.Format(CultureInfo.CurrentCulture, DialogText.NetworksProblem, network.Name, problem);
             }
             return null;
         }
@@ -352,7 +354,7 @@ namespace WinQEMU.Dialogs
             if (FirstProblem() is { } problem)
             {
                 args.Cancel = true;
-                ShowError($"{problem} Corrigez-le avant de fermer.");
+                ShowError(string.Format(CultureInfo.CurrentCulture, DialogText.NetworksFixBeforeClosing, problem));
             }
         }
     }

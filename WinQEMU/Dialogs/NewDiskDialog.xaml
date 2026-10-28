@@ -3,6 +3,8 @@
     x:Class="WinQEMU.Dialogs.NewDiskDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ct="using:WinQEMU.Core.Text"
+    xmlns:t="using:WinQEMU.Text"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
@@ -21,17 +23,17 @@
         CornerRadius="8">
         <StackPanel Width="460" Spacing="12">
             <StackPanel Spacing="2">
-                <TextBlock FontSize="20" FontWeight="SemiBold" Text="Nouveau disque" />
+                <TextBlock FontSize="20" FontWeight="SemiBold" Text="{x:Bind t:DialogText.NewDiskTitle}" />
                 <TextBlock
                     Style="{StaticResource Hint}"
-                    Text="L'image est créée dans le dossier de la machine, allouée à la demande : elle n'occupe sur l'hôte que ce que l'invité écrit." />
+                    Text="{x:Bind t:DialogText.NewDiskHint}" />
             </StackPanel>
 
             <muxc:NumberBox
                 x:Name="CapacityBox"
                 Maximum="65536" Minimum="1"
-                AutomationProperties.Name="Taille en Gio"
-                Header="Taille (Gio)"
+                AutomationProperties.Name="{x:Bind t:DialogText.NewDiskSizeName}"
+                Header="{x:Bind t:DialogText.NewDiskSize}"
                 SpinButtonPlacementMode="Compact"
                 Value="32" />
 
@@ -50,8 +52,8 @@
             <ComboBox
                 x:Name="BusBox"
                 HorizontalAlignment="Stretch"
-                AutomationProperties.Name="Contrôleur"
-                Header="Contrôleur">
+                AutomationProperties.Name="{x:Bind t:DialogText.DiskController}"
+                Header="{x:Bind t:DialogText.DiskController}">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
@@ -68,12 +70,12 @@
                     Grid.Column="0"
                     HorizontalAlignment="Stretch"
                     Click="OnCancelClick"
-                    Content="Annuler" />
+                    Content="{x:Bind ct:CommonText.Cancel}" />
                 <Button
                     Grid.Column="1"
                     HorizontalAlignment="Stretch"
                     Click="OnCreateClick"
-                    Content="Créer"
+                    Content="{x:Bind t:DialogText.CreateButton}"
                     Style="{StaticResource AccentButtonStyle}" />
             </Grid>
         </StackPanel>

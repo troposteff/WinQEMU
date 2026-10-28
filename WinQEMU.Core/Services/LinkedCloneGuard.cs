@@ -1,4 +1,6 @@
+using System.Globalization;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -103,14 +105,14 @@ namespace WinQEMU.Core.Services
                 .SelectMany(p => _readers[p])
                 .Distinct(StringComparer.CurrentCulture)
                 .OrderBy(n => n, StringComparer.CurrentCulture)
-                .Select(n => $"« {n} »")
+                .Select(n => string.Format(CultureInfo.CurrentCulture, CoreText.QuotedName, n))
                 .ToList();
 
             return names.Count switch
             {
                 0 => null,
-                1 => $"le clone lié {names[0]}",
-                _ => $"les clones liés {string.Join(", ", names)}"
+                1 => string.Format(CultureInfo.CurrentCulture, CoreText.LinkedCloneOneReader, names[0]),
+                _ => string.Format(CultureInfo.CurrentCulture, CoreText.LinkedCloneManyReaders, string.Join(", ", names))
             };
         }
 
@@ -141,9 +143,7 @@ namespace WinQEMU.Core.Services
             var clones = protection.DescribeReaders(touched);
             return clones is null
                 ? null
-                : $"Le disque « {disk.Id} » sert de base à {clones} : supprimer ou fusionner ce niveau " +
-                  "écrirait dans une image que le clone lit, et corromprait ses données. Restaurer reste " +
-                  "possible : les images dont le clone a besoin sont alors conservées.";
+                : string.Format(CultureInfo.CurrentCulture, CoreText.LinkedCloneMergeRefused, disk.Id, clones);
         }
 
         /// <summary>Why the live snapshot <paramref name="name"/> cannot be deleted, or null when it can.</summary>
@@ -175,8 +175,7 @@ namespace WinQEMU.Core.Services
 
             return clones is null
                 ? null
-                : $"Les fichiers de cette machine servent de base à {clones}. Les supprimer détruirait le " +
-                  "clone. Supprimez d'abord le clone, ou rendez ses disques indépendants avec « Convertir… ».";
+                : string.Format(CultureInfo.CurrentCulture, CoreText.LinkedCloneFilesRefused, clones);
         }
 
         /// <summary>Why <paramref name="path"/> cannot be attached as a disk, or null.</summary>
@@ -185,7 +184,7 @@ namespace WinQEMU.Core.Services
             var clones = protection.DescribeReaders(new[] { path });
             return clones is null
                 ? null
-                : $"Cette image sert de base à {clones} : une machine qui écrirait dedans corromprait le clone.";
+                : string.Format(CultureInfo.CurrentCulture, CoreText.LinkedCloneAttachRefused, clones);
         }
     }
 }

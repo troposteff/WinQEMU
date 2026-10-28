@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Qemu
 {
@@ -52,14 +53,14 @@ namespace WinQEMU.Core.Qemu
             var problems = new List<string>();
 
             if (!installation.SupportsArchitecture(config.Architecture))
-                problems.Add($"QEMU has no emulator for {config.Architecture} " +
-                             $"({QemuLocator.SystemBinaryName(config.Architecture)} is missing).");
+                problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateNoEmulator, config.Architecture,
+                    QemuLocator.SystemBinaryName(config.Architecture)));
 
             if (config.CpuCount < 1)
-                problems.Add("The CPU count must be at least 1.");
+                problems.Add(PlatformText.ValidateCpuCount);
 
             if (config.MemoryMb < 128)
-                problems.Add("At least 128 MB of memory is required.");
+                problems.Add(PlatformText.ValidateMemory);
 
             // QEMU only says "Invalid host forwarding rule ... (Bad guest port)" and exits; a port of 0
             // is what an untouched or half-typed field holds.
@@ -69,9 +70,8 @@ namespace WinQEMU.Core.Qemu
                 {
                     if (forward.HostPort is < 1 or > 65535 || forward.GuestPort is < 1 or > 65535)
                     {
-                        problems.Add(
-                            $"La redirection de port {forward.HostPort} → {forward.GuestPort} est invalide : " +
-                            "le port hôte et le port invité doivent être compris entre 1 et 65535.");
+                        problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidatePortForwardRange,
+                            forward.HostPort, forward.GuestPort));
                     }
                 }
             }
@@ -79,8 +79,7 @@ namespace WinQEMU.Core.Qemu
             if (config.Firmware != FirmwareType.Bios
                 && !installation.SupportsUefi(config.Architecture, config.Firmware == FirmwareType.UefiSecureBoot))
             {
-                problems.Add($"UEFI firmware for {config.Architecture} was not found in " +
-                             $"{installation.InstallDirectory}. Switch the VM to BIOS or install the edk2 firmware files.");
+                problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateUefiMissing, config.Architecture, installation.InstallDirectory));
             }
 
             if (config.Firmware == FirmwareType.UefiSecureBoot
@@ -89,32 +88,29 @@ namespace WinQEMU.Core.Qemu
                 // Secure Boot needs SMM to keep the guest out of the variable store, and WHPX refuses
                 // with "System Management Mode not supported by this hypervisor" — QEMU then exits
                 // immediately. Caught here so the VM cannot be launched into that dead end.
-                problems.Add(
-                    "Le démarrage sécurisé exige le mode SMM, que l'hyperviseur WHPX ne fournit pas : QEMU " +
-                    "refuserait de démarrer. Utilisez UEFI sans démarrage sécurisé, ou forcez l'émulation TCG " +
-                    "(bien plus lente).");
+                problems.Add(PlatformText.ValidateSecureBootWhpx);
             }
 
             foreach (var disk in config.Disks)
             {
                 var path = config.ResolvePath(disk.FileName);
                 if (string.IsNullOrWhiteSpace(path))
-                    problems.Add($"Disk '{disk.Id}' has no file path.");
+                    problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateDiskNoPath, disk.Id));
                 else if (!File.Exists(path))
-                    problems.Add($"Disk image not found: {path}");
+                    problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateDiskNotFound, path));
             }
 
             if (!string.IsNullOrWhiteSpace(config.IsoPath) && !File.Exists(config.ResolvePath(config.IsoPath)))
-                problems.Add($"ISO not found: {config.ResolvePath(config.IsoPath)}");
+                problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateIsoNotFound, config.ResolvePath(config.IsoPath)));
 
             if (!string.IsNullOrWhiteSpace(config.SecondaryIsoPath) && !File.Exists(config.ResolvePath(config.SecondaryIsoPath)))
-                problems.Add($"Secondary ISO not found: {config.ResolvePath(config.SecondaryIsoPath)}");
+                problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateSecondaryIsoNotFound, config.ResolvePath(config.SecondaryIsoPath)));
 
             if (config.Disks.Count == 0 && string.IsNullOrWhiteSpace(config.IsoPath))
-                problems.Add("The VM has neither a disk nor an ISO, so there is nothing to boot.");
+                problems.Add(PlatformText.ValidateNothingToBoot);
 
             if (config.Disks.Select(d => d.Id).Distinct(StringComparer.Ordinal).Count() != config.Disks.Count)
-                problems.Add("Two disks share the same identifier.");
+                problems.Add(PlatformText.ValidateDuplicateDiskIds);
 
             if (ResolveAccelerator(config, installation) == AcceleratorType.Whpx
                 && config.CpuModel.Split(',')[0].Trim() is "max" or "host")
@@ -122,10 +118,7 @@ namespace WinQEMU.Core.Qemu
                 // Observed with QEMU 11 on WHPX: the guest never executes a single instruction, so not
                 // even the firmware appears — the console just reads "Display output is not active"
                 // and nothing is logged. Refused up front rather than left as a blank screen.
-                problems.Add(
-                    $"Le modèle de processeur « {config.CpuModel} » ne démarre pas avec l'accélération WHPX : " +
-                    "la machine reste totalement muette, sans même afficher le microprogramme. Utilisez un " +
-                    "modèle nommé, par exemple qemu64 avec les extensions voulues.");
+                problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateCpuModelWhpx, config.CpuModel));
             }
 
             if (config.Architecture != GuestArchitecture.Aarch64)
@@ -138,8 +131,7 @@ namespace WinQEMU.Core.Qemu
                                 + (string.IsNullOrWhiteSpace(config.SecondaryIsoPath) ? 0 : 1);
                 if (ahciPorts > 6)
                 {
-                    problems.Add($"{ahciPorts} périphériques réclament un port SATA alors que le chipset q35 " +
-                                 "n'en expose que 6. Passez des disques en virtio ou NVMe.");
+                    problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateTooManySataPorts, ahciPorts));
                 }
             }
 
@@ -329,7 +321,7 @@ namespace WinQEMU.Core.Qemu
             };
 
             if (code is null)
-                throw new QemuNotAvailableException($"No UEFI firmware image available for {config.Architecture}.");
+                throw new QemuNotAvailableException(string.Format(CultureInfo.CurrentCulture, PlatformText.FirmwareNoUefiImage, config.Architecture));
 
             // Firmware is split in two flash banks: read-only code, and a writable variable store
             // that must be private to this VM or boot entries would leak between machines.
@@ -601,7 +593,7 @@ namespace WinQEMU.Core.Qemu
                         // A TCP client of WinQEMU's switch for that network. reconnect-ms: the card comes
                         // back by itself when the switch does, after WinQEMU restarted for instance.
                         var switchPort = networkPorts?.Invoke(adapter.NetworkId) ?? throw new InvalidOperationException(
-                            $"La carte {adapter.Id} n'est branchée sur aucun réseau virtuel existant : choisissez-en un dans Matériel, section Réseau.");
+                            string.Format(CultureInfo.CurrentCulture, PlatformText.ArgumentsAdapterWithoutNetwork, adapter.Id));
                         netdev.Append($"stream,id={adapter.Id},server=off,addr.type=inet,addr.host=127.0.0.1," +
                                       $"addr.port={switchPort.ToString(CultureInfo.InvariantCulture)},reconnect-ms=1000");
                         break;

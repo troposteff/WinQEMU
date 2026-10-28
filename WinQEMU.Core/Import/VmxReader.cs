@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Import
 {
@@ -20,18 +21,16 @@ namespace WinQEMU.Core.Import
             // writes to would copy it caught mid-write.
             if (Directory.EnumerateFileSystemEntries(folder, "*.lck").Any())
             {
-                plan.Blocker ??= "La machine semble ouverte dans VMware (fichiers de verrou .lck présents). " +
-                                 "Éteignez-la et fermez VMware, puis recommencez.";
+                plan.Blocker ??= PlatformText.ImportVmwareLocked;
             }
 
             if (Directory.EnumerateFiles(folder, "*.vmss").Any())
             {
-                plan.Notes.Add("La machine est suspendue dans VMware : son état en mémoire ne peut pas être repris. " +
-                               "L'invité redémarrera comme après une coupure de courant.");
+                plan.Notes.Add(PlatformText.ImportVmwareSuspended);
             }
 
             foreach (var disk in plan.Disks.Where(d => !File.Exists(d.SourcePath)))
-                plan.Blocker ??= $"Disque introuvable : {disk.SourcePath}";
+                plan.Blocker ??= string.Format(CultureInfo.CurrentCulture, PlatformText.ImportDiskNotFound, disk.SourcePath);
 
             return plan;
         }
@@ -65,13 +64,11 @@ namespace WinQEMU.Core.Import
 
             if (plan.Firmware == FirmwareType.Uefi && IsTrue("uefi.secureBoot.enabled"))
             {
-                plan.Notes.Add("Le démarrage sécurisé était activé : WHPX ne le permet pas, la machine démarrera " +
-                               "en UEFI simple. Un Windows 11 continuera de fonctionner une fois installé.");
+                plan.Notes.Add(PlatformText.ImportVmwareSecureBootDropped);
             }
 
             if (Get("encryption.keySafe") is not null || Get("encryption.data") is not null)
-                plan.Blocker = "La machine est chiffrée par VMware : ses disques ne sont pas lisibles hors de VMware. " +
-                               "Retirez le chiffrement dans VMware avant d'importer.";
+                plan.Blocker = PlatformText.ImportVmwareEncrypted;
 
             ReadDisks(plan, values, IsPresent, Resolve);
             ReadAdapters(plan, values, IsPresent);
@@ -114,11 +111,10 @@ namespace WinQEMU.Core.Import
                 if (kind == "scsi" && bus == DiskBus.Sata)
                 {
                     AddOnce(plan.Notes,
-                        $"Le contrôleur SCSI « {(controllerModel.Length == 0 ? "lsilogic" : controllerModel)} » n'a pas " +
-                        "d'équivalent ici : les disques passent en SATA." +
+                        string.Format(CultureInfo.CurrentCulture, PlatformText.ImportScsiControllerToSata,
+                            controllerModel.Length == 0 ? "lsilogic" : controllerModel) +
                         (plan.IsWindows
-                            ? " Windows peut alors refuser de démarrer (INACCESSIBLE_BOOT_DEVICE) : activez au préalable " +
-                              "son pilote AHCI dans la machine VMware (sc config storahci start= boot)."
+                            ? " " + PlatformText.ImportAhciHintVmware
                             : string.Empty));
                 }
 
@@ -192,8 +188,7 @@ namespace WinQEMU.Core.Import
                 if (connection != "nat")
                 {
                     AddOnce(plan.Notes,
-                        $"La carte réseau était en mode « {connection} » : elle passe en NAT, le seul mode qui marche " +
-                        "sans pilote supplémentaire sur l'hôte. À changer dans Matériel si besoin.");
+                        string.Format(CultureInfo.CurrentCulture, PlatformText.ImportVmwareAdapterToNat, connection));
                 }
 
                 plan.Adapters.Add(new ImportedAdapter

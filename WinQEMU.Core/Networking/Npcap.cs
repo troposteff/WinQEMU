@@ -1,6 +1,7 @@
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Networking
 {
@@ -50,7 +51,7 @@ namespace WinQEMU.Core.Networking
             if (_loaded)
                 return;
             if (!IsInstalled)
-                throw new InvalidOperationException("Npcap n'est pas installé.");
+                throw new InvalidOperationException(PlatformText.NpcapNotInstalled);
             SetDllDirectoryW(Folder);
             NativeLibrary.Load(Path.Combine(Folder, "Packet.dll"));
             NativeLibrary.Load(Path.Combine(Folder, "wpcap.dll"));
@@ -64,7 +65,7 @@ namespace WinQEMU.Core.Networking
             var errors = new byte[256];
             var handle = pcap_create($@"\Device\NPF_{adapter.Id}", errors);
             if (handle == IntPtr.Zero)
-                throw new InvalidOperationException($"Npcap n'ouvre pas la carte « {adapter.Name} » : {Text(errors)}");
+                throw new InvalidOperationException(string.Format(System.Globalization.CultureInfo.CurrentCulture, PlatformText.NpcapCannotOpen, adapter.Name, Text(errors)));
 
             pcap_set_snaplen(handle, 65536);
             pcap_set_promisc(handle, 0);
@@ -76,8 +77,8 @@ namespace WinQEMU.Core.Networking
                 var message = Marshal.PtrToStringAnsi(pcap_geterr(handle)) ?? status.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 pcap_close(handle);
                 throw new InvalidOperationException(message.Contains("denied", StringComparison.OrdinalIgnoreCase)
-                    ? "Npcap réserve l'accès aux administrateurs : réinstallez-le sans cocher « Restrict Npcap driver's access to Administrators only »."
-                    : $"Npcap n'active pas la carte « {adapter.Name} » : {message}");
+                    ? PlatformText.NpcapAdminOnly
+                    : string.Format(System.Globalization.CultureInfo.CurrentCulture, PlatformText.NpcapCannotActivate, adapter.Name, message));
             }
             return new PcapDevice(handle);
         }

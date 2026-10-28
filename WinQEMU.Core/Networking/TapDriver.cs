@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Win32;
 using WinQEMU.Core.Services;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Networking
 {
@@ -45,19 +47,19 @@ namespace WinQEMU.Core.Networking
             RequireGenuine(InstallerPath);
             var exitCode = await Elevation.RunAsync(InstallerPath, "/S", cancellationToken).ConfigureAwait(false);
             if (exitCode != 0)
-                throw new InvalidOperationException($"L'installation du pilote TAP-Windows a échoué (code {exitCode}).");
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapInstallFailed, exitCode));
         }
 
         /// <summary>Adds an adapter with the driver's own tapinstall.exe. One UAC prompt.</summary>
         public static async Task AddAdapterAsync(CancellationToken cancellationToken = default)
         {
-            var folder = InstallDirectory ?? throw new InvalidOperationException("Le pilote TAP-Windows n'est pas installé.");
+            var folder = InstallDirectory ?? throw new InvalidOperationException(PlatformText.TapDriverNotInstalled);
             var tool = Path.Combine(folder, "bin", "tapinstall.exe");
             RequireGenuine(tool);
             var exitCode = await Elevation.RunAsync(tool,
                 $"install \"{Path.Combine(folder, "driver", "OemVista.inf")}\" tap0901", cancellationToken).ConfigureAwait(false);
             if (exitCode != 0)
-                throw new InvalidOperationException($"La carte TAP-Windows n'a pas pu être ajoutée (code {exitCode}).");
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapAddAdapterFailed, exitCode));
         }
 
         /// <summary>
@@ -85,15 +87,15 @@ namespace WinQEMU.Core.Networking
         public static void RequireGenuine(string path)
         {
             if (!File.Exists(path))
-                throw new InvalidOperationException($"{Path.GetFileName(path)} est introuvable ({path}).");
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapFileNotFound, Path.GetFileName(path), path));
             if (!IsTrusted(path))
-                throw new InvalidOperationException($"La signature de {Path.GetFileName(path)} n'est pas valide : il n'a pas été lancé.");
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapSignatureInvalid, Path.GetFileName(path)));
 
 #pragma warning disable SYSLIB0057   // the signer's certificate of a signed file, which X509CertificateLoader does not read
             using var signer = new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
 #pragma warning restore SYSLIB0057
             if (!signer.Subject.Contains("O=OpenVPN Inc.", StringComparison.Ordinal))
-                throw new InvalidOperationException($"{Path.GetFileName(path)} n'est pas signé par OpenVPN : il n'a pas été lancé.");
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapNotSignedByOpenVpn, Path.GetFileName(path)));
         }
 
         /// <summary>WinVerifyTrust with the Authenticode policy: a valid, unrevoked signature, chained to a trusted root.</summary>

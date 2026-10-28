@@ -1,6 +1,7 @@
 using System.Globalization;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -26,11 +27,11 @@ namespace WinQEMU.Core.Services
 
         public static string IntervalLabel(int hours) => hours switch
         {
-            0 => "À chaque démarrage",
-            1 => "Au plus une fois par heure",
-            168 => "Au plus une fois par semaine",
-            24 => "Au plus une fois par jour",
-            _ => $"Au plus une fois toutes les {hours} heures"
+            0 => CoreText.AutoSnapshotEachStart,
+            1 => CoreText.AutoSnapshotHourly,
+            168 => CoreText.AutoSnapshotWeekly,
+            24 => CoreText.AutoSnapshotDaily,
+            _ => string.Format(CultureInfo.CurrentCulture, CoreText.AutoSnapshotEveryHours, hours)
         };
 
         /// <summary>A name qemu-img keeps as is (ASCII) and that sorts by date.</summary>

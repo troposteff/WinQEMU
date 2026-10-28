@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="QuotedName" xml:space="preserve"><value>« {0} »</value></data>
+  <data name="GuestOsWindows11Caveat" xml:space="preserve"><value>Windows 11 exige un TPM 2.0 et le démarrage sécurisé. Aucun des deux n'est possible ici : swtpm est absent des versions Windows de QEMU, et le démarrage sécurisé réclame le mode SMM que l'hyperviseur WHPX ne fournit pas. Le profil reste donc en UEFI simple, et WinQEMU lève le contrôle de configuration matérielle tout seul : pendant l'installation, la machine reçoit une clé USB « WINQEMU » dont le fichier de réponses demande à l'installation de Windows de passer outre.</value></data>
+  <data name="GuestOsVirtioCaveat" xml:space="preserve"><value>Windows n'embarque pas de pilote virtio. Le disque est donc en SATA, qui fonctionne sans pilote. Pour de meilleures performances, fournissez l'ISO virtio-win et repassez le disque en virtio après l'installation.</value></data>
+  <data name="GuestOsWindows7Caveat" xml:space="preserve"><value>Ces versions ne gèrent pas l'UEFI de façon fiable sous QEMU : le microprogramme reste en BIOS et le disque en IDE.</value></data>
+  <data name="GuestOsLinuxGeneric" xml:space="preserve"><value>Linux (générique)</value></data>
+  <data name="GuestOsArm64Caveat" xml:space="preserve"><value>Architecture différente de l'hôte : QEMU émulera le processeur (TCG), sans accélération matérielle. Comptez environ un ordre de grandeur de performances en moins.</value></data>
+  <data name="GuestOsOther" xml:space="preserve"><value>Autre / inconnu</value></data>
+  <data name="GuestOsOtherCaveat" xml:space="preserve"><value>Configuration prudente : BIOS et SATA, que pratiquement tout système sait démarrer.</value></data>
+  <data name="SharedFolderReadOnly" xml:space="preserve"><value>Lecture seule</value></data>
+  <data name="SharedFolderReadWrite" xml:space="preserve"><value>Lecture et écriture</value></data>
+  <data name="VirtualNetworkTypePrivate" xml:space="preserve"><value>Privé (les machines entre elles)</value></data>
+  <data name="VirtualNetworkTypeInternal" xml:space="preserve"><value>Interne (les machines et ce PC)</value></data>
+  <data name="VirtualNetworkTypeExternal" xml:space="preserve"><value>Externe (le réseau physique)</value></data>
+  <data name="VirtualNetworkExternalSummary" xml:space="preserve"><value>sur « {0} », adresses données par le réseau physique (la box)</value></data>
+  <data name="VirtualNetworkDhcpRange" xml:space="preserve"><value>, DHCP de {0} à {1}</value></data>
+  <data name="VirtualNetworkHostOnAdapter" xml:space="preserve"><value>, ce PC en {0} sur « {1} »</value></data>
+  <data name="VirtualNetworkBadSubnet" xml:space="preserve"><value>« {0} » n'est pas une adresse IPv4 de sous-réseau (exemple : 10.77.1.0).</value></data>
+  <data name="VirtualNetworkBadMask" xml:space="preserve"><value>Le masque va de /8 (255.0.0.0) à /29 (255.255.255.248).</value></data>
+  <data name="VirtualNetworkNotSubnetStart" xml:space="preserve"><value>{0} n'est pas le début d'un sous-réseau /{1} : ce serait {2}.</value></data>
+  <data name="VirtualNetworkDhcpNotAddresses" xml:space="preserve"><value>Les adresses DHCP doivent être des adresses IPv4 complètes (exemple : 10.77.1.100).</value></data>
+  <data name="VirtualNetworkDhcpOutOfRange" xml:space="preserve"><value>Les adresses DHCP doivent être entre {0} et {1} : {2} est celle de ce PC sur un réseau interne, {3} celle du serveur DHCP.</value></data>
+  <data name="VirtualNetworkDhcpOrder" xml:space="preserve"><value>La première adresse DHCP doit précéder la dernière.</value></data>
+  <data name="VirtualNetworkSubnetLabel" xml:space="preserve"><value>Le sous-réseau {0}</value></data>
+  <data name="VirtualNetworkOverlapsNat" xml:space="preserve"><value>{0} chevauche {1} ({2}) : choisissez un autre sous-réseau.</value></data>
+  <data name="VirtualNetworkOverlapsNetwork" xml:space="preserve"><value>{0} chevauche celui du réseau {1} ({2}) : deux réseaux virtuels ne peuvent pas partager des adresses. Choisissez un autre sous-réseau.</value></data>
+  <data name="VirtualNetworkOverlapsHost" xml:space="preserve"><value>{0} chevauche le réseau de {1} ({2}) : ce PC ne saurait plus par où joindre ces adresses.</value></data>
+  <data name="KeyboardCannotType" xml:space="preserve"><value>« {0} » ne se tape pas avec la disposition de clavier de ce PC.</value></data>
+  <data name="AutoSnapshotEachStart" xml:space="preserve"><value>À chaque démarrage</value></data>
+  <data name="AutoSnapshotHourly" xml:space="preserve"><value>Au plus une fois par heure</value></data>
+  <data name="AutoSnapshotWeekly" xml:space="preserve"><value>Au plus une fois par semaine</value></data>
+  <data name="AutoSnapshotDaily" xml:space="preserve"><value>Au plus une fois par jour</value></data>
+  <data name="AutoSnapshotEveryHours" xml:space="preserve"><value>Au plus une fois toutes les {0} heures</value></data>
+  <data name="CompactionQcow2Only" xml:space="preserve"><value>Seul un disque qcow2 se compacte.</value></data>
+  <data name="CompactionRefusedOverlay" xml:space="preserve"><value>Ce disque porte des instantanés à chaud : supprimez-les ou fusionnez-les d'abord, sinon ils seraient perdus.</value></data>
+  <data name="CompactionRefusedLinkedClone" xml:space="preserve"><value>C'est le disque d'un clone lié : le compacter recopierait l'image dont il dépend. Rendez-le d'abord indépendant (« Convertir… »).</value></data>
+  <data name="CompactionRefusedProtected" xml:space="preserve"><value>Un clone lié lit cette image : elle ne doit plus jamais changer.</value></data>
+  <data name="CompactionRefusedSnapshots" xml:space="preserve"><value>Ce disque porte {0} instantané(s) interne(s), que le compactage ne garderait pas : supprimez-les d'abord.</value></data>
+  <data name="CompactionNoSpace" xml:space="preserve"><value>Il faut sur le volume du disque autant de place libre que le disque en occupe, pour la copie.</value></data>
+  <data name="ElevationDeclined" xml:space="preserve"><value>L'autorisation administrateur a été refusée.</value></data>
+  <data name="LanAccessRemoteDesktop" xml:space="preserve"><value>Bureau à distance</value></data>
+  <data name="LanAccessHttps" xml:space="preserve"><value>Web sécurisé (HTTPS)</value></data>
+  <data name="LanAccessNoFreePort" xml:space="preserve"><value>Aucun port libre sur ce PC.</value></data>
+  <data name="LanAccessSshUsage" xml:space="preserve"><value>ssh -p {0} utilisateur@{1}</value></data>
+  <data name="LinkedCloneOneReader" xml:space="preserve"><value>le clone lié {0}</value></data>
+  <data name="LinkedCloneManyReaders" xml:space="preserve"><value>les clones liés {0}</value></data>
+  <data name="LinkedCloneMergeRefused" xml:space="preserve"><value>Le disque « {0} » sert de base à {1} : supprimer ou fusionner ce niveau écrirait dans une image que le clone lit, et corromprait ses données. Restaurer reste possible : les images dont le clone a besoin sont alors conservées.</value></data>
+  <data name="LinkedCloneFilesRefused" xml:space="preserve"><value>Les fichiers de cette machine servent de base à {0}. Les supprimer détruirait le clone. Supprimez d'abord le clone, ou rendez ses disques indépendants avec « Convertir… ».</value></data>
+  <data name="LinkedCloneAttachRefused" xml:space="preserve"><value>Cette image sert de base à {0} : une machine qui écrirait dedans corromprait le clone.</value></data>
+  <data name="LibraryUbuntuIsoWithoutInstaller" xml:space="preserve"><value>Cette image ISO n'a pas le noyau d'installation d'Ubuntu (casper) : l'installation automatique est impossible.</value></data>
+  <data name="LibraryDiskNotFound" xml:space="preserve"><value>Le disque « {0} » est introuvable : {1}</value></data>
+  <data name="LibraryImportedDescription" xml:space="preserve"><value>Importée {0} le {1} : {2}</value></data>
+  <data name="LibraryImportedFromVmware" xml:space="preserve"><value>de VMware</value></data>
+  <data name="LibraryImportedFromVirtualBox" xml:space="preserve"><value>de VirtualBox</value></data>
+  <data name="LibraryImportedFromOvf" xml:space="preserve"><value>d'un paquet OVF</value></data>
+  <data name="LibraryImportedFromDisk" xml:space="preserve"><value>d'une image disque</value></data>
+  <data name="LibraryLinkedCloneNeedsQcow2" xml:space="preserve"><value>Un clone lié exige des disques qcow2 : {0} ne peut pas servir de base. Faites une copie complète, ou convertissez ces disques en qcow2.</value></data>
+  <data name="LibraryLinkedCloneSnapshotName" xml:space="preserve"><value>Base de {0}</value></data>
+  <data name="LibraryNameRequired" xml:space="preserve"><value>Le nom de la machine virtuelle est obligatoire.</value></data>
+  <data name="LibraryNameTooLong" xml:space="preserve"><value>Le nom ne peut pas dépasser 100 caractères.</value></data>
+  <data name="LibraryNameInvalidCharacters" xml:space="preserve"><value>Le nom ne peut pas contenir {0}</value></data>
+  <data name="LibraryNameReserved" xml:space="preserve"><value>« {0} » est un nom réservé par Windows.</value></data>
+  <data name="ManagerStopBeforeClone" xml:space="preserve"><value>Arrêtez la machine virtuelle avant de la cloner.</value></data>
+  <data name="ManagerStopBeforeExport" xml:space="preserve"><value>Arrêtez la machine virtuelle avant de l'exporter.</value></data>
+  <data name="ManagerCloneName" xml:space="preserve"><value>{0} (copie)</value></data>
+  <data name="ManagerCloneNameNumbered" xml:space="preserve"><value>{0} (copie {1})</value></data>
+  <data name="UnattendedUserNameRequired" xml:space="preserve"><value>Indiquez un nom d'utilisateur.</value></data>
+  <data name="UnattendedLinuxUserNameRule" xml:space="preserve"><value>Sous Linux, un nom d'utilisateur commence par une minuscule et ne contient que des minuscules, des chiffres, « - » et « _ » (32 au plus).</value></data>
+  <data name="UnattendedLinuxReservedAccount" xml:space="preserve"><value>« {0} » est un compte réservé du système : choisissez un autre nom.</value></data>
+  <data name="UnattendedWindowsUserNameTooLong" xml:space="preserve"><value>Un nom d'utilisateur Windows fait au plus 20 caractères.</value></data>
+  <data name="UnattendedWindowsUserNameCharacters" xml:space="preserve"><value>Un nom d'utilisateur Windows ne peut contenir aucun de ces caractères : " / \ [ ] : ; | = , + * ? &lt; &gt; @</value></data>
+  <data name="UnattendedWindowsBuiltInAccount" xml:space="preserve"><value>« {0} » est un compte intégré de Windows : choisissez un autre nom.</value></data>
+  <data name="GuestToolsInstalled" xml:space="preserve"><value>Outils invités installés.</value></data>
+  <data name="GuestToolsHeadless" xml:space="preserve"><value>L'agent invité répond. Sans interface graphique, l'invité n'a pas de presse-papiers à partager : pour y coller du texte, « Taper le presse-papiers » (barre de la console) le tape au clavier.</value></data>
+  <data name="GuestToolsIncompleteWindows" xml:space="preserve"><value>L'agent invité répond, mais les outils virtio-win (pilotes, presse-papiers) ne sont pas installés.</value></data>
+  <data name="GuestToolsIncompleteLinux" xml:space="preserve"><value>L'agent invité répond, mais spice-vdagent n'est pas installé : le presse-papiers n'est pas partagé.</value></data>
+  <data name="GuestToolsNoVirtioDrive" xml:space="preserve"><value>aucun lecteur ne contient l'ISO virtio-win</value></data>
+  <data name="GuestToolsNoPackageManager" xml:space="preserve"><value>la distribution n'a ni apt, ni dnf, ni zypper, ni pacman</value></data>
+  <data name="GuestToolsRestartNeeded" xml:space="preserve"><value>installé ; un redémarrage de l'invité termine l'installation des pilotes</value></data>
+  <data name="GuestSharesNoUser" xml:space="preserve"><value>l'invité n'a aucun compte utilisateur où les placer</value></data>
+  <data name="GuestSharesMountError" xml:space="preserve"><value>le montage a échoué : {0}</value></data>
+  <data name="GuestSharesNoChannel" xml:space="preserve"><value>la machine n'a pas le canal des dossiers partagés : arrêtez-la puis redémarrez-la depuis WinQEMU</value></data>
+  <data name="GuestSharesRelayFailed" xml:space="preserve"><value>le relais du canal n'a pas pu démarrer dans /run/winqemu</value></data>
+  <data name="GuestSharesNoRelayTool" xml:space="preserve"><value>l'invité n'a ni perl ni python3 pour relayer le canal</value></data>
+  <data name="GuestSharesNoWebClient" xml:space="preserve"><value>le client WebDAV de Windows (service WebClient) est absent ; sous Windows Server, ajoutez la fonctionnalité « Redirecteur WebDAV »</value></data>
+  <data name="GuestSharesTaskFailed" xml:space="preserve"><value>la tâche qui crée le lecteur à l'ouverture de session n'a pas pu être créée : {0}</value></data>
+  <data name="GuestSharesScriptFailed" xml:space="preserve"><value>le script s'est arrêté avec le code {0} : {1}</value></data>
+  <data name="GuestSharesNoAgentWindows" xml:space="preserve"><value>L'agent invité ne répond pas. Installez-le une fois dans Windows, depuis le lecteur virtio-win : guest-agent\qemu-ga-x86_64.msi. Les dossiers apparaîtront ensuite dans un lecteur « {0} ».</value></data>
+  <data name="GuestSharesNoAgentLinux" xml:space="preserve"><value>L'agent invité ne répond pas. Installez-le une fois dans l'invité (sudo apt install qemu-guest-agent) et redémarrez-le : les dossiers apparaîtront dans ~/{0}.</value></data>
+  <data name="GuestSharesUnsupportedGuest" xml:space="preserve"><value>Cet invité n'est ni Linux ni Windows : les dossiers partagés ne s'y ouvrent pas.</value></data>
+  <data name="GuestSharesMountedAt" xml:space="preserve"><value>Dans l'invité : {0}</value></data>
+  <data name="GuestSharesMountFailed" xml:space="preserve"><value>Les dossiers n'ont pas pu être montés dans l'invité : {0}.</value></data>
+  <data name="GuestSharesNeedNat" xml:space="preserve"><value>Dans un invité Windows, les dossiers partagés passent par la carte réseau NAT : ajoutez-en une dans Matériel (ou rebranchez son câble), puis redémarrez la machine.</value></data>
+  <data name="GuestSharesDriveMapped" xml:space="preserve"><value>Dans l'invité : lecteur « {0} » dans Ce PC.</value></data>
+  <data name="GuestSharesOpenFailed" xml:space="preserve"><value>Les dossiers n'ont pas pu être ouverts dans l'invité : {0}.</value></data>
+  <data name="FileDropWholeDrive" xml:space="preserve"><value>« {0} » est un lecteur entier : déposez plutôt les dossiers qu'il contient.</value></data>
+  <data name="FileDropNotFound" xml:space="preserve"><value>« {0} » est introuvable.</value></data>
+  <data name="FileDropChanged" xml:space="preserve"><value>« {0} » a changé pendant la copie.</value></data>
+  <data name="FileDropInterrupted" xml:space="preserve"><value>La copie s'est interrompue dans l'invité : {0}</value></data>
+  <data name="FileDropCouldNotStart" xml:space="preserve"><value>La copie n'a pas pu commencer dans l'invité : {0}</value></data>
+  <data name="FileDropNoAnswer" xml:space="preserve"><value>L'invité n'a pas répondu à temps pour recevoir les fichiers.</value></data>
+  <data name="FileDropGuestSilent" xml:space="preserve"><value>L'invité a cessé de répondre pendant la copie.</value></data>
+  <data name="FileDropFailed" xml:space="preserve"><value>La copie a échoué dans l'invité : {0}.</value></data>
+  <data name="FileDropUnexpectedAnswer" xml:space="preserve"><value>Réponse inattendue de l'invité : {0}</value></data>
+  <data name="FileDropNotRunning" xml:space="preserve"><value>La machine n'est pas démarrée.</value></data>
+  <data name="FileDropStartedWithoutChannel" xml:space="preserve"><value>Cette machine a été démarrée sans le canal de copie : arrêtez-la puis redémarrez-la depuis WinQEMU.</value></data>
+  <data name="FileDropNoAgentWindows" xml:space="preserve"><value>L'agent invité ne répond pas. Installez-le une fois dans Windows, depuis le lecteur virtio-win : guest-agent\qemu-ga-x86_64.msi.</value></data>
+  <data name="FileDropNoAgentLinux" xml:space="preserve"><value>L'agent invité ne répond pas. Installez-le une fois dans l'invité (sudo apt install qemu-guest-agent).</value></data>
+  <data name="FileDropReceiverNotStarted" xml:space="preserve"><value>Le récepteur n'a pas pu être lancé dans l'invité : {0}</value></data>
+  <data name="FileDropChannelMissing" xml:space="preserve"><value>le canal de copie est absent : arrêtez la machine puis redémarrez-la depuis WinQEMU</value></data>
+  <data name="FileDropReceiverExited" xml:space="preserve"><value>le récepteur s'est arrêté (code {0}) {1}</value></data>
+  <data name="FileDropGuestNoUser" xml:space="preserve"><value>l'invité n'a aucun compte utilisateur</value></data>
+  <data name="FileDropGuestNoSession" xml:space="preserve"><value>aucune session n'est ouverte dans l'invité : ouvrez une session Windows puis recommencez</value></data>
+  <data name="FileDropGuestNoDesktop" xml:space="preserve"><value>le Bureau de l'utilisateur est introuvable</value></data>
+  <data name="FileDropGuestNoFolder" xml:space="preserve"><value>le dossier {0} est introuvable</value></data>
+  <data name="FileDropGuestBadName" xml:space="preserve"><value>nom invalide</value></data>
+  <data name="FileDropGuestBadNameOf" xml:space="preserve"><value>nom invalide : {0}</value></data>
+  <data name="FileDropGuestBadRecord" xml:space="preserve"><value>enregistrement inconnu</value></data>
+  <data name="FileDropGuestBadChunk" xml:space="preserve"><value>morceau invalide</value></data>
+  <data name="FilePullUnreadable" xml:space="preserve"><value>{0} ne peut pas être lu.</value></data>
+  <data name="FilePullGuestStoppedSending" xml:space="preserve"><value>L'invité a cessé d'envoyer avant la fin.</value></data>
+  <data name="FilePullInvalidName" xml:space="preserve"><value>Nom invalide envoyé par l'invité : {0}</value></data>
+  <data name="FilePullUnexpectedAnswer" xml:space="preserve"><value>Réponse inattendue de l'invité.</value></data>
+  <data name="FilePullInvalidChunk" xml:space="preserve"><value>Morceau invalide envoyé par l'invité.</value></data>
+  <data name="FilePullNoAgent" xml:space="preserve"><value>L'agent invité ne répond pas : installez d'abord les outils invités.</value></data>
+  <data name="FilePullSenderNotStarted" xml:space="preserve"><value>L'envoi n'a pas pu être lancé dans l'invité : {0}</value></data>
+  <data name="FilePullSenderExited" xml:space="preserve"><value>l'envoi s'est arrêté (code {0}) {1}</value></data>
+  <data name="FilePullGuestBadPath" xml:space="preserve"><value>{0} : chemin invalide</value></data>
+  <data name="FilePullGuestNotFound" xml:space="preserve"><value>{0} : introuvable</value></data>
+  <data name="FilePullGuestChanged" xml:space="preserve"><value>{0} a changé pendant la copie</value></data>
+</root>

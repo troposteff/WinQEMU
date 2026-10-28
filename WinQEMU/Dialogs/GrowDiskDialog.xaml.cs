@@ -1,6 +1,9 @@
 using System;
+using System.Globalization;
 using Microsoft.UI.Xaml.Controls;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 
 namespace WinQEMU.Dialogs
 {
@@ -17,10 +20,10 @@ namespace WinQEMU.Dialogs
 
             _currentGib = disk.CapacityBytes / BytesPerGib;
 
-            TitleText.Text = $"Agrandir « {disk.Id} »";
+            TitleText.Text = string.Format(CultureInfo.CurrentCulture, DialogText.GrowTitle, disk.Id);
             CurrentText.Text = disk.CapacityBytes > 0
-                ? $"Taille actuelle : {_currentGib:0.##} Gio."
-                : "Taille actuelle inconnue : l'image n'a pas été mesurée.";
+                ? string.Format(CultureInfo.CurrentCulture, DialogText.GrowCurrentSize, Sizes.Format(disk.CapacityBytes))
+                : DialogText.GrowCurrentSizeUnknown;
 
             // qemu-img refuses anything not larger, so the box cannot offer it in the first place.
             var minimum = Math.Max(1, Math.Ceiling(_currentGib) + 1);

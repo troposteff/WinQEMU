@@ -68,6 +68,41 @@ Prises avec l'utilisateur ; ne pas les remettre en cause sans raison nouvelle.
 - **QEMU : détecter et guider, jamais embarquer ni télécharger.** `QemuLocator` explore et explique les
   échecs ; l'utilisateur peut désigner un dossier.
 
+## Langues
+
+Anglais et français (choix de l'utilisateur), **langue de Windows par défaut**, liste « Langue » dans les Paramètres
+(`AppSettings.Language` : vide, `en`, `fr`), prise en compte au démarrage suivant : `Program.ApplyLanguage` pose
+`CultureInfo.DefaultThreadCurrentUICulture` (`Text.UiLanguage`) avant toute fenêtre, et
+`ApplicationLanguages.PrimaryLanguageOverride` pour les quelques mots de WinUI. Toute autre langue de Windows → anglais.
+Le format des nombres et des dates reste celui de Windows.
+
+- **Textes en `.resx`** : anglais dans `Text\X.resx` (langue neutre, `NeutralLanguage` en), français dans
+  `Text\X.fr.resx` (assembly satellite `fr\`, présent dans le paquet). Cœur : `CommonText` (public : OK, Annuler,
+  unités…), `CoreText`, `PlatformText` ; shell : `WindowText` (MainWindow.xaml), `ShellText` (son code et
+  `MainViewModel`), `DialogText` (le reste). **Une classe générée par fichier anglais** (`GenerateResource`,
+  métadonnées `StronglyTyped*` du csproj) : une clé mal écrite ne compile pas, en C# comme en XAML.
+- **XAML** : `{x:Bind t:WindowText.Cle}` (`xmlns:t="using:WinQEMU.Text"`, `ct` pour `WinQEMU.Core.Text`). **Piège** :
+  le compilateur XAML passe avant `ResGen`, et une liaison vers une classe pas encore générée faisait sortir
+  `XamlCompiler.exe` en erreur **sans message** : cible `GenerateTextBeforeXaml` du csproj. x:Bind est posé au
+  `Loading` du dialogue : un texte que le constructeur fixe lui-même n'a pas de liaison XAML (il serait écrasé).
+- **Tailles** : `Text.Sizes.Format` (« 2,4 Go » / « 2.4 GB »).
+- **Tests épinglés en français** (`TextTests.PinFrench`) ; `TextTests` vérifie que chaque clé existe dans les deux
+  langues avec les mêmes `{0}`.
+- **Ce que WinQEMU crée dans l'invité suit la langue, mais un invité déjà configuré garde ses noms** : `~/Partages`
+  ou `~/Shares` (le script de montage note le choix dans `/var/lib/winqemu/shares-folder` et reprend un dossier
+  existant de l'autre langue), lecteur « Partages WinQEMU » ou « WinQEMU Shares » (retenu dans
+  `HKLM\SOFTWARE\WinQEMU\SharesLabel`). Le dossier rapporté par l'invité est gardé dans `VmConfig.GuestSharesFolder`
+  pour que chaque ligne de dossier partagé le montre (sinon WinQEMU anglais affichait `~/Shares/Music` pour un Ubuntu
+  qui a `~/Partages`). Restent en français, car retrouvés par leur nom : la règle de pare-feu et la tâche
+  `WinQEMU Partages` de l'invité.
+- **Messages des programmes invités** (dépôt, récupération) : codes courts (`#notfound <chemin>`…) traduits côté hôte
+  (`GuestFileDrop.GuestMessage`), pour que le programme invité ne dépende pas de la langue.
+- **Scripts pour un invité Linux : `ReplaceLineEndings("\n")` là où ils sont définis.** Un littéral brut prend les fins
+  de ligne du fichier source ; avec `core.autocrlf=true`, une copie de travail en CRLF donnait `set -u\r` à `/bin/sh`
+  (« set: Illegal option - ») et aucun dossier partagé n'était monté (`LinuxScriptTests`).
+- Vérifié dans l'app en anglais et en français ; un Ubuntu configuré en français garde `~/Partages` sous WinQEMU
+  anglais.
+
 ## Instantanés
 
 Trois formes, car WHPX interdit la seule que l'utilisateur attendrait (un instantané mémoire d'une
@@ -765,7 +800,8 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
 
 ## Conventions
 
-- **Interface en français, code et commentaires en anglais.**
+- **Interface en anglais et en français** (voir Langues), **code, commentaires et journal de la VM en anglais.** Un
+  texte visible ne s'écrit jamais en dur : une entrée dans `Text\*.resx` et son `.fr.resx`.
 - Les commentaires expliquent **pourquoi**, et citent le symptôme observé quand un choix vient d'un bug
   (« the shell then shows it as paused »). Garder ce niveau de détail : c'est ce qui évite de
   réintroduire un piège.

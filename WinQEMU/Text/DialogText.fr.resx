@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="SettingsLanguage" xml:space="preserve"><value>Langue</value></data>
+  <data name="SettingsLanguageHint" xml:space="preserve"><value>Pris en compte au prochain démarrage de WinQEMU. Les dossiers et lecteurs que WinQEMU crée ensuite dans un invité sont nommés dans cette langue aussi (~/Partages, ~/Shares).</value></data>
+  <data name="CloneName" xml:space="preserve"><value>Nom du clone</value></data>
+  <data name="CloneFullCopy" xml:space="preserve"><value>Copie complète</value></data>
+  <data name="CloneFullCopyHint" xml:space="preserve"><value>Chaque disque est recopié tel qu'il est maintenant, en une image autonome. Les instantanés ne sont pas repris. Le clone ne dépend plus de rien.</value></data>
+  <data name="CloneLinked" xml:space="preserve"><value>Clone lié</value></data>
+  <data name="CloneLinkedHint" xml:space="preserve"><value>Instantané et presque gratuit en place : le clone n'enregistre que ce qu'il écrit et lit le reste dans les disques actuels de l'original. Celui-ci passe sur un nouvel instantané à chaud, « Base de … ». Tant que le clone existe, l'original peut toujours restaurer ses instantanés, mais pas supprimer ceux dont le clone dépend, ni ses fichiers. Déplacez toujours les deux machines ensemble.</value></data>
+  <data name="CloneIdentityHint" xml:space="preserve"><value>Dans les deux cas le clone reçoit ses propres adresses MAC, mais le système invité garde son identité : nom d'hôte, identifiant de machine, SID Windows. Changez-les dans le clone s'il doit partager un réseau avec l'original.</value></data>
+  <data name="CloneButton" xml:space="preserve"><value>Cloner</value></data>
+  <data name="CloneTitle" xml:space="preserve"><value>Cloner « {0} »</value></data>
+  <data name="CloneFullCopySize" xml:space="preserve"><value>{0} disque(s), {1} au plus, copiés dans un nouveau dossier de la bibliothèque.</value></data>
+  <data name="CloneFullCopySizeUnknown" xml:space="preserve"><value>{0} disque(s), copiés dans un nouveau dossier de la bibliothèque.</value></data>
+  <data name="CloneLinkedSize" xml:space="preserve"><value>Rien n'est copié : le clone commence avec des disques presque vides, qui ne grossissent que de ce qu'il écrit.</value></data>
+  <data name="CloneProgress" xml:space="preserve"><value>Copie des disques… {0:P0}</value></data>
+  <data name="CloneCreatingLinked" xml:space="preserve"><value>Création du clone lié…</value></data>
+  <data name="Preparing" xml:space="preserve"><value>Préparation…</value></data>
+  <data name="Cancelling" xml:space="preserve"><value>Annulation…</value></data>
+  <data name="ConvertTargetFormat" xml:space="preserve"><value>Format de destination</value></data>
+  <data name="ConvertCompress" xml:space="preserve"><value>Compresser l'image (qcow2 uniquement)</value></data>
+  <data name="ConvertWarning" xml:space="preserve"><value>La conversion écrit une nouvelle image à côté de l'ancienne, qui est conservée, et la machine est rattachée à la copie. Les instantanés ne sont pas transportés : ils restent sur l'image d'origine.</value></data>
+  <data name="GoodToKnow" xml:space="preserve"><value>À savoir</value></data>
+  <data name="ConvertButton" xml:space="preserve"><value>Convertir</value></data>
+  <data name="ConvertTitle" xml:space="preserve"><value>Convertir « {0} »</value></data>
+  <data name="ConvertCurrentFormat" xml:space="preserve"><value>Format actuel : {0}.</value></data>
+  <data name="ExportIntro" xml:space="preserve"><value>Un paquet OVA (OVF 1.0, disques VMDK compressés) que VMware Workstation, ESXi, VirtualBox et Proxmox savent importer. La machine est exportée dans son état actuel.</value></data>
+  <data name="ExportFile" xml:space="preserve"><value>Fichier OVA</value></data>
+  <data name="ExportButton" xml:space="preserve"><value>Exporter</value></data>
+  <data name="ExportTitle" xml:space="preserve"><value>Exporter « {0} »</value></data>
+  <data name="ExportSize" xml:space="preserve"><value>{0} disque(s), {1} au plus avant compression. Pendant l'export, le disque de destination doit avoir environ deux fois la taille du paquet de libre.</value></data>
+  <data name="ExportNoFile" xml:space="preserve"><value>Indiquez le fichier à écrire.</value></data>
+  <data name="InvalidPath" xml:space="preserve"><value>Ce chemin n'est pas valide.</value></data>
+  <data name="FolderMissing" xml:space="preserve"><value>Le dossier {0} n'existe pas.</value></data>
+  <data name="ExportFileExists" xml:space="preserve"><value>Ce fichier existe déjà. Choisissez un autre nom, ou passez par Parcourir… pour le remplacer.</value></data>
+  <data name="ExportConverting" xml:space="preserve"><value>Conversion des disques… {0:P0}</value></data>
+  <data name="ExportWriting" xml:space="preserve"><value>Écriture du paquet… {0:P0}</value></data>
+  <data name="ExportDiskFull" xml:space="preserve"><value>Le disque de destination est plein. Libérez de la place ou choisissez un autre disque.</value></data>
+  <data name="GrowNewSizeName" xml:space="preserve"><value>Nouvelle taille en Gio</value></data>
+  <data name="GrowNewSize" xml:space="preserve"><value>Nouvelle taille (Gio)</value></data>
+  <data name="GrowHint" xml:space="preserve"><value>Un disque ne peut que grandir : réduire tronquerait le système de fichiers de l'invité, que qemu-img ne sait pas lire. L'invité ne verra la place ajoutée qu'après avoir étendu sa partition.</value></data>
+  <data name="GrowButton" xml:space="preserve"><value>Agrandir</value></data>
+  <data name="GrowTitle" xml:space="preserve"><value>Agrandir « {0} »</value></data>
+  <data name="GrowCurrentSize" xml:space="preserve"><value>Taille actuelle : {0}.</value></data>
+  <data name="GrowCurrentSizeUnknown" xml:space="preserve"><value>Taille actuelle inconnue : l'image n'a pas été mesurée.</value></data>
+  <data name="ImportNameAccessible" xml:space="preserve"><value>Nom de la machine importée</value></data>
+  <data name="ImportHint" xml:space="preserve"><value>Les disques sont convertis en qcow2 dans un nouveau dossier de la bibliothèque : la machine d'origine n'est pas modifiée et reste utilisable dans son hyperviseur.</value></data>
+  <data name="ImportButton" xml:space="preserve"><value>Importer</value></data>
+  <data name="ImportTitleVmware" xml:space="preserve"><value>Importer une machine VMware</value></data>
+  <data name="ImportTitleVirtualBox" xml:space="preserve"><value>Importer une machine VirtualBox</value></data>
+  <data name="ImportTitleOvf" xml:space="preserve"><value>Importer un paquet OVF</value></data>
+  <data name="ImportTitleDisk" xml:space="preserve"><value>Importer un disque</value></data>
+  <data name="ImportGuestOsFrom" xml:space="preserve"><value>Système invité : {0} (« {1} »)</value></data>
+  <data name="ImportGuestOs" xml:space="preserve"><value>Système invité : {0}</value></data>
+  <data name="ImportFirmware" xml:space="preserve"><value>Microprogramme : {0}</value></data>
+  <data name="ImportCpusWithCores" xml:space="preserve"><value>{0} processeurs ({1} cœurs par socket)</value></data>
+  <data name="ImportCpus" xml:space="preserve"><value>{0} processeur(s)</value></data>
+  <data name="ImportCpuAndMemory" xml:space="preserve"><value>{0}, {1} de mémoire</value></data>
+  <data name="ImportDisk" xml:space="preserve"><value>Disque {0} : {1} ({2}, {3}) → {4}</value></data>
+  <data name="ImportMac" xml:space="preserve"><value>, adresse {0}</value></data>
+  <data name="ImportNetwork" xml:space="preserve"><value>Réseau : {0}, {1}</value></data>
+  <data name="ImportOptical" xml:space="preserve"><value>Lecteur optique : {0}</value></data>
+  <data name="NewDiskTitle" xml:space="preserve"><value>Nouveau disque</value></data>
+  <data name="NewDiskHint" xml:space="preserve"><value>L'image est créée dans le dossier de la machine, allouée à la demande : elle n'occupe sur l'hôte que ce que l'invité écrit.</value></data>
+  <data name="NewDiskSizeName" xml:space="preserve"><value>Taille en Gio</value></data>
+  <data name="NewDiskSize" xml:space="preserve"><value>Taille (Gio)</value></data>
+  <data name="DiskController" xml:space="preserve"><value>Contrôleur</value></data>
+  <data name="CreateButton" xml:space="preserve"><value>Créer</value></data>
+  <data name="NewVmDescription" xml:space="preserve"><value>Description (facultatif)</value></data>
+  <data name="NewVmLibraryFolder" xml:space="preserve"><value>Dossier de la bibliothèque</value></data>
+  <data name="Change" xml:space="preserve"><value>Modifier…</value></data>
+  <data name="NewVmTargetFolder" xml:space="preserve"><value>La machine sera créée dans :</value></data>
+  <data name="NewVmOsHint" xml:space="preserve"><value>Le système choisi prérègle le microprogramme, le bus du disque, la carte réseau et l'horloge. Tout reste modifiable ensuite.</value></data>
+  <data name="NewVmOperatingSystem" xml:space="preserve"><value>Système d'exploitation</value></data>
+  <data name="NewVmAppliedValues" xml:space="preserve"><value>Valeurs appliquées</value></data>
+  <data name="NewVmArchitectureLabel" xml:space="preserve"><value>Architecture :</value></data>
+  <data name="NewVmFirmwareLabel" xml:space="preserve"><value>Microprogramme :</value></data>
+  <data name="NewVmDiskBusLabel" xml:space="preserve"><value>Bus du disque :</value></data>
+  <data name="VirtualProcessors" xml:space="preserve"><value>Processeurs virtuels</value></data>
+  <data name="MemoryMb" xml:space="preserve"><value>Mémoire (Mo)</value></data>
+  <data name="Firmware" xml:space="preserve"><value>Microprogramme</value></data>
+  <data name="NewVmRtcLocal" xml:space="preserve"><value>Horloge matérielle en heure locale (attendu par Windows)</value></data>
+  <data name="NewVmCreateDisk" xml:space="preserve"><value>Créer un nouveau disque virtuel</value></data>
+  <data name="NewVmDiskSize" xml:space="preserve"><value>Taille (Go)</value></data>
+  <data name="NewVmFormatHint" xml:space="preserve"><value>qcow2 est creux : le fichier ne grossit qu'au fur et à mesure des écritures. raw réserve tout l'espace immédiatement.</value></data>
+  <data name="NewVmExistingDisk" xml:space="preserve"><value>Rattacher un disque existant</value></data>
+  <data name="NewVmExistingDiskPlaceholder" xml:space="preserve"><value>Chemin du fichier .qcow2, .vhdx, .vmdk ou .img</value></data>
+  <data name="NewVmIso" xml:space="preserve"><value>Image ISO d'installation</value></data>
+  <data name="NewVmNoIso" xml:space="preserve"><value>Aucun support optique</value></data>
+  <data name="NewVmBootFromIso" xml:space="preserve"><value>Démarrer sur ce support</value></data>
+  <data name="NewVmUnattended" xml:space="preserve"><value>Installation automatique</value></data>
+  <data name="UserName" xml:space="preserve"><value>Nom d'utilisateur</value></data>
+  <data name="Password" xml:space="preserve"><value>Mot de passe</value></data>
+  <data name="NewVmComputerName" xml:space="preserve"><value>Nom de l'ordinateur :</value></data>
+  <data name="NewVmSecondaryIso" xml:space="preserve"><value>Second lecteur (pilotes virtio, facultatif)</value></data>
+  <data name="Network" xml:space="preserve"><value>Réseau</value></data>
+  <data name="NetworkConnection" xml:space="preserve"><value>Connexion réseau</value></data>
+  <data name="NewVmCommandLine" xml:space="preserve"><value>Ligne de commande QEMU générée</value></data>
+  <data name="NewVmBack" xml:space="preserve"><value>Précédent</value></data>
+  <data name="NewVmDefaultName" xml:space="preserve"><value>Nouvelle machine virtuelle</value></data>
+  <data name="NewVmStepName" xml:space="preserve"><value>Nom et emplacement</value></data>
+  <data name="NewVmStepOs" xml:space="preserve"><value>Système d'exploitation invité</value></data>
+  <data name="NewVmStepPlatform" xml:space="preserve"><value>Processeur, mémoire et microprogramme</value></data>
+  <data name="NewVmStepDisk" xml:space="preserve"><value>Disque dur virtuel</value></data>
+  <data name="NewVmStepMedia" xml:space="preserve"><value>Support d'installation et réseau</value></data>
+  <data name="NewVmStepSummary" xml:space="preserve"><value>Résumé</value></data>
+  <data name="NewVmStepCaption" xml:space="preserve"><value>Étape {0} sur {1}</value></data>
+  <data name="NewVmNext" xml:space="preserve"><value>Suivant</value></data>
+  <data name="NewVmNameExists" xml:space="preserve"><value>Une machine virtuelle nommée « {0} » existe déjà.</value></data>
+  <data name="NewVmNoQemu" xml:space="preserve"><value>QEMU est introuvable : impossible de créer une machine virtuelle.</value></data>
+  <data name="NewVmFolderExists" xml:space="preserve"><value>Le dossier {0} existe déjà. Un suffixe numérique sera ajouté pour ne rien écraser.</value></data>
+  <data name="NewVmNeedCpu" xml:space="preserve"><value>Il faut au moins un processeur virtuel.</value></data>
+  <data name="NewVmNeedMemory" xml:space="preserve"><value>Il faut au moins 128 Mo de mémoire.</value></data>
+  <data name="NewVmNoUefi" xml:space="preserve"><value>Le microprogramme UEFI demandé est absent de {0}. Choisissez BIOS ou installez les fichiers edk2.</value></data>
+  <data name="NewVmSecureBootWhpx" xml:space="preserve"><value>Le démarrage sécurisé exige le mode SMM, que l'hyperviseur WHPX ne fournit pas : QEMU refuserait de démarrer. Choisissez UEFI sans démarrage sécurisé.</value></data>
+  <data name="NewVmMemoryAdvisory" xml:space="preserve"><value>L'hôte dispose de {0}. Allouer {1} risque de le faire recourir au fichier d'échange et de ralentir tout le système.</value></data>
+  <data name="NewVmCpuAdvisory" xml:space="preserve"><value>L'hôte n'a que {0} processeurs logiques. Au-delà, les vCPU se disputent le même matériel et les performances baissent.</value></data>
+  <data name="NewVmNoWhpx" xml:space="preserve"><value>L'accélération matérielle WHPX est indisponible : la VM tournera en émulation, environ dix fois plus lentement.</value></data>
+  <data name="NewVmNoDiskFile" xml:space="preserve"><value>Indiquez le fichier disque à rattacher.</value></data>
+  <data name="FileNotFound" xml:space="preserve"><value>Fichier introuvable : {0}</value></data>
+  <data name="NewVmExistingDiskAdvisory" xml:space="preserve"><value>Le disque est référencé à son emplacement actuel, il n'est pas copié. Le déplacer ou le supprimer rendra la VM indémarrable.</value></data>
+  <data name="NewVmDiskTooSmall" xml:space="preserve"><value>La taille du disque doit être d'au moins 1 Go.</value></data>
+  <data name="NewVmDiskTooLarge" xml:space="preserve"><value>La taille du disque est limitée à 8192 Go par cet assistant.</value></data>
+  <data name="NewVmSparseAdvisory" xml:space="preserve"><value>Le disque déclare {0} alors qu'il reste {1} de libre. Le format qcow2 est creux : il n'occupera que l'espace réellement écrit, mais l'invité tombera en panne d'espace avant sa taille annoncée.</value></data>
+  <data name="NewVmNoSpace" xml:space="preserve"><value>Le format {0} réserve immédiatement tout l'espace, or il ne reste que {1} sur le volume.</value></data>
+  <data name="NewVmIsoNotFound" xml:space="preserve"><value>Image ISO introuvable : {0}</value></data>
+  <data name="NewVmUbuntuPassword" xml:space="preserve"><value>Ubuntu demande un mot de passe pour ouvrir une session : indiquez-en un.</value></data>
+  <data name="NewVmSecondIsoNotFound" xml:space="preserve"><value>Second ISO introuvable : {0}</value></data>
+  <data name="NewVmNoIsoAdvisory" xml:space="preserve"><value>Sans support d'installation, la VM démarrera sur un disque vide et s'arrêtera au microprogramme. Vous pourrez ajouter un ISO plus tard.</value></data>
+  <data name="NewVmNoVirtioUnattended" xml:space="preserve"><value>Sans l'ISO virtio-win en second lecteur, Windows s'installera sans ses pilotes virtio ni l'agent invité : pas de dossiers partagés, ni de résolution qui suit la fenêtre.</value></data>
+  <data name="NewVmVirtioSuggested" xml:space="preserve"><value>Pour ce système, l'ISO virtio-win en second lecteur permet d'utiliser les périphériques virtio (réseau et disque plus rapides). Facultatif ici, car le disque est configuré sur un bus reconnu nativement.</value></data>
+  <data name="NewVmHostSummary" xml:space="preserve"><value>Hôte : {0} processeurs logiques, {1} de mémoire.</value></data>
+  <data name="NewVmUnattendedUbuntu" xml:space="preserve"><value>Ubuntu s'installe sans rien demander : tout le disque, ce compte (administrateur par sudo), la langue, le clavier et le fuseau horaire de ce PC, l'agent invité et l'agent de presse-papiers (dossiers partagés et copier-coller d'emblée). Il faut une carte en NAT : les paquets viennent d'Internet.</value></data>
+  <data name="NewVmUnattendedWindows" xml:space="preserve"><value>Windows s'installe sans rien demander : l'édition Professionnel, tout le disque, ce compte (administrateur, ouvert automatiquement la première fois), la langue, le clavier et le fuseau horaire de ce PC. Puis les pilotes virtio et l'agent invité, si l'ISO virtio-win est en second lecteur.</value></data>
+  <data name="NewVmSummaryName" xml:space="preserve"><value>Nom : {0}</value></data>
+  <data name="NewVmSummaryLocation" xml:space="preserve"><value>Emplacement : {0}</value></data>
+  <data name="NewVmSummaryGuest" xml:space="preserve"><value>Système invité : {0} ({1})</value></data>
+  <data name="NewVmSummaryFirmware" xml:space="preserve"><value>Microprogramme : {0}</value></data>
+  <data name="NewVmSummaryCpus" xml:space="preserve"><value>Processeurs virtuels : {0}</value></data>
+  <data name="NewVmSummaryMemory" xml:space="preserve"><value>Mémoire : {0}</value></data>
+  <data name="NewVmSummaryNewDisk" xml:space="preserve"><value>Disque : nouveau, {0}, {1}, bus {2}</value></data>
+  <data name="NewVmSummaryExistingDisk" xml:space="preserve"><value>Disque : existant, {0}, bus {1}</value></data>
+  <data name="NewVmSummaryNoMedia" xml:space="preserve"><value>Support d'installation : aucun</value></data>
+  <data name="NewVmSummaryMedia" xml:space="preserve"><value>Support d'installation : {0}</value></data>
+  <data name="NewVmSummaryMediaBoot" xml:space="preserve"><value>Support d'installation : {0} (démarrage dessus)</value></data>
+  <data name="NewVmSummarySecondDrive" xml:space="preserve"><value>Second lecteur : {0}</value></data>
+  <data name="NewVmSummaryNetwork" xml:space="preserve"><value>Réseau : {0}</value></data>
+  <data name="NewVmSummaryClockLocal" xml:space="preserve"><value>Horloge matérielle : heure locale</value></data>
+  <data name="NewVmSummaryClockUtc" xml:space="preserve"><value>Horloge matérielle : UTC</value></data>
+  <data name="NewVmPreviewNoQemu" xml:space="preserve"><value>(QEMU introuvable)</value></data>
+  <data name="NewVmPreviewFailed" xml:space="preserve"><value>(aperçu indisponible : {0})</value></data>
+  <data name="FirmwareBios" xml:space="preserve"><value>BIOS (héritage)</value></data>
+  <data name="FirmwareUefiSecureBoot" xml:space="preserve"><value>UEFI avec démarrage sécurisé</value></data>
+  <data name="BusVirtio" xml:space="preserve"><value>virtio (rapide, pilote requis)</value></data>
+  <data name="BusSata" xml:space="preserve"><value>SATA (reconnu partout)</value></data>
+  <data name="BusIde" xml:space="preserve"><value>IDE (héritage)</value></data>
+  <data name="BusLsiSas" xml:space="preserve"><value>LSI SAS (comme VMware)</value></data>
+  <data name="BusPvscsi" xml:space="preserve"><value>PVSCSI (VMware, pilote requis)</value></data>
+  <data name="NetworkModeNat" xml:space="preserve"><value>NAT (partage la connexion de l'hôte)</value></data>
+  <data name="NetworkModeBridged" xml:space="preserve"><value>Ponté (pilote TAP requis)</value></data>
+  <data name="NetworkModeMulticast" xml:space="preserve"><value>Segment multicast (ancien)</value></data>
+  <data name="NetworkModeVirtual" xml:space="preserve"><value>Réseau virtuel (Privé, Interne…)</value></data>
+  <data name="NetworkModeNone" xml:space="preserve"><value>Aucun</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>Les modifications prennent effet immédiatement.</value></data>
+  <data name="SettingsQemu" xml:space="preserve"><value>Installation de QEMU</value></data>
+  <data name="SettingsQemuHint" xml:space="preserve"><value>WinQEMU n'installe pas QEMU. Laissez la détection automatique faire le travail, ou indiquez le dossier contenant qemu-system-x86_64.exe et qemu-img.exe.</value></data>
+  <data name="SettingsQemuOverridden" xml:space="preserve"><value>Dossier imposé dans les paramètres — la détection automatique est désactivée.</value></data>
+  <data name="ChooseFolder" xml:space="preserve"><value>Choisir un dossier…</value></data>
+  <data name="SettingsQemuReset" xml:space="preserve"><value>Revenir à la détection automatique</value></data>
+  <data name="SettingsQemuRedetect" xml:space="preserve"><value>Relancer la détection</value></data>
+  <data name="SettingsAcceleration" xml:space="preserve"><value>Accélération</value></data>
+  <data name="SettingsFirmwares" xml:space="preserve"><value>Micrologiciels</value></data>
+  <data name="SettingsDiagnostics" xml:space="preserve"><value>Dossiers écartés pendant la détection</value></data>
+  <data name="SettingsQemuMissing" xml:space="preserve"><value>QEMU est introuvable</value></data>
+  <data name="SettingsStartup" xml:space="preserve"><value>Démarrage</value></data>
+  <data name="SettingsStartAtLogon" xml:space="preserve"><value>Lancer WinQEMU à l'ouverture de session Windows</value></data>
+  <data name="SettingsSound" xml:space="preserve"><value>Son des machines virtuelles</value></data>
+  <data name="SettingsSoundHint" xml:space="preserve"><value>La sortie où toutes les machines jouent leur son. Windows ne la retient que pour le programme QEMU dans son ensemble : elle ne peut pas différer d'une machine à l'autre. Le volume et la coupure, eux, se règlent pour chaque machine par le bouton Son.</value></data>
+  <data name="SettingsSoundOutput" xml:space="preserve"><value>Sortie audio des machines virtuelles</value></data>
+  <data name="SettingsLibrary" xml:space="preserve"><value>Bibliothèque de machines virtuelles</value></data>
+  <data name="SettingsLibraryHint" xml:space="preserve"><value>Dossier analysé au démarrage et proposé par défaut à la création. Le changer relit la bibliothèque ; aucun fichier n'est déplacé et les machines du dossier précédent disparaissent simplement de la liste.</value></data>
+  <data name="OpenInExplorer" xml:space="preserve"><value>Ouvrir dans l'Explorateur</value></data>
+  <data name="SettingsStartAtLogonHint" xml:space="preserve"><value>WinQEMU s'ouvre alors dans la zone de notification et démarre les machines marquées « Démarrer avec WinQEMU » (section Démarrage automatique de chaque machine). Windows le liste aussi dans ses applications de démarrage.</value></data>
+  <data name="SettingsStartupUnavailable" xml:space="preserve"><value>Windows ne donne pas accès au démarrage de WinQEMU : {0}</value></data>
+  <data name="SettingsStartupDisabledByUser" xml:space="preserve"><value>Désactivé dans Windows : réactivez WinQEMU dans Paramètres &gt; Applications &gt; Démarrage.</value></data>
+  <data name="SettingsStartupByPolicy" xml:space="preserve"><value>Fixé par une stratégie de l'organisation.</value></data>
+  <data name="SettingsStartupRefused" xml:space="preserve"><value>Windows a refusé : {0}</value></data>
+  <data name="NetworksTitle" xml:space="preserve"><value>Réseaux virtuels</value></data>
+  <data name="NetworksIntro" xml:space="preserve"><value>Des réseaux sur lesquels brancher les cartes des machines (Matériel, section Réseau, liste « Connexion »). WinQEMU les fait fonctionner lui-même ; sur un réseau privé ou interne, son serveur DHCP donne une adresse aux machines, sur un réseau externe c'est la box. Chaque réseau a son propre sous-réseau.</value></data>
+  <data name="NetworksEmpty" xml:space="preserve"><value>Aucun réseau pour l'instant.</value></data>
+  <data name="NetworksName" xml:space="preserve"><value>Nom du réseau</value></data>
+  <data name="NetworksDhcpServer" xml:space="preserve"><value>Serveur DHCP</value></data>
+  <data name="NetworksAdapter" xml:space="preserve"><value>Carte</value></data>
+  <data name="NetworksAdapterName" xml:space="preserve"><value>Carte réseau de ce PC</value></data>
+  <data name="NetworksSubnet" xml:space="preserve"><value>Sous-réseau</value></data>
+  <data name="NetworksSubnetAddress" xml:space="preserve"><value>Adresse du sous-réseau</value></data>
+  <data name="NetworksSubnetMask" xml:space="preserve"><value>Masque du sous-réseau</value></data>
+  <data name="NetworksDhcpFrom" xml:space="preserve"><value>DHCP, de</value></data>
+  <data name="NetworksDhcpFirst" xml:space="preserve"><value>Première adresse distribuée</value></data>
+  <data name="NetworksDhcpTo" xml:space="preserve"><value>à</value></data>
+  <data name="NetworksDhcpLast" xml:space="preserve"><value>Dernière adresse distribuée</value></data>
+  <data name="NetworksAddPrivate" xml:space="preserve"><value>Ajouter un réseau privé</value></data>
+  <data name="NetworksAddInternal" xml:space="preserve"><value>Ajouter un réseau interne</value></data>
+  <data name="NetworksAddExternal" xml:space="preserve"><value>Ajouter un réseau externe</value></data>
+  <data name="NetworksTypesHint" xml:space="preserve"><value>Un réseau interne relie aussi ce PC aux machines, par une carte TAP-Windows : une carte par réseau interne. Le pilote (d'OpenVPN, licence GPLv2, source github.com/OpenVPN/tap-windows6) est fourni avec WinQEMU et installé au premier réseau interne. Un réseau externe met les machines sur le réseau de ce PC, chacune avec sa propre adresse donnée par la box, grâce à Npcap ; elles n'y joignent pas ce PC lui-même (pour cela : leur carte NAT, ou un réseau interne).</value></data>
+  <data name="NetworksNpcapHint" xml:space="preserve"><value>Un réseau externe passe par Npcap, le pilote de capture de Wireshark, gratuit. Installez-le avec ses options par défaut, sans cocher « Restrict Npcap driver's access to Administrators only », puis cliquez à nouveau sur « Ajouter un réseau externe ».</value></data>
+  <data name="NetworksNpcapDownload" xml:space="preserve"><value>Télécharger Npcap sur npcap.com</value></data>
+  <data name="NetworksDefaultPrivate" xml:space="preserve"><value>Réseau privé</value></data>
+  <data name="NetworksDefaultInternal" xml:space="preserve"><value>Réseau interne</value></data>
+  <data name="NetworksDefaultExternal" xml:space="preserve"><value>Réseau externe</value></data>
+  <data name="NetworksDefaultNumbered" xml:space="preserve"><value>{0} {1}</value></data>
+  <data name="NetworksDefaultUnnamed" xml:space="preserve"><value>Réseau sans nom</value></data>
+  <data name="NetworksInstallingTap" xml:space="preserve"><value>Installation du pilote TAP-Windows d'OpenVPN… Windows demande l'autorisation administrateur, et peut demander s'il faut faire confiance à OpenVPN.</value></data>
+  <data name="NetworksAddingTap" xml:space="preserve"><value>Ajout d'une carte TAP-Windows… Windows demande l'autorisation administrateur.</value></data>
+  <data name="NetworksNoNewTap" xml:space="preserve"><value>Le pilote a répondu, mais aucune nouvelle carte TAP-Windows n'est apparue. Réessayez dans un instant.</value></data>
+  <data name="NetworksTapRefused" xml:space="preserve"><value>Rien n'a été installé : l'autorisation administrateur a été refusée.</value></data>
+  <data name="NetworksNoPhysicalAdapter" xml:space="preserve"><value>Aucune carte Wi-Fi ou Ethernet de ce PC n'est connectée : connectez-en une, puis réessayez.</value></data>
+  <data name="NetworksAdapterDisconnected" xml:space="preserve"><value>{0} (non connectée)</value></data>
+  <data name="NetworksInUse" xml:space="preserve"><value>{0} est utilisé par {1} : changez d'abord leur carte réseau dans Matériel.</value></data>
+  <data name="NetworksProblem" xml:space="preserve"><value>{0} : {1}</value></data>
+  <data name="NetworksSaveFailed" xml:space="preserve"><value>Les réseaux n'ont pas pu être enregistrés : {0}</value></data>
+  <data name="NetworksFixBeforeClosing" xml:space="preserve"><value>{0} Corrigez-le avant de fermer.</value></data>
+  <data name="GuestFilesTitle" xml:space="preserve"><value>Récupérer des fichiers de l'invité</value></data>
+  <data name="GuestFilesButton" xml:space="preserve"><value>Récupérer…</value></data>
+  <data name="GuestFilesParent" xml:space="preserve"><value>Dossier parent</value></data>
+  <data name="GuestFilesReading" xml:space="preserve"><value>Lecture…</value></data>
+  <data name="GuestFilesEmpty" xml:space="preserve"><value>Dossier vide.</value></data>
+  <data name="GuestFilesHint" xml:space="preserve"><value>Double-cliquez sur un dossier pour l'ouvrir. Cochez ce qui est à copier : un dossier est copié avec son contenu.</value></data>
+  <data name="TrayOpen" xml:space="preserve"><value>Ouvrir WinQEMU</value></data>
+  <data name="TrayQuit" xml:space="preserve"><value>Arrêter les machines et quitter</value></data>
+  <data name="SessionEndReason" xml:space="preserve"><value>Arrêt des machines virtuelles en cours…</value></data>
+  <data name="DropCopyTo" xml:space="preserve"><value>Copier sur %1</value></data>
+  <data name="DropGuestDesktop" xml:space="preserve"><value>le Bureau de l'invité</value></data>
+  <data name="ChartNow" xml:space="preserve"><value>maintenant</value></data>
+  <data name="ChartSecondsAgo" xml:space="preserve"><value>il y a {0} s</value></data>
+  <data name="TreeOriginSubtitle" xml:space="preserve"><value>avant tout instantané</value></data>
+  <data name="TreeCurrentSubtitle" xml:space="preserve"><value>état actuel de la machine</value></data>
+  <data name="TreeLinkedCloneSubtitle" xml:space="preserve"><value>clone lié</value></data>
+  <data name="TreeRetainedSubtitle" xml:space="preserve"><value>conservé pour un clone lié</value></data>
+  <data name="TreeTooltip" xml:space="preserve"><value>{0}
+{1}
+Pris le {2}</value></data>
+  <data name="ConsoleIdle" xml:space="preserve"><value>Démarrez la machine virtuelle pour afficher sa console.</value></data>
+  <data name="ConsoleConnecting" xml:space="preserve"><value>Connexion à la console…</value></data>
+  <data name="ConsoleWindowNotFound" xml:space="preserve"><value>La fenêtre de console de QEMU est introuvable.</value></data>
+  <data name="ConsoleEmbedFailed" xml:space="preserve"><value>Impossible d'intégrer la console. Elle reste dans une fenêtre distincte.</value></data>
+  <data name="ConsoleReleaseTimeout" xml:space="preserve"><value>La console n'a pas pu être libérée dans le délai imparti.</value></data>
+  <data name="StateStopped" xml:space="preserve"><value>Arrêtée</value></data>
+  <data name="StateStarting" xml:space="preserve"><value>Démarrage…</value></data>
+  <data name="StateRunning" xml:space="preserve"><value>En cours d'exécution</value></data>
+  <data name="StatePaused" xml:space="preserve"><value>En pause</value></data>
+  <data name="StateStopping" xml:space="preserve"><value>Arrêt en cours…</value></data>
+  <data name="NetworkChoiceLabel" xml:space="preserve"><value>{0} — {1}</value></data>
+  <data name="NetworkChoiceNat" xml:space="preserve"><value>NAT (partage la connexion de ce PC)</value></data>
+  <data name="NetworkChoiceNone" xml:space="preserve"><value>Aucune carte réseau</value></data>
+  <data name="SizeUnknown" xml:space="preserve"><value>taille inconnue</value></data>
+  <data name="AcceleratorAuto" xml:space="preserve"><value>Automatique (WHPX si disponible)</value></data>
+  <data name="AcceleratorWhpx" xml:space="preserve"><value>WHPX (accélération matérielle)</value></data>
+  <data name="AcceleratorTcg" xml:space="preserve"><value>TCG (émulation, lente)</value></data>
+  <data name="GraphicsVirtio" xml:space="preserve"><value>virtio (moderne, pilote requis)</value></data>
+  <data name="GraphicsStd" xml:space="preserve"><value>std (compatible partout)</value></data>
+  <data name="GraphicsNone" xml:space="preserve"><value>aucune</value></data>
+  <data name="SnapshotsLiveDisks" xml:space="preserve"><value>à chaud · disques</value></data>
+  <data name="SnapshotsMemory" xml:space="preserve"><value>mémoire {0}</value></data>
+  <data name="SnapshotsDiskState" xml:space="preserve"><value>état disque</value></data>
+  <data name="SnapshotsDiskCount" xml:space="preserve"><value>{0}/{1} disques</value></data>
+  <data name="SnapshotsCloneBase" xml:space="preserve"><value>base d'un clone lié</value></data>
+  <data name="SnapshotsNameTaken" xml:space="preserve"><value>Un instantané porte déjà ce nom.</value></data>
+  <data name="SnapshotsExcluded" xml:space="preserve"><value>Non couverts, faute de format qcow2 : {0}</value></data>
+  <data name="SnapshotsNoDisk" xml:space="preserve"><value>Cette machine n'a aucun disque.</value></data>
+  <data name="SnapshotsNoQcow2" xml:space="preserve"><value>Aucun disque au format qcow2 : seuls ces disques savent porter un instantané interne.</value></data>
+  <data name="SnapshotsReading" xml:space="preserve"><value>Lecture des instantanés…</value></data>
+  <data name="SnapshotsNone" xml:space="preserve"><value>Aucun instantané.</value></data>
+  <data name="SnapshotsNoMemory" xml:space="preserve"><value>Enregistrer la mémoire exige le support de migration, absent de WHPX : seule une machine en émulation TCG le permet. Sur cette machine, un instantané à chaud ne capture que les disques, comme une coupure de courant.</value></data>
+  <data name="SnapshotsSavingMemory" xml:space="preserve"><value>Enregistrement de « {0} » avec la mémoire…</value></data>
+  <data name="SnapshotsTakingLive" xml:space="preserve"><value>Instantané à chaud « {0} »…</value></data>
+  <data name="SnapshotsCreating" xml:space="preserve"><value>Création de « {0} »…</value></data>
+  <data name="SnapshotsResuming" xml:space="preserve"><value>Reprise de « {0} »…</value></data>
+  <data name="SnapshotsRestoring" xml:space="preserve"><value>Restauration de « {0} »…</value></data>
+  <data name="SnapshotsDeleting" xml:space="preserve"><value>Suppression de « {0} »…</value></data>
+  <data name="BootOptical" xml:space="preserve"><value>Lecteur optique</value></data>
+  <data name="BootSecondOptical" xml:space="preserve"><value>Second lecteur optique</value></data>
+  <data name="BootDisk" xml:space="preserve"><value>Disque {0}</value></data>
+  <data name="BootEmpty" xml:space="preserve"><value>(vide)</value></data>
+  <data name="HardwareImageNotFound" xml:space="preserve"><value>Image introuvable : {0}</value></data>
+  <data name="HardwareFileExists" xml:space="preserve"><value>Le fichier {0} existe déjà dans le dossier de la machine.</value></data>
+  <data name="HardwareMustBeStopped" xml:space="preserve"><value>La machine doit être arrêtée.</value></data>
+  <data name="HardwareNoQemuImg" xml:space="preserve"><value>qemu-img n'est pas disponible : QEMU n'a pas été détecté.</value></data>
+  <data name="HardwareDiskFileMissing" xml:space="preserve"><value>Le fichier du disque est introuvable.</value></data>
+</root>

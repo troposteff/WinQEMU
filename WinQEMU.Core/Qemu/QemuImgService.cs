@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Qemu
 {
@@ -37,7 +38,7 @@ namespace WinQEMU.Core.Qemu
             CancellationToken cancellationToken = default)
         {
             if (File.Exists(path))
-                throw new IOException($"The file already exists: {path}");
+                throw new IOException(string.Format(CultureInfo.CurrentCulture, PlatformText.ImageFileExists, path));
 
             var directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory))
@@ -227,17 +228,16 @@ namespace WinQEMU.Core.Qemu
         public static string? ValidateSnapshotName(string? name)
         {
             if (string.IsNullOrWhiteSpace(name))
-                return "Le nom de l'instantané est obligatoire.";
+                return PlatformText.SnapshotNameRequired;
 
             var trimmed = name.Trim();
             if (trimmed.Length > 128)
-                return "Le nom ne peut pas dépasser 128 caractères.";
+                return PlatformText.SnapshotNameTooLong;
 
             var offending = trimmed.Where(c => c > 0x7E || c < 0x20).Distinct().ToArray();
             if (offending.Length > 0)
             {
-                return "qemu-img ne conserve pas les caractères accentués ou spéciaux dans un nom " +
-                       "d'instantané : utilisez des lettres non accentuées, des chiffres, espaces ou tirets.";
+                return PlatformText.SnapshotNameNotAscii;
             }
 
             return null;

@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.Text;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Import
 {
@@ -25,7 +27,7 @@ namespace WinQEMU.Core.Import
             };
 
             if (plan.Blocker is null && plan.Disks.Count == 0)
-                plan.Blocker = "Aucun disque n'a été trouvé dans cette configuration.";
+                plan.Blocker = PlatformText.ImportNoDisk;
 
             foreach (var disk in plan.Disks.Where(d => File.Exists(d.SourcePath)))
             {
@@ -68,9 +70,7 @@ namespace WinQEMU.Core.Import
 
             if (Path.GetExtension(path).ToLowerInvariant() is ".avhdx" or ".avhd")
             {
-                plan.Blocker = "C'est un disque de point de contrôle Hyper-V (différentiel), que QEMU ne sait pas lire. " +
-                               "Supprimez les points de contrôle dans Hyper-V (leur contenu est fusionné dans le disque " +
-                               "principal), puis importez le .vhdx.";
+                plan.Blocker = PlatformText.ImportHyperVCheckpointDisk;
             }
 
             return plan;
@@ -91,8 +91,7 @@ namespace WinQEMU.Core.Import
             }
             catch (Exception ex) when (ex is QemuImgException or IOException)
             {
-                plan.Notes.Add("La table de partitions n'a pas pu être lue : la machine démarrera en BIOS sur un disque " +
-                               "SATA. Ajustez le microprogramme, le contrôleur et le système invité dans Matériel.");
+                plan.Notes.Add(PlatformText.ImportPartitionTableUnreadable);
                 return;
             }
 
@@ -107,19 +106,14 @@ namespace WinQEMU.Core.Import
 
             plan.Notes.Add(family switch
             {
-                GuestFamily.Windows => "Seul le disque est importé. Ses partitions sont celles d'un Windows : la machine " +
-                                       "prend les réglages de Windows 10 (SATA, carte e1000e), à ajuster dans Matériel.",
-                GuestFamily.Linux => "Seul le disque est importé. Ses partitions sont celles d'un Linux : la machine prend " +
-                                     "les réglages Linux (disque et carte réseau VirtIO), à ajuster dans Matériel.",
-                _ => "Seul le disque est importé, et ses partitions ne disent pas quel système il porte : la machine " +
-                     "prend des réglages prudents (SATA, carte e1000), à ajuster dans Matériel avec le système invité."
+                GuestFamily.Windows => PlatformText.ImportDiskOnlyWindows,
+                GuestFamily.Linux => PlatformText.ImportDiskOnlyLinux,
+                _ => PlatformText.ImportDiskOnlyUnknown
             });
 
             if (hyperV && family != GuestFamily.Linux)
             {
-                plan.Notes.Add("Un Windows venant de Hyper-V démarrait sur le contrôleur synthétique de Hyper-V, qui " +
-                               "n'existe pas ici. S'il s'arrête sur INACCESSIBLE_BOOT_DEVICE, activez son pilote AHCI " +
-                               "avant d'exporter (sc config storahci start= boot dans la machine Hyper-V).");
+                plan.Notes.Add(PlatformText.ImportHyperVWindowsAhci);
             }
             if (hyperV && family != GuestFamily.Windows)
             {
@@ -127,12 +121,7 @@ namespace WinQEMU.Core.Import
                 // hv_storvsc and no AHCI driver; on SATA the guest ends in emergency mode with "/dev/disk/
                 // by-uuid/... does not exist". VirtIO works there because Ubuntu builds virtio_blk into the
                 // kernel, but a distribution that ships it as a module fails the same way on any controller.
-                plan.Notes.Add("Un Linux installé sous Hyper-V peut n'avoir dans son initramfs que les pilotes de disque " +
-                               "de Hyper-V. S'il s'arrête en « emergency mode » en signalant que /dev/disk/by-uuid/… " +
-                               "n'existe pas, régénérez-le avec tous les pilotes dans la machine Hyper-V, puis réimportez " +
-                               "le disque : echo 'hostonly=\"no\"' | sudo tee /etc/dracut.conf.d/90-generic.conf, puis " +
-                               "sudo dracut --force --regenerate-all (ou sudo update-initramfs -u -k all si la " +
-                               "distribution n'utilise pas dracut).");
+                plan.Notes.Add(PlatformText.ImportHyperVLinuxInitramfs);
             }
         }
 
@@ -216,9 +205,9 @@ namespace WinQEMU.Core.Import
         {
             var reason = ex.Message.Contains("being used", StringComparison.OrdinalIgnoreCase)
                          || ex.Message.Contains("lock", StringComparison.OrdinalIgnoreCase)
-                ? "il est ouvert par un autre programme. Éteignez la machine source et fermez son hyperviseur."
+                ? PlatformText.ImportDiskInUse
                 : ex.Message;
-            return $"Le disque {Path.GetFileName(path)} ne peut pas être lu : {reason}";
+            return string.Format(CultureInfo.CurrentCulture, PlatformText.ImportDiskUnreadable, Path.GetFileName(path), reason);
         }
     }
 }

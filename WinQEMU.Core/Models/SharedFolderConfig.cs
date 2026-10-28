@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
+using WinQEMU.Core.Services;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Models
 {
     /// <summary>
-    /// A host folder served to the guest, which finds it as ~/Partages/<see cref="GuestName"/> (see
+    /// A host folder served to the guest, which finds it as ~/Shares/<see cref="GuestName"/> (~/Partages in French; see
     /// Sharing.NinePServer and Services.GuestShareMounter).
     /// </summary>
     public class SharedFolderConfig : ObservableBase
@@ -32,10 +34,28 @@ namespace WinQEMU.Core.Models
             return name.Length > 0 ? name : hostPath.TrimEnd('\\', ':');
         }
 
+        private string _guestFolder = string.Empty;
+        /// <summary>
+        /// The folder the guest mounts its shares in, as it last reported it (VmConfig.GuestSharesFolder); empty
+        /// until then. A guest set up while WinQEMU was in the other language keeps its own (see
+        /// GuestShareMounter.MountScript): an English WinQEMU showed ~/Shares/Music for an Ubuntu that has ~/Partages.
+        /// </summary>
         [JsonIgnore]
-        public string GuestPath => $"~/Partages/{GuestName}";
+        public string GuestFolder
+        {
+            get => _guestFolder;
+            set
+            {
+                if (SetProperty(ref _guestFolder, value ?? string.Empty))
+                    RaisePropertyChanged(nameof(GuestPath));
+            }
+        }
+
+        /// <summary>Where the guest finds it: in its own folder once known, else where a guest set up now would.</summary>
+        [JsonIgnore]
+        public string GuestPath => $"~/{(GuestFolder.Length > 0 ? GuestFolder : GuestShareMounter.GuestFolder)}/{GuestName}";
 
         [JsonIgnore]
-        public string AccessText => ReadOnly ? "Lecture seule" : "Lecture et écriture";
+        public string AccessText => ReadOnly ? CoreText.SharedFolderReadOnly : CoreText.SharedFolderReadWrite;
     }
 }

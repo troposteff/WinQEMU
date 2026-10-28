@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
 using WinQEMU.Core.Networking;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Models
 {
@@ -94,19 +95,19 @@ namespace WinQEMU.Core.Models
         [JsonIgnore]
         public string TypeText => Type switch
         {
-            VirtualNetworkType.Private => "Privé (les machines entre elles)",
-            VirtualNetworkType.Internal => "Interne (les machines et ce PC)",
-            _ => "Externe (le réseau physique)"
+            VirtualNetworkType.Private => CoreText.VirtualNetworkTypePrivate,
+            VirtualNetworkType.Internal => CoreText.VirtualNetworkTypeInternal,
+            _ => CoreText.VirtualNetworkTypeExternal
         };
 
         [JsonIgnore]
         public string SubnetText => Type == VirtualNetworkType.External
-            ? $"sur « {PhysicalAdapterName} », adresses données par le réseau physique (la box)"
+            ? string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkExternalSummary, PhysicalAdapterName)
             : Problem is { } problem
             ? problem
             : $"{Subnet}/{PrefixLength.ToString(CultureInfo.InvariantCulture)}" +
-              (Dhcp && Scope is { } scope ? $", DHCP de {DhcpScope.Format(scope.First)} à {DhcpScope.Format(scope.Last)}" : string.Empty) +
-              (Type == VirtualNetworkType.Internal ? $", ce PC en {HostAddress} sur « {TapAdapterName} »" : string.Empty);
+              (Dhcp && Scope is { } scope ? string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkDhcpRange, DhcpScope.Format(scope.First), DhcpScope.Format(scope.Last)) : string.Empty) +
+              (Type == VirtualNetworkType.Internal ? string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkHostOnAdapter, HostAddress, TapAdapterName) : string.Empty);
 
         /// <summary>This PC's address on an internal network: the subnet's first usable one.</summary>
         [JsonIgnore]
@@ -143,11 +144,11 @@ namespace WinQEMU.Core.Models
                 if (!HasAddresses)
                     return null;
                 if (Network is not { } network)
-                    return $"« {Subnet} » n'est pas une adresse IPv4 de sous-réseau (exemple : 10.77.1.0).";
+                    return string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkBadSubnet, Subnet);
                 if (PrefixLength is < 8 or > 29)
-                    return "Le masque va de /8 (255.0.0.0) à /29 (255.255.255.248).";
+                    return CoreText.VirtualNetworkBadMask;
                 if ((network & ~Mask) != 0)
-                    return $"{Subnet} n'est pas le début d'un sous-réseau /{PrefixLength} : ce serait {DhcpScope.Format(network & Mask)}.";
+                    return string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkNotSubnetStart, Subnet, PrefixLength, DhcpScope.Format(network & Mask));
                 if (!Dhcp)
                     return null;
 
@@ -155,13 +156,13 @@ namespace WinQEMU.Core.Models
                 var first = DhcpStart.Length == 0 ? defaultFirst : DhcpScope.Parse(DhcpStart);
                 var last = DhcpEnd.Length == 0 ? defaultLast : DhcpScope.Parse(DhcpEnd);
                 if (first is null || last is null)
-                    return "Les adresses DHCP doivent être des adresses IPv4 complètes (exemple : 10.77.1.100).";
+                    return CoreText.VirtualNetworkDhcpNotAddresses;
 
                 var server = (network | ~Mask) - 1;
                 if (first < network + 2 || last > server - 1)
-                    return $"Les adresses DHCP doivent être entre {DhcpScope.Format(network + 2)} et {DhcpScope.Format(server - 1)} : " +
-                           $"{HostAddress} est celle de ce PC sur un réseau interne, {DhcpScope.Format(server)} celle du serveur DHCP.";
-                return first > last ? "La première adresse DHCP doit précéder la dernière." : null;
+                    return string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkDhcpOutOfRange,
+                        DhcpScope.Format(network + 2), DhcpScope.Format(server - 1), HostAddress, DhcpScope.Format(server));
+                return first > last ? CoreText.VirtualNetworkDhcpOrder : null;
             }
         }
 
@@ -194,27 +195,27 @@ namespace WinQEMU.Core.Models
                 return null;
 
             if (HostSubnet.QemuNat.Overlaps(network, PrefixLength))
-                return $"{SubnetLabel} chevauche {HostSubnet.QemuNat.Card} ({HostSubnet.QemuNat}) : choisissez un autre sous-réseau.";
+                return string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkOverlapsNat, SubnetLabel, HostSubnet.QemuNat.Card, HostSubnet.QemuNat);
 
             foreach (var other in networks)
             {
                 if (other == this || !other.HasAddresses || other.Problem is not null || other.Network is not { } theirs)
                     continue;
                 if (new HostSubnet(theirs, other.PrefixLength, other.Name).Overlaps(network, PrefixLength))
-                    return $"{SubnetLabel} chevauche celui du réseau {other.Name} ({other.Subnet}/{other.PrefixLength.ToString(CultureInfo.InvariantCulture)}) : " +
-                           "deux réseaux virtuels ne peuvent pas partager des adresses. Choisissez un autre sous-réseau.";
+                    return string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkOverlapsNetwork, SubnetLabel, other.Name,
+                        $"{other.Subnet}/{other.PrefixLength.ToString(CultureInfo.InvariantCulture)}");
             }
             if (Type != VirtualNetworkType.Internal)
                 return null;
             foreach (var host in hostSubnets)
             {
                 if (host.Overlaps(network, PrefixLength))
-                    return $"{SubnetLabel} chevauche le réseau de {host.Card} ({host}) : ce PC ne saurait plus par où joindre ces adresses.";
+                    return string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkOverlapsHost, SubnetLabel, host.Card, host);
             }
             return null;
         }
 
-        private string SubnetLabel => $"Le sous-réseau {Subnet}/{PrefixLength.ToString(CultureInfo.InvariantCulture)}";
+        private string SubnetLabel => string.Format(CultureInfo.CurrentCulture, CoreText.VirtualNetworkSubnetLabel, $"{Subnet}/{PrefixLength.ToString(CultureInfo.InvariantCulture)}");
 
         /// <summary>
         /// <see cref="ConflictWith"/> against this PC's cards as they are now, the internal networks' own TAP

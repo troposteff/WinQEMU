@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Xml.Linq;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Import
 {
@@ -17,7 +18,7 @@ namespace WinQEMU.Core.Import
             var plan = Parse(File.ReadAllText(full), full);
 
             foreach (var disk in plan.Disks.Where(d => !File.Exists(d.SourcePath)))
-                plan.Blocker ??= $"Disque introuvable : {disk.SourcePath}";
+                plan.Blocker ??= string.Format(CultureInfo.CurrentCulture, PlatformText.ImportDiskNotFound, disk.SourcePath);
 
             return plan;
         }
@@ -27,7 +28,7 @@ namespace WinQEMU.Core.Import
         {
             var document = XDocument.Parse(xml);
             var machine = document.Descendants().FirstOrDefault(e => e.Name.LocalName == "Machine")
-                          ?? throw new FormatException("Ce fichier .vbox ne décrit aucune machine.");
+                          ?? throw new FormatException(PlatformText.ImportVboxNoMachine);
             var folder = Path.GetDirectoryName(vboxPath)!;
             string Resolve(string location) => Path.GetFullPath(Path.Combine(folder, location));
 
@@ -51,8 +52,7 @@ namespace WinQEMU.Core.Import
 
             if (machine.Attribute("stateFile") is not null)
             {
-                plan.Notes.Add("La machine est dans un état sauvegardé dans VirtualBox : cet état ne peut pas être " +
-                               "repris. L'invité redémarrera comme après une coupure de courant.");
+                plan.Notes.Add(PlatformText.ImportVboxSavedState);
             }
 
             ReadStorage(plan, machine, Resolve);
@@ -93,7 +93,7 @@ namespace WinQEMU.Core.Import
                     var medium = hardDisks.FirstOrDefault(h => SameUuid(h, uuid));
                     if (medium is null)
                     {
-                        plan.Blocker ??= $"Le disque {uuid} n'est pas déclaré dans le fichier .vbox.";
+                        plan.Blocker ??= string.Format(CultureInfo.CurrentCulture, PlatformText.ImportVboxDiskNotDeclared, uuid);
                         continue;
                     }
 
@@ -101,20 +101,16 @@ namespace WinQEMU.Core.Import
                     {
                         // Its current state is a differencing image on top of the snapshots, and QEMU's VDI
                         // driver reads base images only.
-                        plan.Blocker ??= "La machine a des instantanés dans VirtualBox : son disque actuel est une image " +
-                                         "différentielle, que QEMU ne sait pas lire. Supprimez les instantanés dans " +
-                                         "VirtualBox (leur contenu est alors fusionné), ou clonez la machine en « État " +
-                                         "actuel uniquement », puis importez le résultat.";
+                        plan.Blocker ??= PlatformText.ImportVboxDifferencingDisk;
                         continue;
                     }
 
                     if (bus == DiskBus.Sata && !type.Equals("AHCI", StringComparison.OrdinalIgnoreCase))
                     {
                         VmxReader.AddOnce(plan.Notes,
-                            $"Le contrôleur « {type} » n'a pas d'équivalent ici : les disques passent en SATA." +
+                            string.Format(CultureInfo.CurrentCulture, PlatformText.ImportVboxControllerToSata, type) +
                             (plan.IsWindows
-                                ? " Windows peut alors refuser de démarrer (INACCESSIBLE_BOOT_DEVICE) : activez au préalable " +
-                                  "son pilote AHCI dans la machine VirtualBox (sc config storahci start= boot)."
+                                ? " " + PlatformText.ImportAhciHintVirtualBox
                                 : string.Empty));
                     }
 
@@ -157,18 +153,14 @@ namespace WinQEMU.Core.Import
                 };
                 if (type.StartsWith("Am79", StringComparison.OrdinalIgnoreCase))
                 {
-                    VmxReader.AddOnce(plan.Notes,
-                        "La carte réseau PCnet de VirtualBox n'a pas d'équivalent ici : elle devient une Intel e1000, " +
-                        "que les systèmes reconnaissent sans pilote supplémentaire.");
+                    VmxReader.AddOnce(plan.Notes, PlatformText.ImportVboxPcnet);
                 }
 
                 var attachment = adapter.Elements().Select(e => e.Name.LocalName)
                     .FirstOrDefault(n => n is "NAT" or "BridgedInterface" or "InternalNetwork" or "HostOnlyInterface" or "NATNetwork" or "GenericInterface");
                 if (attachment is not null and not "NAT")
                 {
-                    VmxReader.AddOnce(plan.Notes,
-                        "Une carte réseau n'était pas en NAT : elle y passe, le seul mode qui marche sans pilote " +
-                        "supplémentaire sur l'hôte. À changer dans Matériel si besoin.");
+                    VmxReader.AddOnce(plan.Notes, PlatformText.ImportVboxAdapterToNat);
                 }
 
                 plan.Adapters.Add(new ImportedAdapter

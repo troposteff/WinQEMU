@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using WinQEMU.Core.Qemu;
+using WinQEMU.Text;
 using WinQEMU.ViewModels;
 
 namespace WinQEMU.Controls
@@ -81,10 +83,10 @@ namespace WinQEMU.Controls
         {
             var (glyph, subtitle) = node.Kind switch
             {
-                SnapshotNodeKind.Origin => ("", "avant tout instantané"),
-                SnapshotNodeKind.Current => ("", "état actuel de la machine"),
-                SnapshotNodeKind.LinkedClone => ("", "clone lié"),
-                _ when node.IsRetained => ("", "conservé pour un clone lié"),
+                SnapshotNodeKind.Origin => ("", DialogText.TreeOriginSubtitle),
+                SnapshotNodeKind.Current => ("", DialogText.TreeCurrentSubtitle),
+                SnapshotNodeKind.LinkedClone => ("", DialogText.TreeLinkedCloneSubtitle),
+                _ when node.IsRetained => ("", DialogText.TreeRetainedSubtitle),
                 _ => ("", item is null ? string.Empty : $"{item.CreatedText} · {item.DetailText}")
             };
 
@@ -134,7 +136,7 @@ namespace WinQEMU.Controls
             };
             SetLeft(box, Left(node));
             SetTop(box, Top(node));
-            ToolTipService.SetToolTip(box, item is null ? node.Title : $"{item.Name}\n{item.DetailText}\nPris le {item.CreatedText}");
+            ToolTipService.SetToolTip(box, item is null ? node.Title : string.Format(CultureInfo.CurrentCulture, DialogText.TreeTooltip, item.Name, item.DetailText, item.CreatedText));
 
             if (node.Kind is SnapshotNodeKind.Snapshot or SnapshotNodeKind.LinkedClone && !node.IsRetained)
                 box.Tapped += (_, _) => NodeClicked?.Invoke(node);

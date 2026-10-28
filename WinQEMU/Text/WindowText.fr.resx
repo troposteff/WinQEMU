@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="VirtualNetworks" xml:space="preserve"><value>Réseaux virtuels</value></data>
+  <data name="NotifyQemuMissing" xml:space="preserve"><value>QEMU introuvable</value></data>
+  <data name="NotifyQemuLocate" xml:space="preserve"><value>Indiquer le dossier d'installation…</value></data>
+  <data name="NotifyOperationFailed" xml:space="preserve"><value>Échec de l'opération</value></data>
+  <data name="LibraryTitle" xml:space="preserve"><value>Machines virtuelles</value></data>
+  <data name="LibraryNewVm" xml:space="preserve"><value>Nouvelle machine virtuelle</value></data>
+  <data name="LibraryImportVm" xml:space="preserve"><value>Importer une machine virtuelle</value></data>
+  <data name="LibraryImportVmTip" xml:space="preserve"><value>Importer une machine VMware (.vmx), VirtualBox (.vbox), un paquet OVF (.ova, .ovf) ou un disque Hyper-V (.vhdx)</value></data>
+  <data name="LibraryRefresh" xml:space="preserve"><value>Actualiser la bibliothèque</value></data>
+  <data name="LibraryRefreshTip" xml:space="preserve"><value>Relancer la détection et réanalyser la bibliothèque</value></data>
+  <data name="LibrarySearchName" xml:space="preserve"><value>Rechercher une machine virtuelle</value></data>
+  <data name="LibrarySearchPlaceholder" xml:space="preserve"><value>Rechercher une VM...</value></data>
+  <data name="LibraryEmpty" xml:space="preserve"><value>Aucune machine virtuelle. Utilisez + pour en créer une.</value></data>
+  <data name="LibraryNoResults" xml:space="preserve"><value>Aucun résultat pour cette recherche.</value></data>
+  <data name="ToolbarStartTip" xml:space="preserve"><value>Démarre la machine virtuelle sélectionnée</value></data>
+  <data name="ToolbarPauseTip" xml:space="preserve"><value>Fige l'exécution de la machine sans l'arrêter, ou la reprend exactement où elle en était</value></data>
+  <data name="ToolbarShutDownTip" xml:space="preserve"><value>Demande au système invité de s'arrêter proprement (bouton d'alimentation ACPI)</value></data>
+  <data name="ToolbarPowerOffTip" xml:space="preserve"><value>Éteint la machine immédiatement, sans prévenir l'invité, comme si on débranchait l'alimentation. Utilisez Arrêter pour un arrêt propre.</value></data>
+  <data name="ToolbarCtrlAltDel" xml:space="preserve"><value>Ctrl+Alt+Suppr</value></data>
+  <data name="ToolbarCtrlAltDelTip" xml:space="preserve"><value>Windows intercepte cette combinaison : elle ne peut être transmise à l'invité que d'ici</value></data>
+  <data name="ToolbarUsbTip" xml:space="preserve"><value>Connecte un périphérique USB de ce PC à la machine en marche, ou choisit ceux à connecter à chaque démarrage</value></data>
+  <data name="ToolbarSoundTip" xml:space="preserve"><value>Coupe le son de cette machine ou règle son volume sur ce PC</value></data>
+  <data name="ToolbarPullFiles" xml:space="preserve"><value>Récupérer</value></data>
+  <data name="ToolbarPullFilesTip" xml:space="preserve"><value>Copie des fichiers ou dossiers de l'invité vers ce PC</value></data>
+  <data name="ToolbarSendFiles" xml:space="preserve"><value>Envoyer</value></data>
+  <data name="ToolbarSendFilesTip" xml:space="preserve"><value>Copie des fichiers de ce PC sur le Bureau de l'invité. Vous pouvez aussi les glisser sur la console, dossiers compris.</value></data>
+  <data name="ToolbarClone" xml:space="preserve"><value>Cloner</value></data>
+  <data name="ToolbarCloneTip" xml:space="preserve"><value>Crée une copie complète de la machine virtuelle sélectionnée, sous un nouveau nom. La machine doit être arrêtée.</value></data>
+  <data name="ToolbarExport" xml:space="preserve"><value>Exporter</value></data>
+  <data name="ToolbarExportTip" xml:space="preserve"><value>Exporte la machine virtuelle sélectionnée en paquet OVA, pour VMware, VirtualBox ou Proxmox. La machine doit être arrêtée.</value></data>
+  <data name="ToolbarDeleteTip" xml:space="preserve"><value>Retire la machine virtuelle sélectionnée de la liste, ou supprime aussi ses fichiers ; le choix est demandé avant toute action</value></data>
+  <data name="ToolbarMore" xml:space="preserve"><value>Plus</value></data>
+  <data name="ToolbarMoreTip" xml:space="preserve"><value>Les commandes que la largeur de la fenêtre ne laisse pas afficher</value></data>
+  <data name="HeaderState" xml:space="preserve"><value>État :</value></data>
+  <data name="ViewSummary" xml:space="preserve"><value>Résumé</value></data>
+  <data name="ViewConsole" xml:space="preserve"><value>Console</value></data>
+  <data name="SummaryRename" xml:space="preserve"><value>Renommer la machine virtuelle</value></data>
+  <data name="SummaryRenameButton" xml:space="preserve"><value>Renommer…</value></data>
+  <data name="SummaryCpus" xml:space="preserve"><value>Processeurs virtuels</value></data>
+  <data name="SummaryMemoryMb" xml:space="preserve"><value>Mémoire (Mo)</value></data>
+  <data name="SummaryIso" xml:space="preserve"><value>Image ISO</value></data>
+  <data name="SummaryIsoPath" xml:space="preserve"><value>Chemin de l'image ISO</value></data>
+  <data name="SummaryIsoNone" xml:space="preserve"><value>Aucun support optique</value></data>
+  <data name="SummaryIsoBrowse" xml:space="preserve"><value>Choisir une image ISO</value></data>
+  <data name="SummaryIsoInsert" xml:space="preserve"><value>Insérer</value></data>
+  <data name="SummaryIsoInsertTip" xml:space="preserve"><value>Change le disque dans le lecteur de la machine en cours d'exécution</value></data>
+  <data name="SummaryLocation" xml:space="preserve"><value>Emplacement</value></data>
+  <data name="PlatformHeader" xml:space="preserve"><value>Plateforme</value></data>
+  <data name="PlatformArchitecture" xml:space="preserve"><value>Architecture</value></data>
+  <data name="PlatformFirmware" xml:space="preserve"><value>Micrologiciel</value></data>
+  <data name="PlatformAcceleration" xml:space="preserve"><value>Accélération</value></data>
+  <data name="PlatformMachineType" xml:space="preserve"><value>Type de machine</value></data>
+  <data name="PlatformCpuModel" xml:space="preserve"><value>Modèle de processeur</value></data>
+  <data name="PlatformCoresPerSocket" xml:space="preserve"><value>Cœurs par socket</value></data>
+  <data name="PlatformCoresPerSocketHeader" xml:space="preserve"><value>Cœurs par socket (1 = laisser QEMU décider)</value></data>
+  <data name="PlatformGraphics" xml:space="preserve"><value>Carte graphique</value></data>
+  <data name="PlatformVideoMemory" xml:space="preserve"><value>Mémoire vidéo</value></data>
+  <data name="PlatformVideoMemoryHeader" xml:space="preserve"><value>Mémoire vidéo (Mo)</value></data>
+  <data name="PlatformSound" xml:space="preserve"><value>Son</value></data>
+  <data name="PlatformMicrophone" xml:space="preserve"><value>Micro</value></data>
+  <data name="PlatformMicrophoneTip" xml:space="preserve"><value>Donne à l'invité le micro de ce PC. Windows demande l'autorisation la première fois.</value></data>
+  <data name="PlatformUsbTablet" xml:space="preserve"><value>Tablette USB</value></data>
+  <data name="PlatformUsbTabletTip" xml:space="preserve"><value>Pointeur absolu : sans lui le curseur de l'invité dérive de celui de l'hôte</value></data>
+  <data name="PlatformBalloon" xml:space="preserve"><value>Ballon mémoire</value></data>
+  <data name="PlatformBalloonTip" xml:space="preserve"><value>Permet à l'hôte de reprendre de la mémoire non utilisée par l'invité</value></data>
+  <data name="PlatformLocalTime" xml:space="preserve"><value>Horloge en heure locale</value></data>
+  <data name="PlatformLocalTimeTip" xml:space="preserve"><value>Attendu par Windows ; la plupart des invités Linux attendent UTC</value></data>
+  <data name="PlatformSecondIso" xml:space="preserve"><value>Second lecteur optique</value></data>
+  <data name="PlatformSecondIsoHeader" xml:space="preserve"><value>Second lecteur optique (pilotes virtio-win, par exemple)</value></data>
+  <data name="PlatformSecondIsoNone" xml:space="preserve"><value>Aucun</value></data>
+  <data name="PlatformSecondIsoBrowse" xml:space="preserve"><value>Choisir le second ISO</value></data>
+  <data name="PlatformExtraArgs" xml:space="preserve"><value>Arguments supplémentaires</value></data>
+  <data name="PlatformExtraArgsHeader" xml:space="preserve"><value>Arguments QEMU supplémentaires</value></data>
+  <data name="PlatformExtraArgsPlaceholder" xml:space="preserve"><value>Ajoutés tels quels à la fin de la ligne de commande</value></data>
+  <data name="PlatformProblemsTitle" xml:space="preserve"><value>Cette configuration ne démarrerait pas</value></data>
+  <data name="CommandLineHeader" xml:space="preserve"><value>Ligne de commande</value></data>
+  <data name="CommandLineHint" xml:space="preserve"><value>Ce que ces réglages produisent. Le port de contrôle affiché est indicatif : le vrai est attribué au démarrage.</value></data>
+  <data name="HardwareLocked" xml:space="preserve"><value>Le matériel n'est lu qu'au démarrage de QEMU. Arrêtez la machine pour le modifier.</value></data>
+  <data name="BootOrderHeader" xml:space="preserve"><value>Ordre de démarrage</value></data>
+  <data name="BootOrderHint" xml:space="preserve"><value>Le micrologiciel essaie les périphériques dans cet ordre. En UEFI c'est le seul ordre pris en compte : un périphérique absent de cette liste reste invisible au gestionnaire de démarrage.</value></data>
+  <data name="BootOrderUp" xml:space="preserve"><value>Monter</value></data>
+  <data name="BootOrderDown" xml:space="preserve"><value>Descendre</value></data>
+  <data name="DisksHeader" xml:space="preserve"><value>Disques</value></data>
+  <data name="DiskImageFile" xml:space="preserve"><value>Fichier image</value></data>
+  <data name="DiskGrowName" xml:space="preserve"><value>Agrandir le disque</value></data>
+  <data name="DiskGrow" xml:space="preserve"><value>Agrandir…</value></data>
+  <data name="DiskConvertName" xml:space="preserve"><value>Convertir le disque</value></data>
+  <data name="DiskConvert" xml:space="preserve"><value>Convertir…</value></data>
+  <data name="DiskCompactName" xml:space="preserve"><value>Compacter le disque</value></data>
+  <data name="DiskCompact" xml:space="preserve"><value>Compacter…</value></data>
+  <data name="DiskCompactTip" xml:space="preserve"><value>Rend à ce PC la place que le disque n'utilise plus</value></data>
+  <data name="DiskDetachName" xml:space="preserve"><value>Détacher le disque</value></data>
+  <data name="DiskDetach" xml:space="preserve"><value>Détacher</value></data>
+  <data name="DiskController" xml:space="preserve"><value>Contrôleur</value></data>
+  <data name="DiskCache" xml:space="preserve"><value>Cache</value></data>
+  <data name="DiskLinkedClonePrefix" xml:space="preserve"><value>Clone lié : ne contient que ce que cette machine a écrit et lit le reste dans </value></data>
+  <data name="DiskLinkedCloneSuffix" xml:space="preserve"><value>. « Convertir… » le rend indépendant.</value></data>
+  <data name="DiskOverlayLevels" xml:space="preserve"><value>Niveaux de superposition : </value></data>
+  <data name="DiskRevertToBase" xml:space="preserve"><value>Revenir à l'image de base</value></data>
+  <data name="DiskCommitName" xml:space="preserve"><value>Fusionner dans l'image de base</value></data>
+  <data name="DiskCommit" xml:space="preserve"><value>Fusionner</value></data>
+  <data name="DiskReadOnly" xml:space="preserve"><value>Lecture seule</value></data>
+  <data name="DiskDiscard" xml:space="preserve"><value>Transmettre TRIM (discard)</value></data>
+  <data name="DiskDiscardTip" xml:space="preserve"><value>Permet à l'image qcow2 de rétrécir quand l'invité libère de l'espace</value></data>
+  <data name="DisksHint" xml:space="preserve"><value>Le format est celui de l'image existante : le changer ici ne convertirait rien. Détacher ne supprime pas le fichier.</value></data>
+  <data name="DisksCreate" xml:space="preserve"><value>Créer un disque…</value></data>
+  <data name="DisksAttach" xml:space="preserve"><value>Attacher une image existante…</value></data>
+  <data name="Network" xml:space="preserve"><value>Réseau</value></data>
+  <data name="NetworkCableConnected" xml:space="preserve"><value>Câble branché</value></data>
+  <data name="NetworkCableDisconnected" xml:space="preserve"><value>Câble débranché : l'invité ne voit plus de réseau sur cette carte</value></data>
+  <data name="NetworkConnection" xml:space="preserve"><value>Connexion</value></data>
+  <data name="NetworkConnectionPlaceholder" xml:space="preserve"><value>Choisir une connexion</value></data>
+  <data name="NetworkAdapterModel" xml:space="preserve"><value>Modèle de carte</value></data>
+  <data name="NetworkAdapter" xml:space="preserve"><value>Carte</value></data>
+  <data name="NetworkMac" xml:space="preserve"><value>Adresse MAC</value></data>
+  <data name="NetworkMacPlaceholder" xml:space="preserve"><value>Générée par QEMU si vide</value></data>
+  <data name="NetworkMacGenerate" xml:space="preserve"><value>Générer</value></data>
+  <data name="NetworkTap" xml:space="preserve"><value>Interface TAP</value></data>
+  <data name="NetworkTapHeader" xml:space="preserve"><value>Interface TAP de l'hôte</value></data>
+  <data name="NetworkNatHint" xml:space="preserve"><value>En NAT, l'invité sort mais rien n'entre : une redirection de port est le seul moyen de l'atteindre depuis l'hôte.</value></data>
+  <data name="NetworkProtocol" xml:space="preserve"><value>Protocole</value></data>
+  <data name="NetworkHostAddress" xml:space="preserve"><value>Adresse hôte</value></data>
+  <data name="NetworkHostPort" xml:space="preserve"><value>Port hôte</value></data>
+  <data name="NetworkGuestPort" xml:space="preserve"><value>Port invité</value></data>
+  <data name="NetworkAddPortForward" xml:space="preserve"><value>Ajouter une redirection de port</value></data>
+  <data name="NetworkAddAdapter" xml:space="preserve"><value>Ajouter une carte réseau</value></data>
+  <data name="LanAccessHeader" xml:space="preserve"><value>Accès depuis le réseau</value></data>
+  <data name="LanAccessFirewall" xml:space="preserve"><value>Pare-feu</value></data>
+  <data name="LanAccessAllowQemu" xml:space="preserve"><value>Autoriser QEMU…</value></data>
+  <data name="LanAccessOpenService" xml:space="preserve"><value>Ouvrir un service…</value></data>
+  <data name="GuestToolsHeader" xml:space="preserve"><value>Outils invités</value></data>
+  <data name="GuestToolsHint" xml:space="preserve"><value>L'agent invité et les outils de l'invité : dossiers partagés, glisser-déposer, presse-papiers, taille d'écran automatique et graphique réseau en dépendent. Vérifiés à chaque démarrage de la machine.</value></data>
+  <data name="GuestToolsInstall" xml:space="preserve"><value>Installer les outils invités…</value></data>
+  <data name="GuestToolsTrim" xml:space="preserve"><value>Signaler l'espace libre (TRIM)</value></data>
+  <data name="GuestToolsTrimTip" xml:space="preserve"><value>L'invité signale les blocs libres de ses disques ; « Compacter… » (Matériel, machine arrêtée) rend ensuite cette place à ce PC</value></data>
+  <data name="AutoStartHeader" xml:space="preserve"><value>Démarrage automatique</value></data>
+  <data name="AutoStartHint" xml:space="preserve"><value>La machine démarre quand WinQEMU s'ouvre, à l'ouverture de session Windows aussi si WinQEMU démarre alors (Paramètres). Le délai, compté depuis l'ouverture de WinQEMU, fixe l'ordre entre les machines.</value></data>
+  <data name="AutoStartEnable" xml:space="preserve"><value>Démarrer avec WinQEMU</value></data>
+  <data name="AutoStartDelay" xml:space="preserve"><value>Délai (secondes)</value></data>
+  <data name="SharedFoldersHeader" xml:space="preserve"><value>Dossiers partagés</value></data>
+  <data name="SharedFoldersShare" xml:space="preserve"><value>Partager un dossier…</value></data>
+  <data name="SharedFoldersShareReadOnly" xml:space="preserve"><value>Partager en lecture seule…</value></data>
+  <data name="SnapshotsHeader" xml:space="preserve"><value>Instantanés</value></data>
+  <data name="SnapshotsHint" xml:space="preserve"><value>Trois façons de prendre un instantané, qui se défont différemment. Machine arrêtée : instantané interne des disques, annulé en les ramenant à cet état. À chaud sur les disques : chaque disque reçoit une superposition ; restaurer ou supprimer se fait ici, machine arrêtée. À chaud avec la mémoire : la machine repart à l'instant capturé, mais cela exige l'émulation TCG.</value></data>
+  <data name="SnapshotsAuto" xml:space="preserve"><value>Instantanés automatiques</value></data>
+  <data name="SnapshotsAutoTip" xml:space="preserve"><value>Pris au démarrage de la machine, machine arrêtée : sous WHPX, un instantané de machine en marche ne se supprime qu'à l'arrêt. Seuls ceux nommés « Auto … » sont supprimés au-delà du nombre gardé.</value></data>
+  <data name="SnapshotsAutoFrequency" xml:space="preserve"><value>Fréquence des instantanés automatiques</value></data>
+  <data name="SnapshotsAutoKeepName" xml:space="preserve"><value>Instantanés automatiques gardés</value></data>
+  <data name="SnapshotsAutoKept" xml:space="preserve"><value>gardés</value></data>
+  <data name="SnapshotsTree" xml:space="preserve"><value>Arbre des instantanés</value></data>
+  <data name="SnapshotsNewName" xml:space="preserve"><value>Nom du nouvel instantané</value></data>
+  <data name="SnapshotsTakeOffline" xml:space="preserve"><value>Machine arrêtée</value></data>
+  <data name="SnapshotsTakeOfflineTip" xml:space="preserve"><value>Instantané interne des disques, machine éteinte</value></data>
+  <data name="SnapshotsTakeLive" xml:space="preserve"><value>À chaud (disques)</value></data>
+  <data name="SnapshotsTakeLiveTip" xml:space="preserve"><value>Machine en marche : chaque disque reçoit une superposition et les écritures divergent à partir de là. Équivaut à une coupure de courant pour l'invité.</value></data>
+  <data name="SnapshotsTakeMemory" xml:space="preserve"><value>À chaud (avec la mémoire)</value></data>
+  <data name="SnapshotsTakeMemoryTip" xml:space="preserve"><value>Machine en marche sous émulation : enregistre aussi la mémoire, donc la reprise repart exactement au même instant.</value></data>
+  <data name="SnapshotsRestoreName" xml:space="preserve"><value>Restaurer l'instantané</value></data>
+  <data name="SnapshotsRestore" xml:space="preserve"><value>Restaurer</value></data>
+  <data name="SnapshotsRestoreTip" xml:space="preserve"><value>Machine arrêtée : ramène les disques à cet état</value></data>
+  <data name="SnapshotsResumeName" xml:space="preserve"><value>Reprendre l'instantané</value></data>
+  <data name="SnapshotsResumeTip" xml:space="preserve"><value>Instantané avec mémoire, machine en marche : la machine repart à l'instant capturé</value></data>
+  <data name="SnapshotsDeleteName" xml:space="preserve"><value>Supprimer l'instantané</value></data>
+  <data name="SnapshotsRefreshName" xml:space="preserve"><value>Actualiser les instantanés</value></data>
+  <data name="SnapshotsRefresh" xml:space="preserve"><value>Actualiser</value></data>
+  <data name="SnapshotsLockedHint" xml:space="preserve"><value>Restaurer et supprimer exigent que la machine soit arrêtée : qemu-img ne peut pas toucher une image qu'un QEMU en cours tient ouverte.</value></data>
+  <data name="LogHeader" xml:space="preserve"><value>Journal QEMU</value></data>
+  <data name="ResourcesHeader" xml:space="preserve"><value>Ressources</value></data>
+  <data name="ResourcesCpu" xml:space="preserve"><value>Processeur</value></data>
+  <data name="ResourcesMemory" xml:space="preserve"><value>Mémoire</value></data>
+  <data name="ResourcesDisk" xml:space="preserve"><value>Disque</value></data>
+  <data name="ConsoleHint" xml:space="preserve"><value>Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris. Glissez des fichiers sur la console pour les copier sur le Bureau de l'invité.</value></data>
+  <data name="ConsoleScaling" xml:space="preserve"><value>Mise à l'échelle de la console</value></data>
+  <data name="ConsoleTypeClipboard" xml:space="preserve"><value>Taper le presse-papiers</value></data>
+  <data name="ConsoleTypeClipboardTip" xml:space="preserve"><value>Tape le texte du presse-papiers de ce PC au clavier de l'invité, pour un invité sans presse-papiers partagé (console texte d'un serveur, écran de connexion)</value></data>
+  <data name="ConsoleFullScreen" xml:space="preserve"><value>Plein écran</value></data>
+  <data name="ConsoleFullScreenTip" xml:space="preserve"><value>F11 pour revenir. Échap n'y suffit pas : cette touche part à l'invité.</value></data>
+  <data name="FullScreenStartTip" xml:space="preserve"><value>Démarre la machine virtuelle</value></data>
+  <data name="FullScreenPowerOffTip" xml:space="preserve"><value>Éteint la machine immédiatement, sans prévenir l'invité, comme si on débranchait l'alimentation</value></data>
+  <data name="FullScreenSendFiles" xml:space="preserve"><value>Envoyer des fichiers</value></data>
+  <data name="FullScreenPullFiles" xml:space="preserve"><value>Récupérer des fichiers</value></data>
+  <data name="FullScreenExit" xml:space="preserve"><value>Quitter le plein écran</value></data>
+</root>

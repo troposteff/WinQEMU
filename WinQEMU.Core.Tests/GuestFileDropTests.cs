@@ -79,6 +79,20 @@ public sealed class GuestFileDropTests : IAsyncLifetime
         Assert.Contains("absent.txt", error.Message);
     }
 
+    [Theory]
+    [InlineData("#nofolder /home/steph/Bureau", "le dossier /home/steph/Bureau est introuvable")]
+    [InlineData("#badname", "nom invalide")]
+    [InlineData("#badname a/../b", "nom invalide : a/../b")]
+    [InlineData("#notfound C:\\Users\\x y", "C:\\Users\\x y : introuvable")]
+    [InlineData("#nosession", "aucune session n'est ouverte dans l'invité : ouvrez une session Windows puis recommencez")]
+    [InlineData("#nofolder", "#nofolder")]
+    [InlineData("#unknown x", "#unknown x")]
+    [InlineData("Accès refusé.", "Accès refusé.")]
+    public void The_guests_reasons_are_said_in_the_interfaces_language(string sent, string shown)
+    {
+        Assert.Equal(shown, GuestFileDrop.GuestMessage(sent));
+    }
+
     [Fact]
     public void The_linux_receiver_is_valid_perl()
     {

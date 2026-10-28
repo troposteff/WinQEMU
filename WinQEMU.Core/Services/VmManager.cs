@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -161,7 +162,7 @@ namespace WinQEMU.Core.Services
             var library = Library ?? throw new InvalidOperationException("The VM library is not initialised.");
 
             if (FindSession(source) is { } session && session.State != VmState.Stopped)
-                throw new InvalidOperationException("Arrêtez la machine virtuelle avant de la cloner.");
+                throw new InvalidOperationException(CoreText.ManagerStopBeforeClone);
 
             // Resumes on the caller's context on purpose — VirtualMachines is data-bound.
             var clone = await library.CloneAsync(source, name, progress, cancellationToken);
@@ -182,7 +183,7 @@ namespace WinQEMU.Core.Services
             var images = DiskService ?? throw new QemuNotAvailableException("QEMU is required to export a virtual machine.");
 
             if (FindSession(source) is { } session && session.State != VmState.Stopped)
-                throw new InvalidOperationException("Arrêtez la machine virtuelle avant de l'exporter.");
+                throw new InvalidOperationException(CoreText.ManagerStopBeforeExport);
 
             return Export.OvaExporter.ExportAsync(source, destination, images, progress, cancellationToken);
         }
@@ -221,7 +222,7 @@ namespace WinQEMU.Core.Services
             var library = Library ?? throw new InvalidOperationException("The VM library is not initialised.");
 
             if (FindSession(source) is { } session && session.State != VmState.Stopped)
-                throw new InvalidOperationException("Arrêtez la machine virtuelle avant de la cloner.");
+                throw new InvalidOperationException(CoreText.ManagerStopBeforeClone);
 
             // Resumes on the caller's context on purpose — the source's disks are data-bound.
             var plan = await library.PrepareLinkedCloneAsync(source, name, cancellationToken);
@@ -355,17 +356,17 @@ namespace WinQEMU.Core.Services
         }
 
         /// <summary>
-        /// "Debian (copie)", then "Debian (copie 2)" and so on: the first name no machine in the library
-        /// already uses.
+        /// "Debian (copy)", then "Debian (copy 2)" and so on ("Debian (copie)" in French): the first name no
+        /// machine in the library already uses.
         /// </summary>
         public string SuggestCloneName(VmConfig source)
         {
             var taken = new HashSet<string>(VirtualMachines.Select(m => m.Name.Trim()), StringComparer.CurrentCultureIgnoreCase);
             var baseName = source.Name.Trim();
 
-            var candidate = $"{baseName} (copie)";
+            var candidate = string.Format(System.Globalization.CultureInfo.CurrentCulture, CoreText.ManagerCloneName, baseName);
             for (var index = 2; taken.Contains(candidate); index++)
-                candidate = $"{baseName} (copie {index.ToString(System.Globalization.CultureInfo.CurrentCulture)})";
+                candidate = string.Format(System.Globalization.CultureInfo.CurrentCulture, CoreText.ManagerCloneNameNumbered, baseName, index);
 
             return candidate;
         }

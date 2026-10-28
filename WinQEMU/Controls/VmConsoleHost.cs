@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using WinQEMU.Core.Input;
 using WinQEMU.Core.Interop;
+using WinQEMU.Text;
 
 namespace WinQEMU.Controls
 {
@@ -38,7 +39,7 @@ namespace WinQEMU.Controls
 
     public sealed partial class VmConsoleHost : Grid
     {
-        private const string IdlePlaceholder = "Démarrez la machine virtuelle pour afficher sa console.";
+        private static string IdlePlaceholder => DialogText.ConsoleIdle;
 
         private readonly TextBlock _placeholder;
 
@@ -254,7 +255,7 @@ namespace WinQEMU.Controls
             _attachCancellation = new CancellationTokenSource();
             var token = _attachCancellation.Token;
 
-            PlaceholderText = "Connexion à la console…";
+            PlaceholderText = DialogText.ConsoleConnecting;
 
             // Being taken in the background: wait for it, it will then be among the parked ones.
             if (_adoptions.TryGetValue(processId, out var adoption))
@@ -293,7 +294,7 @@ namespace WinQEMU.Controls
 
             if (console is null)
             {
-                PlaceholderText = "La fenêtre de console de QEMU est introuvable.";
+                PlaceholderText = DialogText.ConsoleWindowNotFound;
                 return false;
             }
 
@@ -308,7 +309,7 @@ namespace WinQEMU.Controls
             if (!embedded)
             {
                 Log?.Invoke($"Console: SetParent failed for window 0x{console.Handle.ToInt64():X}.");
-                PlaceholderText = "Impossible d'intégrer la console. Elle reste dans une fenêtre distincte.";
+                PlaceholderText = DialogText.ConsoleEmbedFailed;
                 return false;
             }
 
@@ -410,7 +411,7 @@ namespace WinQEMU.Controls
                 var parkingWindow = _parkingWindow;
                 var parkTask = Task.Run(() => parkingWindow != IntPtr.Zero && console.Park(parkingWindow));
                 if (!parkTask.Wait(TimeSpan.FromSeconds(2)))
-                    PlaceholderText = "La console n'a pas pu être libérée dans le délai imparti.";
+                    PlaceholderText = DialogText.ConsoleReleaseTimeout;
                 else if (parkTask.Result)
                     _parked[processId] = console;
                 else

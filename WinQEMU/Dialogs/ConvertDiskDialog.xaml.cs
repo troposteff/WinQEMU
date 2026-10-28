@@ -1,7 +1,9 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using WinQEMU.Core.Models;
+using WinQEMU.Text;
 
 namespace WinQEMU.Dialogs
 {
@@ -12,8 +14,8 @@ namespace WinQEMU.Dialogs
         {
             InitializeComponent();
 
-            TitleText.Text = $"Convertir « {disk.Id} »";
-            CurrentText.Text = $"Format actuel : {disk.Format.ToString().ToLowerInvariant()}.";
+            TitleText.Text = string.Format(CultureInfo.CurrentCulture, DialogText.ConvertTitle, disk.Id);
+            CurrentText.Text = string.Format(CultureInfo.CurrentCulture, DialogText.ConvertCurrentFormat, disk.Format.ToString().ToLowerInvariant());
 
             // Converting to the format it already has would only duplicate the file.
             var options = Enum.GetValues<DiskFormat>().Where(f => f != disk.Format).ToList();

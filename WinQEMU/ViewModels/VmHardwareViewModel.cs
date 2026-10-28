@@ -11,6 +11,7 @@ using System.Windows.Input;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
 using WinQEMU.Core.Services;
+using WinQEMU.Text;
 
 namespace WinQEMU.ViewModels
 {
@@ -157,22 +158,22 @@ namespace WinQEMU.ViewModels
         private static BootEntryItem DescribeBootEntry(VmConfig config, string id)
         {
             if (id == QemuArgumentBuilder.PrimaryCdId)
-                return new BootEntryItem { Id = id, Label = "Lecteur optique", Detail = FileLabel(config.IsoPath) };
+                return new BootEntryItem { Id = id, Label = DialogText.BootOptical, Detail = FileLabel(config.IsoPath) };
 
             if (id == QemuArgumentBuilder.SecondaryCdId)
-                return new BootEntryItem { Id = id, Label = "Second lecteur optique", Detail = FileLabel(config.SecondaryIsoPath) };
+                return new BootEntryItem { Id = id, Label = DialogText.BootSecondOptical, Detail = FileLabel(config.SecondaryIsoPath) };
 
             var disk = config.Disks.FirstOrDefault(d => d.Id == id);
             return new BootEntryItem
             {
                 Id = id,
-                Label = $"Disque {id}",
+                Label = string.Format(CultureInfo.CurrentCulture, DialogText.BootDisk, id),
                 Detail = disk is null ? string.Empty : FileLabel(disk.FileName)
             };
         }
 
         private static string FileLabel(string path) =>
-            string.IsNullOrWhiteSpace(path) ? "(vide)" : Path.GetFileName(path);
+            string.IsNullOrWhiteSpace(path) ? DialogText.BootEmpty : Path.GetFileName(path);
 
         private bool CanMoveBootEntry(int delta)
         {
@@ -227,7 +228,7 @@ namespace WinQEMU.ViewModels
             {
                 var full = Path.GetFullPath(path);
                 if (!File.Exists(full))
-                    throw new FileNotFoundException($"Image introuvable : {full}", full);
+                    throw new FileNotFoundException(string.Format(CultureInfo.CurrentCulture, DialogText.HardwareImageNotFound, full), full);
 
                 if (_manager.WhyImageCannotBeAttached(full) is { } reason)
                     throw new InvalidOperationException(reason);
@@ -268,14 +269,14 @@ namespace WinQEMU.ViewModels
             try
             {
                 if (_manager.DiskService is null)
-                    throw new InvalidOperationException("qemu-img n'est pas disponible : QEMU n'a pas été détecté.");
+                    throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
                 var id = NextDiskId();
                 var fileName = $"{id}.{DiskExtension(format)}";
                 var fullPath = Path.Combine(_config.FolderPath, fileName);
 
                 if (File.Exists(fullPath))
-                    throw new IOException($"Le fichier {fileName} existe déjà dans le dossier de la machine.");
+                    throw new IOException(string.Format(CultureInfo.CurrentCulture, DialogText.HardwareFileExists, fileName));
 
                 await _manager.DiskService.CreateAsync(fullPath, format, capacityBytes, backingFile: null)
                     .ConfigureAwait(true);
@@ -307,7 +308,7 @@ namespace WinQEMU.ViewModels
             try
             {
                 if (_manager.DiskService is null)
-                    throw new InvalidOperationException("qemu-img n'est pas disponible : QEMU n'a pas été détecté.");
+                    throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
                 await _manager.DiskService.GrowAsync(ResolveDiskPath(disk), newCapacityBytes).ConfigureAwait(true);
 
@@ -339,14 +340,14 @@ namespace WinQEMU.ViewModels
             try
             {
                 if (_manager.DiskService is null)
-                    throw new InvalidOperationException("qemu-img n'est pas disponible : QEMU n'a pas été détecté.");
+                    throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
                 var source = ResolveDiskPath(disk);
                 var targetName = $"{disk.Id}.{DiskExtension(format)}";
                 var target = Path.Combine(_config.FolderPath, targetName);
 
                 if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase) || File.Exists(target))
-                    throw new IOException($"Le fichier {targetName} existe déjà dans le dossier de la machine.");
+                    throw new IOException(string.Format(CultureInfo.CurrentCulture, DialogText.HardwareFileExists, targetName));
 
                 await _manager.DiskService.ConvertAsync(source, target, format, compress).ConfigureAwait(true);
 
@@ -378,12 +379,12 @@ namespace WinQEMU.ViewModels
         public async Task<string?> WhyDiskCannotBeCompactedAsync(DiskConfig disk)
         {
             if (_config is null || !CanEdit)
-                return "La machine doit être arrêtée.";
+                return DialogText.HardwareMustBeStopped;
             if (_manager.DiskService is null)
-                return "qemu-img n'est pas disponible : QEMU n'a pas été détecté.";
+                return DialogText.HardwareNoQemuImg;
             var path = ResolveDiskPath(disk);
             if (!File.Exists(path))
-                return "Le fichier du disque est introuvable.";
+                return DialogText.HardwareDiskFileMissing;
             var info = await _manager.DiskService.GetInfoAsync(path).ConfigureAwait(true);
             return DiskCompaction.WhyNot(_config, disk, info, _manager.ProtectedImages);
         }
@@ -417,7 +418,7 @@ namespace WinQEMU.ViewModels
             try
             {
                 if (_manager.DiskService is null)
-                    throw new InvalidOperationException("qemu-img n'est pas disponible : QEMU n'a pas été détecté.");
+                    throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
                 await new LiveSnapshotOperations(_manager.DiskService)
                     .RevertTopAsync(_config, disk, _manager.ProtectedImages).ConfigureAwait(true);
@@ -441,7 +442,7 @@ namespace WinQEMU.ViewModels
             try
             {
                 if (_manager.DiskService is null)
-                    throw new InvalidOperationException("qemu-img n'est pas disponible : QEMU n'a pas été détecté.");
+                    throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
                 if (_manager.WhyOverlayCannotBeMerged(_config, disk) is { } reason)
                     throw new InvalidOperationException(reason);

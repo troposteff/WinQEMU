@@ -1,4 +1,5 @@
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Qemu
 {
@@ -69,7 +70,7 @@ namespace WinQEMU.Core.Qemu
         /// <summary>The tree of one machine. <paramref name="library"/> is every machine listed, for its linked clones.</summary>
         public static SnapshotTreeNode Build(VmConfig config, IReadOnlyList<VmSnapshot> snapshots, IEnumerable<VmConfig> library)
         {
-            var origin = new SnapshotTreeNode(SnapshotNodeKind.Origin, "État d'origine");
+            var origin = new SnapshotTreeNode(SnapshotNodeKind.Origin, PlatformText.SnapshotTreeOrigin);
             var nodes = new Dictionary<string, SnapshotTreeNode>(StringComparer.Ordinal);
             foreach (var snapshot in snapshots.OrderBy(s => s.CreatedAt))
                 nodes.TryAdd(snapshot.Name, new SnapshotTreeNode(SnapshotNodeKind.Snapshot, snapshot.Name, snapshot));
@@ -152,7 +153,7 @@ namespace WinQEMU.Core.Qemu
             // Where the machine stands: the last snapshot taken or restored, if still there, or the
             // closest surviving ancestor of it; else the snapshot whose overlay it writes to.
             var current = CurrentFrom(config.CurrentSnapshot, nodes, recorded) ?? structuralCurrent;
-            NodeOf(current).Children.Add(new SnapshotTreeNode(SnapshotNodeKind.Current, "Vous êtes ici"));
+            NodeOf(current).Children.Add(new SnapshotTreeNode(SnapshotNodeKind.Current, PlatformText.SnapshotTreeYouAreHere));
 
             // Linked clones read the whole of an image, i.e. the state when it stopped being written: the
             // snapshot whose overlay rests on it ("Base de <clone>"), or, when nothing rests on it any more

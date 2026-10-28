@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,6 +7,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Services;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 
 namespace WinQEMU.Dialogs
 {
@@ -31,7 +34,7 @@ namespace WinQEMU.Dialogs
             InitializeComponent();
             _clone = clone;
 
-            TitleText.Text = $"Cloner « {source.Name} »";
+            TitleText.Text = string.Format(CultureInfo.CurrentCulture, DialogText.CloneTitle, source.Name);
             NameBox.Text = suggestedName;
             NameBox.SelectAll();
 
@@ -39,8 +42,8 @@ namespace WinQEMU.Dialogs
             // disks may grow to is what the host has to be ready for.
             var capacity = source.Disks.Sum(d => d.CapacityBytes);
             _fullCopySize = capacity > 0
-                ? $"{source.Disks.Count} disque(s), {capacity / (1024d * 1024 * 1024):0.#} Gio au plus, copiés dans un nouveau dossier de la bibliothèque."
-                : $"{source.Disks.Count} disque(s), copiés dans un nouveau dossier de la bibliothèque.";
+                ? string.Format(CultureInfo.CurrentCulture, DialogText.CloneFullCopySize, source.Disks.Count, Sizes.Format(capacity))
+                : string.Format(CultureInfo.CurrentCulture, DialogText.CloneFullCopySizeUnknown, source.Disks.Count);
 
             // Offered but disabled with the reason, rather than hidden: the user then knows what would
             // make it possible.
@@ -70,7 +73,7 @@ namespace WinQEMU.Dialogs
                 return;
 
             SizeText.Text = IsLinked
-                ? "Rien n'est copié : le clone commence avec des disques presque vides, qui ne grossissent que de ce qu'il écrit."
+                ? DialogText.CloneLinkedSize
                 : _fullCopySize;
         }
 
@@ -95,7 +98,7 @@ namespace WinQEMU.Dialogs
             var progress = new Progress<double>(fraction =>
             {
                 CopyProgress.Value = fraction;
-                ProgressText.Text = $"Copie des disques… {fraction:P0}";
+                ProgressText.Text = string.Format(CultureInfo.CurrentCulture, DialogText.CloneProgress, fraction);
             });
 
             try
@@ -133,7 +136,7 @@ namespace WinQEMU.Dialogs
             // A linked clone only creates empty overlays: there is no fraction worth showing.
             CopyProgress.IsIndeterminate = cloning && linked;
             CopyProgress.Value = 0;
-            ProgressText.Text = linked ? "Création du clone lié…" : "Préparation…";
+            ProgressText.Text = linked ? DialogText.CloneCreatingLinked : DialogText.Preparing;
         }
 
         private void ShowError(string? message)
@@ -151,7 +154,7 @@ namespace WinQEMU.Dialogs
         {
             if (IsCloning)
             {
-                ProgressText.Text = "Annulation…";
+                ProgressText.Text = DialogText.Cancelling;
                 CancelButton.IsEnabled = false;
                 _cancellation!.Cancel();
                 return;

@@ -2,6 +2,8 @@ using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 using WinQEMU.ViewModels;
 
 namespace WinQEMU
@@ -45,8 +47,8 @@ namespace WinQEMU
             };
 
             return bytes <= 0
-                ? "taille inconnue"
-                : $"{bytes / 1024d / 1024d / 1024d:0.##} Gio";
+                ? DialogText.SizeUnknown
+                : Sizes.Format(bytes);
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language) =>
@@ -67,18 +69,18 @@ namespace WinQEMU
             DiskFormat format => format.ToString().ToLowerInvariant(),
             AcceleratorType accelerator => accelerator switch
             {
-                AcceleratorType.Auto => "Automatique (WHPX si disponible)",
-                AcceleratorType.Whpx => "WHPX (accélération matérielle)",
-                AcceleratorType.Tcg => "TCG (émulation, lente)",
+                AcceleratorType.Auto => DialogText.AcceleratorAuto,
+                AcceleratorType.Whpx => DialogText.AcceleratorWhpx,
+                AcceleratorType.Tcg => DialogText.AcceleratorTcg,
                 _ => accelerator.ToString()
             },
             GraphicsAdapter graphics => graphics switch
             {
-                GraphicsAdapter.VirtioVga => "virtio (moderne, pilote requis)",
-                GraphicsAdapter.Std => "std (compatible partout)",
+                GraphicsAdapter.VirtioVga => DialogText.GraphicsVirtio,
+                GraphicsAdapter.Std => DialogText.GraphicsStd,
                 GraphicsAdapter.Qxl => "qxl",
                 GraphicsAdapter.Vmware => "vmware",
-                GraphicsAdapter.None => "aucune",
+                GraphicsAdapter.None => DialogText.GraphicsNone,
                 _ => graphics.ToString()
             },
             GuestArchitecture architecture => architecture switch

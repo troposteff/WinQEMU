@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using WinQEMU.Text;
 
 namespace WinQEMU
 {
@@ -37,7 +38,7 @@ namespace WinQEMU
             {
                 if (message == WmQueryEndSession && mustStop())
                 {
-                    SetReason("Arrêt des machines virtuelles en cours…");
+                    SetReason(DialogText.SessionEndReason);
                     ending();
                     return IntPtr.Zero; // FALSE: not yet.
                 }

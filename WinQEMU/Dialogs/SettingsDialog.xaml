@@ -3,9 +3,11 @@
     x:Class="WinQEMU.Dialogs.SettingsDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ct="using:WinQEMU.Core.Text"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:t="using:WinQEMU.Text"
     mc:Ignorable="d"
     Background="Transparent"
     BorderThickness="0"
@@ -38,8 +40,8 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Spacing="2">
-                <TextBlock FontSize="20" FontWeight="SemiBold" Text="Paramètres" />
-                <TextBlock Style="{StaticResource Hint}" Text="Les modifications prennent effet immédiatement." />
+                <TextBlock FontSize="20" FontWeight="SemiBold" Text="{x:Bind ct:CommonText.Settings}" />
+                <TextBlock Style="{StaticResource Hint}" Text="{x:Bind t:DialogText.SettingsSubtitle}" />
             </StackPanel>
 
             <ScrollViewer Grid.Row="1" MaxHeight="460" VerticalScrollBarVisibility="Auto">
@@ -52,9 +54,9 @@
 
                     <!-- QEMU installation -->
                     <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="Installation de QEMU" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:DialogText.SettingsQemu}" />
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="WinQEMU n'installe pas QEMU. Laissez la détection automatique faire le travail, ou indiquez le dossier contenant qemu-system-x86_64.exe et qemu-img.exe." />
+                                   Text="{x:Bind t:DialogText.SettingsQemuHint}" />
 
                         <Border
                             Padding="12"
@@ -69,18 +71,18 @@
                                     Text="{Binding QemuDirectoryDisplay, Mode=OneWay}"
                                     TextWrapping="Wrap" />
                                 <TextBlock Style="{StaticResource Hint}"
-                                           Text="Dossier imposé dans les paramètres — la détection automatique est désactivée."
+                                           Text="{x:Bind t:DialogText.SettingsQemuOverridden}"
                                            Visibility="{Binding IsQemuDirectoryOverridden, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                             </StackPanel>
                         </Border>
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Click="OnBrowseQemuClick" Content="Choisir un dossier…" />
+                            <Button Click="OnBrowseQemuClick" Content="{x:Bind t:DialogText.ChooseFolder}" />
                             <Button
                                 Click="OnResetQemuClick"
-                                Content="Revenir à la détection automatique"
+                                Content="{x:Bind t:DialogText.SettingsQemuReset}"
                                 IsEnabled="{Binding IsQemuDirectoryOverridden, Mode=OneWay}" />
-                            <Button Click="OnRedetectClick" Content="Relancer la détection" />
+                            <Button Click="OnRedetectClick" Content="{x:Bind t:DialogText.SettingsQemuRedetect}" />
                             <muxc:ProgressRing
                                 x:Name="BusyRing"
                                 Width="20"
@@ -104,19 +106,19 @@
                             <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource Hint}" Text="Version" />
                             <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding QemuVersionDisplay, Mode=OneWay}" TextWrapping="Wrap" />
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource Hint}" Text="Accélération" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource Hint}" Text="{x:Bind t:DialogText.SettingsAcceleration}" />
                             <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AccelerationDisplay, Mode=OneWay}" TextWrapping="Wrap" />
 
                             <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource Hint}" Text="Architectures" />
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ArchitecturesDisplay, Mode=OneWay}" TextWrapping="Wrap" />
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource Hint}" Text="Micrologiciels" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource Hint}" Text="{x:Bind t:DialogText.SettingsFirmwares}" />
                             <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FirmwareDisplay, Mode=OneWay}" TextWrapping="Wrap" />
                         </Grid>
 
                         <muxc:Expander
                             HorizontalAlignment="Stretch"
-                            Header="Dossiers écartés pendant la détection"
+                            Header="{x:Bind t:DialogText.SettingsDiagnostics}"
                             Visibility="{Binding HasDiagnostics, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock
                                 IsTextSelectionEnabled="True"
@@ -131,33 +133,45 @@
                         IsOpen="{Binding IsQemuMissing, Mode=OneWay}"
                         Message="{Binding QemuStatusDetail, Mode=OneWay}"
                         Severity="Error"
-                        Title="QEMU est introuvable" />
+                        Title="{x:Bind t:DialogText.SettingsQemuMissing}" />
 
                     <!-- Start at the Windows logon -->
                     <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="Démarrage" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:DialogText.SettingsStartup}" />
                         <ToggleSwitch
                             x:Name="StartAtLogonSwitch"
-                            Header="Lancer WinQEMU à l'ouverture de session Windows"
-                            OffContent="Non"
-                            OnContent="Oui"
+                            Header="{x:Bind t:DialogText.SettingsStartAtLogon}"
+                            OffContent="{x:Bind ct:CommonText.No}"
+                            OnContent="{x:Bind ct:CommonText.Yes}"
                             Toggled="OnStartAtLogonToggled" />
                         <TextBlock
                             x:Name="StartAtLogonHint"
                             Style="{StaticResource Hint}"
-                            Text="WinQEMU s'ouvre alors dans la zone de notification et démarre les machines marquées « Démarrer avec WinQEMU » (section Démarrage automatique de chaque machine). Windows le liste aussi dans ses applications de démarrage."
                             TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!-- Language -->
+                    <StackPanel Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:DialogText.SettingsLanguage}" />
+                        <TextBlock Style="{StaticResource Hint}" Text="{x:Bind t:DialogText.SettingsLanguageHint}" TextWrapping="Wrap" />
+                        <ComboBox
+                            x:Name="LanguageBox"
+                            MinWidth="320"
+                            AutomationProperties.Name="{x:Bind t:DialogText.SettingsLanguage}"
+                            DisplayMemberPath="Name"
+                            SelectedValuePath="Code"
+                            SelectionChanged="OnLanguageChanged" />
                     </StackPanel>
 
                     <!-- Sound -->
                     <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="Son des machines virtuelles" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:DialogText.SettingsSound}" />
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="La sortie où toutes les machines jouent leur son. Windows ne la retient que pour le programme QEMU dans son ensemble : elle ne peut pas différer d'une machine à l'autre. Le volume et la coupure, eux, se règlent pour chaque machine par le bouton Son." />
+                                   Text="{x:Bind t:DialogText.SettingsSoundHint}" />
                         <ComboBox
                             x:Name="AudioOutputBox"
                             MinWidth="320"
-                            AutomationProperties.Name="Sortie audio des machines virtuelles"
+                            AutomationProperties.Name="{x:Bind t:DialogText.SettingsSoundOutput}"
                             DisplayMemberPath="Name"
                             SelectedValuePath="Id"
                             SelectionChanged="OnAudioOutputChanged" />
@@ -165,9 +179,9 @@
 
                     <!-- VM library -->
                     <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="Bibliothèque de machines virtuelles" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:DialogText.SettingsLibrary}" />
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="Dossier analysé au démarrage et proposé par défaut à la création. Le changer relit la bibliothèque ; aucun fichier n'est déplacé et les machines du dossier précédent disparaissent simplement de la liste." />
+                                   Text="{x:Bind t:DialogText.SettingsLibraryHint}" />
 
                         <Border
                             Padding="12"
@@ -183,8 +197,8 @@
                         </Border>
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Click="OnBrowseLibraryClick" Content="Choisir un dossier…" />
-                            <Button Click="OnOpenLibraryClick" Content="Ouvrir dans l'Explorateur" />
+                            <Button Click="OnBrowseLibraryClick" Content="{x:Bind t:DialogText.ChooseFolder}" />
+                            <Button Click="OnOpenLibraryClick" Content="{x:Bind t:DialogText.OpenInExplorer}" />
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
@@ -197,7 +211,7 @@
                 HorizontalAlignment="Right"
                 MinWidth="120"
                 Click="OnCloseClick"
-                Content="Fermer"
+                Content="{x:Bind ct:CommonText.Close}"
                 Style="{StaticResource AccentButtonStyle}" />
         </Grid>
     </Border>

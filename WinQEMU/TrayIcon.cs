@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using WinQEMU.Text;
 
 namespace WinQEMU
 {
@@ -155,9 +156,9 @@ namespace WinQEMU
         private void ShowMenu()
         {
             var menu = CreatePopupMenu();
-            AppendMenu(menu, 0, (IntPtr)CommandOpen, "Ouvrir WinQEMU");
+            AppendMenu(menu, 0, (IntPtr)CommandOpen, DialogText.TrayOpen);
             AppendMenu(menu, 0x800, IntPtr.Zero, null); // MF_SEPARATOR
-            AppendMenu(menu, 0, (IntPtr)CommandQuit, "Arrêter les machines et quitter");
+            AppendMenu(menu, 0, (IntPtr)CommandQuit, DialogText.TrayQuit);
             SetMenuDefaultItem(menu, CommandOpen, 0);
             GetCursorPos(out var point);
             // The menu closes when clicked away from only if its window is in the foreground.

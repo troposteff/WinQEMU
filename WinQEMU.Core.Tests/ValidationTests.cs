@@ -205,7 +205,7 @@ public class ValidationTests : IDisposable
         var vm = Vm();
         vm.Disks.Add(new DiskConfig { Id = "disk0", FileName = "disk0.qcow2" });
 
-        Assert.Contains(Validate(vm), p => p.Contains("identifier", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(Validate(vm), p => p == WinQEMU.Core.Text.PlatformText.ValidateDuplicateDiskIds);
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public class ValidationTests : IDisposable
         var vm = Vm();
         vm.Disks.Clear();
 
-        Assert.Contains(Validate(vm), p => p.Contains("nothing to boot", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(Validate(vm), p => p == WinQEMU.Core.Text.PlatformText.ValidateNothingToBoot);
     }
 
     [Fact]
@@ -243,7 +243,7 @@ public class ValidationTests : IDisposable
         var vm = Vm();
         vm.CpuCount = count;
 
-        Assert.Contains(Validate(vm), p => p.Contains("CPU count", StringComparison.Ordinal));
+        Assert.Contains(Validate(vm), p => p == WinQEMU.Core.Text.PlatformText.ValidateCpuCount);
     }
 
     [Fact]

@@ -5,6 +5,8 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 
 namespace WinQEMU.ViewModels
 {
@@ -43,12 +45,12 @@ namespace WinQEMU.ViewModels
 
         public string StateText => State switch
         {
-            VmState.Stopped => "Arrêtée",
-            VmState.Starting => "Démarrage…",
-            VmState.Running => "En cours d'exécution",
-            VmState.Paused => "En pause",
-            VmState.Stopping => "Arrêt en cours…",
-            VmState.Error => "Erreur",
+            VmState.Stopped => DialogText.StateStopped,
+            VmState.Starting => DialogText.StateStarting,
+            VmState.Running => DialogText.StateRunning,
+            VmState.Paused => DialogText.StatePaused,
+            VmState.Stopping => DialogText.StateStopping,
+            VmState.Error => CommonText.Error,
             _ => State.ToString()
         };
 

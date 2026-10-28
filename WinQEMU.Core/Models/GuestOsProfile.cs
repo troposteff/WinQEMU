@@ -1,3 +1,5 @@
+using WinQEMU.Core.Text;
+
 namespace WinQEMU.Core.Models
 {
     /// <summary>
@@ -46,17 +48,9 @@ namespace WinQEMU.Core.Models
         /// Boot through the edk2 firmware, but a virtual TPM needs an external swtpm daemon that the
         /// Windows QEMU builds do not ship, so this is stated up front rather than left to fail.
         /// </summary>
-        private const string Windows11Caveat =
-            "Windows 11 exige un TPM 2.0 et le démarrage sécurisé. Aucun des deux n'est possible ici : swtpm " +
-            "est absent des versions Windows de QEMU, et le démarrage sécurisé réclame le mode SMM que " +
-            "l'hyperviseur WHPX ne fournit pas. Le profil reste donc en UEFI simple, et WinQEMU lève le contrôle " +
-            "de configuration matérielle tout seul : pendant l'installation, la machine reçoit une clé USB " +
-            "« WINQEMU » dont le fichier de réponses demande à l'installation de Windows de passer outre.";
+        private static string Windows11Caveat => CoreText.GuestOsWindows11Caveat;
 
-        private const string VirtioCaveat =
-            "Windows n'embarque pas de pilote virtio. Le disque est donc en SATA, qui fonctionne sans pilote. " +
-            "Pour de meilleures performances, fournissez l'ISO virtio-win et repassez le disque en virtio " +
-            "après l'installation.";
+        private static string VirtioCaveat => CoreText.GuestOsVirtioCaveat;
 
         public static IReadOnlyList<GuestOsProfile> Profiles { get; } = new[]
         {
@@ -78,8 +72,7 @@ namespace WinQEMU.Core.Models
             new GuestOsProfile("windows-7", "Windows 7 / 8.1", "Windows",
                 GuestArchitecture.X86_64, FirmwareType.Bios,
                 2, 2048, 40 * Gb, DiskBus.Ide, NicModel.Rtl8139, true, true,
-                "Ces versions ne gèrent pas l'UEFI de façon fiable sous QEMU : le microprogramme reste en BIOS " +
-                "et le disque en IDE."),
+                CoreText.GuestOsWindows7Caveat),
 
             new GuestOsProfile("ubuntu", "Ubuntu", "Linux",
                 GuestArchitecture.X86_64, FirmwareType.Uefi,
@@ -93,20 +86,19 @@ namespace WinQEMU.Core.Models
                 GuestArchitecture.X86_64, FirmwareType.Uefi,
                 2, 4096, 32 * Gb, DiskBus.VirtioBlk, NicModel.VirtioNet, false, false),
 
-            new GuestOsProfile("linux", "Linux (générique)", "Linux",
+            new GuestOsProfile("linux", CoreText.GuestOsLinuxGeneric, "Linux",
                 GuestArchitecture.X86_64, FirmwareType.Uefi,
                 2, 4096, 32 * Gb, DiskBus.VirtioBlk, NicModel.VirtioNet, false, false),
 
             new GuestOsProfile("linux-arm64", "Linux ARM64", "Linux",
                 GuestArchitecture.Aarch64, FirmwareType.Uefi,
                 2, 4096, 32 * Gb, DiskBus.VirtioBlk, NicModel.VirtioNet, false, false,
-                "Architecture différente de l'hôte : QEMU émulera le processeur (TCG), sans accélération " +
-                "matérielle. Comptez environ un ordre de grandeur de performances en moins."),
+                CoreText.GuestOsArm64Caveat),
 
-            new GuestOsProfile("other", "Autre / inconnu", "Autre",
+            new GuestOsProfile("other", CoreText.GuestOsOther, "Autre",
                 GuestArchitecture.X86_64, FirmwareType.Bios,
                 2, 2048, 20 * Gb, DiskBus.Sata, NicModel.E1000, false, false,
-                "Configuration prudente : BIOS et SATA, que pratiquement tout système sait démarrer."),
+                CoreText.GuestOsOtherCaveat),
         };
 
         public static GuestOsProfile Default => Profiles.First(p => p.Key == "linux");

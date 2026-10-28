@@ -8,6 +8,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 using WinQEMU.ViewModels;
 
 namespace WinQEMU
@@ -58,10 +60,10 @@ namespace WinQEMU
             SnapshotTreeDrawing.NodeClicked += OnSnapshotNodeClicked;
 
             CpuChart.FixedMax = 100;
-            CpuChart.Format = v => $"{v.ToString("0", CultureInfo.CurrentCulture)} %";
-            MemoryChart.Format = FormatBytes;
-            DiskChart.Format = v => FormatBytes(v) + "/s";
-            NetworkChart.Format = v => FormatBytes(v) + "/s";
+            CpuChart.Format = v => string.Format(CultureInfo.CurrentCulture, ShellText.PercentFormat, v.ToString("0", CultureInfo.CurrentCulture));
+            MemoryChart.Format = Sizes.Format;
+            DiskChart.Format = v => Sizes.Format(v) + "/s";
+            NetworkChart.Format = v => Sizes.Format(v) + "/s";
             _viewModel.MetricsSampled += (_, _) => DrawMetrics();
             _viewModel.PropertyChanged += (_, e) =>
             {
@@ -77,7 +79,7 @@ namespace WinQEMU
             // Raised for F11 only, which the host keeps for itself rather than forwarding: with the guest
             // holding the keyboard there is otherwise no key left to leave full screen with.
             ConsoleHost.FullScreenRequested += (_, _) => SetConsoleFullScreen(!_consoleFullScreen);
-            ScaleModeBox.ItemsSource = new[] { "Ajuster", "Taille réelle" };
+            ScaleModeBox.ItemsSource = new[] { ShellText.ScaleFit, ShellText.ScaleActual };
             ScaleModeBox.SelectedIndex = 0;
             UpdateGuestSizeText();
 
@@ -200,26 +202,14 @@ namespace WinQEMU
         {
             var history = _viewModel.SelectedHistory;
             var none = Array.Empty<double>();
-            CpuChart.Show(new[] { ("Processeur", history?.Cpu ?? none) });
+            CpuChart.Show(new[] { (ShellText.ChartCpu, history?.Cpu ?? none) });
             MemoryChart.FixedMax = _viewModel.SelectedVm is { } vm ? vm.MemoryMb * 1024d * 1024d : null;
-            MemoryChart.Show(new[] { ("Mémoire", history?.MemoryBytes ?? none) });
-            DiskChart.Show(new[] { ("Lecture", history?.DiskRead ?? none), ("Écriture", history?.DiskWrite ?? none) });
-            NetworkChart.Show(new[] { ("Reçu", history?.NetworkReceived ?? none), ("Envoyé", history?.NetworkSent ?? none) },
+            MemoryChart.Show(new[] { (ShellText.ChartMemory, history?.MemoryBytes ?? none) });
+            DiskChart.Show(new[] { (ShellText.ChartRead, history?.DiskRead ?? none), (ShellText.ChartWrite, history?.DiskWrite ?? none) });
+            NetworkChart.Show(new[] { (ShellText.ChartReceived, history?.NetworkReceived ?? none), (ShellText.ChartSent, history?.NetworkSent ?? none) },
                 history is { HasNetwork: false } && history.Count > 5
-                    ? "Mesuré par l'agent invité, qui ne répond pas dans cette machine."
+                    ? ShellText.ChartNetworkNoAgent
                     : null);
-        }
-
-        private static string FormatBytes(double bytes)
-        {
-            string[] units = { "o", "Ko", "Mo", "Go", "To" };
-            var unit = 0;
-            while (bytes >= 1024 && unit < units.Length - 1)
-            {
-                bytes /= 1024;
-                unit++;
-            }
-            return $"{bytes.ToString(unit == 0 || bytes >= 100 ? "0" : "0.#", CultureInfo.CurrentCulture)} {units[unit]}";
         }
 
         private void DrawSnapshotTree() =>
@@ -265,7 +255,7 @@ namespace WinQEMU
             var (width, height) = ConsoleHost.GuestSize;
             GuestSizeText.Text = width <= 0 || height <= 0 ? string.Empty
                 : ConsoleHost.IsPointerImprecise
-                    ? $"{width} × {height} mise à l'échelle : pointeur décalé (Taille réelle pour viser juste)"
+                    ? string.Format(CultureInfo.CurrentCulture, ShellText.GuestSizeScaled, width, height)
                     : $"{width} × {height}";
         }
 
@@ -499,13 +489,13 @@ namespace WinQEMU
             {
                 // Opened under "Plus": the menu item is gone by the time the flyout shows.
                 Add(_viewModel.SoundLabel + "…", _viewModel.SoundGlyph, _viewModel.CanAdjustSound, (_, _) => ShowSoundFlyout(MoreButton));
-                Add("Envoyer des fichiers…", "\uE898", _viewModel.CanSendFiles, OnSendFilesClick);
-                Add("Récupérer des fichiers…", "\uE896", _viewModel.CanSendFiles, OnPullFilesClick);
+                Add(ShellText.MoreSendFiles, "\uE898", _viewModel.CanSendFiles, OnSendFilesClick);
+                Add(ShellText.MorePullFiles, "\uE896", _viewModel.CanSendFiles, OnPullFilesClick);
                 menu.Items.Add(new MenuFlyoutSeparator());
             }
-            Add("Cloner…", "\uE8C8", _viewModel.CanClone, OnCloneClick);
-            Add("Exporter…", "\uEDE1", _viewModel.CanClone, OnExportClick);
-            Add("Supprimer…", "\uE74D", _viewModel.SelectedVm is not null, OnDeleteClick);
+            Add(ShellText.MoreClone, "\uE8C8", _viewModel.CanClone, OnCloneClick);
+            Add(ShellText.MoreExport, "\uEDE1", _viewModel.CanClone, OnExportClick);
+            Add(ShellText.MoreDelete, "\uE74D", _viewModel.SelectedVm is not null, OnDeleteClick);
             ShowAboveConsole(menu, MoreButton);
         }
 
@@ -539,9 +529,9 @@ namespace WinQEMU
                 // (permissions, disk full) that the wizard's validation cannot anticipate.
                 await ShowDialogAsync(new ContentDialog
                 {
-                    Title = "Création impossible",
+                    Title = ShellText.CreateFailedTitle,
                     Content = ex.Message,
-                    CloseButtonText = "Fermer",
+                    CloseButtonText = CommonText.Close,
                     XamlRoot = Content.XamlRoot
                 });
             }
@@ -569,7 +559,7 @@ namespace WinQEMU
             if (_viewModel.SelectedVm is not { } target)
                 return;
 
-            var box = new TextBox { Header = "Nouveau nom", Text = target.Name };
+            var box = new TextBox { Header = ShellText.RenameBoxHeader, Text = target.Name };
             var error = new TextBlock
             {
                 Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
@@ -582,10 +572,10 @@ namespace WinQEMU
 
             var dialog = new ContentDialog
             {
-                Title = "Renommer la machine virtuelle",
+                Title = ShellText.RenameTitle,
                 Content = body,
-                PrimaryButtonText = "Renommer",
-                CloseButtonText = "Annuler",
+                PrimaryButtonText = ShellText.RenameButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             };
@@ -682,20 +672,16 @@ namespace WinQEMU
                 return;
             if (await _viewModel.Hardware.WhyDiskCannotBeCompactedAsync(disk) is { } reason)
             {
-                await ShowProblemAsync("Disque non compactable", reason);
+                await ShowProblemAsync(ShellText.CompactNotPossibleTitle, reason);
                 return;
             }
 
             var choice = await ShowDialogAsync(new ContentDialog
             {
-                Title = $"Compacter {disk.Id}",
-                Content = DialogBody(
-                    "Le disque est réécrit sans les blocs inutilisés, puis remplace l'original ; son contenu ne change pas. " +
-                    "La place des fichiers supprimés dans l'invité n'est rendue que s'il l'a signalée : machine en marche, " +
-                    "« Signaler l'espace libre (TRIM) » (Outils invités), sur un disque avec l'option « Discard ».\n\n" +
-                    "Il faut sur le volume autant de place libre que le disque en occupe, le temps de la copie."),
-                PrimaryButtonText = "Compacter",
-                CloseButtonText = "Annuler",
+                Title = string.Format(CultureInfo.CurrentCulture, ShellText.CompactConfirmTitle, disk.Id),
+                Content = DialogBody(ShellText.CompactConfirmBody),
+                PrimaryButtonText = ShellText.CompactButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             });
@@ -703,7 +689,7 @@ namespace WinQEMU
                 return;
 
             var bar = new ProgressBar { Maximum = 1, MinWidth = 360 };
-            var progressDialog = new ContentDialog { Title = $"Compactage de {disk.Id}…", Content = bar, XamlRoot = Content.XamlRoot };
+            var progressDialog = new ContentDialog { Title = string.Format(CultureInfo.CurrentCulture, ShellText.CompactProgressTitle, disk.Id), Content = bar, XamlRoot = Content.XamlRoot };
             // Shown first, hidden once done: hidden before it opened, it would stay open for good.
             var showing = ShowDialogAsync(progressDialog);
             var result = await _viewModel.Hardware.CompactDiskAsync(disk, new Progress<double>(p => bar.Value = p));
@@ -713,9 +699,10 @@ namespace WinQEMU
                 return;
             await ShowDialogAsync(new ContentDialog
             {
-                Title = "Disque compacté",
-                Content = DialogBody($"{disk.Id} : {FormatBytes(result.BytesBefore)} → {FormatBytes(result.BytesAfter)}."),
-                CloseButtonText = "OK",
+                Title = ShellText.CompactDoneTitle,
+                Content = DialogBody(string.Format(CultureInfo.CurrentCulture, ShellText.CompactDoneBody,
+                    disk.Id, Sizes.Format(result.BytesBefore), Sizes.Format(result.BytesAfter))),
+                CloseButtonText = CommonText.Ok,
                 XamlRoot = Content.XamlRoot
             });
         }
@@ -725,9 +712,9 @@ namespace WinQEMU
             var text = await _viewModel.TrimGuestDisksAsync();
             await ShowDialogAsync(new ContentDialog
             {
-                Title = "Espace libre de l'invité",
+                Title = ShellText.TrimTitle,
                 Content = DialogBody(text),
-                CloseButtonText = "OK",
+                CloseButtonText = CommonText.Ok,
                 XamlRoot = Content.XamlRoot
             });
         }
@@ -788,14 +775,10 @@ namespace WinQEMU
             // plainly beforehand, because the disk layout on disk is not what it was afterwards.
             var result = await ShowDialogAsync(new ContentDialog
             {
-                Title = "Instantané à chaud des disques ?",
-                Content = DialogBody(
-                    "Chaque disque reçoit une superposition et la machine écrit désormais dedans ; " +
-                    "l'image actuelle devient son image de base.\n\nLa mémoire n'est pas capturée : " +
-                    "revenir en arrière ressemblera pour l'invité à une coupure de courant. La " +
-                    "superposition se défait depuis la section Disques."),
-                PrimaryButtonText = "Prendre l'instantané",
-                CloseButtonText = "Annuler",
+                Title = ShellText.LiveSnapshotTitle,
+                Content = DialogBody(ShellText.LiveSnapshotBody),
+                PrimaryButtonText = ShellText.LiveSnapshotButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = Content.XamlRoot
             });
@@ -815,12 +798,10 @@ namespace WinQEMU
 
             var result = await ShowDialogAsync(new ContentDialog
             {
-                Title = $"Reprendre « {snapshot.Name} » ?",
-                Content = DialogBody(
-                    $"Pris le {snapshot.CreatedText}.\n\nLa machine repartira exactement à cet instant, " +
-                    "mémoire comprise. Son état actuel, disques et mémoire, est perdu."),
-                PrimaryButtonText = "Reprendre",
-                CloseButtonText = "Annuler",
+                Title = string.Format(CultureInfo.CurrentCulture, ShellText.ResumeSnapshotTitle, snapshot.Name),
+                Content = DialogBody(string.Format(CultureInfo.CurrentCulture, ShellText.ResumeSnapshotBody, snapshot.CreatedText)),
+                PrimaryButtonText = CommonText.Resume,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = Content.XamlRoot
             });
@@ -842,9 +823,9 @@ namespace WinQEMU
 
             await ShowDialogAsync(new ContentDialog
             {
-                Title = "Fusion impossible : un clone lié en dépend",
+                Title = ShellText.MergeLockedTitle,
                 Content = DialogBody(reason),
-                CloseButtonText = "Fermer",
+                CloseButtonText = CommonText.Close,
                 XamlRoot = Content.XamlRoot
             });
             return true;
@@ -860,22 +841,18 @@ namespace WinQEMU
 
             var result = await ShowDialogAsync(new ContentDialog
             {
-                Title = $"Revenir à l'image de base de « {disk.Id} » ?",
+                Title = string.Format(CultureInfo.CurrentCulture, ShellText.DiscardOverlayTitle, disk.Id),
                 Content = DialogBody(
                     (keptForClone
-                        ? $"{disk.BackingFileName} sert de base à un clone lié : il n'est pas modifié. Le disque " +
-                          "repart de son état sur une nouvelle superposition, et la superposition actuelle " +
-                          "est supprimée."
-                        : $"La superposition {disk.FileName} sera supprimée et le disque reviendra à " +
-                          $"{disk.BackingFileName}." +
+                        ? string.Format(CultureInfo.CurrentCulture, ShellText.DiscardOverlayKeptBody, disk.BackingFileName)
+                        : string.Format(CultureInfo.CurrentCulture, ShellText.DiscardOverlayBody, disk.FileName, disk.BackingFileName) +
                           // Stacked live snapshots: the image underneath is itself an overlay, undone the same way.
                           (disk.OverlayDepth > 1
-                              ? $" Cette image est elle-même une superposition ({disk.OverlayDepth - 1} niveau(x) restant(s)), " +
-                                "que vous pourrez défaire à son tour."
+                              ? " " + string.Format(CultureInfo.CurrentCulture, ShellText.DiscardOverlayDeeper, disk.OverlayDepth - 1)
                               : string.Empty)) +
-                    "\n\nTout ce que l'invité a écrit depuis l'instantané est perdu."),
-                PrimaryButtonText = "Revenir à la base",
-                CloseButtonText = "Annuler",
+                    "\n\n" + ShellText.DiscardOverlayLoss),
+                PrimaryButtonText = ShellText.DiscardOverlayButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = Content.XamlRoot
             });
@@ -891,13 +868,10 @@ namespace WinQEMU
 
             var result = await ShowDialogAsync(new ContentDialog
             {
-                Title = $"Fusionner « {disk.Id} » dans son image de base ?",
-                Content = DialogBody(
-                    $"Le contenu de {disk.FileName} est écrit dans {disk.BackingFileName}, puis la " +
-                    "superposition est supprimée.\n\nRien n'est perdu de ce que l'invité a écrit, mais " +
-                    "l'instantané cesse d'exister : il ne sera plus possible d'y revenir."),
-                PrimaryButtonText = "Fusionner",
-                CloseButtonText = "Annuler",
+                Title = string.Format(CultureInfo.CurrentCulture, ShellText.CommitOverlayTitle, disk.Id),
+                Content = DialogBody(string.Format(CultureInfo.CurrentCulture, ShellText.CommitOverlayBody, disk.FileName, disk.BackingFileName)),
+                PrimaryButtonText = ShellText.CommitOverlayButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = Content.XamlRoot
             });
@@ -914,25 +888,21 @@ namespace WinQEMU
 
             // Restoring throws away everything written since, which no undo can recover.
             var partial = snapshot.IsPartial
-                ? "\n\nCet instantané ne couvre pas tous les disques de la machine : ceux qui ne l'ont pas " +
-                  "resteront dans leur état actuel, et l'ensemble sera incohérent."
+                ? "\n\n" + ShellText.RestorePartial
                 : string.Empty;
 
             // The list and the history it shows change differently in that case, so it is said up front.
             var keptForClone = snapshot.IsLocked
-                ? "\n\nUn clone lié repose sur cet instantané : les images qu'il lit sont conservées, et la " +
-                  "machine repart de cet état sur une nouvelle couche, qui apparaîtra dans la liste sous le " +
-                  "même nom ou suivi de « (2) »."
+                ? "\n\n" + ShellText.RestoreKeptForClone
                 : string.Empty;
 
             var result = await ShowDialogAsync(new ContentDialog
             {
-                Title = $"Restaurer « {snapshot.Name} » ?",
+                Title = string.Format(CultureInfo.CurrentCulture, ShellText.RestoreSnapshotTitle, snapshot.Name),
                 Content = DialogBody(
-                    $"Pris le {snapshot.CreatedText}.\n\nLes disques reviendront à cet état. " +
-                    $"Tout ce qui a été écrit depuis sera perdu.{partial}{keptForClone}"),
-                PrimaryButtonText = "Restaurer",
-                CloseButtonText = "Annuler",
+                    string.Format(CultureInfo.CurrentCulture, ShellText.RestoreSnapshotBody, snapshot.CreatedText) + partial + keptForClone),
+                PrimaryButtonText = ShellText.RestoreButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = Content.XamlRoot
             });
@@ -949,12 +919,10 @@ namespace WinQEMU
 
             var result = await ShowDialogAsync(new ContentDialog
             {
-                Title = $"Supprimer « {snapshot.Name} » ?",
-                Content = DialogBody(
-                    "L'instantané est effacé des disques. Leur état actuel n'est pas touché, mais il ne " +
-                    "sera plus possible d'y revenir."),
-                PrimaryButtonText = "Supprimer",
-                CloseButtonText = "Annuler",
+                Title = string.Format(CultureInfo.CurrentCulture, ShellText.DeleteNamedTitle, snapshot.Name),
+                Content = DialogBody(ShellText.DeleteSnapshotBody),
+                PrimaryButtonText = CommonText.Delete,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = Content.XamlRoot
             });
@@ -987,9 +955,9 @@ namespace WinQEMU
             {
                 await ShowDialogAsync(new ContentDialog
                 {
-                    Title = "Fichier illisible",
+                    Title = ShellText.ImportUnreadableTitle,
                     Content = DialogBody($"{file.Path}\n\n{ex.Message}"),
-                    CloseButtonText = "Fermer",
+                    CloseButtonText = CommonText.Close,
                     XamlRoot = Content.XamlRoot
                 });
                 return;
@@ -998,7 +966,7 @@ namespace WinQEMU
             // The source's own name unless a machine here already has it.
             var name = plan.Name.Trim();
             if (_viewModel.VMs.Any(vm => string.Equals(vm.Name.Trim(), name, StringComparison.CurrentCultureIgnoreCase)))
-                name += " (importée)";
+                name += " " + ShellText.ImportedSuffix;
 
             // The dialog runs the import itself and reports failures in place; on success the view model
             // has already selected the new machine.
@@ -1030,15 +998,15 @@ namespace WinQEMU
 
             var on = new ToggleSwitch
             {
-                Header = "Son de la machine sur ce PC",
-                OnContent = "Activé",
-                OffContent = "Coupé",
+                Header = ShellText.SoundSwitchHeader,
+                OnContent = ShellText.SoundOn,
+                OffContent = ShellText.SoundOff,
                 IsOn = !vm.AudioMuted
             };
             on.Toggled += (_, _) => vm.AudioMuted = !on.IsOn;
             var volume = new Slider
             {
-                Header = "Volume",
+                Header = ShellText.SoundVolume,
                 Minimum = 0,
                 Maximum = 100,
                 StepFrequency = 1,
@@ -1047,13 +1015,13 @@ namespace WinQEMU
             };
             volume.ValueChanged += (_, args) => vm.AudioVolume = (int)Math.Round(args.NewValue);
             var output = _viewModel.AudioOutputChoices.FirstOrDefault(c => c.Id == _viewModel.SelectedAudioOutputId)?.Name
-                         ?? "Sortie par défaut de Windows";
+                         ?? ShellText.AudioDefaultOutput;
             var panel = new StackPanel { Spacing = 12 };
             panel.Children.Add(on);
             panel.Children.Add(volume);
             panel.Children.Add(new TextBlock
             {
-                Text = $"Sortie : {output}. Elle se change dans les Paramètres, pour toutes les machines.",
+                Text = string.Format(CultureInfo.CurrentCulture, ShellText.SoundOutputNote, output),
                 TextWrapping = TextWrapping.Wrap,
                 MaxWidth = 260,
                 FontSize = 12,
@@ -1124,35 +1092,26 @@ namespace WinQEMU
 
             var current = _viewModel.SelectedVm?.IsoPath;
             var swap = windows && !string.IsNullOrWhiteSpace(current) && !string.Equals(current, iso, StringComparison.OrdinalIgnoreCase)
-                ? $" à la place de {System.IO.Path.GetFileName(current)}"
+                ? " " + string.Format(CultureInfo.CurrentCulture, ShellText.InstallToolsSwap, System.IO.Path.GetFileName(current))
                 : string.Empty;
             var text = (windows, agentMissing) switch
             {
                 (true, true) =>
-                    $"WinQEMU va insérer {System.IO.Path.GetFileName(iso)} dans le lecteur de la machine{swap}. Ensuite, dans " +
-                    "l'invité, ouvrez ce lecteur (« virtio-win ») dans l'Explorateur et lancez, dans cet ordre :\n\n" +
-                    "1. virtio-win-guest-tools.exe (pilotes virtio, presse-papiers) ; acceptez la confiance envers Red Hat ;\n" +
-                    "2. guest-agent\\qemu-ga-x86_64.msi (l'agent invité).\n\n" +
-                    "WinQEMU attend l'agent puis termine seul. Il ne tape rien lui-même dans Windows : Microsoft Defender prend " +
-                    "une commande tapée dans Exécuter pour une attaque, et la bloque.",
+                    string.Format(CultureInfo.CurrentCulture, ShellText.InstallToolsWindowsNoAgent, System.IO.Path.GetFileName(iso), swap),
                 (true, false) =>
-                    $"L'agent invité répond. WinQEMU va insérer {System.IO.Path.GetFileName(iso)} dans le lecteur de la machine{swap} " +
-                    "et installer par lui les outils virtio-win (pilotes, presse-papiers), sans question.",
+                    string.Format(CultureInfo.CurrentCulture, ShellText.InstallToolsWindowsAgent, System.IO.Path.GetFileName(iso), swap),
                 (false, true) =>
-                    "Ouvrez une session et un terminal dans l'invité (Ctrl+Alt+T sous Ubuntu), puis cliquez sur « Taper la commande ». " +
-                    "WinQEMU y tape, au clavier de ce PC :\n\n" + Core.Services.GuestTools.LinuxInstallCommand + "\n\n" +
-                    "Ne touchez pas au clavier pendant la saisie (quelques secondes). Si sudo demande votre mot de passe, tapez-le " +
-                    "dans la console.",
+                    string.Format(CultureInfo.CurrentCulture, ShellText.InstallToolsLinuxNoAgent, Core.Services.GuestTools.LinuxInstallCommand),
                 (false, false) =>
-                    "L'agent invité répond. WinQEMU va installer par lui spice-vdagent, qui partage le presse-papiers, sans question."
+                    ShellText.InstallToolsLinuxAgent
             };
 
             var choice = await ShowDialogAsync(new ContentDialog
             {
-                Title = "Installer les outils invités",
+                Title = ShellText.InstallToolsTitle,
                 Content = DialogBody(text),
-                PrimaryButtonText = !windows && agentMissing ? "Taper la commande" : "Installer",
-                CloseButtonText = "Annuler",
+                PrimaryButtonText = !windows && agentMissing ? ShellText.InstallToolsTypeButton : ShellText.InstallToolsButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             });
@@ -1163,7 +1122,7 @@ namespace WinQEMU
             await Task.Delay(800);
             var problem = await _viewModel.InstallGuestToolsAsync(iso);
             if (problem is not null)
-                await ShowProblemAsync("Outils invités non installés", problem);
+                await ShowProblemAsync(ShellText.InstallToolsFailedTitle, problem);
         }
 
         /// <summary>
@@ -1174,13 +1133,10 @@ namespace WinQEMU
         {
             var choice = await ShowDialogAsync(new ContentDialog
             {
-                Title = "ISO virtio-win introuvable",
-                Content = DialogBody(
-                    "Les outils d'un invité Windows (agent invité, pilotes virtio, presse-papiers) sont sur l'ISO virtio-win de Red Hat, " +
-                    "que WinQEMU ne télécharge pas. Elle se trouve sur fedorapeople.org (groups/virt/virtio-win, dossier " +
-                    "« stable-virtio »).\n\nChoisissez-la : WinQEMU la retiendra pour les fois suivantes."),
-                PrimaryButtonText = "Choisir l'ISO…",
-                CloseButtonText = "Annuler",
+                Title = ShellText.VirtioIsoMissingTitle,
+                Content = DialogBody(ShellText.VirtioIsoMissingBody),
+                PrimaryButtonText = ShellText.VirtioIsoChooseButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             });
@@ -1216,7 +1172,7 @@ namespace WinQEMU
             }
             if (string.IsNullOrEmpty(text))
             {
-                await ShowProblemAsync("Rien à taper", "Le presse-papiers de ce PC ne contient pas de texte.");
+                await ShowProblemAsync(ShellText.TypeNothingTitle, ShellText.TypeNothingBody);
                 return;
             }
 
@@ -1225,11 +1181,10 @@ namespace WinQEMU
                 var seconds = Math.Max(1, text.Length / 30);
                 var choice = await ShowDialogAsync(new ContentDialog
                 {
-                    Title = "Taper le presse-papiers",
-                    Content = DialogBody($"{text.Length} caractères, à taper en {seconds} s environ. Ne touchez pas au clavier de " +
-                                         "l'invité pendant la saisie : chaque touche va à ce qui y a le focus."),
-                    PrimaryButtonText = "Taper",
-                    CloseButtonText = "Annuler",
+                    Title = ShellText.TypeClipboardTitle,
+                    Content = DialogBody(string.Format(CultureInfo.CurrentCulture, ShellText.TypeClipboardBody, text.Length, seconds)),
+                    PrimaryButtonText = ShellText.TypeButton,
+                    CloseButtonText = CommonText.Cancel,
                     DefaultButton = ContentDialogButton.Primary,
                     XamlRoot = Content.XamlRoot
                 });
@@ -1241,7 +1196,7 @@ namespace WinQEMU
             ConsoleHost.FocusGuest();
             var problem = await _viewModel.TypeIntoGuestAsync(text);
             if (problem is not null)
-                await ShowProblemAsync("Texte non tapé", problem);
+                await ShowProblemAsync(ShellText.TypeFailedTitle, problem);
         }
 
         /// <summary>
@@ -1276,7 +1231,7 @@ namespace WinQEMU
                 problem = ex.Message;
             }
             if (problem is not null)
-                await ShowProblemAsync("Fichiers non récupérés", problem);
+                await ShowProblemAsync(ShellText.PullFailedTitle, problem);
         }
 
         private async void OnSendFilesClick(object sender, RoutedEventArgs e)
@@ -1302,7 +1257,7 @@ namespace WinQEMU
             if (!_viewModel.CanSendFiles || !e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
                 return;
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-            e.DragUIOverride.Caption = "Copier sur le Bureau de l'invité";
+            e.DragUIOverride.Caption = ShellText.DropCaption;
         }
 
         private async void OnConsoleDrop(object sender, DragEventArgs e)
@@ -1330,14 +1285,14 @@ namespace WinQEMU
             }
             catch (Core.Qemu.GuestAgentException ex)
             {
-                message = $"L'agent invité a répondu par une erreur : {ex.Message}";
+                message = string.Format(CultureInfo.CurrentCulture, ShellText.SendAgentError, ex.Message);
             }
 
             await ShowDialogAsync(new ContentDialog
             {
-                Title = "Fichiers non copiés",
+                Title = ShellText.SendFailedTitle,
                 Content = DialogBody(message),
-                CloseButtonText = "Fermer",
+                CloseButtonText = CommonText.Close,
                 XamlRoot = Content.XamlRoot
             });
         }
@@ -1355,7 +1310,7 @@ namespace WinQEMU
             {
                 menu.Items.Add(new MenuFlyoutItem
                 {
-                    Text = "Machine arrêtée : choisissez ce qui sera connecté au démarrage",
+                    Text = ShellText.UsbStoppedHint,
                     IsEnabled = false
                 });
             }
@@ -1374,15 +1329,15 @@ namespace WinQEMU
             }
 
             if (entries.All(candidate => candidate.Host is null))
-                menu.Items.Add(new MenuFlyoutItem { Text = "Aucun périphérique USB branché sur ce PC", IsEnabled = false });
+                menu.Items.Add(new MenuFlyoutItem { Text = ShellText.UsbNoDevices, IsEnabled = false });
 
             menu.Items.Add(new MenuFlyoutSeparator());
-            var atStart = new MenuFlyoutSubItem { Text = "Connecter à chaque démarrage" };
+            var atStart = new MenuFlyoutSubItem { Text = ShellText.UsbAtStart };
             foreach (var entry in entries)
             {
                 var item = new ToggleMenuFlyoutItem
                 {
-                    Text = entry.Host is null ? $"{entry.Name} ({entry.IdText}) — débranché" : $"{entry.Name} ({entry.IdText})",
+                    Text = entry.Host is null ? $"{entry.Name} ({entry.IdText}) — {ShellText.UsbUnplugged}" : $"{entry.Name} ({entry.IdText})",
                     IsChecked = entry.AtStart
                 };
                 item.Click += (_, _) => _viewModel.SetUsbAtStart(entry, item.IsChecked);
@@ -1392,7 +1347,7 @@ namespace WinQEMU
                 atStart.IsEnabled = false;
             menu.Items.Add(atStart);
 
-            var help = new MenuFlyoutItem { Text = "Rendre un périphérique accessible (pilote WinUSB)…" };
+            var help = new MenuFlyoutItem { Text = ShellText.UsbHelpItem };
             help.Click += async (_, _) => await ShowWinUsbHelpAsync();
             menu.Items.Add(help);
 
@@ -1402,8 +1357,8 @@ namespace WinQEMU
 
         private static string UsbStatus(MainViewModel.UsbMenuEntry entry) =>
             entry.Connected ? string.Empty
-            : entry.Waiting ? " — en attente"
-            : entry.Host is { IsReachable: false } ? " — pilote WinUSB requis"
+            : entry.Waiting ? " — " + ShellText.UsbWaiting
+            : entry.Host is { IsReachable: false } ? " — " + ShellText.UsbDriverRequired
             : string.Empty;
 
         private async Task ToggleUsbAsync(MainViewModel.UsbMenuEntry entry)
@@ -1414,9 +1369,9 @@ namespace WinQEMU
 
             await ShowDialogAsync(new ContentDialog
             {
-                Title = "Périphérique USB non connecté",
+                Title = ShellText.UsbNotConnectedTitle,
                 Content = DialogBody(problem),
-                CloseButtonText = "OK",
+                CloseButtonText = CommonText.Ok,
                 XamlRoot = Content.XamlRoot
             });
         }
@@ -1425,27 +1380,10 @@ namespace WinQEMU
         {
             await ShowDialogAsync(new ContentDialog
             {
-                Title = "Rendre un périphérique USB accessible",
-                Content = DialogBody(
-                    "QEMU n'accède qu'aux périphériques USB qui utilisent le pilote générique WinUSB de Microsoft. " +
-                    "Contrairement à VMware, il n'a pas de pilote à lui qui saurait prendre un périphérique à Windows.\n\n" +
-                    "Pour équiper un périphérique de WinUSB :\n" +
-                    "1. Téléchargez Zadig (zadig.akeo.ie), l'outil de référence pour cela.\n" +
-                    "2. Lancez-le. Dans le menu Options, cochez « List All Devices » : sans cela, Zadig ne montre " +
-                    "pas les périphériques qui ont déjà un pilote.\n" +
-                    "3. Dans la liste déroulante du haut, choisissez le périphérique. Vérifiez que « USB ID » " +
-                    "affiche les mêmes numéros que ce menu (par exemple 0781 559C).\n" +
-                    "4. Au centre, la case de gauche montre le pilote actuel (par exemple USBSTOR) ; celle de " +
-                    "droite, le pilote à installer : réglez-la sur WinUSB avec ses petites flèches.\n" +
-                    "5. Cliquez sur le grand bouton « Replace Driver » et attendez la fin (une minute environ).\n" +
-                    "6. Rouvrez ce menu : le périphérique se connecte.\n\n" +
-                    "Tant qu'il est sur WinUSB, Windows ne s'en sert plus lui-même : une clé n'apparaît plus dans " +
-                    "l'Explorateur. Pour le lui rendre : Gestionnaire de périphériques, clic droit sur le " +
-                    "périphérique, « Désinstaller l'appareil » en cochant « Tenter de supprimer le pilote », puis " +
-                    "débranchez-le et rebranchez-le.\n\n" +
-                    // Default width: with a 560 px minimum this text was clipped on the right instead of wrapped.
-                    "Ne faites jamais cela pour le clavier, la souris ou le Bluetooth dont ce PC a besoin."),
-                CloseButtonText = "OK",
+                Title = ShellText.UsbHelpTitle,
+                // Default width: with a 560 px minimum this text was clipped on the right instead of wrapped.
+                Content = DialogBody(ShellText.UsbHelpBody),
+                CloseButtonText = CommonText.Ok,
                 XamlRoot = Content.XamlRoot
             });
         }
@@ -1472,13 +1410,13 @@ namespace WinQEMU
             var menu = new MenuFlyout();
             foreach (var preset in Core.Services.LanAccess.Presets)
             {
-                var item = new MenuFlyoutItem { Text = $"{preset.Label} (port {preset.GuestPort})" };
-                item.Click += async (_, _) => await ShowProblemAsync("Service non ouvert",
+                var item = new MenuFlyoutItem { Text = string.Format(CultureInfo.CurrentCulture, ShellText.ServicePresetItem, preset.Label, preset.GuestPort) };
+                item.Click += async (_, _) => await ShowProblemAsync(ShellText.ServiceNotOpenedTitle,
                     await _viewModel.OpenServiceAsync(preset.Protocol, preset.GuestPort));
                 menu.Items.Add(item);
             }
             menu.Items.Add(new MenuFlyoutSeparator());
-            var other = new MenuFlyoutItem { Text = "Autre port de l'invité…" };
+            var other = new MenuFlyoutItem { Text = ShellText.ServiceOtherPort };
             other.Click += async (_, _) => await OpenOtherServiceAsync();
             menu.Items.Add(other);
 
@@ -1490,25 +1428,25 @@ namespace WinQEMU
 
         private async Task OpenOtherServiceAsync()
         {
-            var port = new NumberBox { Header = "Port de l'invité", Minimum = 1, Maximum = 65535, Value = 8080, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
-            var udp = new CheckBox { Content = "UDP (TCP sinon)" };
+            var port = new NumberBox { Header = ShellText.ServicePortHeader, Minimum = 1, Maximum = 65535, Value = 8080, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
+            var udp = new CheckBox { Content = ShellText.ServiceUdp };
             var body = new StackPanel { Spacing = 12, MinWidth = 360 };
             body.Children.Add(port);
             body.Children.Add(udp);
 
             var result = await ShowDialogAsync(new ContentDialog
             {
-                Title = "Ouvrir un port de l'invité",
+                Title = ShellText.ServiceOpenTitle,
                 Content = body,
-                PrimaryButtonText = "Ouvrir",
-                CloseButtonText = "Annuler",
+                PrimaryButtonText = ShellText.ServiceOpenButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             });
             if (result != ContentDialogResult.Primary || double.IsNaN(port.Value))
                 return;
 
-            await ShowProblemAsync("Service non ouvert", await _viewModel.OpenServiceAsync(
+            await ShowProblemAsync(ShellText.ServiceNotOpenedTitle, await _viewModel.OpenServiceAsync(
                 udp.IsChecked == true ? PortForwardProtocol.Udp : PortForwardProtocol.Tcp, (int)port.Value));
         }
 
@@ -1519,7 +1457,7 @@ namespace WinQEMU
         }
 
         private async void OnAllowFirewallClick(object sender, RoutedEventArgs e) =>
-            await ShowProblemAsync("Pare-feu inchangé", await _viewModel.AllowQemuThroughFirewallAsync());
+            await ShowProblemAsync(ShellText.FirewallUnchangedTitle, await _viewModel.AllowQemuThroughFirewallAsync());
 
         private async void OnShareFolderClick(object sender, RoutedEventArgs e) => await ShareFolderAsync(readOnly: false);
 
@@ -1538,7 +1476,7 @@ namespace WinQEMU
             if (folder is null)
                 return;
 
-            await ShowProblemAsync("Dossier non partagé", _viewModel.ShareFolder(folder.Path, readOnly));
+            await ShowProblemAsync(ShellText.ShareFailedTitle, _viewModel.ShareFolder(folder.Path, readOnly));
         }
 
         private void OnUnshareFolderClick(object sender, RoutedEventArgs e)
@@ -1556,7 +1494,7 @@ namespace WinQEMU
             {
                 Title = title,
                 Content = DialogBody(problem),
-                CloseButtonText = "OK",
+                CloseButtonText = CommonText.Ok,
                 XamlRoot = Content.XamlRoot
             });
         }
@@ -1596,11 +1534,10 @@ namespace WinQEMU
 
             var result = await ShowDialogAsync(new ContentDialog
             {
-                Title = "Machine exportée",
-                Content = DialogBody($"{path}\n\nImportez ce fichier dans VMware (Fichier > Ouvrir), VirtualBox (Fichier > Importer " +
-                                     "un appareil virtuel) ou Proxmox (qm importovf)."),
-                PrimaryButtonText = "Afficher dans l'Explorateur",
-                CloseButtonText = "Fermer",
+                Title = ShellText.ExportedTitle,
+                Content = DialogBody(string.Format(CultureInfo.CurrentCulture, ShellText.ExportedBody, path)),
+                PrimaryButtonText = ShellText.ShowInExplorer,
+                CloseButtonText = CommonText.Close,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             });
@@ -1616,7 +1553,7 @@ namespace WinQEMU
                 SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary,
                 SuggestedFileName = System.IO.Path.GetFileNameWithoutExtension(current)
             };
-            picker.FileTypeChoices.Add("Paquet OVF", new System.Collections.Generic.List<string> { ".ova" });
+            picker.FileTypeChoices.Add(ShellText.OvfPackage, new System.Collections.Generic.List<string> { ".ova" });
             WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
             var file = await picker.PickSaveFileAsync();
             return file?.Path;
@@ -1628,7 +1565,7 @@ namespace WinQEMU
             if (selected is null)
                 return;
 
-            var body = $"Les disques virtuels se trouvent dans :\n{selected.FolderPath}";
+            var body = string.Format(CultureInfo.CurrentCulture, ShellText.DeleteVmBody, selected.FolderPath);
 
             // The files of a machine linked clones read from cannot go; the button is then not offered at
             // all, and the body says why.
@@ -1639,20 +1576,19 @@ namespace WinQEMU
             // A clone the library no longer lists protects nothing: its original could then be changed
             // under it. Said here because "Retirer de la liste" sounds harmless.
             if (selected.Disks.Any(d => d.IsLinkedClone))
-                body += "\n\nC'est un clone lié : retiré de la liste, il ne protège plus les disques de son " +
-                        "original, et ne fonctionnera plus si celui-ci les modifie.";
+                body += "\n\n" + ShellText.DeleteVmLinkedClone;
 
             // Two distinct destructive outcomes, so they get two distinct buttons rather than a
             // single confirmation that guesses which one the user meant.
             var result = await ShowDialogAsync(new ContentDialog
             {
-                Title = $"Supprimer « {selected.Name} » ?",
+                Title = string.Format(CultureInfo.CurrentCulture, ShellText.DeleteNamedTitle, selected.Name),
                 // Three buttons share the width, so the labels have to be short enough to survive it.
                 // The title already names the machine and the body gives the folder.
                 Content = DialogBody(body, 540),
-                PrimaryButtonText = filesLocked is null ? "Supprimer les fichiers" : string.Empty,
-                SecondaryButtonText = "Retirer de la liste",
-                CloseButtonText = "Annuler",
+                PrimaryButtonText = filesLocked is null ? ShellText.DeleteVmFilesButton : string.Empty,
+                SecondaryButtonText = ShellText.DeleteVmRemoveButton,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = Content.XamlRoot
             });
@@ -1688,14 +1624,11 @@ namespace WinQEMU
             var names = string.Join(", ", running.Select(s => s.Config.Name));
             var choice = await ShowDialogAsync(new ContentDialog
             {
-                Title = "Des machines virtuelles sont en cours d'exécution",
-                Content = DialogBody(
-                    $"{names}\n\nEn arrière-plan, elles continuent de tourner et WinQEMU reste dans la zone de " +
-                    "notification, d'où sa fenêtre se rouvre. Arrêter les éteint proprement, comme le bouton Arrêter, " +
-                    "avant de quitter."),
-                PrimaryButtonText = "Laisser en arrière-plan",
-                SecondaryButtonText = "Arrêter et quitter",
-                CloseButtonText = "Annuler",
+                Title = ShellText.CloseRunningTitle,
+                Content = DialogBody(string.Format(CultureInfo.CurrentCulture, ShellText.CloseRunningBody, names)),
+                PrimaryButtonText = ShellText.CloseRunInBackground,
+                SecondaryButtonText = ShellText.CloseShutDownAndQuit,
+                CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             });
@@ -1730,7 +1663,7 @@ namespace WinQEMU
                 var left = _viewModel.Manager.LiveSessions.Select(s => s.Config.Name).ToList();
                 if (left.Count == 0)
                     break;
-                _sessionEnd.SetReason($"Arrêt des machines virtuelles : {string.Join(", ", left)}");
+                _sessionEnd.SetReason(string.Format(CultureInfo.CurrentCulture, ShellText.ShutdownReason, string.Join(", ", left)));
                 await Task.Delay(500);
             }
             if (!_windowsEnding)
@@ -1770,7 +1703,7 @@ namespace WinQEMU
         public void StartInBackground()
         {
             _ = InitializeOnceAsync();
-            ShowTray("WinQEMU a démarré avec Windows. Les machines à démarrer avec WinQEMU démarrent.");
+            ShowTray(ShellText.TrayStartedWithWindows);
         }
 
         /// <summary>
@@ -1781,7 +1714,7 @@ namespace WinQEMU
         {
             AppWindow.Hide();
             ShowTray(_backgroundExplained ? null
-                : "Les machines continuent de tourner. Cliquez sur l'icône de WinQEMU pour rouvrir sa fenêtre.");
+                : ShellText.TrayBackgroundExplained);
             _backgroundExplained = true;
         }
 
@@ -1801,10 +1734,10 @@ namespace WinQEMU
             var tip = count switch
             {
                 0 => "WinQEMU",
-                1 => "WinQEMU — 1 machine en marche",
-                _ => $"WinQEMU — {count} machines en marche"
+                1 => ShellText.TrayOneRunning,
+                _ => string.Format(CultureInfo.CurrentCulture, ShellText.TrayManyRunning, count)
             };
-            _tray.Show(tip, balloon is null ? null : "WinQEMU continue en arrière-plan", balloon);
+            _tray.Show(tip, balloon is null ? null : ShellText.TrayBalloonTitle, balloon);
         }
 
         /// <summary>Brings the window back from the notification area, or forward when started again.</summary>
@@ -1826,10 +1759,10 @@ namespace WinQEMU
             var status = DialogBody(string.Empty);
             var dialog = new ContentDialog
             {
-                Title = "Arrêt des machines virtuelles",
+                Title = ShellText.ShuttingDownTitle,
                 Content = status,
-                PrimaryButtonText = "Éteindre maintenant",
-                CloseButtonText = "Annuler",
+                PrimaryButtonText = ShellText.PowerOffNow,
+                CloseButtonText = CommonText.Cancel,
                 XamlRoot = Content.XamlRoot
             };
             var allStopped = false;
@@ -1845,9 +1778,7 @@ namespace WinQEMU
                     dialog.Hide();
                     return;
                 }
-                status.Text = "Les systèmes invités s'arrêtent, comme avec le bouton Arrêter. WinQEMU se fermera ensuite.\n\n" +
-                              $"Encore en marche : {string.Join(", ", left)}\n\n" +
-                              "« Éteindre maintenant » coupe celles qui restent, comme si on débranchait l'alimentation.";
+                status.Text = string.Format(CultureInfo.CurrentCulture, ShellText.ShuttingDownBody, string.Join(", ", left));
             }
             timer.Tick += (_, _) => Refresh();
             Refresh();

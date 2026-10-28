@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -28,7 +29,7 @@ namespace WinQEMU.Core.Services
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)   // ERROR_CANCELLED: UAC declined
             {
-                throw new OperationCanceledException("L'autorisation administrateur a été refusée.", ex);
+                throw new OperationCanceledException(CoreText.ElevationDeclined, ex);
             }
 
             if (process is null)

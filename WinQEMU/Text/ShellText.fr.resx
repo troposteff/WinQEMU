@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="LanguageWindows" xml:space="preserve"><value>Langue de Windows</value></data>
+  <data name="ScaleFit" xml:space="preserve"><value>Ajuster</value></data>
+  <data name="ScaleActual" xml:space="preserve"><value>Taille réelle</value></data>
+  <data name="ChartCpu" xml:space="preserve"><value>Processeur</value></data>
+  <data name="ChartMemory" xml:space="preserve"><value>Mémoire</value></data>
+  <data name="ChartRead" xml:space="preserve"><value>Lecture</value></data>
+  <data name="ChartWrite" xml:space="preserve"><value>Écriture</value></data>
+  <data name="ChartReceived" xml:space="preserve"><value>Reçu</value></data>
+  <data name="ChartSent" xml:space="preserve"><value>Envoyé</value></data>
+  <data name="ChartNetworkNoAgent" xml:space="preserve"><value>Mesuré par l'agent invité, qui ne répond pas dans cette machine.</value></data>
+  <data name="PercentFormat" xml:space="preserve"><value>{0} %</value></data>
+  <data name="GuestSizeScaled" xml:space="preserve"><value>{0} × {1} mise à l'échelle : pointeur décalé (Taille réelle pour viser juste)</value></data>
+  <data name="MoreSendFiles" xml:space="preserve"><value>Envoyer des fichiers…</value></data>
+  <data name="MorePullFiles" xml:space="preserve"><value>Récupérer des fichiers…</value></data>
+  <data name="MoreClone" xml:space="preserve"><value>Cloner…</value></data>
+  <data name="MoreExport" xml:space="preserve"><value>Exporter…</value></data>
+  <data name="MoreDelete" xml:space="preserve"><value>Supprimer…</value></data>
+  <data name="CreateFailedTitle" xml:space="preserve"><value>Création impossible</value></data>
+  <data name="RenameBoxHeader" xml:space="preserve"><value>Nouveau nom</value></data>
+  <data name="RenameTitle" xml:space="preserve"><value>Renommer la machine virtuelle</value></data>
+  <data name="RenameButton" xml:space="preserve"><value>Renommer</value></data>
+  <data name="CompactNotPossibleTitle" xml:space="preserve"><value>Disque non compactable</value></data>
+  <data name="CompactConfirmTitle" xml:space="preserve"><value>Compacter {0}</value></data>
+  <data name="CompactConfirmBody" xml:space="preserve"><value>Le disque est réécrit sans les blocs inutilisés, puis remplace l'original ; son contenu ne change pas. La place des fichiers supprimés dans l'invité n'est rendue que s'il l'a signalée : machine en marche, « Signaler l'espace libre (TRIM) » (Outils invités), sur un disque avec l'option « Discard ».
+
+Il faut sur le volume autant de place libre que le disque en occupe, le temps de la copie.</value></data>
+  <data name="CompactButton" xml:space="preserve"><value>Compacter</value></data>
+  <data name="CompactProgressTitle" xml:space="preserve"><value>Compactage de {0}…</value></data>
+  <data name="CompactDoneTitle" xml:space="preserve"><value>Disque compacté</value></data>
+  <data name="CompactDoneBody" xml:space="preserve"><value>{0} : {1} → {2}.</value></data>
+  <data name="TrimTitle" xml:space="preserve"><value>Espace libre de l'invité</value></data>
+  <data name="LiveSnapshotTitle" xml:space="preserve"><value>Instantané à chaud des disques ?</value></data>
+  <data name="LiveSnapshotBody" xml:space="preserve"><value>Chaque disque reçoit une superposition et la machine écrit désormais dedans ; l'image actuelle devient son image de base.
+
+La mémoire n'est pas capturée : revenir en arrière ressemblera pour l'invité à une coupure de courant. La superposition se défait depuis la section Disques.</value></data>
+  <data name="LiveSnapshotButton" xml:space="preserve"><value>Prendre l'instantané</value></data>
+  <data name="ResumeSnapshotTitle" xml:space="preserve"><value>Reprendre « {0} » ?</value></data>
+  <data name="ResumeSnapshotBody" xml:space="preserve"><value>Pris le {0}.
+
+La machine repartira exactement à cet instant, mémoire comprise. Son état actuel, disques et mémoire, est perdu.</value></data>
+  <data name="MergeLockedTitle" xml:space="preserve"><value>Fusion impossible : un clone lié en dépend</value></data>
+  <data name="DiscardOverlayTitle" xml:space="preserve"><value>Revenir à l'image de base de « {0} » ?</value></data>
+  <data name="DiscardOverlayKeptBody" xml:space="preserve"><value>{0} sert de base à un clone lié : il n'est pas modifié. Le disque repart de son état sur une nouvelle superposition, et la superposition actuelle est supprimée.</value></data>
+  <data name="DiscardOverlayBody" xml:space="preserve"><value>La superposition {0} sera supprimée et le disque reviendra à {1}.</value></data>
+  <data name="DiscardOverlayDeeper" xml:space="preserve"><value>Cette image est elle-même une superposition ({0} niveau(x) restant(s)), que vous pourrez défaire à son tour.</value></data>
+  <data name="DiscardOverlayLoss" xml:space="preserve"><value>Tout ce que l'invité a écrit depuis l'instantané est perdu.</value></data>
+  <data name="DiscardOverlayButton" xml:space="preserve"><value>Revenir à la base</value></data>
+  <data name="CommitOverlayTitle" xml:space="preserve"><value>Fusionner « {0} » dans son image de base ?</value></data>
+  <data name="CommitOverlayBody" xml:space="preserve"><value>Le contenu de {0} est écrit dans {1}, puis la superposition est supprimée.
+
+Rien n'est perdu de ce que l'invité a écrit, mais l'instantané cesse d'exister : il ne sera plus possible d'y revenir.</value></data>
+  <data name="CommitOverlayButton" xml:space="preserve"><value>Fusionner</value></data>
+  <data name="RestorePartial" xml:space="preserve"><value>Cet instantané ne couvre pas tous les disques de la machine : ceux qui ne l'ont pas resteront dans leur état actuel, et l'ensemble sera incohérent.</value></data>
+  <data name="RestoreKeptForClone" xml:space="preserve"><value>Un clone lié repose sur cet instantané : les images qu'il lit sont conservées, et la machine repart de cet état sur une nouvelle couche, qui apparaîtra dans la liste sous le même nom ou suivi de « (2) ».</value></data>
+  <data name="RestoreSnapshotTitle" xml:space="preserve"><value>Restaurer « {0} » ?</value></data>
+  <data name="RestoreSnapshotBody" xml:space="preserve"><value>Pris le {0}.
+
+Les disques reviendront à cet état. Tout ce qui a été écrit depuis sera perdu.</value></data>
+  <data name="RestoreButton" xml:space="preserve"><value>Restaurer</value></data>
+  <data name="DeleteNamedTitle" xml:space="preserve"><value>Supprimer « {0} » ?</value></data>
+  <data name="DeleteSnapshotBody" xml:space="preserve"><value>L'instantané est effacé des disques. Leur état actuel n'est pas touché, mais il ne sera plus possible d'y revenir.</value></data>
+  <data name="ImportUnreadableTitle" xml:space="preserve"><value>Fichier illisible</value></data>
+  <data name="ImportedSuffix" xml:space="preserve"><value>(importée)</value></data>
+  <data name="SoundSwitchHeader" xml:space="preserve"><value>Son de la machine sur ce PC</value></data>
+  <data name="SoundOn" xml:space="preserve"><value>Activé</value></data>
+  <data name="SoundOff" xml:space="preserve"><value>Coupé</value></data>
+  <data name="SoundVolume" xml:space="preserve"><value>Volume</value></data>
+  <data name="AudioDefaultOutput" xml:space="preserve"><value>Sortie par défaut de Windows</value></data>
+  <data name="SoundOutputNote" xml:space="preserve"><value>Sortie : {0}. Elle se change dans les Paramètres, pour toutes les machines.</value></data>
+  <data name="InstallToolsSwap" xml:space="preserve"><value>à la place de {0}</value></data>
+  <data name="InstallToolsWindowsNoAgent" xml:space="preserve"><value>WinQEMU va insérer {0} dans le lecteur de la machine{1}. Ensuite, dans l'invité, ouvrez ce lecteur (« virtio-win ») dans l'Explorateur et lancez, dans cet ordre :
+
+1. virtio-win-guest-tools.exe (pilotes virtio, presse-papiers) ; acceptez la confiance envers Red Hat ;
+2. guest-agent\qemu-ga-x86_64.msi (l'agent invité).
+
+WinQEMU attend l'agent puis termine seul. Il ne tape rien lui-même dans Windows : Microsoft Defender prend une commande tapée dans Exécuter pour une attaque, et la bloque.</value></data>
+  <data name="InstallToolsWindowsAgent" xml:space="preserve"><value>L'agent invité répond. WinQEMU va insérer {0} dans le lecteur de la machine{1} et installer par lui les outils virtio-win (pilotes, presse-papiers), sans question.</value></data>
+  <data name="InstallToolsLinuxNoAgent" xml:space="preserve"><value>Ouvrez une session et un terminal dans l'invité (Ctrl+Alt+T sous Ubuntu), puis cliquez sur « Taper la commande ». WinQEMU y tape, au clavier de ce PC :
+
+{0}
+
+Ne touchez pas au clavier pendant la saisie (quelques secondes). Si sudo demande votre mot de passe, tapez-le dans la console.</value></data>
+  <data name="InstallToolsLinuxAgent" xml:space="preserve"><value>L'agent invité répond. WinQEMU va installer par lui spice-vdagent, qui partage le presse-papiers, sans question.</value></data>
+  <data name="InstallToolsTitle" xml:space="preserve"><value>Installer les outils invités</value></data>
+  <data name="InstallToolsTypeButton" xml:space="preserve"><value>Taper la commande</value></data>
+  <data name="InstallToolsButton" xml:space="preserve"><value>Installer</value></data>
+  <data name="InstallToolsFailedTitle" xml:space="preserve"><value>Outils invités non installés</value></data>
+  <data name="VirtioIsoMissingTitle" xml:space="preserve"><value>ISO virtio-win introuvable</value></data>
+  <data name="VirtioIsoMissingBody" xml:space="preserve"><value>Les outils d'un invité Windows (agent invité, pilotes virtio, presse-papiers) sont sur l'ISO virtio-win de Red Hat, que WinQEMU ne télécharge pas. Elle se trouve sur fedorapeople.org (groups/virt/virtio-win, dossier « stable-virtio »).
+
+Choisissez-la : WinQEMU la retiendra pour les fois suivantes.</value></data>
+  <data name="VirtioIsoChooseButton" xml:space="preserve"><value>Choisir l'ISO…</value></data>
+  <data name="TypeNothingTitle" xml:space="preserve"><value>Rien à taper</value></data>
+  <data name="TypeNothingBody" xml:space="preserve"><value>Le presse-papiers de ce PC ne contient pas de texte.</value></data>
+  <data name="TypeClipboardTitle" xml:space="preserve"><value>Taper le presse-papiers</value></data>
+  <data name="TypeClipboardBody" xml:space="preserve"><value>{0} caractères, à taper en {1} s environ. Ne touchez pas au clavier de l'invité pendant la saisie : chaque touche va à ce qui y a le focus.</value></data>
+  <data name="TypeButton" xml:space="preserve"><value>Taper</value></data>
+  <data name="TypeFailedTitle" xml:space="preserve"><value>Texte non tapé</value></data>
+  <data name="PullFailedTitle" xml:space="preserve"><value>Fichiers non récupérés</value></data>
+  <data name="DropCaption" xml:space="preserve"><value>Copier sur le Bureau de l'invité</value></data>
+  <data name="SendAgentError" xml:space="preserve"><value>L'agent invité a répondu par une erreur : {0}</value></data>
+  <data name="SendFailedTitle" xml:space="preserve"><value>Fichiers non copiés</value></data>
+  <data name="UsbStoppedHint" xml:space="preserve"><value>Machine arrêtée : choisissez ce qui sera connecté au démarrage</value></data>
+  <data name="UsbNoDevices" xml:space="preserve"><value>Aucun périphérique USB branché sur ce PC</value></data>
+  <data name="UsbAtStart" xml:space="preserve"><value>Connecter à chaque démarrage</value></data>
+  <data name="UsbUnplugged" xml:space="preserve"><value>débranché</value></data>
+  <data name="UsbWaiting" xml:space="preserve"><value>en attente</value></data>
+  <data name="UsbDriverRequired" xml:space="preserve"><value>pilote WinUSB requis</value></data>
+  <data name="UsbHelpItem" xml:space="preserve"><value>Rendre un périphérique accessible (pilote WinUSB)…</value></data>
+  <data name="UsbNotConnectedTitle" xml:space="preserve"><value>Périphérique USB non connecté</value></data>
+  <data name="UsbHelpTitle" xml:space="preserve"><value>Rendre un périphérique USB accessible</value></data>
+  <data name="UsbHelpBody" xml:space="preserve"><value>QEMU n'accède qu'aux périphériques USB qui utilisent le pilote générique WinUSB de Microsoft. Contrairement à VMware, il n'a pas de pilote à lui qui saurait prendre un périphérique à Windows.
+
+Pour équiper un périphérique de WinUSB :
+1. Téléchargez Zadig (zadig.akeo.ie), l'outil de référence pour cela.
+2. Lancez-le. Dans le menu Options, cochez « List All Devices » : sans cela, Zadig ne montre pas les périphériques qui ont déjà un pilote.
+3. Dans la liste déroulante du haut, choisissez le périphérique. Vérifiez que « USB ID » affiche les mêmes numéros que ce menu (par exemple 0781 559C).
+4. Au centre, la case de gauche montre le pilote actuel (par exemple USBSTOR) ; celle de droite, le pilote à installer : réglez-la sur WinUSB avec ses petites flèches.
+5. Cliquez sur le grand bouton « Replace Driver » et attendez la fin (une minute environ).
+6. Rouvrez ce menu : le périphérique se connecte.
+
+Tant qu'il est sur WinUSB, Windows ne s'en sert plus lui-même : une clé n'apparaît plus dans l'Explorateur. Pour le lui rendre : Gestionnaire de périphériques, clic droit sur le périphérique, « Désinstaller l'appareil » en cochant « Tenter de supprimer le pilote », puis débranchez-le et rebranchez-le.
+
+Ne faites jamais cela pour le clavier, la souris ou le Bluetooth dont ce PC a besoin.</value></data>
+  <data name="ServicePresetItem" xml:space="preserve"><value>{0} (port {1})</value></data>
+  <data name="ServiceOtherPort" xml:space="preserve"><value>Autre port de l'invité…</value></data>
+  <data name="ServiceNotOpenedTitle" xml:space="preserve"><value>Service non ouvert</value></data>
+  <data name="ServicePortHeader" xml:space="preserve"><value>Port de l'invité</value></data>
+  <data name="ServiceUdp" xml:space="preserve"><value>UDP (TCP sinon)</value></data>
+  <data name="ServiceOpenTitle" xml:space="preserve"><value>Ouvrir un port de l'invité</value></data>
+  <data name="ServiceOpenButton" xml:space="preserve"><value>Ouvrir</value></data>
+  <data name="FirewallUnchangedTitle" xml:space="preserve"><value>Pare-feu inchangé</value></data>
+  <data name="ShareFailedTitle" xml:space="preserve"><value>Dossier non partagé</value></data>
+  <data name="ExportedTitle" xml:space="preserve"><value>Machine exportée</value></data>
+  <data name="ExportedBody" xml:space="preserve"><value>{0}
+
+Importez ce fichier dans VMware (Fichier &gt; Ouvrir), VirtualBox (Fichier &gt; Importer un appareil virtuel) ou Proxmox (qm importovf).</value></data>
+  <data name="ShowInExplorer" xml:space="preserve"><value>Afficher dans l'Explorateur</value></data>
+  <data name="OvfPackage" xml:space="preserve"><value>Paquet OVF</value></data>
+  <data name="DeleteVmBody" xml:space="preserve"><value>Les disques virtuels se trouvent dans :
+{0}</value></data>
+  <data name="DeleteVmLinkedClone" xml:space="preserve"><value>C'est un clone lié : retiré de la liste, il ne protège plus les disques de son original, et ne fonctionnera plus si celui-ci les modifie.</value></data>
+  <data name="DeleteVmFilesButton" xml:space="preserve"><value>Supprimer les fichiers</value></data>
+  <data name="DeleteVmRemoveButton" xml:space="preserve"><value>Retirer de la liste</value></data>
+  <data name="CloseRunningTitle" xml:space="preserve"><value>Des machines virtuelles sont en cours d'exécution</value></data>
+  <data name="CloseRunningBody" xml:space="preserve"><value>{0}
+
+En arrière-plan, elles continuent de tourner et WinQEMU reste dans la zone de notification, d'où sa fenêtre se rouvre. Arrêter les éteint proprement, comme le bouton Arrêter, avant de quitter.</value></data>
+  <data name="CloseRunInBackground" xml:space="preserve"><value>Laisser en arrière-plan</value></data>
+  <data name="CloseShutDownAndQuit" xml:space="preserve"><value>Arrêter et quitter</value></data>
+  <data name="ShutdownReason" xml:space="preserve"><value>Arrêt des machines virtuelles : {0}</value></data>
+  <data name="ShuttingDownTitle" xml:space="preserve"><value>Arrêt des machines virtuelles</value></data>
+  <data name="PowerOffNow" xml:space="preserve"><value>Éteindre maintenant</value></data>
+  <data name="ShuttingDownBody" xml:space="preserve"><value>Les systèmes invités s'arrêtent, comme avec le bouton Arrêter. WinQEMU se fermera ensuite.
+
+Encore en marche : {0}
+
+« Éteindre maintenant » coupe celles qui restent, comme si on débranchait l'alimentation.</value></data>
+  <data name="TrayStartedWithWindows" xml:space="preserve"><value>WinQEMU a démarré avec Windows. Les machines à démarrer avec WinQEMU démarrent.</value></data>
+  <data name="TrayBackgroundExplained" xml:space="preserve"><value>Les machines continuent de tourner. Cliquez sur l'icône de WinQEMU pour rouvrir sa fenêtre.</value></data>
+  <data name="TrayOneRunning" xml:space="preserve"><value>WinQEMU — 1 machine en marche</value></data>
+  <data name="TrayManyRunning" xml:space="preserve"><value>WinQEMU — {0} machines en marche</value></data>
+  <data name="TrayBalloonTitle" xml:space="preserve"><value>WinQEMU continue en arrière-plan</value></data>
+  <data name="StateNoSelection" xml:space="preserve"><value>Aucune VM sélectionnée</value></data>
+  <data name="StateStopped" xml:space="preserve"><value>Arrêtée</value></data>
+  <data name="StateStarting" xml:space="preserve"><value>Démarrage…</value></data>
+  <data name="StateRunning" xml:space="preserve"><value>En cours d'exécution</value></data>
+  <data name="StatePaused" xml:space="preserve"><value>En pause</value></data>
+  <data name="StateStopping" xml:space="preserve"><value>Arrêt en cours…</value></data>
+  <data name="QemuDetecting" xml:space="preserve"><value>Détection de QEMU…</value></data>
+  <data name="QemuAutoDetectNothing" xml:space="preserve"><value>Détection automatique — rien trouvé</value></data>
+  <data name="AccelerationWhpx" xml:space="preserve"><value>WHPX disponible</value></data>
+  <data name="AccelerationNone" xml:space="preserve"><value>Indisponible — les machines tourneront en émulation, environ dix fois plus lentement</value></data>
+  <data name="FirmwareNone" xml:space="preserve"><value>Aucune image OVMF trouvée — seul le démarrage BIOS est possible</value></data>
+  <data name="FirmwareAvailable" xml:space="preserve"><value>{0} — le démarrage sécurisé reste impossible sous WHPX</value></data>
+  <data name="MetricsMemoryNone" xml:space="preserve"><value>Mémoire —</value></data>
+  <data name="MetricsDiskNone" xml:space="preserve"><value>Disque —</value></data>
+  <data name="MetricsHostCpu" xml:space="preserve"><value>CPU hôte {0} %</value></data>
+  <data name="MetricsMemory" xml:space="preserve"><value>Mémoire {0} / {1}</value></data>
+  <data name="MetricsDisk" xml:space="preserve"><value>Disque lu {0} · écrit {1}</value></data>
+  <data name="QemuNotFound" xml:space="preserve"><value>QEMU est introuvable. Aucune machine virtuelle ne peut démarrer.</value></data>
+  <data name="QemuNotFoundDetail" xml:space="preserve"><value>Installez QEMU pour Windows, puis relancez la détection. Vous pouvez aussi indiquer le dossier d'installation dans les paramètres.</value></data>
+  <data name="QemuAccelWhpx" xml:space="preserve"><value>accélération WHPX disponible</value></data>
+  <data name="QemuAccelNone" xml:space="preserve"><value>accélération matérielle indisponible (émulation TCG uniquement)</value></data>
+  <data name="AutoStartFailed" xml:space="preserve"><value>« {0} » n'a pas pu démarrer avec WinQEMU : {1}</value></data>
+  <data name="NoVmSelected" xml:space="preserve"><value>Aucune machine virtuelle n'est sélectionnée.</value></data>
+  <data name="LanServiceTitle" xml:space="preserve"><value>{0} — port {1} de ce PC vers le port {2} de l'invité</value></data>
+  <data name="LanServiceLocalOnly" xml:space="preserve"><value>{0} (depuis ce PC seulement)</value></data>
+  <data name="LanServiceNoAddress" xml:space="preserve"><value>Ce PC n'a pas d'adresse sur un réseau local pour l'instant.</value></data>
+  <data name="LanAccessHintNat" xml:space="preserve"><value>La machine est en NAT : elle sort sur le réseau, mais rien ne l'atteint depuis les autres appareils, sauf les services ouverts ici. Ils s'ouvrent aussitôt si elle est en marche.</value></data>
+  <data name="LanAccessHintNoNat" xml:space="preserve"><value>Il faut une carte réseau en NAT pour ouvrir des services (section Réseau).</value></data>
+  <data name="FirewallWarning" xml:space="preserve"><value>Le pare-feu Windows bloque QEMU : depuis le réseau, rien n'arrivera aux services ouverts tant qu'il n'est pas autorisé (réseaux privés et de domaine seulement, pas les réseaux publics).</value></data>
+  <data name="LanNeedNat" xml:space="preserve"><value>Il faut une carte réseau en NAT pour ouvrir un service.</value></data>
+  <data name="LanServiceAlreadyOpen" xml:space="preserve"><value>Ce service est déjà ouvert, sur le port {0} de ce PC.</value></data>
+  <data name="FirewallDenied" xml:space="preserve"><value>Le pare-feu n'a pas été modifié : l'autorisation administrateur a été refusée.</value></data>
+  <data name="FirewallNoEffect" xml:space="preserve"><value>La règle n'a pas pris effet. Une stratégie d'entreprise interdit peut-être les règles de pare-feu locales.</value></data>
+  <data name="NameTaken" xml:space="preserve"><value>Une autre machine porte déjà ce nom.</value></data>
+  <data name="SharedFolderHint" xml:space="preserve"><value>Comme les dossiers partagés de VMware : WinQEMU les sert lui-même par un canal privé, sans réseau ni mot de passe. Un invité Linux les trouve dans ~/{0}, un invité Windows sur un lecteur à lui. Il y faut une seule fois l'agent invité (Linux : sudo apt install qemu-guest-agent).</value></data>
+  <data name="ShareMountWaiting" xml:space="preserve"><value>En attente de l'agent invité pour monter les dossiers…</value></data>
+  <data name="ShareMountFailed" xml:space="preserve"><value>Les dossiers n'ont pas pu être montés : {0}</value></data>
+  <data name="ShareAlreadyShared" xml:space="preserve"><value>Ce dossier est déjà partagé avec cette machine.</value></data>
+  <data name="UsbDefaultName" xml:space="preserve"><value>Périphérique USB</value></data>
+  <data name="UsbWrongDriver" xml:space="preserve"><value>{0} utilise le pilote « {1} », que QEMU ne sait pas ouvrir : il lui faut le pilote WinUSB. Le menu USB explique comment l'installer.</value></data>
+  <data name="UsbNotPlugged" xml:space="preserve"><value>{0} n'est pas branché.</value></data>
+  <data name="UsbOpenFailed" xml:space="preserve"><value>QEMU n'a pas pu ouvrir {0} : un autre programme s'en sert sans doute (Windows Hello pour un lecteur d'empreintes, un logiciel du fabricant…), ou il est déjà donné à une autre machine.</value></data>
+  <data name="AutoSnapshotFailed" xml:space="preserve"><value>L'instantané automatique de « {0} » n'a pas pu être pris : {1}</value></data>
+  <data name="MachineMustRun" xml:space="preserve"><value>La machine doit être en marche.</value></data>
+  <data name="AgentNotAnswering" xml:space="preserve"><value>L'agent invité ne répond pas : installez d'abord les outils invités.</value></data>
+  <data name="TrimDone" xml:space="preserve"><value>{0} système(s) de fichiers de l'invité ont signalé leur espace libre. Arrêtez la machine, puis « Compacter… » chaque disque (Matériel) pour rendre cette place à ce PC.</value></data>
+  <data name="TrimNoDiscard" xml:space="preserve"><value>Le ou les disques {0} n'ont pas l'option « Discard » : l'espace libre n'y atteint pas l'image. Cochez-la dans Matériel (machine arrêtée) avant de recommencer.</value></data>
+  <data name="TrimFailed" xml:space="preserve"><value>L'invité n'a pas pu signaler son espace libre : {0}</value></data>
+  <data name="TypeInterrupted" xml:space="preserve"><value>La saisie s'est interrompue : {0}</value></data>
+  <data name="ToolsChecking" xml:space="preserve"><value>Recherche de l'agent invité…</value></data>
+  <data name="ToolsAgentMissing" xml:space="preserve"><value>Les outils invités ne sont pas installés : dossiers partagés, glisser-déposer, presse-papiers et taille d'écran automatique en dépendent.</value></data>
+  <data name="ToolsInstalling" xml:space="preserve"><value>Installation des outils invités…</value></data>
+  <data name="ToolsMissingWarning" xml:space="preserve"><value>Outils invités absents ou incomplets.</value></data>
+  <data name="ToolsNeedIso" xml:space="preserve"><value>L'ISO virtio-win est nécessaire pour un invité Windows.</value></data>
+  <data name="ToolsInsertingIso" xml:space="preserve"><value>Insertion de l'ISO virtio-win…</value></data>
+  <data name="ToolsWindowsWaitAgent" xml:space="preserve"><value>Dans l'invité, lancez virtio-win-guest-tools.exe puis guest-agent\qemu-ga-x86_64.msi depuis le lecteur virtio-win ; WinQEMU attend l'agent…</value></data>
+  <data name="ToolsTypingCommand" xml:space="preserve"><value>Saisie de la commande dans l'invité…</value></data>
+  <data name="ToolsSudoPassword" xml:space="preserve"><value>Tapez votre mot de passe dans le terminal de l'invité si sudo le demande ; l'installation suit…</value></data>
+  <data name="ToolsAgentStillMissingWindows" xml:space="preserve"><value>L'agent invité ne répond toujours pas. Vérifiez dans l'invité que les deux installations sont allées à leur terme.</value></data>
+  <data name="ToolsAgentStillMissingLinux" xml:space="preserve"><value>L'agent invité ne répond toujours pas après dix minutes. Vérifiez dans l'invité que la commande s'est bien exécutée.</value></data>
+  <data name="ToolsInstallingThroughAgent" xml:space="preserve"><value>Installation des outils par l'agent invité…</value></data>
+  <data name="ToolsAgentStopped" xml:space="preserve"><value>L'agent invité a cessé de répondre.</value></data>
+  <data name="ToolsInstallFailed" xml:space="preserve"><value>Les outils n'ont pas pu être installés : {0}.</value></data>
+  <data name="ToolsRestartGuest" xml:space="preserve"><value>Redémarrez l'invité pour terminer l'installation des pilotes.</value></data>
+  <data name="ToolsReopenSession" xml:space="preserve"><value>Rouvrez la session de l'invité pour que le presse-papiers soit partagé.</value></data>
+  <data name="ToolsInstalled" xml:space="preserve"><value>Outils invités installés.</value></data>
+  <data name="ToolsInstalledNote" xml:space="preserve"><value>Outils invités installés. {0}</value></data>
+  <data name="SoundLabel" xml:space="preserve"><value>Son</value></data>
+  <data name="SoundMutedLabel" xml:space="preserve"><value>Son coupé</value></data>
+  <data name="AudioChosenUnplugged" xml:space="preserve"><value>Sortie choisie (débranchée)</value></data>
+  <data name="TransferToGuest" xml:space="preserve"><value>Copie vers le Bureau de l'invité</value></data>
+  <data name="TransferFromGuest" xml:space="preserve"><value>Copie depuis l'invité</value></data>
+  <data name="TransferProgress" xml:space="preserve"><value>{0} : {1} sur {2}</value></data>
+  <data name="SendNeedsRunning" xml:space="preserve"><value>La machine doit être en marche pour recevoir des fichiers.</value></data>
+  <data name="SendAlreadyBusy" xml:space="preserve"><value>Une copie vers cette machine est déjà en cours : attendez qu'elle se termine.</value></data>
+  <data name="PullAlreadyBusy" xml:space="preserve"><value>Une copie avec cette machine est déjà en cours : attendez qu'elle se termine.</value></data>
+  <data name="TransferNamesMore" xml:space="preserve"><value>{0} et {1} autres</value></data>
+  <data name="SentToDesktop" xml:space="preserve"><value>Copié sur le Bureau de l'invité : {0}</value></data>
+  <data name="SendCancelled" xml:space="preserve"><value>Copie annulée : rien n'a été laissé dans l'invité.</value></data>
+  <data name="PulledTo" xml:space="preserve"><value>Copié dans {0} : {1}</value></data>
+  <data name="PullCancelled" xml:space="preserve"><value>Copie annulée : rien n'a été laissé sur ce PC.</value></data>
+</root>

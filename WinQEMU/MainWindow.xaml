@@ -8,6 +8,8 @@
     xmlns:local="using:WinQEMU"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:t="using:WinQEMU.Text"
+    xmlns:ct="using:WinQEMU.Core.Text"
     mc:Ignorable="d"
     Title="WinQEMU">
 
@@ -43,10 +45,10 @@
                 IsOpen="{Binding IsQemuMissing, Mode=OneWay}"
                 IsClosable="False"
                 Severity="Error"
-                Title="QEMU introuvable"
+                Title="{x:Bind t:WindowText.NotifyQemuMissing}"
                 Message="{Binding QemuStatusText, Mode=OneWay}">
                 <muxc:InfoBar.ActionButton>
-                    <HyperlinkButton Click="OnSettingsClick" Content="Indiquer le dossier d'installation…" />
+                    <HyperlinkButton Click="OnSettingsClick" Content="{x:Bind t:WindowText.NotifyQemuLocate}" />
                 </muxc:InfoBar.ActionButton>
                 <muxc:InfoBar.Content>
                     <TextBlock
@@ -61,7 +63,7 @@
                 CloseButtonClick="OnDismissErrorClick"
                 IsOpen="{Binding HasError, Mode=OneWay}"
                 Severity="Warning"
-                Title="Échec de l'opération"
+                Title="{x:Bind t:WindowText.NotifyOperationFailed}"
                 Message="{Binding ErrorMessage, Mode=OneWay}" />
         </StackPanel>
 
@@ -97,33 +99,33 @@
                     VerticalAlignment="Center"
                     FontSize="14"
                     FontWeight="SemiBold"
-                    Text="Machines virtuelles"
+                    Text="{x:Bind t:WindowText.LibraryTitle}"
                     TextTrimming="CharacterEllipsis" />
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                         <Button
                             x:Name="NewVmButton"
                             Width="36" Height="36" Padding="0"
-                            AutomationProperties.Name="Nouvelle machine virtuelle"
+                            AutomationProperties.Name="{x:Bind t:WindowText.LibraryNewVm}"
                             Click="OnNewVmClick"
                             IsEnabled="{Binding IsQemuAvailable, Mode=OneWay}"
-                            ToolTipService.ToolTip="Nouvelle machine virtuelle">
+                            ToolTipService.ToolTip="{x:Bind t:WindowText.LibraryNewVm}">
                             <muxc:SymbolIcon Symbol="Add" />
                         </Button>
                         <Button
                             Width="36" Height="36" Padding="0"
-                            AutomationProperties.Name="Importer une machine virtuelle"
+                            AutomationProperties.Name="{x:Bind t:WindowText.LibraryImportVm}"
                             Click="OnImportVmClick"
                             IsEnabled="{Binding IsQemuAvailable, Mode=OneWay}"
-                            ToolTipService.ToolTip="Importer une machine VMware (.vmx), VirtualBox (.vbox), un paquet OVF (.ova, .ovf) ou un disque Hyper-V (.vhdx)">
+                            ToolTipService.ToolTip="{x:Bind t:WindowText.LibraryImportVmTip}">
                             <FontIcon FontSize="16" Glyph="&#xE896;" />
                         </Button>
                         <Button
                             x:Name="RefreshButton"
                             Width="36" Height="36" Padding="0"
-                            AutomationProperties.Name="Actualiser la bibliothèque"
+                            AutomationProperties.Name="{x:Bind t:WindowText.LibraryRefresh}"
                             Command="{Binding RefreshCommand}"
-                            ToolTipService.ToolTip="Relancer la détection et réanalyser la bibliothèque">
+                            ToolTipService.ToolTip="{x:Bind t:WindowText.LibraryRefreshTip}">
                             <muxc:SymbolIcon Symbol="Refresh" />
                         </Button>
                     </StackPanel>
@@ -134,8 +136,8 @@
                     Grid.Row="1" Grid.Column="0"
                     Margin="0,0,0,8"
                     VerticalAlignment="Center"
-                    AutomationProperties.Name="Rechercher une machine virtuelle"
-                    PlaceholderText="Rechercher une VM..."
+                    AutomationProperties.Name="{x:Bind t:WindowText.LibrarySearchName}"
+                    PlaceholderText="{x:Bind t:WindowText.LibrarySearchPlaceholder}"
                     Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                 <Grid Grid.Row="2" Grid.Column="0">
@@ -182,7 +184,7 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Top"
                         Opacity="0.6"
-                        Text="Aucune machine virtuelle. Utilisez + pour en créer une."
+                        Text="{x:Bind t:WindowText.LibraryEmpty}"
                         TextAlignment="Center"
                         TextWrapping="Wrap"
                         Visibility="{Binding HasNoVirtualMachines, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
@@ -191,7 +193,7 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Top"
                         Opacity="0.6"
-                        Text="Aucun résultat pour cette recherche."
+                        Text="{x:Bind t:WindowText.LibraryNoResults}"
                         TextAlignment="Center"
                         TextWrapping="Wrap"
                         Visibility="{Binding HasNoSearchResults, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
@@ -245,8 +247,8 @@
                     <muxc:AppBarButton
                         AllowFocusOnInteraction="True"
                         Command="{Binding StartCommand}"
-                        Label="Démarrer"
-                        ToolTipService.ToolTip="Démarre la machine virtuelle sélectionnée">
+                        Label="{x:Bind ct:CommonText.Start}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarStartTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE768;" />
                         </muxc:AppBarButton.Icon>
@@ -254,23 +256,23 @@
                     <muxc:AppBarButton
                         Command="{Binding PauseResumeCommand}"
                         Label="{Binding PauseResumeLabel, Mode=OneWay}"
-                        ToolTipService.ToolTip="Fige l'exécution de la machine sans l'arrêter, ou la reprend exactement où elle en était">
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPauseTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE769;" />
                         </muxc:AppBarButton.Icon>
                     </muxc:AppBarButton>
                     <muxc:AppBarButton
                         Command="{Binding ShutdownCommand}"
-                        Label="Arrêter"
-                        ToolTipService.ToolTip="Demande au système invité de s'arrêter proprement (bouton d'alimentation ACPI)">
+                        Label="{x:Bind ct:CommonText.Stop}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarShutDownTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE71A;" />
                         </muxc:AppBarButton.Icon>
                     </muxc:AppBarButton>
                     <muxc:AppBarButton
                         Command="{Binding PowerOffCommand}"
-                        Label="Éteindre"
-                        ToolTipService.ToolTip="Éteint la machine immédiatement, sans prévenir l'invité, comme si on débranchait l'alimentation. Utilisez Arrêter pour un arrêt propre.">
+                        Label="{x:Bind ct:CommonText.PowerOff}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPowerOffTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE711;" />
                         </muxc:AppBarButton.Icon>
@@ -279,8 +281,8 @@
                     <muxc:AppBarButton
                         Width="112"
                         Command="{Binding SendCtrlAltDeleteCommand}"
-                        Label="Ctrl+Alt+Suppr"
-                        ToolTipService.ToolTip="Windows intercepte cette combinaison : elle ne peut être transmise à l'invité que d'ici">
+                        Label="{x:Bind t:WindowText.ToolbarCtrlAltDel}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarCtrlAltDelTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE765;" />
                         </muxc:AppBarButton.Icon>
@@ -291,7 +293,7 @@
                         x:Name="UsbButton"
                         Click="OnUsbClick"
                         Label="USB"
-                        ToolTipService.ToolTip="Connecte un périphérique USB de ce PC à la machine en marche, ou choisit ceux à connecter à chaque démarrage">
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarUsbTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE88E;" />
                         </muxc:AppBarButton.Icon>
@@ -301,7 +303,7 @@
                         Click="OnSoundClick"
                         IsEnabled="{Binding CanAdjustSound, Mode=OneWay}"
                         Label="{Binding SoundLabel, Mode=OneWay}"
-                        ToolTipService.ToolTip="Coupe le son de cette machine ou règle son volume sur ce PC">
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarSoundTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="{Binding SoundGlyph, Mode=OneWay}" />
                         </muxc:AppBarButton.Icon>
@@ -310,8 +312,8 @@
                         x:Name="PullFilesButton"
                         Click="OnPullFilesClick"
                         IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
-                        Label="Récupérer"
-                        ToolTipService.ToolTip="Copie des fichiers ou dossiers de l'invité vers ce PC">
+                        Label="{x:Bind t:WindowText.ToolbarPullFiles}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPullFilesTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE896;" />
                         </muxc:AppBarButton.Icon>
@@ -320,8 +322,8 @@
                         x:Name="SendFilesButton"
                         Click="OnSendFilesClick"
                         IsEnabled="{Binding CanSendFiles, Mode=OneWay}"
-                        Label="Envoyer"
-                        ToolTipService.ToolTip="Copie des fichiers de ce PC sur le Bureau de l'invité. Vous pouvez aussi les glisser sur la console, dossiers compris.">
+                        Label="{x:Bind t:WindowText.ToolbarSendFiles}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarSendFilesTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE898;" />
                         </muxc:AppBarButton.Icon>
@@ -331,8 +333,8 @@
                         x:Name="CloneButton"
                         Click="OnCloneClick"
                         IsEnabled="{Binding CanClone, Mode=OneWay}"
-                        Label="Cloner"
-                        ToolTipService.ToolTip="Crée une copie complète de la machine virtuelle sélectionnée, sous un nouveau nom. La machine doit être arrêtée.">
+                        Label="{x:Bind t:WindowText.ToolbarClone}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarCloneTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE8C8;" />
                         </muxc:AppBarButton.Icon>
@@ -341,8 +343,8 @@
                         x:Name="ExportButton"
                         Click="OnExportClick"
                         IsEnabled="{Binding CanClone, Mode=OneWay}"
-                        Label="Exporter"
-                        ToolTipService.ToolTip="Exporte la machine virtuelle sélectionnée en paquet OVA, pour VMware, VirtualBox ou Proxmox. La machine doit être arrêtée.">
+                        Label="{x:Bind t:WindowText.ToolbarExport}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarExportTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xEDE1;" />
                         </muxc:AppBarButton.Icon>
@@ -350,8 +352,8 @@
                     <muxc:AppBarButton
                         x:Name="DeleteButton"
                         Click="OnDeleteClick"
-                        Label="Supprimer"
-                        ToolTipService.ToolTip="Retire la machine virtuelle sélectionnée de la liste, ou supprime aussi ses fichiers ; le choix est demandé avant toute action">
+                        Label="{x:Bind ct:CommonText.Delete}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarDeleteTip}">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE74D;" />
                         </muxc:AppBarButton.Icon>
@@ -360,8 +362,8 @@
                     <muxc:AppBarButton
                         x:Name="MoreButton"
                         Click="OnMoreClick"
-                        Label="Plus"
-                        ToolTipService.ToolTip="Les commandes que la largeur de la fenêtre ne laisse pas afficher"
+                        Label="{x:Bind t:WindowText.ToolbarMore}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarMoreTip}"
                         Visibility="Collapsed">
                         <muxc:AppBarButton.Icon>
                             <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE712;" />
@@ -380,9 +382,9 @@
                 Width="36" Height="36" Padding="0"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
-                AutomationProperties.Name="Paramètres"
+                AutomationProperties.Name="{x:Bind ct:CommonText.Settings}"
                 Click="OnSettingsClick"
-                ToolTipService.ToolTip="Paramètres">
+                ToolTipService.ToolTip="{x:Bind ct:CommonText.Settings}">
                 <muxc:SymbolIcon Symbol="Setting" />
             </Button>
             <!-- Beside Settings for the same reason: virtual networks belong to the application, not to a machine. -->
@@ -391,9 +393,9 @@
                 Width="36" Height="36" Margin="0,0,44,0" Padding="0"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
-                AutomationProperties.Name="Réseaux virtuels"
+                AutomationProperties.Name="{x:Bind t:WindowText.VirtualNetworks}"
                 Click="OnVirtualNetworksClick"
-                ToolTipService.ToolTip="Réseaux virtuels">
+                ToolTipService.ToolTip="{x:Bind t:WindowText.VirtualNetworks}">
                 <FontIcon FontSize="16" Glyph="&#xE968;" />
             </Button>
 
@@ -402,7 +404,7 @@
                 Margin="4,0,0,8"
                 VerticalAlignment="Center"
                 Orientation="Horizontal">
-                <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="État :" />
+                <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{x:Bind t:WindowText.HeaderState}" />
                 <TextBlock
                     VerticalAlignment="Center"
                     FontWeight="SemiBold"
@@ -429,13 +431,13 @@
                         x:Name="SummaryViewButton"
                         MinWidth="120"
                         Click="OnSummaryViewClick"
-                        Content="Résumé"
+                        Content="{x:Bind t:WindowText.ViewSummary}"
                         IsChecked="True" />
                     <ToggleButton
                         x:Name="ConsoleViewButton"
                         MinWidth="120"
                         Click="OnConsoleViewClick"
-                        Content="Console" />
+                        Content="{x:Bind t:WindowText.ViewConsole}" />
                 </StackPanel>
 
                 <!--
@@ -497,12 +499,12 @@
                                         <Button
                                             Grid.Column="1"
                                             VerticalAlignment="Center"
-                                            AutomationProperties.Name="Renommer la machine virtuelle"
+                                            AutomationProperties.Name="{x:Bind t:WindowText.SummaryRename}"
                                             Click="OnRenameClick"
-                                            ToolTipService.ToolTip="Renommer la machine virtuelle">
+                                            ToolTipService.ToolTip="{x:Bind t:WindowText.SummaryRename}">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <FontIcon FontSize="14" Glyph="&#xE8AC;" />
-                                                <TextBlock Text="Renommer…" />
+                                                <TextBlock Text="{x:Bind t:WindowText.SummaryRenameButton}" />
                                             </StackPanel>
                                         </Button>
                                     </Grid>
@@ -540,7 +542,7 @@
                                             Grid.Row="0" Grid.Column="0"
                                             VerticalAlignment="Center"
                                             FontWeight="SemiBold"
-                                            Text="Processeurs virtuels" />
+                                            Text="{x:Bind t:WindowText.SummaryCpus}" />
                                         <muxc:NumberBox
                                             Grid.Row="0" Grid.Column="1"
                                             Maximum="64" Minimum="1"
@@ -551,7 +553,7 @@
                                             Grid.Row="1" Grid.Column="0"
                                             VerticalAlignment="Center"
                                             FontWeight="SemiBold"
-                                            Text="Mémoire (Mo)" />
+                                            Text="{x:Bind t:WindowText.SummaryMemoryMb}" />
                                         <muxc:NumberBox
                                             Grid.Row="1" Grid.Column="1"
                                             Maximum="1048576" Minimum="128"
@@ -563,7 +565,7 @@
                                             Grid.Row="2" Grid.Column="0"
                                             VerticalAlignment="Center"
                                             FontWeight="SemiBold"
-                                            Text="Image ISO" />
+                                            Text="{x:Bind t:WindowText.SummaryIso}" />
                                         <Grid Grid.Row="2" Grid.Column="1" ColumnSpacing="8">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -572,30 +574,30 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBox
                                                 Grid.Column="0"
-                                                AutomationProperties.Name="Chemin de l'image ISO"
-                                                PlaceholderText="Aucun support optique"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SummaryIsoPath}"
+                                                PlaceholderText="{x:Bind t:WindowText.SummaryIsoNone}"
                                                 Text="{Binding IsoPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             <Button
                                                 Grid.Column="1"
-                                                AutomationProperties.Name="Choisir une image ISO"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SummaryIsoBrowse}"
                                                 Click="OnBrowseIsoClick"
-                                                Content="Parcourir…" />
+                                                Content="{x:Bind ct:CommonText.Browse}" />
                                             <!-- Swapping the medium is the one hardware change QEMU takes
                                                  without a restart, so this button is the opposite of the
                                                  rest: it is enabled only while the machine runs. -->
                                             <Button
                                                 Grid.Column="2"
                                                 Click="OnInsertIsoClick"
-                                                Content="Insérer"
+                                                Content="{x:Bind t:WindowText.SummaryIsoInsert}"
                                                 IsEnabled="{Binding DataContext.CanChangeIsoLive, ElementName=RootGrid, Mode=OneWay}"
-                                                ToolTipService.ToolTip="Change le disque dans le lecteur de la machine en cours d'exécution" />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.SummaryIsoInsertTip}" />
                                         </Grid>
 
                                         <TextBlock
                                             Grid.Row="3" Grid.Column="0"
                                             VerticalAlignment="Center"
                                             FontWeight="SemiBold"
-                                            Text="Emplacement" />
+                                            Text="{x:Bind t:WindowText.SummaryLocation}" />
                                         <TextBlock
                                             Grid.Row="3" Grid.Column="1"
                                             VerticalAlignment="Center"
@@ -617,7 +619,7 @@
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Plateforme" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.PlatformHeader}" />
                                     </muxc:Expander.Header>
                                     <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{Binding Hardware.CanEdit, Mode=OneWay}">
                                     <StackPanel DataContext="{Binding SelectedVm, Mode=OneWay}" Spacing="10">
@@ -636,8 +638,8 @@
                                             <ComboBox
                                                 Grid.Row="0" Grid.Column="0"
                                                 HorizontalAlignment="Stretch"
-                                                AutomationProperties.Name="Architecture"
-                                                Header="Architecture"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformArchitecture}"
+                                                Header="{x:Bind t:WindowText.PlatformArchitecture}"
                                                 ItemsSource="{Binding DataContext.Hardware.ArchitectureOptions, ElementName=RootGrid}"
                                                 SelectedItem="{Binding Architecture, Mode=TwoWay}">
                                                 <ComboBox.ItemTemplate>
@@ -650,8 +652,8 @@
                                             <ComboBox
                                                 Grid.Row="0" Grid.Column="1"
                                                 HorizontalAlignment="Stretch"
-                                                AutomationProperties.Name="Micrologiciel"
-                                                Header="Micrologiciel"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformFirmware}"
+                                                Header="{x:Bind t:WindowText.PlatformFirmware}"
                                                 ItemsSource="{Binding DataContext.Hardware.FirmwareOptions, ElementName=RootGrid}"
                                                 SelectedItem="{Binding Firmware, Mode=TwoWay}">
                                                 <ComboBox.ItemTemplate>
@@ -664,8 +666,8 @@
                                             <ComboBox
                                                 Grid.Row="1" Grid.Column="0"
                                                 HorizontalAlignment="Stretch"
-                                                AutomationProperties.Name="Accélération"
-                                                Header="Accélération"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformAcceleration}"
+                                                Header="{x:Bind t:WindowText.PlatformAcceleration}"
                                                 ItemsSource="{Binding DataContext.Hardware.AcceleratorOptions, ElementName=RootGrid}"
                                                 SelectedItem="{Binding Accelerator, Mode=TwoWay}">
                                                 <ComboBox.ItemTemplate>
@@ -680,8 +682,8 @@
                                             <ComboBox
                                                 Grid.Row="1" Grid.Column="1"
                                                 HorizontalAlignment="Stretch"
-                                                AutomationProperties.Name="Type de machine"
-                                                Header="Type de machine"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformMachineType}"
+                                                Header="{x:Bind t:WindowText.PlatformMachineType}"
                                                 IsEditable="True"
                                                 ItemsSource="{Binding DataContext.Hardware.MachineTypeOptions, ElementName=RootGrid}"
                                                 PlaceholderText="q35"
@@ -692,8 +694,8 @@
                                             <ComboBox
                                                 Grid.Row="2" Grid.Column="0"
                                                 HorizontalAlignment="Stretch"
-                                                AutomationProperties.Name="Modèle de processeur"
-                                                Header="Modèle de processeur"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformCpuModel}"
+                                                Header="{x:Bind t:WindowText.PlatformCpuModel}"
                                                 IsEditable="True"
                                                 ItemsSource="{Binding DataContext.Hardware.CpuModelOptions, ElementName=RootGrid}"
                                                 Text="{Binding CpuModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
@@ -701,8 +703,8 @@
                                             <muxc:NumberBox
                                                 Grid.Row="2" Grid.Column="1"
                                                 Maximum="64" Minimum="1"
-                                                AutomationProperties.Name="Cœurs par socket"
-                                                Header="Cœurs par socket (1 = laisser QEMU décider)"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformCoresPerSocket}"
+                                                Header="{x:Bind t:WindowText.PlatformCoresPerSocketHeader}"
                                                 SpinButtonPlacementMode="Compact"
                                                 Value="{Binding CoresPerSocket, Mode=TwoWay}" />
                                         </Grid>
@@ -715,8 +717,8 @@
                                             <ComboBox
                                                 Grid.Column="0"
                                                 HorizontalAlignment="Stretch"
-                                                AutomationProperties.Name="Carte graphique"
-                                                Header="Carte graphique"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformGraphics}"
+                                                Header="{x:Bind t:WindowText.PlatformGraphics}"
                                                 ItemsSource="{Binding DataContext.Hardware.GraphicsOptions, ElementName=RootGrid}"
                                                 SelectedItem="{Binding Graphics, Mode=TwoWay}">
                                                 <ComboBox.ItemTemplate>
@@ -728,31 +730,31 @@
                                             <muxc:NumberBox
                                                 Grid.Column="1"
                                                 Maximum="1024" Minimum="4"
-                                                AutomationProperties.Name="Mémoire vidéo"
-                                                Header="Mémoire vidéo (Mo)"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformVideoMemory}"
+                                                Header="{x:Bind t:WindowText.PlatformVideoMemoryHeader}"
                                                 SpinButtonPlacementMode="Compact"
                                                 Value="{Binding VideoMemoryMb, Mode=TwoWay}" />
                                         </Grid>
 
                                         <StackPanel Orientation="Horizontal" Spacing="16">
-                                            <CheckBox Content="Son" IsChecked="{Binding EnableAudio, Mode=TwoWay}" />
+                                            <CheckBox Content="{x:Bind t:WindowText.PlatformSound}" IsChecked="{Binding EnableAudio, Mode=TwoWay}" />
                                             <CheckBox
-                                                Content="Micro"
+                                                Content="{x:Bind t:WindowText.PlatformMicrophone}"
                                                 IsChecked="{Binding EnableMicrophone, Mode=TwoWay}"
                                                 IsEnabled="{Binding EnableAudio, Mode=OneWay}"
-                                                ToolTipService.ToolTip="Donne à l'invité le micro de ce PC. Windows demande l'autorisation la première fois." />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.PlatformMicrophoneTip}" />
                                             <CheckBox
-                                                Content="Tablette USB"
+                                                Content="{x:Bind t:WindowText.PlatformUsbTablet}"
                                                 IsChecked="{Binding EnableUsbTablet, Mode=TwoWay}"
-                                                ToolTipService.ToolTip="Pointeur absolu : sans lui le curseur de l'invité dérive de celui de l'hôte" />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.PlatformUsbTabletTip}" />
                                             <CheckBox
-                                                Content="Ballon mémoire"
+                                                Content="{x:Bind t:WindowText.PlatformBalloon}"
                                                 IsChecked="{Binding EnableBalloon, Mode=TwoWay}"
-                                                ToolTipService.ToolTip="Permet à l'hôte de reprendre de la mémoire non utilisée par l'invité" />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.PlatformBalloonTip}" />
                                             <CheckBox
-                                                Content="Horloge en heure locale"
+                                                Content="{x:Bind t:WindowText.PlatformLocalTime}"
                                                 IsChecked="{Binding RtcLocalTime, Mode=TwoWay}"
-                                                ToolTipService.ToolTip="Attendu par Windows ; la plupart des invités Linux attendent UTC" />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.PlatformLocalTimeTip}" />
                                         </StackPanel>
 
                                         <Grid ColumnSpacing="8">
@@ -762,24 +764,24 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBox
                                                 Grid.Column="0"
-                                                AutomationProperties.Name="Second lecteur optique"
-                                                Header="Second lecteur optique (pilotes virtio-win, par exemple)"
-                                                PlaceholderText="Aucun"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformSecondIso}"
+                                                Header="{x:Bind t:WindowText.PlatformSecondIsoHeader}"
+                                                PlaceholderText="{x:Bind t:WindowText.PlatformSecondIsoNone}"
                                                 Text="{Binding SecondaryIsoPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             <Button
                                                 Grid.Column="1"
                                                 Margin="0,28,0,0"
-                                                AutomationProperties.Name="Choisir le second ISO"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.PlatformSecondIsoBrowse}"
                                                 Click="OnBrowseSecondaryIsoClick"
-                                                Content="Parcourir…" />
+                                                Content="{x:Bind ct:CommonText.Browse}" />
                                         </Grid>
 
                                         <TextBox
                                             AcceptsReturn="True"
-                                            AutomationProperties.Name="Arguments supplémentaires"
-                                            Header="Arguments QEMU supplémentaires"
+                                            AutomationProperties.Name="{x:Bind t:WindowText.PlatformExtraArgs}"
+                                            Header="{x:Bind t:WindowText.PlatformExtraArgsHeader}"
                                             Height="60"
-                                            PlaceholderText="Ajoutés tels quels à la fin de la ligne de commande"
+                                            PlaceholderText="{x:Bind t:WindowText.PlatformExtraArgsPlaceholder}"
                                             Text="{Binding ExtraArguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                             TextWrapping="Wrap" />
                                     </StackPanel>
@@ -792,16 +794,16 @@
                                     IsOpen="{Binding Hardware.HasPlatformProblems, Mode=OneWay}"
                                     Message="{Binding Hardware.PlatformProblems, Mode=OneWay}"
                                     Severity="Error"
-                                    Title="Cette configuration ne démarrerait pas" />
+                                    Title="{x:Bind t:WindowText.PlatformProblemsTitle}" />
 
                                 <muxc:Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Ligne de commande" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.CommandLineHeader}" />
                                     </muxc:Expander.Header>
                                     <StackPanel Spacing="8">
                                         <TextBlock
                                             Style="{StaticResource Hint}"
-                                            Text="Ce que ces réglages produisent. Le port de contrôle affiché est indicatif : le vrai est attribué au démarrage." />
+                                            Text="{x:Bind t:WindowText.CommandLineHint}" />
                                         <TextBlock
                                             FontFamily="Consolas"
                                             FontSize="12"
@@ -824,14 +826,14 @@
                                 <muxc:InfoBar
                                     IsClosable="False"
                                     IsOpen="{Binding Hardware.IsLocked, Mode=OneWay}"
-                                    Message="Le matériel n'est lu qu'au démarrage de QEMU. Arrêtez la machine pour le modifier."
+                                    Message="{x:Bind t:WindowText.HardwareLocked}"
                                     Severity="Informational" />
 
                                 <muxc:Expander
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Ordre de démarrage" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.BootOrderHeader}" />
                                     </muxc:Expander.Header>
                                     <!--
                                         The lock goes on a ContentControl, not on the StackPanel:
@@ -845,7 +847,7 @@
                                     <StackPanel Spacing="8">
                                         <TextBlock
                                             Style="{StaticResource Hint}"
-                                            Text="Le micrologiciel essaie les périphériques dans cet ordre. En UEFI c'est le seul ordre pris en compte : un périphérique absent de cette liste reste invisible au gestionnaire de démarrage." />
+                                            Text="{x:Bind t:WindowText.BootOrderHint}" />
                                         <Grid ColumnSpacing="8">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -855,7 +857,7 @@
                                             <ListView
                                                 Grid.Column="0"
                                                 MaxHeight="160"
-                                                AutomationProperties.Name="Ordre de démarrage"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.BootOrderHeader}"
                                                 ItemsSource="{Binding Hardware.BootEntries, Mode=OneWay}"
                                                 SelectedItem="{Binding Hardware.SelectedBootEntry, Mode=TwoWay}"
                                                 SelectionMode="Single">
@@ -873,11 +875,11 @@
                                                 <Button
                                                     MinWidth="120"
                                                     Command="{Binding Hardware.MoveBootUpCommand}"
-                                                    Content="Monter" />
+                                                    Content="{x:Bind t:WindowText.BootOrderUp}" />
                                                 <Button
                                                     MinWidth="120"
                                                     Command="{Binding Hardware.MoveBootDownCommand}"
-                                                    Content="Descendre" />
+                                                    Content="{x:Bind t:WindowText.BootOrderDown}" />
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
@@ -888,7 +890,7 @@
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Disques" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.DisksHeader}" />
                                     </muxc:Expander.Header>
                                     <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{Binding Hardware.CanEdit, Mode=OneWay}">
                                     <StackPanel Spacing="8">
@@ -914,27 +916,27 @@
                                                                     Text="{Binding Id}" />
                                                                 <TextBox
                                                                     Grid.Column="1"
-                                                                    AutomationProperties.Name="Fichier image"
+                                                                    AutomationProperties.Name="{x:Bind t:WindowText.DiskImageFile}"
                                                                     Text="{Binding FileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
                                                                     <Button
-                                                                        AutomationProperties.Name="Agrandir le disque"
+                                                                        AutomationProperties.Name="{x:Bind t:WindowText.DiskGrowName}"
                                                                         Click="OnGrowDiskClick"
-                                                                        Content="Agrandir…" />
+                                                                        Content="{x:Bind t:WindowText.DiskGrow}" />
                                                                     <Button
-                                                                        AutomationProperties.Name="Convertir le disque"
+                                                                        AutomationProperties.Name="{x:Bind t:WindowText.DiskConvertName}"
                                                                         Click="OnConvertDiskClick"
-                                                                        Content="Convertir…" />
+                                                                        Content="{x:Bind t:WindowText.DiskConvert}" />
                                                                     <Button
-                                                                        AutomationProperties.Name="Compacter le disque"
+                                                                        AutomationProperties.Name="{x:Bind t:WindowText.DiskCompactName}"
                                                                         Click="OnCompactDiskClick"
-                                                                        Content="Compacter…"
-                                                                        ToolTipService.ToolTip="Rend à ce PC la place que le disque n'utilise plus" />
+                                                                        Content="{x:Bind t:WindowText.DiskCompact}"
+                                                                        ToolTipService.ToolTip="{x:Bind t:WindowText.DiskCompactTip}" />
                                                                     <Button
-                                                                        AutomationProperties.Name="Détacher le disque"
+                                                                        AutomationProperties.Name="{x:Bind t:WindowText.DiskDetachName}"
                                                                         Command="{Binding DataContext.Hardware.RemoveDiskCommand, ElementName=RootGrid}"
                                                                         CommandParameter="{Binding}"
-                                                                        Content="Détacher" />
+                                                                        Content="{x:Bind t:WindowText.DiskDetach}" />
                                                                 </StackPanel>
                                                             </Grid>
 
@@ -948,8 +950,8 @@
                                                                 <ComboBox
                                                                     Grid.Column="0"
                                                                     HorizontalAlignment="Stretch"
-                                                                    AutomationProperties.Name="Contrôleur"
-                                                                    Header="Contrôleur"
+                                                                    AutomationProperties.Name="{x:Bind t:WindowText.DiskController}"
+                                                                    Header="{x:Bind t:WindowText.DiskController}"
                                                                     ItemsSource="{Binding DataContext.Hardware.BusOptions, ElementName=RootGrid}"
                                                                     SelectedItem="{Binding Bus, Mode=TwoWay}">
                                                                     <ComboBox.ItemTemplate>
@@ -962,8 +964,8 @@
                                                                 <ComboBox
                                                                     Grid.Column="1"
                                                                     HorizontalAlignment="Stretch"
-                                                                    AutomationProperties.Name="Cache"
-                                                                    Header="Cache"
+                                                                    AutomationProperties.Name="{x:Bind t:WindowText.DiskCache}"
+                                                                    Header="{x:Bind t:WindowText.DiskCache}"
                                                                     ItemsSource="{Binding DataContext.Hardware.CacheOptions, ElementName=RootGrid}"
                                                                     SelectedItem="{Binding Cache, Mode=TwoWay}" />
 
@@ -983,7 +985,7 @@
                                                             <TextBlock
                                                                 Style="{StaticResource Hint}"
                                                                 Visibility="{Binding IsLinkedClone, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                                                                <Run Text="Clone lié : ne contient que ce que cette machine a écrit et lit le reste dans " /><Run Text="{Binding LinkedBaseFileName, Mode=OneWay}" /><Run Text=". « Convertir… » le rend indépendant." />
+                                                                <Run Text="{x:Bind t:WindowText.DiskLinkedClonePrefix}" /><Run Text="{Binding LinkedBaseFileName, Mode=OneWay}" /><Run Text="{x:Bind t:WindowText.DiskLinkedCloneSuffix}" />
                                                             </TextBlock>
 
                                                             <!-- Visible whenever the disk is a live-snapshot
@@ -996,26 +998,26 @@
                                                                     Style="{StaticResource Hint}"
                                                                     Text="{Binding BackingFileName, Mode=OneWay}" />
                                                                 <TextBlock Style="{StaticResource Hint}">
-                                                                    <Run Text="Niveaux de superposition : " /><Run Text="{Binding OverlayDepth, Mode=OneWay}" />
+                                                                    <Run Text="{x:Bind t:WindowText.DiskOverlayLevels}" /><Run Text="{Binding OverlayDepth, Mode=OneWay}" />
                                                                 </TextBlock>
                                                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                                                     <Button
-                                                                        AutomationProperties.Name="Revenir à l'image de base"
+                                                                        AutomationProperties.Name="{x:Bind t:WindowText.DiskRevertToBase}"
                                                                         Click="OnDiscardOverlayClick"
-                                                                        Content="Revenir à l'image de base" />
+                                                                        Content="{x:Bind t:WindowText.DiskRevertToBase}" />
                                                                     <Button
-                                                                        AutomationProperties.Name="Fusionner dans l'image de base"
+                                                                        AutomationProperties.Name="{x:Bind t:WindowText.DiskCommitName}"
                                                                         Click="OnCommitOverlayClick"
-                                                                        Content="Fusionner" />
+                                                                        Content="{x:Bind t:WindowText.DiskCommit}" />
                                                                 </StackPanel>
                                                             </StackPanel>
 
                                                             <StackPanel Orientation="Horizontal" Spacing="16">
-                                                                <CheckBox Content="Lecture seule" IsChecked="{Binding ReadOnly, Mode=TwoWay}" />
+                                                                <CheckBox Content="{x:Bind t:WindowText.DiskReadOnly}" IsChecked="{Binding ReadOnly, Mode=TwoWay}" />
                                                                 <CheckBox
-                                                                    Content="Transmettre TRIM (discard)"
+                                                                    Content="{x:Bind t:WindowText.DiskDiscard}"
                                                                     IsChecked="{Binding Discard, Mode=TwoWay}"
-                                                                    ToolTipService.ToolTip="Permet à l'image qcow2 de rétrécir quand l'invité libère de l'espace" />
+                                                                    ToolTipService.ToolTip="{x:Bind t:WindowText.DiskDiscardTip}" />
                                                             </StackPanel>
                                                         </StackPanel>
                                                     </Border>
@@ -1025,11 +1027,11 @@
 
                                         <TextBlock
                                             Style="{StaticResource Hint}"
-                                            Text="Le format est celui de l'image existante : le changer ici ne convertirait rien. Détacher ne supprime pas le fichier." />
+                                            Text="{x:Bind t:WindowText.DisksHint}" />
 
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Button Click="OnCreateDiskClick" Content="Créer un disque…" />
-                                            <Button Click="OnAttachDiskClick" Content="Attacher une image existante…" />
+                                            <Button Click="OnCreateDiskClick" Content="{x:Bind t:WindowText.DisksCreate}" />
+                                            <Button Click="OnAttachDiskClick" Content="{x:Bind t:WindowText.DisksAttach}" />
                                         </StackPanel>
                                     </StackPanel>
                                     </ContentControl>
@@ -1039,7 +1041,7 @@
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Réseau" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.Network}" />
                                     </muxc:Expander.Header>
                                     <!--
                                         Not wholly behind Hardware.CanEdit: a card's cable plugs in and out live,
@@ -1056,10 +1058,10 @@
                                                         CornerRadius="6">
                                                         <StackPanel Spacing="8">
                                                         <ToggleSwitch
-                                                            AutomationProperties.Name="Câble branché"
+                                                            AutomationProperties.Name="{x:Bind t:WindowText.NetworkCableConnected}"
                                                             IsOn="{Binding Connected, Mode=TwoWay}"
-                                                            OffContent="Câble débranché : l'invité ne voit plus de réseau sur cette carte"
-                                                            OnContent="Câble branché"
+                                                            OffContent="{x:Bind t:WindowText.NetworkCableDisconnected}"
+                                                            OnContent="{x:Bind t:WindowText.NetworkCableConnected}"
                                                             Toggled="OnAdapterConnectedToggled" />
                                                         <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{Binding DataContext.Hardware.CanEdit, ElementName=RootGrid, Mode=OneWay}">
                                                         <StackPanel Spacing="8">
@@ -1086,19 +1088,19 @@
                                                                 <ComboBox
                                                                     Grid.Column="1"
                                                                     HorizontalAlignment="Stretch"
-                                                                    AutomationProperties.Name="Connexion"
+                                                                    AutomationProperties.Name="{x:Bind t:WindowText.NetworkConnection}"
                                                                     DisplayMemberPath="Label"
-                                                                    Header="Connexion"
+                                                                    Header="{x:Bind t:WindowText.NetworkConnection}"
                                                                     ItemsSource="{Binding DataContext.Hardware.ConnectionOptions, ElementName=RootGrid}"
-                                                                    PlaceholderText="Choisir une connexion"
+                                                                    PlaceholderText="{x:Bind t:WindowText.NetworkConnectionPlaceholder}"
                                                                     SelectedValue="{Binding Connection, Mode=TwoWay}"
                                                                     SelectedValuePath="Key" />
 
                                                                 <ComboBox
                                                                     Grid.Column="2"
                                                                     HorizontalAlignment="Stretch"
-                                                                    AutomationProperties.Name="Modèle de carte"
-                                                                    Header="Carte"
+                                                                    AutomationProperties.Name="{x:Bind t:WindowText.NetworkAdapterModel}"
+                                                                    Header="{x:Bind t:WindowText.NetworkAdapter}"
                                                                     ItemsSource="{Binding DataContext.Hardware.NicModelOptions, ElementName=RootGrid}"
                                                                     SelectedItem="{Binding Model, Mode=TwoWay}" />
 
@@ -1108,7 +1110,7 @@
                                                                     VerticalAlignment="Bottom"
                                                                     Command="{Binding DataContext.Hardware.RemoveAdapterCommand, ElementName=RootGrid}"
                                                                     CommandParameter="{Binding}"
-                                                                    Content="Retirer" />
+                                                                    Content="{x:Bind ct:CommonText.Remove}" />
                                                             </Grid>
 
                                                             <Grid ColumnSpacing="8">
@@ -1120,23 +1122,23 @@
                                                                 <TextBlock
                                                                     Grid.Column="0"
                                                                     VerticalAlignment="Center"
-                                                                    Text="Adresse MAC" />
+                                                                    Text="{x:Bind t:WindowText.NetworkMac}" />
                                                                 <TextBox
                                                                     Grid.Column="1"
-                                                                    AutomationProperties.Name="Adresse MAC"
-                                                                    PlaceholderText="Générée par QEMU si vide"
+                                                                    AutomationProperties.Name="{x:Bind t:WindowText.NetworkMac}"
+                                                                    PlaceholderText="{x:Bind t:WindowText.NetworkMacPlaceholder}"
                                                                     Text="{Binding MacAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                                                 <Button
                                                                     Grid.Column="2"
                                                                     Command="{Binding DataContext.Hardware.GenerateMacCommand, ElementName=RootGrid}"
                                                                     CommandParameter="{Binding}"
-                                                                    Content="Générer" />
+                                                                    Content="{x:Bind t:WindowText.NetworkMacGenerate}" />
                                                             </Grid>
 
                                                             <!-- Mode-specific fields, hidden where they would be ignored. -->
                                                             <TextBox
-                                                                AutomationProperties.Name="Interface TAP"
-                                                                Header="Interface TAP de l'hôte"
+                                                                AutomationProperties.Name="{x:Bind t:WindowText.NetworkTap}"
+                                                                Header="{x:Bind t:WindowText.NetworkTapHeader}"
                                                                 Text="{Binding BridgeInterface, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                                 Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Bridged}" />
 
@@ -1145,7 +1147,7 @@
                                                                 Spacing="6"
                                                                 Visibility="{Binding Mode, Converter={StaticResource EnumMatchVisibility}, ConverterParameter=Nat}">
                                                                 <TextBlock Style="{StaticResource Hint}"
-                                                                           Text="En NAT, l'invité sort mais rien n'entre : une redirection de port est le seul moyen de l'atteindre depuis l'hôte." />
+                                                                           Text="{x:Bind t:WindowText.NetworkNatHint}" />
                                                                 <ItemsControl ItemsSource="{Binding PortForwards}">
                                                                     <ItemsControl.ItemTemplate>
                                                                         <DataTemplate>
@@ -1160,31 +1162,31 @@
 
                                                                                 <ComboBox
                                                                                     Grid.Column="0"
-                                                                                    AutomationProperties.Name="Protocole"
+                                                                                    AutomationProperties.Name="{x:Bind t:WindowText.NetworkProtocol}"
                                                                                     ItemsSource="{Binding DataContext.Hardware.ProtocolOptions, ElementName=RootGrid}"
                                                                                     SelectedItem="{Binding Protocol, Mode=TwoWay}" />
                                                                                 <TextBox
                                                                                     Grid.Column="1"
-                                                                                    AutomationProperties.Name="Adresse hôte"
+                                                                                    AutomationProperties.Name="{x:Bind t:WindowText.NetworkHostAddress}"
                                                                                     PlaceholderText="127.0.0.1"
                                                                                     Text="{Binding HostAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                                                                 <muxc:NumberBox
                                                                                     Grid.Column="2"
                                                                                     Maximum="65535" Minimum="0"
-                                                                                    AutomationProperties.Name="Port hôte"
-                                                                                    PlaceholderText="Port hôte"
+                                                                                    AutomationProperties.Name="{x:Bind t:WindowText.NetworkHostPort}"
+                                                                                    PlaceholderText="{x:Bind t:WindowText.NetworkHostPort}"
                                                                                     Value="{Binding HostPort, Mode=TwoWay}" />
                                                                                 <muxc:NumberBox
                                                                                     Grid.Column="3"
                                                                                     Maximum="65535" Minimum="0"
-                                                                                    AutomationProperties.Name="Port invité"
-                                                                                    PlaceholderText="Port invité"
+                                                                                    AutomationProperties.Name="{x:Bind t:WindowText.NetworkGuestPort}"
+                                                                                    PlaceholderText="{x:Bind t:WindowText.NetworkGuestPort}"
                                                                                     Value="{Binding GuestPort, Mode=TwoWay}" />
                                                                                 <Button
                                                                                     Grid.Column="4"
                                                                                     Command="{Binding DataContext.Hardware.RemovePortForwardCommand, ElementName=RootGrid}"
                                                                                     CommandParameter="{Binding}"
-                                                                                    Content="Retirer" />
+                                                                                    Content="{x:Bind ct:CommonText.Remove}" />
                                                                             </Grid>
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
@@ -1193,7 +1195,7 @@
                                                                     HorizontalAlignment="Left"
                                                                     Command="{Binding DataContext.Hardware.AddPortForwardCommand, ElementName=RootGrid}"
                                                                     CommandParameter="{Binding}"
-                                                                    Content="Ajouter une redirection de port" />
+                                                                    Content="{x:Bind t:WindowText.NetworkAddPortForward}" />
                                                             </StackPanel>
                                                         </StackPanel>
                                                         </ContentControl>
@@ -1206,7 +1208,7 @@
                                         <Button
                                             HorizontalAlignment="Left"
                                             Command="{Binding Hardware.AddAdapterCommand}"
-                                            Content="Ajouter une carte réseau" />
+                                            Content="{x:Bind t:WindowText.NetworkAddAdapter}" />
                                     </StackPanel>
                                 </muxc:Expander>
                                 <!--
@@ -1219,7 +1221,7 @@
                                     HorizontalContentAlignment="Stretch"
                                     Expanding="OnLanAccessExpanding">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Accès depuis le réseau" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.LanAccessHeader}" />
                                     </muxc:Expander.Header>
                                     <StackPanel Spacing="8">
                                         <TextBlock
@@ -1231,9 +1233,9 @@
                                             IsOpen="{Binding HasFirewallWarning, Mode=OneWay}"
                                             Message="{Binding FirewallWarning, Mode=OneWay}"
                                             Severity="Warning"
-                                            Title="Pare-feu">
+                                            Title="{x:Bind t:WindowText.LanAccessFirewall}">
                                             <muxc:InfoBar.ActionButton>
-                                                <Button Click="OnAllowFirewallClick" Content="Autoriser QEMU…" />
+                                                <Button Click="OnAllowFirewallClick" Content="{x:Bind t:WindowText.LanAccessAllowQemu}" />
                                             </muxc:InfoBar.ActionButton>
                                         </muxc:InfoBar>
                                         <ItemsControl ItemsSource="{Binding LanServices}">
@@ -1261,7 +1263,7 @@
                                                                 Grid.Column="1"
                                                                 VerticalAlignment="Top"
                                                                 Click="OnCloseServiceClick"
-                                                                Content="Fermer"
+                                                                Content="{x:Bind ct:CommonText.Close}"
                                                                 Tag="{Binding}" />
                                                         </Grid>
                                                     </Border>
@@ -1272,7 +1274,7 @@
                                             x:Name="OpenServiceButton"
                                             HorizontalAlignment="Left"
                                             Click="OnOpenServiceClick"
-                                            Content="Ouvrir un service…"
+                                            Content="{x:Bind t:WindowText.LanAccessOpenService}"
                                             IsEnabled="{Binding HasNatAdapter, Mode=OneWay}" />
                                     </StackPanel>
                                 </muxc:Expander>
@@ -1282,25 +1284,25 @@
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Outils invités" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.GuestToolsHeader}" />
                                     </muxc:Expander.Header>
                                     <StackPanel Spacing="8">
                                         <TextBlock
                                             Style="{StaticResource Hint}"
-                                            Text="L'agent invité et les outils de l'invité : dossiers partagés, glisser-déposer, presse-papiers, taille d'écran automatique et graphique réseau en dépendent. Vérifiés à chaque démarrage de la machine."
+                                            Text="{x:Bind t:WindowText.GuestToolsHint}"
                                             TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding GuestToolsText, Mode=OneWay}" TextWrapping="Wrap"
                                                    Visibility="{Binding HasGuestToolsText, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <Button
                                                 Click="OnInstallGuestToolsClick"
-                                                Content="Installer les outils invités…"
+                                                Content="{x:Bind t:WindowText.GuestToolsInstall}"
                                                 IsEnabled="{Binding CanInstallGuestTools, Mode=OneWay}" />
                                             <Button
                                                 Click="OnTrimGuestDisksClick"
-                                                Content="Signaler l'espace libre (TRIM)"
+                                                Content="{x:Bind t:WindowText.GuestToolsTrim}"
                                                 IsEnabled="{Binding CanTrimGuestDisks, Mode=OneWay}"
-                                                ToolTipService.ToolTip="L'invité signale les blocs libres de ses disques ; « Compacter… » (Matériel, machine arrêtée) rend ensuite cette place à ce PC" />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.GuestToolsTrimTip}" />
                                         </StackPanel>
                                     </StackPanel>
                                 </muxc:Expander>
@@ -1310,18 +1312,18 @@
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Démarrage automatique" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.AutoStartHeader}" />
                                     </muxc:Expander.Header>
                                     <StackPanel Spacing="8">
                                         <TextBlock
                                             Style="{StaticResource Hint}"
-                                            Text="La machine démarre quand WinQEMU s'ouvre, à l'ouverture de session Windows aussi si WinQEMU démarre alors (Paramètres). Le délai, compté depuis l'ouverture de WinQEMU, fixe l'ordre entre les machines."
+                                            Text="{x:Bind t:WindowText.AutoStartHint}"
                                             TextWrapping="Wrap" />
-                                        <CheckBox Content="Démarrer avec WinQEMU" IsChecked="{Binding SelectedVm.AutoStart, Mode=TwoWay}" />
+                                        <CheckBox Content="{x:Bind t:WindowText.AutoStartEnable}" IsChecked="{Binding SelectedVm.AutoStart, Mode=TwoWay}" />
                                         <muxc:NumberBox
                                             HorizontalAlignment="Left"
                                             MinWidth="200"
-                                            Header="Délai (secondes)"
+                                            Header="{x:Bind t:WindowText.AutoStartDelay}"
                                             IsEnabled="{Binding SelectedVm.AutoStart, Mode=OneWay}"
                                             Maximum="3600"
                                             Minimum="0"
@@ -1338,7 +1340,7 @@
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Dossiers partagés" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.SharedFoldersHeader}" />
                                     </muxc:Expander.Header>
                                     <StackPanel Spacing="8">
                                         <TextBlock
@@ -1376,7 +1378,7 @@
                                                                 Grid.Column="1"
                                                                 VerticalAlignment="Top"
                                                                 Click="OnUnshareFolderClick"
-                                                                Content="Retirer"
+                                                                Content="{x:Bind ct:CommonText.Remove}"
                                                                 Tag="{Binding}" />
                                                         </Grid>
                                                     </Border>
@@ -1384,8 +1386,8 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <Button Click="OnShareFolderClick" Content="Partager un dossier…" />
-                                            <Button Click="OnShareFolderReadOnlyClick" Content="Partager en lecture seule…" />
+                                            <Button Click="OnShareFolderClick" Content="{x:Bind t:WindowText.SharedFoldersShare}" />
+                                            <Button Click="OnShareFolderReadOnlyClick" Content="{x:Bind t:WindowText.SharedFoldersShareReadOnly}" />
                                         </StackPanel>
                                     </StackPanel>
                                 </muxc:Expander>
@@ -1404,12 +1406,12 @@
                                     HorizontalContentAlignment="Stretch"
                                     IsExpanded="{Binding Snapshots.IsSectionExpanded, Mode=TwoWay}">
                                     <muxc:Expander.Header>
-                                        <TextBlock FontWeight="SemiBold" Text="Instantanés" />
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:WindowText.SnapshotsHeader}" />
                                     </muxc:Expander.Header>
                                     <StackPanel Spacing="8">
                                         <TextBlock
                                             Style="{StaticResource Hint}"
-                                            Text="Trois façons de prendre un instantané, qui se défont différemment. Machine arrêtée : instantané interne des disques, annulé en les ramenant à cet état. À chaud sur les disques : chaque disque reçoit une superposition ; restaurer ou supprimer se fait ici, machine arrêtée. À chaud avec la mémoire : la machine repart à l'instant capturé, mais cela exige l'émulation TCG." />
+                                            Text="{x:Bind t:WindowText.SnapshotsHint}" />
 
                                         <muxc:InfoBar
                                             IsClosable="False"
@@ -1421,25 +1423,25 @@
                                         <StackPanel Orientation="Horizontal" Spacing="12">
                                             <CheckBox
                                                 VerticalAlignment="Center"
-                                                Content="Instantanés automatiques"
+                                                Content="{x:Bind t:WindowText.SnapshotsAuto}"
                                                 IsChecked="{Binding SelectedVm.AutoSnapshot, Mode=TwoWay}"
-                                                ToolTipService.ToolTip="Pris au démarrage de la machine, machine arrêtée : sous WHPX, un instantané de machine en marche ne se supprime qu'à l'arrêt. Seuls ceux nommés « Auto … » sont supprimés au-delà du nombre gardé." />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.SnapshotsAutoTip}" />
                                             <ComboBox
                                                 MinWidth="230"
-                                                AutomationProperties.Name="Fréquence des instantanés automatiques"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsAutoFrequency}"
                                                 DisplayMemberPath="Label"
                                                 IsEnabled="{Binding SelectedVm.AutoSnapshot, Mode=OneWay}"
                                                 ItemsSource="{Binding AutoSnapshotIntervals, Mode=OneTime}"
                                                 SelectedValue="{Binding SelectedVm.AutoSnapshotHours, Mode=TwoWay}"
                                                 SelectedValuePath="Hours" />
                                             <muxc:NumberBox
-                                                AutomationProperties.Name="Instantanés automatiques gardés"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsAutoKeepName}"
                                                 IsEnabled="{Binding SelectedVm.AutoSnapshot, Mode=OneWay}"
                                                 Maximum="50"
                                                 Minimum="1"
                                                 SpinButtonPlacementMode="Compact"
                                                 Value="{Binding SelectedVm.AutoSnapshotKeep, Mode=TwoWay}" />
-                                            <TextBlock VerticalAlignment="Center" Style="{StaticResource Hint}" Text="gardés" />
+                                            <TextBlock VerticalAlignment="Center" Style="{StaticResource Hint}" Text="{x:Bind t:WindowText.SnapshotsAutoKept}" />
                                         </StackPanel>
 
                                         <!--
@@ -1457,7 +1459,7 @@
                                             <controls:SnapshotTreeView
                                                 x:Name="SnapshotTreeDrawing"
                                                 Margin="0,4,0,4"
-                                                AutomationProperties.Name="Arbre des instantanés" />
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsTree}" />
                                         </ScrollViewer>
 
                                         <TextBlock
@@ -1472,16 +1474,16 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBox
                                                 Grid.Column="0"
-                                                AutomationProperties.Name="Nom du nouvel instantané"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsNewName}"
                                                 IsEnabled="{Binding Snapshots.CanEnterName, Mode=OneWay}"
-                                                PlaceholderText="Nom du nouvel instantané"
+                                                PlaceholderText="{x:Bind t:WindowText.SnapshotsNewName}"
                                                 Text="{Binding Snapshots.NewName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             <Button
                                                 Grid.Column="1"
                                                 Click="OnCreateSnapshotClick"
-                                                Content="Machine arrêtée"
+                                                Content="{x:Bind t:WindowText.SnapshotsTakeOffline}"
                                                 IsEnabled="{Binding Snapshots.CanCreate, Mode=OneWay}"
-                                                ToolTipService.ToolTip="Instantané interne des disques, machine éteinte" />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.SnapshotsTakeOfflineTip}" />
                                         </Grid>
 
                                         <!-- The three ways differ in what they capture and, above all, in
@@ -1490,14 +1492,14 @@
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <Button
                                                 Click="OnLiveSnapshotClick"
-                                                Content="À chaud (disques)"
+                                                Content="{x:Bind t:WindowText.SnapshotsTakeLive}"
                                                 IsEnabled="{Binding Snapshots.CanTakeLiveSnapshot, Mode=OneWay}"
-                                                ToolTipService.ToolTip="Machine en marche : chaque disque reçoit une superposition et les écritures divergent à partir de là. Équivaut à une coupure de courant pour l'invité." />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.SnapshotsTakeLiveTip}" />
                                             <Button
                                                 Click="OnMemorySnapshotClick"
-                                                Content="À chaud (avec la mémoire)"
+                                                Content="{x:Bind t:WindowText.SnapshotsTakeMemory}"
                                                 IsEnabled="{Binding Snapshots.CanTakeMemorySnapshot, Mode=OneWay}"
-                                                ToolTipService.ToolTip="Machine en marche sous émulation : enregistre aussi la mémoire, donc la reprise repart exactement au même instant." />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.SnapshotsTakeMemoryTip}" />
                                         </StackPanel>
 
                                         <muxc:InfoBar
@@ -1516,26 +1518,26 @@
                                                  "Supprimer" alone are indistinguishable from the toolbar
                                                  commands that delete the whole machine. -->
                                             <Button
-                                                AutomationProperties.Name="Restaurer l'instantané"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsRestoreName}"
                                                 Click="OnRestoreSnapshotClick"
-                                                Content="Restaurer"
+                                                Content="{x:Bind t:WindowText.SnapshotsRestore}"
                                                 IsEnabled="{Binding Snapshots.CanActOnSelection, Mode=OneWay}"
-                                                ToolTipService.ToolTip="Machine arrêtée : ramène les disques à cet état" />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.SnapshotsRestoreTip}" />
                                             <Button
-                                                AutomationProperties.Name="Reprendre l'instantané"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsResumeName}"
                                                 Click="OnResumeSnapshotClick"
-                                                Content="Reprendre"
+                                                Content="{x:Bind ct:CommonText.Resume}"
                                                 IsEnabled="{Binding Snapshots.CanResumeSelection, Mode=OneWay}"
-                                                ToolTipService.ToolTip="Instantané avec mémoire, machine en marche : la machine repart à l'instant capturé" />
+                                                ToolTipService.ToolTip="{x:Bind t:WindowText.SnapshotsResumeTip}" />
                                             <Button
-                                                AutomationProperties.Name="Supprimer l'instantané"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsDeleteName}"
                                                 Click="OnDeleteSnapshotClick"
-                                                Content="Supprimer"
+                                                Content="{x:Bind ct:CommonText.Delete}"
                                                 IsEnabled="{Binding Snapshots.CanDeleteSelection, Mode=OneWay}" />
                                             <Button
-                                                AutomationProperties.Name="Actualiser les instantanés"
+                                                AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsRefreshName}"
                                                 Click="OnRefreshSnapshotsClick"
-                                                Content="Actualiser" />
+                                                Content="{x:Bind t:WindowText.SnapshotsRefresh}" />
                                             <muxc:ProgressRing
                                                 Width="20" Height="20"
                                                 VerticalAlignment="Center"
@@ -1549,7 +1551,7 @@
 
                                         <TextBlock
                                             Style="{StaticResource Hint}"
-                                            Text="Restaurer et supprimer exigent que la machine soit arrêtée : qemu-img ne peut pas toucher une image qu'un QEMU en cours tient ouverte."
+                                            Text="{x:Bind t:WindowText.SnapshotsLockedHint}"
                                             Visibility="{Binding Snapshots.IsLockedByRunningMachine, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                                     </StackPanel>
                                 </muxc:Expander>
@@ -1569,7 +1571,7 @@
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" FontWeight="SemiBold" Text="Journal QEMU" />
+                                    <TextBlock Grid.Row="0" FontWeight="SemiBold" Text="{x:Bind t:WindowText.LogHeader}" />
                                     <!--
                                         A single text block, not a ListView: thousands of list items
                                         blow up the accessibility tree and stall the UI thread when
@@ -1588,7 +1590,7 @@
                                         VerticalScrollBarVisibility="Auto">
                                         <TextBlock
                                             Margin="4"
-                                            AutomationProperties.Name="Journal QEMU"
+                                            AutomationProperties.Name="{x:Bind t:WindowText.LogHeader}"
                                             FontFamily="Consolas"
                                             FontSize="12"
                                             IsTextSelectionEnabled="True"
@@ -1611,11 +1613,11 @@
                                     when one is selected. Drawn from code after each sample.
                                 -->
                                 <StackPanel MinWidth="260" Spacing="14">
-                                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Ressources" />
-                                    <controls:MetricChart x:Name="CpuChart" Title="Processeur" />
-                                    <controls:MetricChart x:Name="MemoryChart" Title="Mémoire" />
-                                    <controls:MetricChart x:Name="DiskChart" Title="Disque" />
-                                    <controls:MetricChart x:Name="NetworkChart" Title="Réseau" />
+                                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="{x:Bind t:WindowText.ResourcesHeader}" />
+                                    <controls:MetricChart x:Name="CpuChart" Title="{x:Bind t:WindowText.ResourcesCpu}" />
+                                    <controls:MetricChart x:Name="MemoryChart" Title="{x:Bind t:WindowText.ResourcesMemory}" />
+                                    <controls:MetricChart x:Name="DiskChart" Title="{x:Bind t:WindowText.ResourcesDisk}" />
+                                    <controls:MetricChart x:Name="NetworkChart" Title="{x:Bind t:WindowText.Network}" />
                                     <TextBlock Style="{StaticResource Hint}" Text="{Binding CpuText, Mode=OneWay}" />
                                 </StackPanel>
                             </Border>
@@ -1646,9 +1648,9 @@
                             VerticalAlignment="Center"
                             FontSize="12"
                             Opacity="0.6"
-                            Text="Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris. Glissez des fichiers sur la console pour les copier sur le Bureau de l'invité."
+                            Text="{x:Bind t:WindowText.ConsoleHint}"
                             TextTrimming="CharacterEllipsis"
-                            ToolTipService.ToolTip="Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris. Glissez des fichiers sur la console pour les copier sur le Bureau de l'invité."
+                            ToolTipService.ToolTip="{x:Bind t:WindowText.ConsoleHint}"
                             Visibility="{Binding ShowConsoleHint, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                         <!-- Missing guest tools: a click installs them. -->
                         <StackPanel
@@ -1666,7 +1668,7 @@
                             <HyperlinkButton
                                 Padding="4,0"
                                 Click="OnInstallGuestToolsClick"
-                                Content="Installer les outils invités…"
+                                Content="{x:Bind t:WindowText.GuestToolsInstall}"
                                 FontSize="12"
                                 Visibility="{Binding CanInstallGuestTools, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                         </StackPanel>
@@ -1690,7 +1692,7 @@
                                 TextTrimming="CharacterEllipsis" />
                             <Button
                                 Command="{Binding CancelSendFilesCommand}"
-                                Content="Annuler"
+                                Content="{x:Bind ct:CommonText.Cancel}"
                                 Visibility="{Binding IsSendingFiles, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                         </StackPanel>
 
@@ -1704,7 +1706,7 @@
                             <ComboBox
                                 x:Name="ScaleModeBox"
                                 MinWidth="150"
-                                AutomationProperties.Name="Mise à l'échelle de la console"
+                                AutomationProperties.Name="{x:Bind t:WindowText.ConsoleScaling}"
                                 SelectionChanged="OnScaleModeChanged" />
                             </StackPanel>
                             <!-- No AutomationProperties.Name: it would freeze the accessible name at
@@ -1714,15 +1716,15 @@
                             <Button
                                 Click="OnTypeClipboardClick"
                                 IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}"
-                                AutomationProperties.Name="Taper le presse-papiers"
-                                ToolTipService.ToolTip="Tape le texte du presse-papiers de ce PC au clavier de l'invité, pour un invité sans presse-papiers partagé (console texte d'un serveur, écran de connexion)">
+                                AutomationProperties.Name="{x:Bind t:WindowText.ConsoleTypeClipboard}"
+                                ToolTipService.ToolTip="{x:Bind t:WindowText.ConsoleTypeClipboardTip}">
                                 <FontIcon FontSize="16" Glyph="&#xE77F;" />
                             </Button>
                             <Button
                                 x:Name="FullScreenButton"
                                 Click="OnToggleFullScreenClick"
-                                Content="Plein écran"
-                                ToolTipService.ToolTip="F11 pour revenir. Échap n'y suffit pas : cette touche part à l'invité." />
+                                Content="{x:Bind t:WindowText.ConsoleFullScreen}"
+                                ToolTipService.ToolTip="{x:Bind t:WindowText.ConsoleFullScreenTip}" />
                         </StackPanel>
                     </Grid>
 
@@ -1770,38 +1772,38 @@
                     TextTrimming="CharacterEllipsis" />
                 <!-- The machine's own commands, as in the toolbar the full screen hides: same bindings, so each
                      is enabled exactly when it is there. -->
-                <Button Command="{Binding StartCommand}" ToolTipService.ToolTip="Démarre la machine virtuelle">
+                <Button Command="{Binding StartCommand}" ToolTipService.ToolTip="{x:Bind t:WindowText.FullScreenStartTip}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE768;" />
-                        <TextBlock Text="Démarrer" />
+                        <TextBlock Text="{x:Bind ct:CommonText.Start}" />
                     </StackPanel>
                 </Button>
-                <Button Command="{Binding PauseResumeCommand}" ToolTipService.ToolTip="Fige l'exécution de la machine sans l'arrêter, ou la reprend exactement où elle en était">
+                <Button Command="{Binding PauseResumeCommand}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPauseTip}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE769;" />
                         <TextBlock Text="{Binding PauseResumeLabel, Mode=OneWay}" />
                     </StackPanel>
                 </Button>
-                <Button Command="{Binding ShutdownCommand}" ToolTipService.ToolTip="Demande au système invité de s'arrêter proprement (bouton d'alimentation ACPI)">
+                <Button Command="{Binding ShutdownCommand}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarShutDownTip}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE71A;" />
-                        <TextBlock Text="Arrêter" />
+                        <TextBlock Text="{x:Bind ct:CommonText.Stop}" />
                     </StackPanel>
                 </Button>
-                <Button Command="{Binding PowerOffCommand}" ToolTipService.ToolTip="Éteint la machine immédiatement, sans prévenir l'invité, comme si on débranchait l'alimentation">
+                <Button Command="{Binding PowerOffCommand}" ToolTipService.ToolTip="{x:Bind t:WindowText.FullScreenPowerOffTip}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE711;" />
-                        <TextBlock Text="Éteindre" />
+                        <TextBlock Text="{x:Bind ct:CommonText.PowerOff}" />
                     </StackPanel>
                 </Button>
                 <Border Width="1" Height="24" Margin="4,0" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-                <Button Command="{Binding SendCtrlAltDeleteCommand}" Content="Ctrl+Alt+Suppr" />
+                <Button Command="{Binding SendCtrlAltDeleteCommand}" Content="{x:Bind t:WindowText.ToolbarCtrlAltDel}" />
                 <Button x:Name="FullScreenUsbButton" Click="OnUsbClick" Content="USB" />
-                <Button Click="OnSendFilesClick" Content="Envoyer des fichiers" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
+                <Button Click="OnSendFilesClick" Content="{x:Bind t:WindowText.FullScreenSendFiles}" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
                 <Button Click="OnSoundClick" Content="{Binding SoundLabel, Mode=OneWay}" IsEnabled="{Binding CanAdjustSound, Mode=OneWay}" />
-                <Button Click="OnTypeClipboardClick" Content="Taper le presse-papiers" IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}" />
-                <Button Click="OnPullFilesClick" Content="Récupérer des fichiers" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
-                <Button Click="OnToggleFullScreenClick" Content="Quitter le plein écran" Style="{StaticResource AccentButtonStyle}" />
+                <Button Click="OnTypeClipboardClick" Content="{x:Bind t:WindowText.ConsoleTypeClipboard}" IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}" />
+                <Button Click="OnPullFilesClick" Content="{x:Bind t:WindowText.FullScreenPullFiles}" IsEnabled="{Binding CanSendFiles, Mode=OneWay}" />
+                <Button Click="OnToggleFullScreenClick" Content="{x:Bind t:WindowText.FullScreenExit}" Style="{StaticResource AccentButtonStyle}" />
             </StackPanel>
         </Border>
     </Grid>

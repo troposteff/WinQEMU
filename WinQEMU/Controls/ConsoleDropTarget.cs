@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
+using WinQEMU.Text;
 
 namespace WinQEMU.Controls
 {
@@ -86,7 +87,7 @@ namespace WinQEMU.Controls
             Log?.Invoke($"Console: a drag entered the console (files: {hasFiles}, taken: {_accepting}).");
             effect = _accepting ? DropEffectCopy : DropEffectNone;
             if (_accepting)
-                Describe(data, DropImageCopy, "Copier sur %1", "le Bureau de l'invité");
+                Describe(data, DropImageCopy, DialogText.DropCopyTo, DialogText.DropGuestDesktop);
             else
                 Describe(data, DropImageNoImage, string.Empty, string.Empty);
             var screen = point;

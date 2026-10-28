@@ -1,8 +1,10 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Networking
 {
@@ -88,10 +90,9 @@ namespace WinQEMU.Core.Networking
                 handle.Dispose();
                 throw new InvalidOperationException(error switch
                 {
-                    5 => $"Windows refuse à WinQEMU l'accès à la carte « {adapter.Name} » : dans ses propriétés " +
-                         "(Gestionnaire de périphériques, onglet Avancé), réglez « Non-Admin Access » sur « Allowed ».",
-                    32 => $"La carte « {adapter.Name} » est déjà utilisée par un autre programme (OpenVPN, QEMU…).",
-                    _ => $"La carte « {adapter.Name} » n'a pas pu être ouverte : {new Win32Exception(error).Message}"
+                    5 => string.Format(CultureInfo.CurrentCulture, PlatformText.TapAccessDenied, adapter.Name),
+                    32 => string.Format(CultureInfo.CurrentCulture, PlatformText.TapInUse, adapter.Name),
+                    _ => string.Format(CultureInfo.CurrentCulture, PlatformText.TapCannotOpen, adapter.Name, new Win32Exception(error).Message)
                 });
             }
 
@@ -100,7 +101,7 @@ namespace WinQEMU.Core.Networking
             {
                 var error = Marshal.GetLastWin32Error();
                 handle.Dispose();
-                throw new InvalidOperationException($"La carte « {adapter.Name} » n'a pas pu être connectée : {new Win32Exception(error).Message}");
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapCannotConnect, adapter.Name, new Win32Exception(error).Message));
             }
 
             // One frame per read and per write: that is how the TAP driver hands packets over.

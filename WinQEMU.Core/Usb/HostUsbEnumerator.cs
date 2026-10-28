@@ -47,7 +47,7 @@ namespace WinQEMU.Core.Usb
                         DeviceProperty(set, ref info, BusReportedDescription),
                         RegistryStrings(set, ref info, SpdrpFriendlyName).FirstOrDefault(),
                         RegistryStrings(set, ref info, SpdrpDeviceDesc).FirstOrDefault(),
-                        "Périphérique USB");
+                        Text.PlatformText.UsbDefaultDeviceName);
 
                     devices.Add(new HostUsbDevice
                     {

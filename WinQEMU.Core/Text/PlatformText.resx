@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="ValidatePortForwardRange" xml:space="preserve"><value>The port forward {0} → {1} is invalid: the host port and the guest port must be between 1 and 65535.</value></data>
+  <data name="ValidateSecureBootWhpx" xml:space="preserve"><value>Secure Boot requires SMM, which the WHPX hypervisor does not provide: QEMU would refuse to start. Use UEFI without Secure Boot, or force TCG emulation (much slower).</value></data>
+  <data name="ValidateCpuModelWhpx" xml:space="preserve"><value>The CPU model “{0}” does not start with WHPX acceleration: the machine stays completely silent, without even showing the firmware. Use a named model, for example qemu64 with the extensions you need.</value></data>
+  <data name="ValidateTooManySataPorts" xml:space="preserve"><value>{0} devices need a SATA port but the q35 chipset only provides 6. Move some disks to VirtIO or NVMe.</value></data>
+  <data name="ArgumentsAdapterWithoutNetwork" xml:space="preserve"><value>Network adapter {0} is not connected to any existing virtual network: choose one in Hardware, Network section.</value></data>
+  <data name="SnapshotNameRequired" xml:space="preserve"><value>The snapshot name is required.</value></data>
+  <data name="SnapshotNameTooLong" xml:space="preserve"><value>The name cannot be longer than 128 characters.</value></data>
+  <data name="SnapshotNameNotAscii" xml:space="preserve"><value>qemu-img does not keep accented or special characters in a snapshot name: use unaccented letters, digits, spaces or hyphens.</value></data>
+  <data name="SnapshotTreeOrigin" xml:space="preserve"><value>Original state</value></data>
+  <data name="SnapshotTreeYouAreHere" xml:space="preserve"><value>You are here</value></data>
+  <data name="SessionHostForwardFailed" xml:space="preserve"><value>QEMU did not open port {0}: {1}</value></data>
+  <data name="SessionQemuExitedBeforeQmp" xml:space="preserve"><value>QEMU stopped (code {0}) before accepting the control connection.</value></data>
+  <data name="SessionSeeLog" xml:space="preserve"><value>See the log for details.</value></data>
+  <data name="ImportOvaNoDescriptor" xml:space="preserve"><value>This OVA package contains no .ovf descriptor.</value></data>
+  <data name="ImportOvfEmpty" xml:space="preserve"><value>The OVF descriptor is empty.</value></data>
+  <data name="ImportOvfNoMachine" xml:space="preserve"><value>The OVF descriptor does not describe any virtual machine.</value></data>
+  <data name="ImportOvfSeveralMachines" xml:space="preserve"><value>The package contains {0} machines: only the first one, “{1}”, is imported.</value></data>
+  <data name="ImportDefaultMachineName" xml:space="preserve"><value>Imported machine</value></data>
+  <data name="ImportOvfEmptyDiskSkipped" xml:space="preserve"><value>An empty disk of the package (with no file) is not created: add it in Hardware if needed.</value></data>
+  <data name="ImportOvfDiskCompressed" xml:space="preserve"><value>Disk {0} is compressed in the package ({1}): QEMU cannot read it that way. Export the machine again without file compression.</value></data>
+  <data name="ImportOvfDiskChunked" xml:space="preserve"><value>Disk {0} is split into chunks in the package: export the machine again without splitting.</value></data>
+  <data name="ImportOvfDiskMissing" xml:space="preserve"><value>Disk not found in the package: {0}</value></data>
+  <data name="ImportOvfDiskUnknownFormat" xml:space="preserve"><value>Disk {0} is in a format WinQEMU does not know ({1}).</value></data>
+  <data name="ImportScsiControllerToSata" xml:space="preserve"><value>The SCSI controller “{0}” has no equivalent here: the disks move to SATA.</value></data>
+  <data name="ImportAhciHintSourceMachine" xml:space="preserve"><value>Windows may then refuse to start (INACCESSIBLE_BOOT_DEVICE): first enable its AHCI driver in the source machine (sc config storahci start= boot).</value></data>
+  <data name="ImportAhciHintVirtualBox" xml:space="preserve"><value>Windows may then refuse to start (INACCESSIBLE_BOOT_DEVICE): first enable its AHCI driver in the VirtualBox machine (sc config storahci start= boot).</value></data>
+  <data name="ImportAhciHintVmware" xml:space="preserve"><value>Windows may then refuse to start (INACCESSIBLE_BOOT_DEVICE): first enable its AHCI driver in the VMware machine (sc config storahci start= boot).</value></data>
+  <data name="ImportOvfAdaptersToNat" xml:space="preserve"><value>The network adapters are switched to NAT: change their connection in Hardware if needed.</value></data>
+  <data name="ImportTarInvalid" xml:space="preserve"><value>This file is not a valid OVA (tar) archive.</value></data>
+  <data name="ImportTarDamaged" xml:space="preserve"><value>The archive is damaged after “{0}”.</value></data>
+  <data name="ImportTarHeaderTooLarge" xml:space="preserve"><value>Archive header too large: this file is not a valid OVA archive.</value></data>
+  <data name="ImportDiskNotFound" xml:space="preserve"><value>Disk not found: {0}</value></data>
+  <data name="ImportVboxNoMachine" xml:space="preserve"><value>This .vbox file does not describe any machine.</value></data>
+  <data name="ImportVboxSavedState" xml:space="preserve"><value>The machine is in a saved state in VirtualBox: that state cannot be resumed. The guest will restart as after a power failure.</value></data>
+  <data name="ImportVboxDiskNotDeclared" xml:space="preserve"><value>Disk {0} is not declared in the .vbox file.</value></data>
+  <data name="ImportVboxDifferencingDisk" xml:space="preserve"><value>The machine has snapshots in VirtualBox: its current disk is a differencing image, which QEMU cannot read. Delete the snapshots in VirtualBox (their content is then merged), or clone the machine with “Current machine state”, then import the result.</value></data>
+  <data name="ImportVboxControllerToSata" xml:space="preserve"><value>The controller “{0}” has no equivalent here: the disks move to SATA.</value></data>
+  <data name="ImportVboxPcnet" xml:space="preserve"><value>VirtualBox's PCnet network adapter has no equivalent here: it becomes an Intel e1000, which operating systems recognize without an additional driver.</value></data>
+  <data name="ImportVboxAdapterToNat" xml:space="preserve"><value>A network adapter was not on NAT: it moves to NAT, the only mode that works without an additional driver on the host. Change it in Hardware if needed.</value></data>
+  <data name="ImportNoDisk" xml:space="preserve"><value>No disk was found in this configuration.</value></data>
+  <data name="ImportHyperVCheckpointDisk" xml:space="preserve"><value>This is a Hyper-V checkpoint disk (differencing), which QEMU cannot read. Delete the checkpoints in Hyper-V (their content is merged into the main disk), then import the .vhdx.</value></data>
+  <data name="ImportPartitionTableUnreadable" xml:space="preserve"><value>The partition table could not be read: the machine will boot with BIOS from a SATA disk. Adjust the firmware, the controller and the guest operating system in Hardware.</value></data>
+  <data name="ImportDiskOnlyWindows" xml:space="preserve"><value>Only the disk is imported. Its partitions are those of Windows: the machine takes the Windows 10 settings (SATA, e1000e adapter), to adjust in Hardware.</value></data>
+  <data name="ImportDiskOnlyLinux" xml:space="preserve"><value>Only the disk is imported. Its partitions are those of Linux: the machine takes the Linux settings (VirtIO disk and network adapter), to adjust in Hardware.</value></data>
+  <data name="ImportDiskOnlyUnknown" xml:space="preserve"><value>Only the disk is imported, and its partitions do not tell which operating system it holds: the machine takes safe settings (SATA, e1000 adapter), to adjust in Hardware along with the guest operating system.</value></data>
+  <data name="ImportHyperVWindowsAhci" xml:space="preserve"><value>A Windows coming from Hyper-V booted from Hyper-V's synthetic controller, which does not exist here. If it stops on INACCESSIBLE_BOOT_DEVICE, enable its AHCI driver before exporting (sc config storahci start= boot in the Hyper-V machine).</value></data>
+  <data name="ImportHyperVLinuxInitramfs" xml:space="preserve"><value>A Linux installed on Hyper-V may have only Hyper-V's disk drivers in its initramfs. If it stops in “emergency mode” reporting that /dev/disk/by-uuid/… does not exist, regenerate it with all drivers in the Hyper-V machine, then import the disk again: echo 'hostonly="no"' | sudo tee /etc/dracut.conf.d/90-generic.conf, then sudo dracut --force --regenerate-all (or sudo update-initramfs -u -k all if the distribution does not use dracut).</value></data>
+  <data name="ImportDiskInUse" xml:space="preserve"><value>it is open in another program. Shut down the source machine and close its hypervisor.</value></data>
+  <data name="ImportDiskUnreadable" xml:space="preserve"><value>Disk {0} cannot be read: {1}</value></data>
+  <data name="ImportVmwareLocked" xml:space="preserve"><value>The machine seems to be open in VMware (.lck lock files present). Shut it down and close VMware, then try again.</value></data>
+  <data name="ImportVmwareSuspended" xml:space="preserve"><value>The machine is suspended in VMware: its memory state cannot be resumed. The guest will restart as after a power failure.</value></data>
+  <data name="ImportVmwareSecureBootDropped" xml:space="preserve"><value>Secure Boot was enabled: WHPX does not allow it, so the machine will boot with plain UEFI. An installed Windows 11 keeps working.</value></data>
+  <data name="ImportVmwareEncrypted" xml:space="preserve"><value>The machine is encrypted by VMware: its disks cannot be read outside VMware. Remove the encryption in VMware before importing.</value></data>
+  <data name="ImportVmwareAdapterToNat" xml:space="preserve"><value>The network adapter was in “{0}” mode: it moves to NAT, the only mode that works without an additional driver on the host. Change it in Hardware if needed.</value></data>
+  <data name="ExportX86Only" xml:space="preserve"><value>Only x86-64 machines can be exported: VMware and VirtualBox run no other architecture.</value></data>
+  <data name="ExportNoDisk" xml:space="preserve"><value>This machine has no disk to export.</value></data>
+  <data name="ExportDiskNotFound" xml:space="preserve"><value>Disk not found: {0}</value></data>
+  <data name="ExportVirtioDisksWindows" xml:space="preserve"><value>VirtIO disks become SATA, as neither VMware nor VirtualBox has VirtIO. Windows boots from SATA only if its AHCI driver starts with it: before exporting, run sc config storahci start= boot in the machine, otherwise INACCESSIBLE_BOOT_DEVICE.</value></data>
+  <data name="ExportVirtioDisksLinux" xml:space="preserve"><value>VirtIO disks become SATA, as neither VMware nor VirtualBox has VirtIO. A Linux whose initramfs holds only the drivers in use (dracut in hostonly mode) will stop in “emergency mode”: before exporting, run echo 'hostonly="no"' | sudo tee /etc/dracut.conf.d/90-generic.conf then sudo dracut --force --regenerate-all in the machine.</value></data>
+  <data name="ExportVirtioDisks" xml:space="preserve"><value>VirtIO disks become SATA, as neither VMware nor VirtualBox has VirtIO.</value></data>
+  <data name="ExportVirtioNicsWindows" xml:space="preserve"><value>VirtIO network adapters become Intel e1000e, which Windows has a driver for.</value></data>
+  <data name="ExportVirtioNics" xml:space="preserve"><value>VirtIO network adapters become Intel e1000, which every operating system has a driver for.</value></data>
+  <data name="ExportNatNetworkName" xml:space="preserve"><value>The network adapters are connected to a network named “nat”: the importing hypervisor asks where to connect them.</value></data>
+  <data name="ExportUefi" xml:space="preserve"><value>UEFI machine: VMware reads it from the package; in VirtualBox, check “Enable EFI” if the import did not. Boot entries are not carried over: the firmware starts \EFI\BOOT\BOOTX64.EFI.</value></data>
+  <data name="ExportCurrentStateOnly" xml:space="preserve"><value>Only the current state is exported: the snapshots stay here.</value></data>
+  <data name="ExportNotCarriedOver" xml:space="preserve"><value>Shared folders, network access and USB devices are not carried over.</value></data>
+  <data name="NetworkQemuNatLabel" xml:space="preserve"><value>QEMU's NAT</value></data>
+  <data name="NetworkHostAdapterLabel" xml:space="preserve"><value>this PC's adapter “{0}”</value></data>
+  <data name="NpcapNotInstalled" xml:space="preserve"><value>Npcap is not installed.</value></data>
+  <data name="NpcapCannotOpen" xml:space="preserve"><value>Npcap cannot open the adapter “{0}”: {1}</value></data>
+  <data name="NpcapAdminOnly" xml:space="preserve"><value>Npcap restricts access to administrators: reinstall it without checking “Restrict Npcap driver's access to Administrators only”.</value></data>
+  <data name="NpcapCannotActivate" xml:space="preserve"><value>Npcap cannot activate the adapter “{0}”: {1}</value></data>
+  <data name="TapAccessDenied" xml:space="preserve"><value>Windows denies WinQEMU access to the adapter “{0}”: in its properties (Device Manager, Advanced tab), set “Non-Admin Access” to “Allowed”.</value></data>
+  <data name="TapInUse" xml:space="preserve"><value>The adapter “{0}” is already in use by another program (OpenVPN, QEMU…).</value></data>
+  <data name="TapCannotOpen" xml:space="preserve"><value>The adapter “{0}” could not be opened: {1}</value></data>
+  <data name="TapCannotConnect" xml:space="preserve"><value>The adapter “{0}” could not be connected: {1}</value></data>
+  <data name="TapInstallFailed" xml:space="preserve"><value>Installing the TAP-Windows driver failed (code {0}).</value></data>
+  <data name="TapDriverNotInstalled" xml:space="preserve"><value>The TAP-Windows driver is not installed.</value></data>
+  <data name="TapAddAdapterFailed" xml:space="preserve"><value>The TAP-Windows adapter could not be added (code {0}).</value></data>
+  <data name="TapFileNotFound" xml:space="preserve"><value>{0} was not found ({1}).</value></data>
+  <data name="TapSignatureInvalid" xml:space="preserve"><value>The signature of {0} is not valid: it was not run.</value></data>
+  <data name="TapNotSignedByOpenVpn" xml:space="preserve"><value>{0} is not signed by OpenVPN: it was not run.</value></data>
+  <data name="NetworkAddressesInvalid" xml:space="preserve"><value>The addresses of network {0} are not valid: {1}</value></data>
+  <data name="NetworkCannotStart" xml:space="preserve"><value>Network {0} cannot start. {1} (Virtual networks)</value></data>
+  <data name="NetworkTapAdapterMissing" xml:space="preserve"><value>The TAP-Windows adapter of network {0} (“{1}”) was not found: was the driver uninstalled? Choose another adapter in Virtual networks.</value></data>
+  <data name="NetworkNpcapMissing" xml:space="preserve"><value>Network {0} uses Npcap, which is no longer installed: reinstall it from npcap.com.</value></data>
+  <data name="NetworkPhysicalAdapterMissing" xml:space="preserve"><value>The adapter “{0}” of network {1} is not connected (Wi-Fi off, cable unplugged?). Connect it, or choose another adapter in Virtual networks.</value></data>
+  <data name="ValidateNoEmulator" xml:space="preserve"><value>QEMU has no emulator for {0} ({1} is missing).</value></data>
+  <data name="ValidateCpuCount" xml:space="preserve"><value>The CPU count must be at least 1.</value></data>
+  <data name="ValidateMemory" xml:space="preserve"><value>At least 128 MB of memory is required.</value></data>
+  <data name="ValidateUefiMissing" xml:space="preserve"><value>UEFI firmware for {0} was not found in {1}. Switch the VM to BIOS or install the edk2 firmware files.</value></data>
+  <data name="ValidateDiskNoPath" xml:space="preserve"><value>Disk “{0}” has no file path.</value></data>
+  <data name="ValidateDiskNotFound" xml:space="preserve"><value>Disk image not found: {0}</value></data>
+  <data name="ValidateIsoNotFound" xml:space="preserve"><value>ISO not found: {0}</value></data>
+  <data name="ValidateSecondaryIsoNotFound" xml:space="preserve"><value>Secondary ISO not found: {0}</value></data>
+  <data name="ValidateNothingToBoot" xml:space="preserve"><value>The VM has neither a disk nor an ISO, so there is nothing to boot.</value></data>
+  <data name="ValidateDuplicateDiskIds" xml:space="preserve"><value>Two disks share the same identifier.</value></data>
+  <data name="FirmwareNoUefiImage" xml:space="preserve"><value>No UEFI firmware image available for {0}.</value></data>
+  <data name="FirmwareNoVarsTemplate" xml:space="preserve"><value>The UEFI variable template for {0} was not found in {1}.</value></data>
+  <data name="LocatorHelperToolsOnly" xml:space="preserve"><value>No qemu-system-*.exe emulator found, only QEMU helper tools. This is typically the QEMU guest agent package (virtio-win) rather than QEMU itself.</value></data>
+  <data name="LocatorQemuImgMissing" xml:space="preserve"><value>qemu-img.exe is missing, so disk images cannot be created or inspected.</value></data>
+  <data name="SessionAlreadyStarted" xml:space="preserve"><value>The VM is already started.</value></data>
+  <data name="SessionSnapshotNameRequired" xml:space="preserve"><value>A snapshot name is required.</value></data>
+  <data name="SessionSnapshotNeedsQcow2" xml:space="preserve"><value>Snapshots require at least one qcow2 disk.</value></data>
+  <data name="SessionMemorySnapshotWhpx" xml:space="preserve"><value>A snapshot including memory cannot be taken while WHPX hardware acceleration is active, because WHPX cannot serialise CPU state. Take a disk-only snapshot of the running VM instead, or shut the VM down and snapshot it offline.</value></data>
+  <data name="SessionOverlayExists" xml:space="preserve"><value>A snapshot overlay already exists at {0}.</value></data>
+  <data name="SessionUnableToStart" xml:space="preserve"><value>Unable to start {0}.</value></data>
+  <data name="SessionGuestPanicked" xml:space="preserve"><value>The guest OS panicked.</value></data>
+  <data name="SessionQemuExited" xml:space="preserve"><value>QEMU exited unexpectedly with code {0}. See the log for details.</value></data>
+  <data name="SessionNotRunning" xml:space="preserve"><value>The VM is not running.</value></data>
+  <data name="SessionNotRunningOrQmpLost" xml:space="preserve"><value>The VM is not running, or its QMP connection was lost.</value></data>
+  <data name="ImageFileExists" xml:space="preserve"><value>The file already exists: {0}</value></data>
+  <data name="UsbDefaultDeviceName" xml:space="preserve"><value>USB device</value></data>
+</root>

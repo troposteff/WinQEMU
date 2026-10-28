@@ -1,9 +1,11 @@
 using System.Buffers.Binary;
+using System.Globalization;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using WinQEMU.Core.Qemu;
 using WinQEMU.Core.Services;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Sharing
 {
@@ -17,7 +19,8 @@ namespace WinQEMU.Core.Sharing
     /// </summary>
     /// <remarks>
     /// The sender walks what was chosen, says the total ('T'), then sends the drop's records: 'D' a folder, 'F' a
-    /// file with its length and date, then its data in chunks, 'E' the end, or 'X' and a reason. It reads as root
+    /// file with its length and date, then its data in chunks, 'E' the end, or 'X' and a reason (a code, as the
+    /// drop's receivers give: <see cref="GuestFileDrop.GuestMessage"/>). It reads as root
     /// or SYSTEM, so a file the guest's user cannot read is copied too. A name Windows refuses (':' '?' …) gets
     /// '_' instead. Cancelled or failed, what was written here is removed; the sender, writing to a port no host
     /// reads, is stopped by the next copy either way (they share the receiver's process file).
@@ -40,7 +43,7 @@ namespace WinQEMU.Core.Sharing
             return home.Length > 0 ? home : windowsGuest ? @"C:\" : "/";
         }
 
-        private const string LinuxHomeScript = """
+        private static readonly string LinuxHomeScript = """
             h=$(awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false)$/ { print $6; exit }' /etc/passwd)
             [ -n "$h" ] || { echo /; exit 0; }
             d="$h/Desktop"
@@ -49,7 +52,7 @@ namespace WinQEMU.Core.Sharing
               [ -n "$x" ] && d="$x"
             fi
             if [ -d "$d" ]; then echo "$d"; else echo "$h"; fi
-            """;
+            """.ReplaceLineEndings("\n");
 
         /// <summary>A folder's entries, folders first, by name. Throws GuestAgentException when it cannot be read.</summary>
         public static async Task<IReadOnlyList<GuestFileEntry>> ListAsync(GuestAgentClient agent, bool windowsGuest, string path,
@@ -65,7 +68,7 @@ namespace WinQEMU.Core.Sharing
                     new[] { "-c", "cd -- \"$1\" && find . -mindepth 1 -maxdepth 1 -printf '%y\\t%s\\t%f\\n'", "sh", path },
                     null, TimeSpan.FromSeconds(60), cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
-                throw new GuestAgentException(result.Error.Trim().Length > 0 ? result.Error.Trim() : $"{path} ne peut pas être lu.");
+                throw new GuestAgentException(result.Error.Trim().Length > 0 ? result.Error.Trim() : string.Format(CultureInfo.CurrentCulture, CoreText.FilePullUnreadable, path));
 
             var entries = new List<GuestFileEntry>();
             foreach (var line in result.Output.Split('\n'))
@@ -109,7 +112,7 @@ namespace WinQEMU.Core.Sharing
         // ---- The senders ----
 
         /// <summary>Run as root by the agent: the port, then the paths to send.</summary>
-        public const string LinuxSender = """
+        public static readonly string LinuxSender = """
             use strict; use warnings;
             $0 = 'winqemu-pull';
             my ($port, @paths) = @ARGV;
@@ -142,8 +145,8 @@ namespace WinQEMU.Core.Sharing
             for my $path (@paths) {
               $path =~ s{/+$}{} unless $path eq '/';
               my ($name) = $path =~ m{([^/]+)$};
-              fail("$path : chemin invalide") unless defined $name;
-              fail("$path : introuvable") unless -e $path;
+              fail("#badpath $path") unless defined $name;
+              fail("#notfound $path") unless -e $path;
               walk($path, $name);
             }
             my $total = 0; $total += $_->[3] for @entries;
@@ -157,14 +160,14 @@ namespace WinQEMU.Core.Sharing
               while ($left > 0) {
                 my $n = sysread($in, my $buf, $left > 1048576 ? 1048576 : $left);
                 fail("$rel : $!") unless defined $n;
-                fail("$rel a changé pendant la copie") if $n == 0;
+                fail("#changed $rel") if $n == 0;
                 put(pack('N', $n) . $buf);
                 $left -= $n;
               }
               close $in;
             }
             put('E');
-            """;
+            """.ReplaceLineEndings("\n");
 
         /// <summary>The Windows sender, compiled once per version as the drop's receiver is (C# 5).</summary>
         public const string WindowsSenderSource = """
@@ -255,9 +258,9 @@ namespace WinQEMU.Core.Sharing
                             var path = raw.Trim().TrimEnd('\\');
                             if (path.Length == 0) continue;
                             if (path.EndsWith(":")) path += "\\";
-                            if (!Directory.Exists(path) && !File.Exists(path)) { Fail(path + " : introuvable"); return 1; }
+                            if (!Directory.Exists(path) && !File.Exists(path)) { Fail("#notfound " + path); return 1; }
                             var name = System.IO.Path.GetFileName(path.TrimEnd('\\'));
-                            if (name.Length == 0) { Fail(path + " : chemin invalide"); return 1; }
+                            if (name.Length == 0) { Fail("#badpath " + path); return 1; }
                             Walk(path, name, entries);
                         }
                         long total = 0;
@@ -275,7 +278,7 @@ namespace WinQEMU.Core.Sharing
                                 while (left > 0)
                                 {
                                     var n = input.Read(buffer, 0, (int)Math.Min(left, buffer.Length));
-                                    if (n == 0) { Fail(e.Rel + " a changé pendant la copie"); return 1; }
+                                    if (n == 0) { Fail("#changed " + e.Rel); return 1; }
                                     Put(Join(Number(n, 4), Slice(buffer, 0, n)));
                                     left -= n;
                                 }
@@ -359,13 +362,13 @@ namespace WinQEMU.Core.Sharing
                     {
                         var n = await port.ReadAsync(into.AsMemory(done, count - done), quiet.Token).ConfigureAwait(false);
                         if (n == 0)
-                            throw new GuestFileDropException("L'invité a cessé d'envoyer avant la fin.");
+                            throw new GuestFileDropException(CoreText.FilePullGuestStoppedSending);
                         done += n;
                     }
                     catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                     {
                         if (await senderExited(cancellationToken).ConfigureAwait(false) is { } died)
-                            throw new GuestFileDropException($"La copie s'est interrompue dans l'invité : {died}");
+                            throw new GuestFileDropException(string.Format(CultureInfo.CurrentCulture, CoreText.FileDropInterrupted, died));
                     }
                 }
             }
@@ -382,7 +385,7 @@ namespace WinQEMU.Core.Sharing
             {
                 var parts = relative.Split('/');
                 if (parts.Any(p => p.Length == 0 || p == "." || p == ".."))
-                    throw new GuestFileDropException($"Nom invalide envoyé par l'invité : {relative}");
+                    throw new GuestFileDropException(string.Format(CultureInfo.CurrentCulture, CoreText.FilePullInvalidName, relative));
                 for (var i = 0; i < parts.Length; i++)
                     parts[i] = WindowsName(parts[i]);
                 if (!top.TryGetValue(parts[0], out var first))
@@ -410,7 +413,7 @@ namespace WinQEMU.Core.Sharing
                             progress?.Report(new DropProgress(0, total));
                             continue;
                         case 'X':
-                            throw new GuestFileDropException($"La copie a échoué dans l'invité : {await TextAsync().ConfigureAwait(false)}.");
+                            throw new GuestFileDropException(string.Format(CultureInfo.CurrentCulture, CoreText.FileDropFailed, GuestFileDrop.GuestMessage(await TextAsync().ConfigureAwait(false))));
                         case 'E':
                             return new DropResult(destination, names);
                         case 'D':
@@ -419,7 +422,7 @@ namespace WinQEMU.Core.Sharing
                         case 'F':
                             break;
                         default:
-                            throw new GuestFileDropException("Réponse inattendue de l'invité.");
+                            throw new GuestFileDropException(CoreText.FilePullUnexpectedAnswer);
                     }
 
                     var path = Place(await TextAsync().ConfigureAwait(false));
@@ -433,7 +436,7 @@ namespace WinQEMU.Core.Sharing
                         {
                             var length = BinaryPrimitives.ReadUInt32BigEndian(await TakeAsync(4).ConfigureAwait(false));
                             if (length == 0 || length > size || length > buffer.Length)
-                                throw new GuestFileDropException("Morceau invalide envoyé par l'invité.");
+                                throw new GuestFileDropException(CoreText.FilePullInvalidChunk);
                             await ReadAsync(buffer, (int)length).ConfigureAwait(false);
                             await output.WriteAsync(buffer.AsMemory(0, (int)length), cancellationToken).ConfigureAwait(false);
                             size -= length;
@@ -492,7 +495,7 @@ namespace WinQEMU.Core.Sharing
             try
             {
                 if (!session.IsRunning || session.FileDropPort is not { } dropPort)
-                    throw new GuestFileDropException("La machine n'est pas démarrée.");
+                    throw new GuestFileDropException(CoreText.FileDropNotRunning);
 
                 // Connected first, as for a drop: in Linux, a port with no host behind it ends at once.
                 using var client = new TcpClient { NoDelay = true };
@@ -502,8 +505,7 @@ namespace WinQEMU.Core.Sharing
                 }
                 catch (SocketException)
                 {
-                    throw new GuestFileDropException(
-                        "Cette machine a été démarrée sans le canal de copie : arrêtez-la puis redémarrez-la depuis WinQEMU.");
+                    throw new GuestFileDropException(CoreText.FileDropStartedWithoutChannel);
                 }
 
                 long pid;
@@ -511,7 +513,7 @@ namespace WinQEMU.Core.Sharing
                                  .ConfigureAwait(false))
                 {
                     if (agent is null)
-                        throw new GuestFileDropException("L'agent invité ne répond pas : installez d'abord les outils invités.");
+                        throw new GuestFileDropException(CoreText.FilePullNoAgent);
                     try
                     {
                         pid = windowsGuest
@@ -523,7 +525,7 @@ namespace WinQEMU.Core.Sharing
                     }
                     catch (GuestAgentException ex)
                     {
-                        throw new GuestFileDropException($"L'envoi n'a pas pu être lancé dans l'invité : {ex.Message}");
+                        throw new GuestFileDropException(string.Format(CultureInfo.CurrentCulture, CoreText.FilePullSenderNotStarted, ex.Message));
                     }
                 }
 
@@ -536,8 +538,8 @@ namespace WinQEMU.Core.Sharing
                         if (agent is null || await agent.GetExitAsync(pid, token).ConfigureAwait(false) is not { } exit)
                             return null;
                         return exit.ExitCode == 13
-                            ? "le canal de copie est absent : arrêtez la machine puis redémarrez-la depuis WinQEMU"
-                            : $"l'envoi s'est arrêté (code {exit.ExitCode}) {exit.Error.Trim()}".Trim();
+                            ? CoreText.FileDropChannelMissing
+                            : string.Format(CultureInfo.CurrentCulture, CoreText.FilePullSenderExited, exit.ExitCode, exit.Error.Trim()).Trim();
                     }
                     catch (Exception ex) when (ex is GuestAgentException or IOException or SocketException or InvalidOperationException)
                     {

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -66,11 +67,11 @@ namespace WinQEMU.Core.Services
         {
             var name = userName.Trim();
             if (name.Length == 0)
-                return "Indiquez un nom d'utilisateur.";
+                return CoreText.UnattendedUserNameRequired;
             if (!Regex.IsMatch(name, "^[a-z][a-z0-9_-]{0,31}$"))
-                return "Sous Linux, un nom d'utilisateur commence par une minuscule et ne contient que des minuscules, des chiffres, « - » et « _ » (32 au plus).";
+                return CoreText.UnattendedLinuxUserNameRule;
             if (name is "root" or "daemon" or "bin" or "sys" or "nobody" or "admin" or "ubuntu")
-                return $"« {name} » est un compte réservé du système : choisissez un autre nom.";
+                return string.Format(CultureInfo.CurrentCulture, CoreText.UnattendedLinuxReservedAccount, name);
             return null;
         }
 

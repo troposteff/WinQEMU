@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Import
 {
@@ -26,7 +27,7 @@ namespace WinQEMU.Core.Import
 
             var entries = TarArchive.ReadEntries(full);
             var descriptor = entries.FirstOrDefault(e => e.Name.EndsWith(".ovf", StringComparison.OrdinalIgnoreCase))
-                             ?? throw new FormatException("Ce paquet OVA ne contient aucun descripteur .ovf.");
+                             ?? throw new FormatException(PlatformText.ImportOvaNoDescriptor);
 
             XDocument document;
             using (var stream = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -59,18 +60,18 @@ namespace WinQEMU.Core.Import
 
         private static ImportPlan Parse(XDocument document, string sourcePath, Func<string, DiskFile?> locate)
         {
-            var root = document.Root ?? throw new FormatException("Le descripteur OVF est vide.");
+            var root = document.Root ?? throw new FormatException(PlatformText.ImportOvfEmpty);
             var plan = new ImportPlan { Source = ImportSource.Ovf, SourcePath = sourcePath };
 
             var systems = Descendants(root, "VirtualSystem").ToList();
             var system = systems.FirstOrDefault();
             if (system is null)
             {
-                plan.Blocker = "Le descripteur OVF ne décrit aucune machine virtuelle.";
+                plan.Blocker = PlatformText.ImportOvfNoMachine;
                 return plan;
             }
             if (systems.Count > 1)
-                plan.Notes.Add($"Le paquet contient {systems.Count} machines : seule la première, « {NameOf(system)} », est importée.");
+                plan.Notes.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ImportOvfSeveralMachines, systems.Count, NameOf(system)));
 
             plan.Name = NameOf(system);
             ReadGuestOs(plan, Descendants(system, "OperatingSystemSection").FirstOrDefault());
@@ -109,7 +110,7 @@ namespace WinQEMU.Core.Import
         private static string NameOf(XElement system) =>
             Child(system, "Name") is { Length: > 0 } name
                 ? name
-                : Attribute(system, "id") ?? "Machine importée";
+                : Attribute(system, "id") ?? PlatformText.ImportDefaultMachineName;
 
         private static void ReadGuestOs(ImportPlan plan, XElement? section)
         {
@@ -177,7 +178,7 @@ namespace WinQEMU.Core.Import
                     if (file is null)
                     {
                         // A disk with no file is an empty one the importer is meant to create.
-                        VmxReader.AddOnce(plan.Notes, "Un disque vide du paquet (sans fichier) n'est pas créé : ajoutez-le dans Matériel si besoin.");
+                        VmxReader.AddOnce(plan.Notes, PlatformText.ImportOvfEmptyDiskSkipped);
                         continue;
                     }
                 }
@@ -191,27 +192,26 @@ namespace WinQEMU.Core.Import
                 var href = Attribute(file, "href") ?? string.Empty;
                 if (Attribute(file, "compression") is { Length: > 0 } compression)
                 {
-                    plan.Blocker ??= $"Le disque {href} est compressé dans le paquet ({compression}) : QEMU ne sait pas le lire ainsi. " +
-                                     "Réexportez la machine sans compression des fichiers.";
+                    plan.Blocker ??= string.Format(CultureInfo.CurrentCulture, PlatformText.ImportOvfDiskCompressed, href, compression);
                     continue;
                 }
                 if (Attribute(file, "chunkSize") is { Length: > 0 })
                 {
-                    plan.Blocker ??= $"Le disque {href} est découpé en morceaux dans le paquet : réexportez la machine sans découpage.";
+                    plan.Blocker ??= string.Format(CultureInfo.CurrentCulture, PlatformText.ImportOvfDiskChunked, href);
                     continue;
                 }
 
                 var source = locate(href);
                 if (source is null)
                 {
-                    plan.Blocker ??= $"Disque introuvable dans le paquet : {href}";
+                    plan.Blocker ??= string.Format(CultureInfo.CurrentCulture, PlatformText.ImportOvfDiskMissing, href);
                     continue;
                 }
 
                 var driver = DriverFor(format, href);
                 if (driver is null)
                 {
-                    plan.Blocker ??= $"Le disque {href} est dans un format que WinQEMU ne connaît pas ({format}).";
+                    plan.Blocker ??= string.Format(CultureInfo.CurrentCulture, PlatformText.ImportOvfDiskUnknownFormat, href, format);
                     continue;
                 }
 
@@ -297,10 +297,9 @@ namespace WinQEMU.Core.Import
                 return DiskBus.Pvscsi;
 
             VmxReader.AddOnce(plan.Notes,
-                $"Le contrôleur SCSI « {(subType.Length == 0 ? "lsilogic" : subType)} » n'a pas d'équivalent ici : les disques passent en SATA." +
+                string.Format(CultureInfo.CurrentCulture, PlatformText.ImportScsiControllerToSata, subType.Length == 0 ? "lsilogic" : subType) +
                 (plan.IsWindows
-                    ? " Windows peut alors refuser de démarrer (INACCESSIBLE_BOOT_DEVICE) : activez au préalable son pilote AHCI " +
-                      "dans la machine source (sc config storahci start= boot)."
+                    ? " " + PlatformText.ImportAhciHintSourceMachine
                     : string.Empty));
             return DiskBus.Sata;
         }
@@ -327,7 +326,7 @@ namespace WinQEMU.Core.Import
             }
 
             if (plan.Adapters.Count > 0)
-                plan.Notes.Add("Les cartes réseau passent en NAT : changez leur connexion dans Matériel si besoin.");
+                plan.Notes.Add(PlatformText.ImportOvfAdaptersToNat);
         }
 
         /// <summary>Megabytes in one unit of a CIM programmatic unit ("byte * 2^20", "MegaBytes", "GB"…).</summary>

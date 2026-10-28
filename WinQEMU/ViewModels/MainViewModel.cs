@@ -11,6 +11,8 @@ using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
 using WinQEMU.Core.Services;
 using WinQEMU.Core.Sharing;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 
 namespace WinQEMU.ViewModels
 {
@@ -265,15 +267,15 @@ namespace WinQEMU.ViewModels
         public VmState SelectedState => SelectedSession?.State ?? VmState.Stopped;
 
         public string SelectedStateText => SelectedVm is null
-            ? "Aucune VM sélectionnée"
+            ? ShellText.StateNoSelection
             : SelectedState switch
             {
-                VmState.Stopped => "Arrêtée",
-                VmState.Starting => "Démarrage…",
-                VmState.Running => "En cours d'exécution",
-                VmState.Paused => "En pause",
-                VmState.Stopping => "Arrêt en cours…",
-                VmState.Error => "Erreur",
+                VmState.Stopped => ShellText.StateStopped,
+                VmState.Starting => ShellText.StateStarting,
+                VmState.Running => ShellText.StateRunning,
+                VmState.Paused => ShellText.StatePaused,
+                VmState.Stopping => ShellText.StateStopping,
+                VmState.Error => CommonText.Error,
                 _ => SelectedState.ToString()
             };
 
@@ -314,7 +316,7 @@ namespace WinQEMU.ViewModels
         /// "Pause" rather than "Suspendre": the command freezes execution and leaves the state in
         /// memory, which is not the suspend-to-disk that word suggests, and it pairs with "Reprendre".
         /// </summary>
-        public string PauseResumeLabel => SelectedState == VmState.Paused ? "Reprendre" : "Pause";
+        public string PauseResumeLabel => SelectedState == VmState.Paused ? CommonText.Resume : CommonText.Pause;
 
         // ---- QEMU availability ----
 
@@ -329,7 +331,7 @@ namespace WinQEMU.ViewModels
 
         private bool _hasProbedQemu;
 
-        private string _qemuStatusText = "Détection de QEMU…";
+        private string _qemuStatusText = ShellText.QemuDetecting;
         public string QemuStatusText { get => _qemuStatusText; private set => SetProperty(ref _qemuStatusText, value); }
 
         private string _qemuStatusDetail = string.Empty;
@@ -344,7 +346,7 @@ namespace WinQEMU.ViewModels
         public string QemuDirectoryDisplay =>
             Manager.Installation?.InstallDirectory
             ?? (string.IsNullOrWhiteSpace(Settings.QemuDirectory)
-                ? "Détection automatique — rien trouvé"
+                ? ShellText.QemuAutoDetectNothing
                 : Settings.QemuDirectory);
 
         public bool IsQemuDirectoryOverridden => !string.IsNullOrWhiteSpace(Settings.QemuDirectory);
@@ -354,8 +356,8 @@ namespace WinQEMU.ViewModels
         public string AccelerationDisplay => Manager.Installation is null
             ? "—"
             : Manager.Installation.SupportsWhpx
-                ? "WHPX disponible"
-                : "Indisponible — les machines tourneront en émulation, environ dix fois plus lentement";
+                ? ShellText.AccelerationWhpx
+                : ShellText.AccelerationNone;
 
         public string ArchitecturesDisplay => Manager.Installation is null
             ? "—"
@@ -380,8 +382,8 @@ namespace WinQEMU.ViewModels
                     available.Add("UEFI ARM64");
 
                 return available.Count == 0
-                    ? "Aucune image OVMF trouvée — seul le démarrage BIOS est possible"
-                    : string.Join(", ", available) + " — le démarrage sécurisé reste impossible sous WHPX";
+                    ? ShellText.FirmwareNone
+                    : string.Format(CultureInfo.CurrentCulture, ShellText.FirmwareAvailable, string.Join(", ", available));
             }
         }
 
@@ -448,10 +450,10 @@ namespace WinQEMU.ViewModels
         private string _cpuText = "CPU —";
         public string CpuText { get => _cpuText; private set => SetProperty(ref _cpuText, value); }
 
-        private string _memoryText = "Mémoire —";
+        private string _memoryText = ShellText.MetricsMemoryNone;
         public string MemoryText { get => _memoryText; private set => SetProperty(ref _memoryText, value); }
 
-        private string _diskText = "Disque —";
+        private string _diskText = ShellText.MetricsDiskNone;
         public string DiskText { get => _diskText; private set => SetProperty(ref _diskText, value); }
 
         // ---- Lifecycle ----
@@ -464,17 +466,16 @@ namespace WinQEMU.ViewModels
             var installation = Manager.Installation;
             if (installation is null)
             {
-                QemuStatusText = "QEMU est introuvable. Aucune machine virtuelle ne peut démarrer.";
+                QemuStatusText = ShellText.QemuNotFound;
                 QemuStatusDetail = Manager.Warnings.Count > 0
                     ? string.Join(Environment.NewLine, Manager.Warnings)
-                    : "Installez QEMU pour Windows, puis relancez la détection. " +
-                      "Vous pouvez aussi indiquer le dossier d'installation dans les paramètres.";
+                    : ShellText.QemuNotFoundDetail;
             }
             else
             {
                 var accelerator = installation.SupportsWhpx
-                    ? "accélération WHPX disponible"
-                    : "accélération matérielle indisponible (émulation TCG uniquement)";
+                    ? ShellText.QemuAccelWhpx
+                    : ShellText.QemuAccelNone;
 
                 QemuStatusText = $"QEMU {installation.Version ?? "?"} — {installation.InstallDirectory} ({accelerator}).";
                 QemuStatusDetail = string.Join(Environment.NewLine, Manager.Warnings);
@@ -527,7 +528,7 @@ namespace WinQEMU.ViewModels
                                                or System.ComponentModel.Win32Exception or TimeoutException)
                 {
                     ReportError(new InvalidOperationException(
-                        $"« {entry.Machine.Name} » n'a pas pu démarrer avec WinQEMU : {ex.Message}", ex));
+                        string.Format(CultureInfo.CurrentCulture, ShellText.AutoStartFailed, entry.Machine.Name, ex.Message), ex));
                 }
             }
         }
@@ -636,7 +637,7 @@ namespace WinQEMU.ViewModels
         public async Task<VmConfig> CloneSelectedAsync(
             string name, bool linked, IProgress<double> progress, System.Threading.CancellationToken cancellationToken)
         {
-            var source = SelectedVm ?? throw new InvalidOperationException("Aucune machine virtuelle n'est sélectionnée.");
+            var source = SelectedVm ?? throw new InvalidOperationException(ShellText.NoVmSelected);
 
             // Adding to the library rebuilds the rows; selecting the clone has to happen after that.
             var clone = linked
@@ -649,7 +650,7 @@ namespace WinQEMU.ViewModels
         /// <summary>Exports the selected machine as an .ova; the same conditions as a clone (<see cref="CanClone"/>).</summary>
         public Task ExportSelectedAsync(string path, IProgress<double> progress, System.Threading.CancellationToken cancellationToken)
         {
-            var source = SelectedVm ?? throw new InvalidOperationException("Aucune machine virtuelle n'est sélectionnée.");
+            var source = SelectedVm ?? throw new InvalidOperationException(ShellText.NoVmSelected);
             return Manager.ExportVirtualMachineAsync(source, path, progress, cancellationToken);
         }
 
@@ -944,8 +945,8 @@ namespace WinQEMU.ViewModels
             CpuPercent = 0;
             MemoryPercent = 0;
             CpuText = "CPU —";
-            MemoryText = "Mémoire —";
-            DiskText = "Disque —";
+            MemoryText = ShellText.MetricsMemoryNone;
+            DiskText = ShellText.MetricsDiskNone;
         }
 
         private async Task RefreshMetricsAsync()
@@ -1004,29 +1005,17 @@ namespace WinQEMU.ViewModels
             var allocatedBytes = (double)session.Config.MemoryMb * 1024 * 1024;
 
             CpuPercent = metrics.HostCpuPercent;
-            CpuText = $"CPU hôte {metrics.HostCpuPercent.ToString("0.#", CultureInfo.CurrentCulture)} %";
+            CpuText = string.Format(CultureInfo.CurrentCulture, ShellText.MetricsHostCpu, metrics.HostCpuPercent.ToString("0.#", CultureInfo.CurrentCulture));
             RaisePropertyChanged(nameof(SelectedHistory));
 
             MemoryPercent = allocatedBytes > 0
                 ? Math.Clamp(metrics.ResidentMemoryBytes / allocatedBytes * 100d, 0d, 100d)
                 : 0d;
-            MemoryText = $"Mémoire {FormatBytes(metrics.ResidentMemoryBytes)} / {FormatBytes((long)allocatedBytes)}";
+            MemoryText = string.Format(CultureInfo.CurrentCulture, ShellText.MetricsMemory,
+                Sizes.Format(metrics.ResidentMemoryBytes), Sizes.Format((long)allocatedBytes));
 
-            DiskText = $"Disque lu {FormatBytes(metrics.DiskReadBytes)} · écrit {FormatBytes(metrics.DiskWrittenBytes)}";
-        }
-
-        private static string FormatBytes(long bytes)
-        {
-            string[] units = { "o", "Kio", "Mio", "Gio", "Tio" };
-            double value = bytes;
-            var unit = 0;
-            while (value >= 1024 && unit < units.Length - 1)
-            {
-                value /= 1024;
-                unit++;
-            }
-
-            return $"{value.ToString(unit == 0 ? "0" : "0.#", CultureInfo.CurrentCulture)} {units[unit]}";
+            DiskText = string.Format(CultureInfo.CurrentCulture, ShellText.MetricsDisk,
+                Sizes.Format(metrics.DiskReadBytes), Sizes.Format(metrics.DiskWrittenBytes));
         }
 
         // ---- Persistence ----
@@ -1083,9 +1072,9 @@ namespace WinQEMU.ViewModels
 
                 AppendDiagnostic(wasRunning
                     ? string.IsNullOrWhiteSpace(path)
-                        ? "Lecteur optique éjecté."
-                        : $"Lecteur optique : {path}"
-                    : "Image ISO enregistrée ; elle sera présentée au prochain démarrage.");
+                        ? "Optical drive ejected."
+                        : $"Optical drive: {path}"
+                    : "ISO image saved; the guest sees it at the next start.");
             }
             catch (Exception ex)
             {
@@ -1105,12 +1094,12 @@ namespace WinQEMU.ViewModels
             {
                 Adapter = adapter;
                 Forward = forward;
-                Title = $"{LanAccess.LabelOf(forward)} — port {forward.HostPort.ToString(CultureInfo.InvariantCulture)} de ce PC " +
-                        $"vers le port {forward.GuestPort.ToString(CultureInfo.InvariantCulture)} de l'invité";
+                Title = string.Format(CultureInfo.CurrentCulture, ShellText.LanServiceTitle, LanAccess.LabelOf(forward),
+                    forward.HostPort.ToString(CultureInfo.InvariantCulture), forward.GuestPort.ToString(CultureInfo.InvariantCulture));
                 Usage = !LanAccess.IsOnNetwork(forward)
-                    ? $"{LanAccess.UsageOf(forward, "127.0.0.1")} (depuis ce PC seulement)"
+                    ? string.Format(CultureInfo.CurrentCulture, ShellText.LanServiceLocalOnly, LanAccess.UsageOf(forward, "127.0.0.1"))
                     : addresses.Count == 0
-                        ? "Ce PC n'a pas d'adresse sur un réseau local pour l'instant."
+                        ? ShellText.LanServiceNoAddress
                         : string.Join("   ", addresses.Select(a => LanAccess.UsageOf(forward, a)));
             }
 
@@ -1127,14 +1116,12 @@ namespace WinQEMU.ViewModels
         public bool HasNatAdapter => SelectedVm?.NetworkAdapters.Any(a => a.Mode == NetworkMode.Nat) == true;
 
         public string LanAccessHint => HasNatAdapter
-            ? "La machine est en NAT : elle sort sur le réseau, mais rien ne l'atteint depuis les autres " +
-              "appareils, sauf les services ouverts ici. Ils s'ouvrent aussitôt si elle est en marche."
-            : "Il faut une carte réseau en NAT pour ouvrir des services (section Réseau).";
+            ? ShellText.LanAccessHintNat
+            : ShellText.LanAccessHintNoNat;
 
         /// <summary>Said only when the firewall is known to block QEMU; nothing to say when it lets it through.</summary>
         public string? FirewallWarning => _qemuAllowedThroughFirewall == false && LanServices.Any(s => LanAccess.IsOnNetwork(s.Forward))
-            ? "Le pare-feu Windows bloque QEMU : depuis le réseau, rien n'arrivera aux services ouverts tant qu'il " +
-              "n'est pas autorisé (réseaux privés et de domaine seulement, pas les réseaux publics)."
+            ? ShellText.FirewallWarning
             : null;
 
         public bool HasFirewallWarning => FirewallWarning is not null;
@@ -1178,10 +1165,10 @@ namespace WinQEMU.ViewModels
             var target = SelectedVm;
             var adapter = target?.NetworkAdapters.FirstOrDefault(a => a.Mode == NetworkMode.Nat);
             if (target is null || adapter is null)
-                return "Il faut une carte réseau en NAT pour ouvrir un service.";
+                return ShellText.LanNeedNat;
 
             if (adapter.PortForwards.FirstOrDefault(f => f.GuestPort == guestPort && f.Protocol == protocol && LanAccess.IsOnNetwork(f)) is { } existing)
-                return $"Ce service est déjà ouvert, sur le port {existing.HostPort.ToString(CultureInfo.InvariantCulture)} de ce PC.";
+                return string.Format(CultureInfo.CurrentCulture, ShellText.LanServiceAlreadyOpen, existing.HostPort.ToString(CultureInfo.InvariantCulture));
 
             // Ports other machines forward count as taken even while they are stopped: both would start.
             var taken = Manager.VirtualMachines.SelectMany(vm => vm.NetworkAdapters).SelectMany(a => a.PortForwards).Select(f => f.HostPort);
@@ -1265,12 +1252,12 @@ namespace WinQEMU.ViewModels
             }
             catch (OperationCanceledException)
             {
-                return "Le pare-feu n'a pas été modifié : l'autorisation administrateur a été refusée.";
+                return ShellText.FirewallDenied;
             }
 
             RefreshLanServices();
             return _qemuAllowedThroughFirewall == false
-                ? "La règle n'a pas pris effet. Une stratégie d'entreprise interdit peut-être les règles de pare-feu locales."
+                ? ShellText.FirewallNoEffect
                 : null;
         }
 
@@ -1281,7 +1268,7 @@ namespace WinQEMU.ViewModels
             VmLibrary.ValidateName(name)
             ?? (Manager.VirtualMachines.Any(vm => !ReferenceEquals(vm, SelectedVm)
                                                   && string.Equals(vm.Name.Trim(), name.Trim(), StringComparison.CurrentCultureIgnoreCase))
-                ? "Une autre machine porte déjà ce nom."
+                ? ShellText.NameTaken
                 : null);
 
         public void RenameSelected(string name)
@@ -1297,10 +1284,7 @@ namespace WinQEMU.ViewModels
         public ObservableCollection<VirtualNetwork> VirtualNetworks => Manager.Settings.VirtualNetworks;
 
         public string SharedFolderHint =>
-            "Comme les dossiers partagés de VMware : WinQEMU les sert lui-même par un canal privé, sans réseau " +
-            $"ni mot de passe, et ils apparaissent dans ~/{GuestShareMounter.GuestFolder} d'un invité Linux. Il y " +
-            "faut une seule fois l'agent invité : sudo apt install qemu-guest-agent. Les invités Windows ne sont " +
-            "pas encore pris en charge.";
+            string.Format(CultureInfo.CurrentCulture, ShellText.SharedFolderHint, GuestShareMounter.GuestFolder);
 
         private readonly Dictionary<VmConfig, GuestShareReport> _shareReports = new();
 
@@ -1458,7 +1442,7 @@ namespace WinQEMU.ViewModels
         {
             var config = session.Config;
             SetShareReport(config, new GuestShareReport(GuestShareState.WaitingForAgent,
-                "En attente de l'agent invité pour monter les dossiers…"));
+                ShellText.ShareMountWaiting));
 
             GuestShareReport report;
             try
@@ -1470,11 +1454,17 @@ namespace WinQEMU.ViewModels
             }
             catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException)
             {
-                report = new GuestShareReport(GuestShareState.Failed, $"Les dossiers n'ont pas pu être montés : {ex.Message}");
+                report = new GuestShareReport(GuestShareState.Failed, string.Format(CultureInfo.CurrentCulture, ShellText.ShareMountFailed, ex.Message));
             }
 
             if (session.IsRunning)
                 SetShareReport(config, report);
+            // Kept for the folders' rows, which say where the guest finds them, also while it is off.
+            if (report.Folder is { Length: > 0 } folder && folder != config.GuestSharesFolder)
+            {
+                config.GuestSharesFolder = folder;
+                Manager.Save(config);
+            }
         }
 
         private void SetShareReport(VmConfig config, GuestShareReport report)
@@ -1501,7 +1491,7 @@ namespace WinQEMU.ViewModels
                 return null;
 
             if (target.SharedFolders.Any(f => SamePath(f.HostPath, hostPath)))
-                return "Ce dossier est déjà partagé avec cette machine.";
+                return ShellText.ShareAlreadyShared;
 
             var stem = SharedFolderConfig.DefaultNameFor(hostPath);
             var name = stem;
@@ -1511,7 +1501,7 @@ namespace WinQEMU.ViewModels
             target.SharedFolders.Add(new SharedFolderConfig { HostPath = hostPath, Name = name, ReadOnly = readOnly });
             SaveSelected();
             PublishSharedFolders(target);
-            AppendDiagnostic($"Dossier partagé : {hostPath} → ~/{GuestShareMounter.GuestFolder}/{name}");
+            AppendDiagnostic($"Shared folder: {hostPath} → ~/{GuestShareMounter.GuestFolder}/{name}");
             return null;
         }
 
@@ -1587,7 +1577,7 @@ namespace WinQEMU.ViewModels
             entries.AddRange(target.UsbDevices
                 .Where(d => !host.Any(h => d.Matches(h.VendorId, h.ProductId)))
                 .DistinctBy(d => (d.VendorId, d.ProductId))
-                .Select(d => Entry(d.VendorId, d.ProductId, d.Name.Length > 0 ? d.Name : "Périphérique USB", null)));
+                .Select(d => Entry(d.VendorId, d.ProductId, d.Name.Length > 0 ? d.Name : ShellText.UsbDefaultName, null)));
             return entries;
         }
 
@@ -1605,23 +1595,21 @@ namespace WinQEMU.ViewModels
                 if (entry.Connected)
                 {
                     await session.DisconnectUsbAsync(entry.VendorId, entry.ProductId);
-                    AppendDiagnostic($"USB : {entry.Name} rendu à Windows.");
+                    AppendDiagnostic($"USB: {entry.Name} given back to Windows.");
                     return null;
                 }
 
                 if (await session.ConnectUsbAsync(entry.VendorId, entry.ProductId))
                 {
-                    AppendDiagnostic($"USB : {entry.Name} connecté à la machine.");
+                    AppendDiagnostic($"USB: {entry.Name} connected to the machine.");
                     return null;
                 }
 
                 return entry.Host is { IsReachable: false } device
-                    ? $"{entry.Name} utilise le pilote « {device.Service} », que QEMU ne sait pas ouvrir : il lui faut le " +
-                      "pilote WinUSB. Le menu USB explique comment l'installer."
+                    ? string.Format(CultureInfo.CurrentCulture, ShellText.UsbWrongDriver, entry.Name, device.Service)
                     : entry.Host is null
-                        ? $"{entry.Name} n'est pas branché."
-                        : $"QEMU n'a pas pu ouvrir {entry.Name} : un autre programme s'en sert sans doute (Windows Hello " +
-                          "pour un lecteur d'empreintes, un logiciel du fabricant…), ou il est déjà donné à une autre machine.";
+                        ? string.Format(CultureInfo.CurrentCulture, ShellText.UsbNotPlugged, entry.Name)
+                        : string.Format(CultureInfo.CurrentCulture, ShellText.UsbOpenFailed, entry.Name);
             }
             catch (Exception ex)
             {
@@ -1647,8 +1635,8 @@ namespace WinQEMU.ViewModels
 
             SaveSelected();
             AppendDiagnostic(atStart
-                ? $"USB : {entry.Name} sera connecté à chaque démarrage."
-                : $"USB : {entry.Name} ne sera plus connecté au démarrage.");
+                ? $"USB: {entry.Name} will be connected at every start."
+                : $"USB: {entry.Name} will no longer be connected at start.");
         }
 
         private void SaveSelected()
@@ -1699,7 +1687,7 @@ namespace WinQEMU.ViewModels
             catch (Exception ex) when (ex is QemuImgException or IOException or InvalidOperationException)
             {
                 ReportError(new InvalidOperationException(
-                    $"L'instantané automatique de « {config.Name} » n'a pas pu être pris : {ex.Message}", ex));
+                    string.Format(CultureInfo.CurrentCulture, ShellText.AutoSnapshotFailed, config.Name, ex.Message), ex));
             }
         }
 
@@ -1710,27 +1698,25 @@ namespace WinQEMU.ViewModels
         public async Task<string> TrimGuestDisksAsync()
         {
             if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
-                return "La machine doit être en marche.";
+                return ShellText.MachineMustRun;
             var withoutDiscard = target.Disks.Where(d => !d.Discard).Select(d => d.Id).ToList();
             try
             {
                 await using var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(15));
                 if (agent is null)
-                    return "L'agent invité ne répond pas : installez d'abord les outils invités.";
+                    return ShellText.AgentNotAnswering;
                 var count = await DiskCompaction.TrimAsync(agent);
                 AppendDiagnostic($"TRIM: {count} filesystem(s) trimmed in the guest.");
-                var text = $"{count} système(s) de fichiers de l'invité ont signalé leur espace libre. Arrêtez la machine, puis " +
-                           "« Compacter… » chaque disque (Matériel) pour rendre cette place à ce PC.";
+                var text = string.Format(CultureInfo.CurrentCulture, ShellText.TrimDone, count);
                 if (withoutDiscard.Count > 0)
                 {
-                    text += $"\n\nLe ou les disques {string.Join(", ", withoutDiscard)} n'ont pas l'option « Discard » : l'espace libre " +
-                            "n'y atteint pas l'image. Cochez-la dans Matériel (machine arrêtée) avant de recommencer.";
+                    text += "\n\n" + string.Format(CultureInfo.CurrentCulture, ShellText.TrimNoDiscard, string.Join(", ", withoutDiscard));
                 }
                 return text;
             }
             catch (Exception ex) when (ex is GuestAgentException or IOException or InvalidOperationException)
             {
-                return $"L'invité n'a pas pu signaler son espace libre : {ex.Message}";
+                return string.Format(CultureInfo.CurrentCulture, ShellText.TrimFailed, ex.Message);
             }
         }
 
@@ -1751,7 +1737,7 @@ namespace WinQEMU.ViewModels
         public async Task<string?> TypeIntoGuestAsync(string text)
         {
             if (SelectedSession is not { IsRunning: true } session || _typing)
-                return "La machine doit être en marche.";
+                return ShellText.MachineMustRun;
             IReadOnlyList<IReadOnlyList<(int Number, bool Down)>> strokes;
             try
             {
@@ -1772,7 +1758,7 @@ namespace WinQEMU.ViewModels
             }
             catch (Exception ex) when (ex is QmpException or InvalidOperationException or IOException)
             {
-                return $"La saisie s'est interrompue : {ex.Message}";
+                return string.Format(CultureInfo.CurrentCulture, ShellText.TypeInterrupted, ex.Message);
             }
             finally
             {
@@ -1801,15 +1787,13 @@ namespace WinQEMU.ViewModels
         private async Task CheckGuestToolsAsync(VmSession session, TimeSpan agentWait)
         {
             var config = session.Config;
-            SetToolsReport(config, new GuestToolsReport(GuestToolsState.Checking, "Recherche de l'agent invité…"));
+            SetToolsReport(config, new GuestToolsReport(GuestToolsState.Checking, ShellText.ToolsChecking));
             GuestToolsReport report;
             try
             {
                 await using var agent = await GuestShareMounter.WaitForAgentAsync(session, agentWait);
                 report = agent is null
-                    ? new GuestToolsReport(GuestToolsState.AgentMissing,
-                        "Les outils invités ne sont pas installés : dossiers partagés, glisser-déposer, presse-papiers et taille " +
-                        "d'écran automatique en dépendent.")
+                    ? new GuestToolsReport(GuestToolsState.AgentMissing, ShellText.ToolsAgentMissing)
                     : await GuestTools.CheckAsync(agent, GuestTools.IsWindows(config));
             }
             catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
@@ -1849,8 +1833,8 @@ namespace WinQEMU.ViewModels
         public bool ShowConsoleHint => !HasSendFilesStatus && !HasGuestToolsWarning;
 
         public string GuestToolsWarning => IsInstallingGuestTools
-            ? GuestToolsText ?? "Installation des outils invités…"
-            : "Outils invités absents ou incomplets.";
+            ? GuestToolsText ?? ShellText.ToolsInstalling
+            : ShellText.ToolsMissingWarning;
 
         public bool IsSelectedWindowsGuest => SelectedVm is { } vm && GuestTools.IsWindows(vm);
 
@@ -1885,7 +1869,7 @@ namespace WinQEMU.ViewModels
         public async Task<string?> InstallGuestToolsAsync(string? virtioWinIso)
         {
             if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
-                return "La machine doit être en marche.";
+                return ShellText.MachineMustRun;
             var windows = GuestTools.IsWindows(target);
             var agentMissing = GuestToolsState == GuestToolsState.AgentMissing;
             var layout = Core.Input.KeyboardText.CurrentLayout();
@@ -1896,8 +1880,8 @@ namespace WinQEMU.ViewModels
                 if (windows)
                 {
                     if (virtioWinIso is null)
-                        return "L'ISO virtio-win est nécessaire pour un invité Windows.";
-                    Say("Insertion de l'ISO virtio-win…");
+                        return ShellText.ToolsNeedIso;
+                    Say(ShellText.ToolsInsertingIso);
                     await ChangeIsoAsync(virtioWinIso);
                     // Time for Windows to see the new disc and give it a letter.
                     await Task.Delay(TimeSpan.FromSeconds(6));
@@ -1909,13 +1893,13 @@ namespace WinQEMU.ViewModels
                     {
                         // Started by the user from the drive: typed in the Run box, Defender takes it for the
                         // "ClickFix" attack and stops it (see GuestTools).
-                        Say("Dans l'invité, lancez virtio-win-guest-tools.exe puis guest-agent\\qemu-ga-x86_64.msi depuis le lecteur virtio-win ; WinQEMU attend l'agent…");
+                        Say(ShellText.ToolsWindowsWaitAgent);
                     }
                     else
                     {
-                        Say("Saisie de la commande dans l'invité…");
+                        Say(ShellText.ToolsTypingCommand);
                         await session.TypeAsync(Core.Input.KeyboardText.ToKeystrokes(GuestTools.LinuxInstallCommand + "\n", layout));
-                        Say("Tapez votre mot de passe dans le terminal de l'invité si sudo le demande ; l'installation suit…");
+                        Say(ShellText.ToolsSudoPassword);
                         AppendDiagnostic("Guest tools: installation command typed in the guest.");
                     }
 
@@ -1923,25 +1907,25 @@ namespace WinQEMU.ViewModels
                     if (answered is null)
                     {
                         return windows
-                            ? "L'agent invité ne répond toujours pas. Vérifiez dans l'invité que les deux installations sont allées à leur terme."
-                            : "L'agent invité ne répond toujours pas après dix minutes. Vérifiez dans l'invité que la commande s'est bien exécutée.";
+                            ? ShellText.ToolsAgentStillMissingWindows
+                            : ShellText.ToolsAgentStillMissingLinux;
                     }
                 }
 
-                Say("Installation des outils par l'agent invité…");
+                Say(ShellText.ToolsInstallingThroughAgent);
                 string? note = null;
                 await using (var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(1)))
                 {
                     if (agent is null)
-                        return "L'agent invité a cessé de répondre.";
+                        return ShellText.ToolsAgentStopped;
                     if ((await GuestTools.CheckAsync(agent, windows)).State != GuestToolsState.Complete)
                     {
                         var result = await GuestTools.CompleteAsync(agent, windows);
                         if (result.ExitCode is not (0 or 3010))
-                            return $"Les outils n'ont pas pu être installés : {GuestTools.Explain(result)}.";
+                            return string.Format(CultureInfo.CurrentCulture, ShellText.ToolsInstallFailed, GuestTools.Explain(result));
                         note = result.ExitCode == 3010
-                            ? "Redémarrez l'invité pour terminer l'installation des pilotes."
-                            : windows ? null : "Rouvrez la session de l'invité pour que le presse-papiers soit partagé.";
+                            ? ShellText.ToolsRestartGuest
+                            : windows ? null : ShellText.ToolsReopenSession;
                     }
                 }
 
@@ -1955,7 +1939,7 @@ namespace WinQEMU.ViewModels
                 AppendDiagnostic("Guest tools: installed.");
                 _toolsInstalls.Remove(target);
                 SetToolsReport(target, new GuestToolsReport(GuestToolsState.Complete,
-                    note is null ? "Outils invités installés." : $"Outils invités installés. {note}"));
+                    note is null ? ShellText.ToolsInstalled : string.Format(CultureInfo.CurrentCulture, ShellText.ToolsInstalledNote, note)));
                 return null;
             }
             catch (Exception ex) when (ex is GuestAgentException or IOException or QmpException or InvalidOperationException
@@ -1991,7 +1975,7 @@ namespace WinQEMU.ViewModels
         /// <summary>The selection's sound can be cut or turned down: it has a sound card.</summary>
         public bool CanAdjustSound => SelectedVm?.EnableAudio == true;
 
-        public string SoundLabel => SelectedVm is { EnableAudio: true, AudioMuted: true } ? "Son coupé" : "Son";
+        public string SoundLabel => SelectedVm is { EnableAudio: true, AudioMuted: true } ? ShellText.SoundMutedLabel : ShellText.SoundLabel;
 
         /// <summary>Segoe Fluent's speaker, crossed out when the sound is cut.</summary>
         public string SoundGlyph => SelectedVm is { EnableAudio: true, AudioMuted: true } ? "\uE74F" : "\uE767";
@@ -2083,7 +2067,7 @@ namespace WinQEMU.ViewModels
         {
             get
             {
-                var choices = new List<AudioOutputChoice> { new(string.Empty, "Sortie par défaut de Windows") };
+                var choices = new List<AudioOutputChoice> { new(string.Empty, ShellText.AudioDefaultOutput) };
                 try
                 {
                     choices.AddRange(Core.Interop.HostAudio.ListOutputs().Select(o => new AudioOutputChoice(o.Id, o.Name)));
@@ -2095,7 +2079,7 @@ namespace WinQEMU.ViewModels
                 // A headset chosen earlier and unplugged now stays chosen: Windows sends the sound to it again
                 // when it comes back.
                 if (Settings.AudioOutputId.Length > 0 && choices.All(c => c.Id != Settings.AudioOutputId))
-                    choices.Add(new AudioOutputChoice(Settings.AudioOutputId, "Sortie choisie (débranchée)"));
+                    choices.Add(new AudioOutputChoice(Settings.AudioOutputId, ShellText.AudioChosenUnplugged));
                 return choices;
             }
         }
@@ -2118,6 +2102,33 @@ namespace WinQEMU.ViewModels
             }
         }
 
+        /// <summary>A choice of interface language: Windows' own, then each language by its own name.</summary>
+        public sealed record LanguageChoice(string Code, string Name)
+        {
+            public override string ToString() => Name;
+        }
+
+        public IReadOnlyList<LanguageChoice> LanguageChoices { get; } = new[]
+        {
+            new LanguageChoice(string.Empty, ShellText.LanguageWindows),
+            new LanguageChoice("en", "English"),
+            new LanguageChoice("fr", "Français")
+        };
+
+        /// <summary>Saved at once, applied at the next start (Program.ApplyLanguage): the text is read as windows are made.</summary>
+        public string SelectedLanguage
+        {
+            get => Settings.Language;
+            set
+            {
+                if ((value ?? string.Empty) == Settings.Language)
+                    return;
+                Settings.Language = value ?? string.Empty;
+                Settings.Save();
+                RaisePropertyChanged();
+            }
+        }
+
         // ---- Files sent to the guest ----
 
         /// <summary>A copy under way to one machine; the console bar shows the selection's.</summary>
@@ -2127,7 +2138,7 @@ namespace WinQEMU.ViewModels
             public long Sent;
             public long Total;
             /// <summary>What the console bar says of it: "Copie vers le Bureau de l'invité", "Copie depuis l'invité".</summary>
-            public string Label = "Copie vers le Bureau de l'invité";
+            public string Label = ShellText.TransferToGuest;
         }
 
         private readonly Dictionary<VmConfig, FileTransfer> _transfers = new();
@@ -2156,7 +2167,8 @@ namespace WinQEMU.ViewModels
                 {
                     return transfer.Total == 0
                         ? $"{transfer.Label}…"
-                        : $"{transfer.Label} : {FormatBytes(transfer.Sent)} sur {FormatBytes(transfer.Total)}";
+                        : string.Format(CultureInfo.CurrentCulture, ShellText.TransferProgress, transfer.Label,
+                            Sizes.Format(transfer.Sent), Sizes.Format(transfer.Total));
                 }
                 return IsSelectedRunning && _transferOutcomes.TryGetValue(vm, out var outcome) ? outcome : null;
             }
@@ -2185,9 +2197,9 @@ namespace WinQEMU.ViewModels
         public async Task SendFilesAsync(IReadOnlyList<string> paths)
         {
             if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
-                throw new InvalidOperationException("La machine doit être en marche pour recevoir des fichiers.");
+                throw new InvalidOperationException(ShellText.SendNeedsRunning);
             if (_transfers.ContainsKey(target))
-                throw new InvalidOperationException("Une copie vers cette machine est déjà en cours : attendez qu'elle se termine.");
+                throw new InvalidOperationException(ShellText.SendAlreadyBusy);
 
             var transfer = new FileTransfer();
             _transfers[target] = transfer;
@@ -2214,13 +2226,13 @@ namespace WinQEMU.ViewModels
 
                 var names = result.Names.Count <= 3
                     ? string.Join(", ", result.Names)
-                    : $"{string.Join(", ", result.Names.Take(2))} et {result.Names.Count - 2} autres";
-                SetTransferOutcome(target, $"Copié sur le Bureau de l'invité : {names}");
+                    : string.Format(CultureInfo.CurrentCulture, ShellText.TransferNamesMore, string.Join(", ", result.Names.Take(2)), result.Names.Count - 2);
+                SetTransferOutcome(target, string.Format(CultureInfo.CurrentCulture, ShellText.SentToDesktop, names));
                 AppendDiagnostic($"Files: {result.Names.Count} item(s) copied to {result.GuestFolder} in the guest.");
             }
             catch (OperationCanceledException) when (transfer.Cancel.IsCancellationRequested)
             {
-                SetTransferOutcome(target, "Copie annulée : rien n'a été laissé dans l'invité.");
+                SetTransferOutcome(target, ShellText.SendCancelled);
             }
             finally
             {
@@ -2238,11 +2250,11 @@ namespace WinQEMU.ViewModels
         public async Task<DropResult?> PullFilesAsync(IReadOnlyList<string> guestPaths, string destination)
         {
             if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
-                throw new InvalidOperationException("La machine doit être en marche.");
+                throw new InvalidOperationException(ShellText.MachineMustRun);
             if (_transfers.ContainsKey(target))
-                throw new InvalidOperationException("Une copie avec cette machine est déjà en cours : attendez qu'elle se termine.");
+                throw new InvalidOperationException(ShellText.PullAlreadyBusy);
 
-            var transfer = new FileTransfer { Label = "Copie depuis l'invité" };
+            var transfer = new FileTransfer { Label = ShellText.TransferFromGuest };
             _transfers[target] = transfer;
             _transferOutcomes.Remove(target);
             RaiseFileTransferProperties();
@@ -2262,14 +2274,14 @@ namespace WinQEMU.ViewModels
                     transfer.Cancel.Token);
                 var names = result.Names.Count <= 3
                     ? string.Join(", ", result.Names)
-                    : $"{string.Join(", ", result.Names.Take(2))} et {result.Names.Count - 2} autres";
-                SetTransferOutcome(target, $"Copié dans {destination} : {names}");
+                    : string.Format(CultureInfo.CurrentCulture, ShellText.TransferNamesMore, string.Join(", ", result.Names.Take(2)), result.Names.Count - 2);
+                SetTransferOutcome(target, string.Format(CultureInfo.CurrentCulture, ShellText.PulledTo, destination, names));
                 AppendDiagnostic($"Files: {result.Names.Count} item(s) copied from the guest to {destination}.");
                 return result;
             }
             catch (OperationCanceledException) when (transfer.Cancel.IsCancellationRequested)
             {
-                SetTransferOutcome(target, "Copie annulée : rien n'a été laissé sur ce PC.");
+                SetTransferOutcome(target, ShellText.PullCancelled);
                 return null;
             }
             finally
@@ -2296,9 +2308,9 @@ namespace WinQEMU.ViewModels
         private async Task<GuestAgentClient> GuestAgentForBrowsingAsync()
         {
             if (SelectedSession is not { IsRunning: true } session)
-                throw new InvalidOperationException("La machine doit être en marche.");
+                throw new InvalidOperationException(ShellText.MachineMustRun);
             return await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(15))
-                   ?? throw new GuestAgentException("L'agent invité ne répond pas : installez d'abord les outils invités.");
+                   ?? throw new GuestAgentException(ShellText.AgentNotAnswering);
         }
 
         private void CancelSendFiles()

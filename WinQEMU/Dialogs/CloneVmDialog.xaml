@@ -3,6 +3,8 @@
     x:Class="WinQEMU.Dialogs.CloneVmDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ct="using:WinQEMU.Core.Text"
+    xmlns:t="using:WinQEMU.Text"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -24,8 +26,8 @@
 
             <TextBox
                 x:Name="NameBox"
-                AutomationProperties.Name="Nom du clone"
-                Header="Nom du clone"
+                AutomationProperties.Name="{x:Bind t:DialogText.CloneName}"
+                Header="{x:Bind t:DialogText.CloneName}"
                 TextChanged="OnNameChanged" />
 
             <!-- The two kinds differ in what they cost now and in what they forbid later, so each says
@@ -34,23 +36,23 @@
                 <RadioButton
                     x:Name="FullCopyOption"
                     Checked="OnKindChanged"
-                    Content="Copie complète"
+                    Content="{x:Bind t:DialogText.CloneFullCopy}"
                     GroupName="CloneKind"
                     IsChecked="True" />
                 <TextBlock
                     Margin="28,0,0,0"
                     Style="{StaticResource Hint}"
-                    Text="Chaque disque est recopié tel qu'il est maintenant, en une image autonome. Les instantanés ne sont pas repris. Le clone ne dépend plus de rien." />
+                    Text="{x:Bind t:DialogText.CloneFullCopyHint}" />
                 <RadioButton
                     x:Name="LinkedOption"
                     Margin="0,4,0,0"
                     Checked="OnKindChanged"
-                    Content="Clone lié"
+                    Content="{x:Bind t:DialogText.CloneLinked}"
                     GroupName="CloneKind" />
                 <TextBlock
                     Margin="28,0,0,0"
                     Style="{StaticResource Hint}"
-                    Text="Instantané et presque gratuit en place : le clone n'enregistre que ce qu'il écrit et lit le reste dans les disques actuels de l'original. Celui-ci passe sur un nouvel instantané à chaud, « Base de … ». Tant que le clone existe, l'original peut toujours restaurer ses instantanés, mais pas supprimer ceux dont le clone dépend, ni ses fichiers. Déplacez toujours les deux machines ensemble." />
+                    Text="{x:Bind t:DialogText.CloneLinkedHint}" />
                 <TextBlock
                     x:Name="LinkedUnavailableText"
                     Margin="28,0,0,0"
@@ -63,7 +65,7 @@
 
             <TextBlock
                 Style="{StaticResource Hint}"
-                Text="Dans les deux cas le clone reçoit ses propres adresses MAC, mais le système invité garde son identité : nom d'hôte, identifiant de machine, SID Windows. Changez-les dans le clone s'il doit partager un réseau avec l'original." />
+                Text="{x:Bind t:DialogText.CloneIdentityHint}" />
 
             <StackPanel x:Name="ProgressPanel" Spacing="4" Visibility="Collapsed">
                 <ProgressBar x:Name="CopyProgress" Maximum="1" />
@@ -86,13 +88,13 @@
                     Grid.Column="0"
                     HorizontalAlignment="Stretch"
                     Click="OnCancelClick"
-                    Content="Annuler" />
+                    Content="{x:Bind ct:CommonText.Cancel}" />
                 <Button
                     x:Name="CloneButton"
                     Grid.Column="1"
                     HorizontalAlignment="Stretch"
                     Click="OnCloneClick"
-                    Content="Cloner"
+                    Content="{x:Bind t:DialogText.CloneButton}"
                     Style="{StaticResource AccentButtonStyle}" />
             </Grid>
         </StackPanel>

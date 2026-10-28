@@ -8,6 +8,8 @@ using System.Text;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
 using WinQEMU.Core.Services;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 
 namespace WinQEMU.ViewModels
 {
@@ -35,7 +37,7 @@ namespace WinQEMU.ViewModels
             _selectedProfile = GuestOsCatalog.Default;
             ApplyProfile(_selectedProfile);
 
-            Name = MakeUniqueName("Nouvelle machine virtuelle");
+            Name = MakeUniqueName(DialogText.NewVmDefaultName);
 
             NetworkChoices = new[] { NetworkChoice.Nat() }
                 .Concat(manager.Settings.VirtualNetworks.Select(NetworkChoice.For))
@@ -83,20 +85,20 @@ namespace WinQEMU.ViewModels
 
         public string StepTitle => StepIndex switch
         {
-            0 => "Nom et emplacement",
-            1 => "Système d'exploitation invité",
-            2 => "Processeur, mémoire et microprogramme",
-            3 => "Disque dur virtuel",
-            4 => "Support d'installation et réseau",
-            _ => "Résumé"
+            0 => DialogText.NewVmStepName,
+            1 => DialogText.NewVmStepOs,
+            2 => DialogText.NewVmStepPlatform,
+            3 => DialogText.NewVmStepDisk,
+            4 => DialogText.NewVmStepMedia,
+            _ => DialogText.NewVmStepSummary
         };
 
         public string StepCaption =>
-            $"Étape {(StepIndex + 1).ToString(CultureInfo.CurrentCulture)} sur {StepCount.ToString(CultureInfo.CurrentCulture)}";
+            string.Format(CultureInfo.CurrentCulture, DialogText.NewVmStepCaption, StepIndex + 1, StepCount);
 
         public bool IsLastStep => StepIndex == StepCount - 1;
 
-        public string PrimaryButtonText => IsLastStep ? "Créer" : "Suivant";
+        public string PrimaryButtonText => IsLastStep ? DialogText.CreateButton : DialogText.NewVmNext;
 
         public bool CanGoBack => StepIndex > 0;
 
@@ -178,15 +180,14 @@ namespace WinQEMU.ViewModels
                 return (problem, null);
 
             if (_existingNames.Contains(Name.Trim()))
-                return ($"Une machine virtuelle nommée « {Name.Trim()} » existe déjà.", null);
+                return (string.Format(CultureInfo.CurrentCulture, DialogText.NewVmNameExists, Name.Trim()), null);
 
             if (!_manager.IsQemuAvailable)
-                return ("QEMU est introuvable : impossible de créer une machine virtuelle.", null);
+                return (DialogText.NewVmNoQemu, null);
 
             if (Directory.Exists(TargetFolder))
             {
-                return (null, $"Le dossier {TargetFolder} existe déjà. Un suffixe numérique sera ajouté " +
-                              "pour ne rien écraser.");
+                return (null, string.Format(CultureInfo.CurrentCulture, DialogText.NewVmFolderExists, TargetFolder));
             }
 
             return (null, null);
@@ -195,26 +196,24 @@ namespace WinQEMU.ViewModels
         private (string? Error, string? Advisory) ValidatePlatform()
         {
             if (CpuCount < 1)
-                return ("Il faut au moins un processeur virtuel.", null);
+                return (DialogText.NewVmNeedCpu, null);
 
             if (MemoryMb < 128)
-                return ("Il faut au moins 128 Mo de mémoire.", null);
+                return (DialogText.NewVmNeedMemory, null);
 
             var installation = _manager.Installation;
             if (installation is not null
                 && Firmware != FirmwareType.Bios
                 && !installation.SupportsUefi(SelectedProfile.Architecture, Firmware == FirmwareType.UefiSecureBoot))
             {
-                return ($"Le microprogramme UEFI demandé est absent de {installation.InstallDirectory}. " +
-                        "Choisissez BIOS ou installez les fichiers edk2.", null);
+                return (string.Format(CultureInfo.CurrentCulture, DialogText.NewVmNoUefi, installation.InstallDirectory), null);
             }
 
             if (installation is not null
                 && Firmware == FirmwareType.UefiSecureBoot
                 && QemuArgumentBuilder.ResolveAccelerator(BuildPreviewConfig(), installation) == AcceleratorType.Whpx)
             {
-                return ("Le démarrage sécurisé exige le mode SMM, que l'hyperviseur WHPX ne fournit pas : QEMU " +
-                        "refuserait de démarrer. Choisissez UEFI sans démarrage sécurisé.", null);
+                return (DialogText.NewVmSecureBootWhpx, null);
             }
 
             var advisories = new List<string>();
@@ -223,21 +222,18 @@ namespace WinQEMU.ViewModels
             if (hostMemory > 0 && MemoryMb > HostCapabilities.RecommendedMaxGuestMemoryMb)
             {
                 advisories.Add(
-                    $"L'hôte dispose de {FormatMb(hostMemory)}. Allouer {FormatMb(MemoryMb)} risque de le faire " +
-                    "recourir au fichier d'échange et de ralentir tout le système.");
+                    string.Format(CultureInfo.CurrentCulture, DialogText.NewVmMemoryAdvisory, FormatMb(hostMemory), FormatMb(MemoryMb)));
             }
 
             if (CpuCount > HostCapabilities.LogicalProcessors)
             {
                 advisories.Add(
-                    $"L'hôte n'a que {HostCapabilities.LogicalProcessors.ToString(CultureInfo.CurrentCulture)} " +
-                    "processeurs logiques. Au-delà, les vCPU se disputent le même matériel et les performances baissent.");
+                    string.Format(CultureInfo.CurrentCulture, DialogText.NewVmCpuAdvisory, HostCapabilities.LogicalProcessors));
             }
 
             if (installation is not null && !installation.SupportsWhpx)
             {
-                advisories.Add("L'accélération matérielle WHPX est indisponible : la VM tournera en émulation, " +
-                               "environ dix fois plus lentement.");
+                advisories.Add(DialogText.NewVmNoWhpx);
             }
 
             return (null, advisories.Count > 0 ? string.Join(Environment.NewLine, advisories) : null);
@@ -248,29 +244,25 @@ namespace WinQEMU.ViewModels
             if (!CreateNewDisk)
             {
                 if (string.IsNullOrWhiteSpace(ExistingDiskPath))
-                    return ("Indiquez le fichier disque à rattacher.", null);
+                    return (DialogText.NewVmNoDiskFile, null);
                 if (!File.Exists(ExistingDiskPath))
-                    return ($"Fichier introuvable : {ExistingDiskPath}", null);
+                    return (string.Format(CultureInfo.CurrentCulture, DialogText.FileNotFound, ExistingDiskPath), null);
 
-                return (null, "Le disque est référencé à son emplacement actuel, il n'est pas copié. " +
-                              "Le déplacer ou le supprimer rendra la VM indémarrable.");
+                return (null, DialogText.NewVmExistingDiskAdvisory);
             }
 
             if (DiskSizeGb < 1)
-                return ("La taille du disque doit être d'au moins 1 Go.", null);
+                return (DialogText.NewVmDiskTooSmall, null);
 
             if (DiskSizeGb > 8192)
-                return ("La taille du disque est limitée à 8192 Go par cet assistant.", null);
+                return (DialogText.NewVmDiskTooLarge, null);
 
             var free = HostCapabilities.GetFreeSpaceBytes(LibraryRoot);
             if (free >= 0 && DiskCapacityBytes > free)
             {
                 return DiskFormat == DiskFormat.Qcow2
-                    ? (null, $"Le disque déclare {DiskSizeGb.ToString(CultureInfo.CurrentCulture)} Go alors qu'il " +
-                             $"reste {FormatBytes(free)} de libre. Le format qcow2 est creux : il n'occupera que " +
-                             "l'espace réellement écrit, mais l'invité tombera en panne d'espace avant sa taille annoncée.")
-                    : ($"Le format {DiskFormat} réserve immédiatement tout l'espace, or il ne reste que " +
-                       $"{FormatBytes(free)} sur le volume.", null);
+                    ? (null, string.Format(CultureInfo.CurrentCulture, DialogText.NewVmSparseAdvisory, Sizes.Format(DiskCapacityBytes), FormatBytes(free)))
+                    : (string.Format(CultureInfo.CurrentCulture, DialogText.NewVmNoSpace, DiskFormat, FormatBytes(free)), null);
             }
 
             return (null, null);
@@ -279,36 +271,32 @@ namespace WinQEMU.ViewModels
         private (string? Error, string? Advisory) ValidateMedia()
         {
             if (!string.IsNullOrWhiteSpace(IsoPath) && !File.Exists(IsoPath))
-                return ($"Image ISO introuvable : {IsoPath}", null);
+                return (string.Format(CultureInfo.CurrentCulture, DialogText.NewVmIsoNotFound, IsoPath), null);
 
             if (UseUnattended && (IsLinuxUnattended
                     ? UbuntuUnattendedSetup.WhyUserNameIsRefused(UnattendedUser)
                     : WindowsUnattendedSetup.WhyUserNameIsRefused(UnattendedUser)) is { } refused)
                 return (refused, null);
             if (UseUnattended && IsLinuxUnattended && UnattendedPassword.Length == 0)
-                return ("Ubuntu demande un mot de passe pour ouvrir une session : indiquez-en un.", null);
+                return (DialogText.NewVmUbuntuPassword, null);
 
             if (!string.IsNullOrWhiteSpace(SecondaryIsoPath) && !File.Exists(SecondaryIsoPath))
-                return ($"Second ISO introuvable : {SecondaryIsoPath}", null);
+                return (string.Format(CultureInfo.CurrentCulture, DialogText.NewVmSecondIsoNotFound, SecondaryIsoPath), null);
 
             var advisories = new List<string>();
 
             if (string.IsNullOrWhiteSpace(IsoPath))
             {
-                advisories.Add("Sans support d'installation, la VM démarrera sur un disque vide et s'arrêtera au " +
-                               "microprogramme. Vous pourrez ajouter un ISO plus tard.");
+                advisories.Add(DialogText.NewVmNoIsoAdvisory);
             }
 
             if (UseUnattended && !IsLinuxUnattended && string.IsNullOrWhiteSpace(SecondaryIsoPath))
             {
-                advisories.Add("Sans l'ISO virtio-win en second lecteur, Windows s'installera sans ses pilotes virtio ni " +
-                               "l'agent invité : pas de dossiers partagés, ni de résolution qui suit la fenêtre.");
+                advisories.Add(DialogText.NewVmNoVirtioUnattended);
             }
             else if (SelectedProfile.SuggestsVirtioDrivers && string.IsNullOrWhiteSpace(SecondaryIsoPath))
             {
-                advisories.Add("Pour ce système, l'ISO virtio-win en second lecteur permet d'utiliser les " +
-                               "périphériques virtio (réseau et disque plus rapides). Facultatif ici, car le " +
-                               "disque est configuré sur un bus reconnu nativement.");
+                advisories.Add(DialogText.NewVmVirtioSuggested);
             }
 
             return (null, advisories.Count > 0 ? string.Join(Environment.NewLine, advisories) : null);
@@ -418,8 +406,7 @@ namespace WinQEMU.ViewModels
         public bool RtcLocalTime { get => _rtcLocalTime; set => SetProperty(ref _rtcLocalTime, value); }
 
         public string HostSummary =>
-            $"Hôte : {HostCapabilities.LogicalProcessors.ToString(CultureInfo.CurrentCulture)} processeurs logiques, " +
-            $"{FormatMb(HostCapabilities.TotalPhysicalMemoryMb)} de mémoire.";
+            string.Format(CultureInfo.CurrentCulture, DialogText.NewVmHostSummary, HostCapabilities.LogicalProcessors, FormatMb(HostCapabilities.TotalPhysicalMemoryMb));
 
         // ---- Step 4: disk ----
 
@@ -517,8 +504,8 @@ namespace WinQEMU.ViewModels
         public bool IsLinuxUnattended => SelectedProfile.Family == "Linux";
 
         public string UnattendedHint => IsLinuxUnattended
-            ? "Ubuntu s'installe sans rien demander : tout le disque, ce compte (administrateur par sudo), la langue, le clavier et le fuseau horaire de ce PC, l'agent invité et l'agent de presse-papiers (dossiers partagés et copier-coller d'emblée). Il faut une carte en NAT : les paquets viennent d'Internet."
-            : "Windows s'installe sans rien demander : l'édition Professionnel, tout le disque, ce compte (administrateur, ouvert automatiquement la première fois), la langue, le clavier et le fuseau horaire de ce PC. Puis les pilotes virtio et l'agent invité, si l'ISO virtio-win est en second lecteur.";
+            ? DialogText.NewVmUnattendedUbuntu
+            : DialogText.NewVmUnattendedWindows;
 
         // Reading the ISO's directory on every keystroke of a path would be wasteful: once per file.
         private readonly Dictionary<string, bool> _ubuntuInstallers = new(StringComparer.OrdinalIgnoreCase);
@@ -603,27 +590,28 @@ namespace WinQEMU.ViewModels
             get
             {
                 var builder = new StringBuilder();
-                builder.AppendLine($"Nom : {Name.Trim()}");
-                builder.AppendLine($"Emplacement : {TargetFolder}");
-                builder.AppendLine($"Système invité : {SelectedProfile.DisplayName} ({SelectedProfile.Architecture})");
-                builder.AppendLine($"Microprogramme : {DescribeFirmware(Firmware)}");
-                builder.AppendLine($"Processeurs virtuels : {CpuCount.ToString(CultureInfo.CurrentCulture)}");
-                builder.AppendLine($"Mémoire : {FormatMb(MemoryMb)}");
+                var culture = CultureInfo.CurrentCulture;
+                builder.AppendLine(string.Format(culture, DialogText.NewVmSummaryName, Name.Trim()));
+                builder.AppendLine(string.Format(culture, DialogText.NewVmSummaryLocation, TargetFolder));
+                builder.AppendLine(string.Format(culture, DialogText.NewVmSummaryGuest, SelectedProfile.DisplayName, SelectedProfile.Architecture));
+                builder.AppendLine(string.Format(culture, DialogText.NewVmSummaryFirmware, DescribeFirmware(Firmware)));
+                builder.AppendLine(string.Format(culture, DialogText.NewVmSummaryCpus, CpuCount));
+                builder.AppendLine(string.Format(culture, DialogText.NewVmSummaryMemory, FormatMb(MemoryMb)));
 
                 builder.AppendLine(CreateNewDisk
-                    ? $"Disque : nouveau, {DiskSizeGb.ToString(CultureInfo.CurrentCulture)} Go, " +
-                      $"{DiskFormat.ToString().ToLowerInvariant()}, bus {DescribeBus(DiskBus)}"
-                    : $"Disque : existant, {ExistingDiskPath}, bus {DescribeBus(DiskBus)}");
+                    ? string.Format(culture, DialogText.NewVmSummaryNewDisk, Sizes.Format(DiskCapacityBytes),
+                        DiskFormat.ToString().ToLowerInvariant(), DescribeBus(DiskBus))
+                    : string.Format(culture, DialogText.NewVmSummaryExistingDisk, ExistingDiskPath, DescribeBus(DiskBus)));
 
                 builder.AppendLine(string.IsNullOrWhiteSpace(IsoPath)
-                    ? "Support d'installation : aucun"
-                    : $"Support d'installation : {IsoPath}{(BootFromIso ? " (démarrage dessus)" : string.Empty)}");
+                    ? DialogText.NewVmSummaryNoMedia
+                    : string.Format(culture, BootFromIso ? DialogText.NewVmSummaryMediaBoot : DialogText.NewVmSummaryMedia, IsoPath));
 
                 if (!string.IsNullOrWhiteSpace(SecondaryIsoPath))
-                    builder.AppendLine($"Second lecteur : {SecondaryIsoPath}");
+                    builder.AppendLine(string.Format(culture, DialogText.NewVmSummarySecondDrive, SecondaryIsoPath));
 
-                builder.AppendLine($"Réseau : {NetworkChoices.FirstOrDefault(c => c.Key == NetworkConnection)?.Label ?? DescribeNetwork(NetworkMode)}");
-                builder.Append($"Horloge matérielle : {(RtcLocalTime ? "heure locale" : "UTC")}");
+                builder.AppendLine(string.Format(culture, DialogText.NewVmSummaryNetwork, NetworkChoices.FirstOrDefault(c => c.Key == NetworkConnection)?.Label ?? DescribeNetwork(NetworkMode)));
+                builder.Append(RtcLocalTime ? DialogText.NewVmSummaryClockLocal : DialogText.NewVmSummaryClockUtc);
 
                 return builder.ToString();
             }
@@ -639,7 +627,7 @@ namespace WinQEMU.ViewModels
             {
                 var installation = _manager.Installation;
                 if (installation is null)
-                    return "(QEMU introuvable)";
+                    return DialogText.NewVmPreviewNoQemu;
 
                 try
                 {
@@ -651,7 +639,7 @@ namespace WinQEMU.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    return $"(aperçu indisponible : {ex.Message})";
+                    return string.Format(CultureInfo.CurrentCulture, DialogText.NewVmPreviewFailed, ex.Message);
                 }
             }
         }
@@ -729,30 +717,30 @@ namespace WinQEMU.ViewModels
 
         public static string DescribeFirmware(FirmwareType firmware) => firmware switch
         {
-            FirmwareType.Bios => "BIOS (héritage)",
+            FirmwareType.Bios => DialogText.FirmwareBios,
             FirmwareType.Uefi => "UEFI",
-            FirmwareType.UefiSecureBoot => "UEFI avec démarrage sécurisé",
+            FirmwareType.UefiSecureBoot => DialogText.FirmwareUefiSecureBoot,
             _ => firmware.ToString()
         };
 
         public static string DescribeBus(DiskBus bus) => bus switch
         {
-            DiskBus.VirtioBlk => "virtio (rapide, pilote requis)",
-            DiskBus.Sata => "SATA (reconnu partout)",
+            DiskBus.VirtioBlk => DialogText.BusVirtio,
+            DiskBus.Sata => DialogText.BusSata,
             DiskBus.Nvme => "NVMe",
-            DiskBus.Ide => "IDE (héritage)",
-            DiskBus.LsiSas => "LSI SAS (comme VMware)",
-            DiskBus.Pvscsi => "PVSCSI (VMware, pilote requis)",
+            DiskBus.Ide => DialogText.BusIde,
+            DiskBus.LsiSas => DialogText.BusLsiSas,
+            DiskBus.Pvscsi => DialogText.BusPvscsi,
             _ => bus.ToString()
         };
 
         public static string DescribeNetwork(NetworkMode mode) => mode switch
         {
-            NetworkMode.Nat => "NAT (partage la connexion de l'hôte)",
-            NetworkMode.Bridged => "Ponté (pilote TAP requis)",
-            NetworkMode.Internal => "Segment multicast (ancien)",
-            NetworkMode.Network => "Réseau virtuel (Privé, Interne…)",
-            NetworkMode.None => "Aucun",
+            NetworkMode.Nat => DialogText.NetworkModeNat,
+            NetworkMode.Bridged => DialogText.NetworkModeBridged,
+            NetworkMode.Internal => DialogText.NetworkModeMulticast,
+            NetworkMode.Network => DialogText.NetworkModeVirtual,
+            NetworkMode.None => DialogText.NetworkModeNone,
             _ => mode.ToString()
         };
 
@@ -766,22 +754,9 @@ namespace WinQEMU.ViewModels
             _ => "qcow2"
         };
 
-        private static string FormatMb(int megabytes) => megabytes >= 1024
-            ? $"{(megabytes / 1024d).ToString("0.#", CultureInfo.CurrentCulture)} Gio"
-            : $"{megabytes.ToString(CultureInfo.CurrentCulture)} Mio";
+        private static string FormatMb(int megabytes) => Sizes.Format(megabytes * 1024d * 1024);
 
-        private static string FormatBytes(long bytes)
-        {
-            string[] units = { "o", "Kio", "Mio", "Gio", "Tio" };
-            double value = bytes;
-            var unit = 0;
-            while (value >= 1024 && unit < units.Length - 1)
-            {
-                value /= 1024;
-                unit++;
-            }
-            return $"{value.ToString(unit == 0 ? "0" : "0.#", CultureInfo.CurrentCulture)} {units[unit]}";
-        }
+        private static string FormatBytes(long bytes) => Sizes.Format(bytes);
 
         private string MakeUniqueName(string baseName)
         {

@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Qemu
 {
@@ -98,7 +99,7 @@ namespace WinQEMU.Core.Qemu
             try
             {
                 if (State != VmState.Stopped)
-                    throw new InvalidOperationException($"The VM is already {State}.");
+                    throw new InvalidOperationException(PlatformText.SessionAlreadyStarted);
 
                 var problems = QemuArgumentBuilder.Validate(Config, _installation);
                 if (problems.Count > 0)
@@ -292,17 +293,15 @@ namespace WinQEMU.Core.Qemu
         public async Task SaveSnapshotAsync(string name, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("A snapshot name is required.", nameof(name));
+                throw new ArgumentException(PlatformText.SessionSnapshotNameRequired, nameof(name));
 
             if (!Config.Disks.Any(d => d.Format == DiskFormat.Qcow2))
-                throw new InvalidOperationException("Snapshots require at least one qcow2 disk.");
+                throw new InvalidOperationException(PlatformText.SessionSnapshotNeedsQcow2);
 
             if (!SupportsMemorySnapshots)
             {
                 throw new InvalidOperationException(
-                    "A snapshot including memory cannot be taken while WHPX hardware acceleration is " +
-                    "active, because WHPX cannot serialise CPU state. Take a disk-only snapshot of the " +
-                    "running VM instead, or shut the VM down and snapshot it offline.");
+                    PlatformText.SessionMemorySnapshotWhpx);
             }
 
             var output = await RequireQmp()
@@ -351,7 +350,7 @@ namespace WinQEMU.Core.Qemu
             CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("A snapshot name is required.", nameof(name));
+                throw new ArgumentException(PlatformText.SessionSnapshotNameRequired, nameof(name));
 
             var qmp = RequireQmp();
             var overlays = new Dictionary<string, string>();
@@ -366,7 +365,7 @@ namespace WinQEMU.Core.Qemu
                     $"{disk.Id}-{SanitizeSnapshotName(name)}.qcow2");
 
                 if (File.Exists(overlayPath))
-                    throw new IOException($"A snapshot overlay already exists at {overlayPath}.");
+                    throw new IOException(string.Format(CultureInfo.CurrentCulture, PlatformText.SessionOverlayExists, overlayPath));
 
                 await qmp.ExecuteAsync(
                     "blockdev-snapshot-sync",
@@ -578,7 +577,7 @@ namespace WinQEMU.Core.Qemu
             var reply = await RequireQmp().ExecuteHumanCommandAsync(
                 $"hostfwd_add {adapterId} {Services.LanAccess.RuleOf(forward)}", cancellationToken).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(reply))
-                throw new InvalidOperationException($"QEMU n'a pas ouvert le port {forward.HostPort} : {reply.Trim()}");
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.SessionHostForwardFailed, forward.HostPort, reply.Trim()));
             AppendLog($"Host forward added: {Services.LanAccess.RuleOf(forward)}");
         }
 
@@ -954,7 +953,7 @@ namespace WinQEMU.Core.Qemu
             process.Exited += OnProcessExited;
 
             if (!process.Start())
-                throw new InvalidOperationException($"Unable to start {executable}.");
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.SessionUnableToStart, executable));
 
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
@@ -992,9 +991,9 @@ namespace WinQEMU.Core.Qemu
 
                 var code = TryGetExitCode();
                 throw new InvalidOperationException(
-                    $"QEMU s'est arrêté (code {code}) avant d'accepter la connexion de contrôle. " +
+                    string.Format(CultureInfo.CurrentCulture, PlatformText.SessionQemuExitedBeforeQmp, code) + " " +
                     (string.IsNullOrWhiteSpace(_lastQemuMessage)
-                        ? "Consultez le journal pour le détail."
+                        ? PlatformText.SessionSeeLog
                         : _lastQemuMessage));
             }
 
@@ -1071,7 +1070,7 @@ namespace WinQEMU.Core.Qemu
                     break;
 
                 case "GUEST_PANICKED":
-                    LastError = "The guest OS panicked.";
+                    LastError = PlatformText.SessionGuestPanicked;
                     AppendLog(LastError);
                     break;
             }
@@ -1170,8 +1169,7 @@ namespace WinQEMU.Core.Qemu
             // A non-zero exit during startup means QEMU rejected the configuration; the log holds why.
             if (exitCode != 0 && State is VmState.Starting or VmState.Running)
             {
-                LastError = $"QEMU exited unexpectedly with code {exitCode.ToString(CultureInfo.InvariantCulture)}. " +
-                            "See the log for details.";
+                LastError = string.Format(CultureInfo.CurrentCulture, PlatformText.SessionQemuExited, exitCode.ToString(CultureInfo.InvariantCulture));
                 State = VmState.Error;
             }
             else
@@ -1240,7 +1238,7 @@ namespace WinQEMU.Core.Qemu
 
             if (template is null)
                 throw new QemuNotAvailableException(
-                    $"The UEFI variable template for {Config.Architecture} was not found in {_installation.InstallDirectory}.");
+                    string.Format(CultureInfo.CurrentCulture, PlatformText.FirmwareNoVarsTemplate, Config.Architecture, _installation.InstallDirectory));
 
             Directory.CreateDirectory(Config.FolderPath);
             File.Copy(template, target);
@@ -1317,12 +1315,12 @@ namespace WinQEMU.Core.Qemu
         public Task<GuestAgentClient> ConnectGuestAgentAsync(CancellationToken cancellationToken = default) =>
             IsRunning && GuestAgentPort is { } port
                 ? GuestAgentClient.ConnectAsync(port, cancellationToken)
-                : throw new InvalidOperationException("The VM is not running.");
+                : throw new InvalidOperationException(PlatformText.SessionNotRunning);
 
         private QmpClient RequireQmp() =>
             _qmp is { IsConnected: true } qmp
                 ? qmp
-                : throw new InvalidOperationException("The VM is not running, or its QMP connection was lost.");
+                : throw new InvalidOperationException(PlatformText.SessionNotRunningOrQmpLost);
 
         /// <summary>
         /// Asks the OS for a free loopback port by binding to port 0, then releases it for QEMU.

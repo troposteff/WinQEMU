@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="SettingsLanguage" xml:space="preserve"><value>Language</value></data>
+  <data name="SettingsLanguageHint" xml:space="preserve"><value>Takes effect the next time WinQEMU starts. Folders and drives WinQEMU creates in a guest from then on are named in this language too (~/Shares, ~/Partages).</value></data>
+  <data name="CloneName" xml:space="preserve"><value>Clone name</value></data>
+  <data name="CloneFullCopy" xml:space="preserve"><value>Full clone</value></data>
+  <data name="CloneFullCopyHint" xml:space="preserve"><value>Each disk is copied as it is now into a standalone image. Snapshots are not carried over. The clone depends on nothing afterwards.</value></data>
+  <data name="CloneLinked" xml:space="preserve"><value>Linked clone</value></data>
+  <data name="CloneLinkedHint" xml:space="preserve"><value>Instant and takes almost no space: the clone only stores what it writes and reads the rest from the original's current disks. The original moves onto a new live snapshot named after the clone. While the clone exists, the original can still restore its snapshots, but cannot delete the ones the clone depends on, nor its files. Always move both machines together.</value></data>
+  <data name="CloneIdentityHint" xml:space="preserve"><value>Either way the clone gets its own MAC addresses, but the guest operating system keeps its identity: host name, machine ID, Windows SID. Change them in the clone if it has to share a network with the original.</value></data>
+  <data name="CloneButton" xml:space="preserve"><value>Clone</value></data>
+  <data name="CloneTitle" xml:space="preserve"><value>Clone “{0}”</value></data>
+  <data name="CloneFullCopySize" xml:space="preserve"><value>{0} disk(s), at most {1}, copied into a new folder of the library.</value></data>
+  <data name="CloneFullCopySizeUnknown" xml:space="preserve"><value>{0} disk(s), copied into a new folder of the library.</value></data>
+  <data name="CloneLinkedSize" xml:space="preserve"><value>Nothing is copied: the clone starts with almost empty disks, which only grow by what it writes.</value></data>
+  <data name="CloneProgress" xml:space="preserve"><value>Copying disks… {0:P0}</value></data>
+  <data name="CloneCreatingLinked" xml:space="preserve"><value>Creating the linked clone…</value></data>
+  <data name="Preparing" xml:space="preserve"><value>Preparing…</value></data>
+  <data name="Cancelling" xml:space="preserve"><value>Cancelling…</value></data>
+  <data name="ConvertTargetFormat" xml:space="preserve"><value>Target format</value></data>
+  <data name="ConvertCompress" xml:space="preserve"><value>Compress the image (qcow2 only)</value></data>
+  <data name="ConvertWarning" xml:space="preserve"><value>The conversion writes a new image next to the old one, which is kept, and the machine is attached to the copy. Snapshots are not carried over: they stay on the original image.</value></data>
+  <data name="GoodToKnow" xml:space="preserve"><value>Good to know</value></data>
+  <data name="ConvertButton" xml:space="preserve"><value>Convert</value></data>
+  <data name="ConvertTitle" xml:space="preserve"><value>Convert “{0}”</value></data>
+  <data name="ConvertCurrentFormat" xml:space="preserve"><value>Current format: {0}.</value></data>
+  <data name="ExportIntro" xml:space="preserve"><value>An OVA package (OVF 1.0, compressed VMDK disks) that VMware Workstation, ESXi, VirtualBox and Proxmox can import. The machine is exported in its current state.</value></data>
+  <data name="ExportFile" xml:space="preserve"><value>OVA file</value></data>
+  <data name="ExportButton" xml:space="preserve"><value>Export</value></data>
+  <data name="ExportTitle" xml:space="preserve"><value>Export “{0}”</value></data>
+  <data name="ExportSize" xml:space="preserve"><value>{0} disk(s), at most {1} before compression. During the export, the destination drive needs about twice the package size free.</value></data>
+  <data name="ExportNoFile" xml:space="preserve"><value>Enter the file to write.</value></data>
+  <data name="InvalidPath" xml:space="preserve"><value>This path is not valid.</value></data>
+  <data name="FolderMissing" xml:space="preserve"><value>The folder {0} does not exist.</value></data>
+  <data name="ExportFileExists" xml:space="preserve"><value>This file already exists. Choose another name, or use Browse… to replace it.</value></data>
+  <data name="ExportConverting" xml:space="preserve"><value>Converting disks… {0:P0}</value></data>
+  <data name="ExportWriting" xml:space="preserve"><value>Writing the package… {0:P0}</value></data>
+  <data name="ExportDiskFull" xml:space="preserve"><value>The destination drive is full. Free up some space or choose another drive.</value></data>
+  <data name="GrowNewSizeName" xml:space="preserve"><value>New size in GB</value></data>
+  <data name="GrowNewSize" xml:space="preserve"><value>New size (GB)</value></data>
+  <data name="GrowHint" xml:space="preserve"><value>A disk can only grow: shrinking it would cut off the guest's file system, which qemu-img cannot read. The guest only sees the added space once it has extended its partition.</value></data>
+  <data name="GrowButton" xml:space="preserve"><value>Expand</value></data>
+  <data name="GrowTitle" xml:space="preserve"><value>Expand “{0}”</value></data>
+  <data name="GrowCurrentSize" xml:space="preserve"><value>Current size: {0}.</value></data>
+  <data name="GrowCurrentSizeUnknown" xml:space="preserve"><value>Current size unknown: the image has not been measured.</value></data>
+  <data name="ImportNameAccessible" xml:space="preserve"><value>Name of the imported machine</value></data>
+  <data name="ImportHint" xml:space="preserve"><value>The disks are converted to qcow2 in a new folder of the library: the original machine is not changed and remains usable in its hypervisor.</value></data>
+  <data name="ImportButton" xml:space="preserve"><value>Import</value></data>
+  <data name="ImportTitleVmware" xml:space="preserve"><value>Import a VMware machine</value></data>
+  <data name="ImportTitleVirtualBox" xml:space="preserve"><value>Import a VirtualBox machine</value></data>
+  <data name="ImportTitleOvf" xml:space="preserve"><value>Import an OVF package</value></data>
+  <data name="ImportTitleDisk" xml:space="preserve"><value>Import a disk</value></data>
+  <data name="ImportGuestOsFrom" xml:space="preserve"><value>Guest OS: {0} (“{1}”)</value></data>
+  <data name="ImportGuestOs" xml:space="preserve"><value>Guest OS: {0}</value></data>
+  <data name="ImportFirmware" xml:space="preserve"><value>Firmware: {0}</value></data>
+  <data name="ImportCpusWithCores" xml:space="preserve"><value>{0} processors ({1} cores per socket)</value></data>
+  <data name="ImportCpus" xml:space="preserve"><value>{0} processor(s)</value></data>
+  <data name="ImportCpuAndMemory" xml:space="preserve"><value>{0}, {1} of memory</value></data>
+  <data name="ImportDisk" xml:space="preserve"><value>Disk {0}: {1} ({2}, {3}) → {4}</value></data>
+  <data name="ImportMac" xml:space="preserve"><value>, address {0}</value></data>
+  <data name="ImportNetwork" xml:space="preserve"><value>Network: {0}, {1}</value></data>
+  <data name="ImportOptical" xml:space="preserve"><value>Optical drive: {0}</value></data>
+  <data name="NewDiskTitle" xml:space="preserve"><value>New disk</value></data>
+  <data name="NewDiskHint" xml:space="preserve"><value>The image is created in the machine's folder and allocated on demand: on the host it only takes up what the guest writes.</value></data>
+  <data name="NewDiskSizeName" xml:space="preserve"><value>Size in GB</value></data>
+  <data name="NewDiskSize" xml:space="preserve"><value>Size (GB)</value></data>
+  <data name="DiskController" xml:space="preserve"><value>Controller</value></data>
+  <data name="CreateButton" xml:space="preserve"><value>Create</value></data>
+  <data name="NewVmDescription" xml:space="preserve"><value>Description (optional)</value></data>
+  <data name="NewVmLibraryFolder" xml:space="preserve"><value>Library folder</value></data>
+  <data name="Change" xml:space="preserve"><value>Change…</value></data>
+  <data name="NewVmTargetFolder" xml:space="preserve"><value>The machine will be created in:</value></data>
+  <data name="NewVmOsHint" xml:space="preserve"><value>The chosen system presets the firmware, the disk bus, the network card and the clock. Everything can still be changed afterwards.</value></data>
+  <data name="NewVmOperatingSystem" xml:space="preserve"><value>Operating system</value></data>
+  <data name="NewVmAppliedValues" xml:space="preserve"><value>Applied values</value></data>
+  <data name="NewVmArchitectureLabel" xml:space="preserve"><value>Architecture:</value></data>
+  <data name="NewVmFirmwareLabel" xml:space="preserve"><value>Firmware:</value></data>
+  <data name="NewVmDiskBusLabel" xml:space="preserve"><value>Disk bus:</value></data>
+  <data name="VirtualProcessors" xml:space="preserve"><value>Virtual processors</value></data>
+  <data name="MemoryMb" xml:space="preserve"><value>Memory (MB)</value></data>
+  <data name="Firmware" xml:space="preserve"><value>Firmware</value></data>
+  <data name="NewVmRtcLocal" xml:space="preserve"><value>Hardware clock in local time (expected by Windows)</value></data>
+  <data name="NewVmCreateDisk" xml:space="preserve"><value>Create a new virtual disk</value></data>
+  <data name="NewVmDiskSize" xml:space="preserve"><value>Size (GB)</value></data>
+  <data name="NewVmFormatHint" xml:space="preserve"><value>qcow2 is sparse: the file only grows as data is written. raw reserves all the space at once.</value></data>
+  <data name="NewVmExistingDisk" xml:space="preserve"><value>Use an existing disk</value></data>
+  <data name="NewVmExistingDiskPlaceholder" xml:space="preserve"><value>Path of the .qcow2, .vhdx, .vmdk or .img file</value></data>
+  <data name="NewVmIso" xml:space="preserve"><value>Installation ISO image</value></data>
+  <data name="NewVmNoIso" xml:space="preserve"><value>No optical media</value></data>
+  <data name="NewVmBootFromIso" xml:space="preserve"><value>Boot from this media</value></data>
+  <data name="NewVmUnattended" xml:space="preserve"><value>Unattended installation</value></data>
+  <data name="UserName" xml:space="preserve"><value>User name</value></data>
+  <data name="Password" xml:space="preserve"><value>Password</value></data>
+  <data name="NewVmComputerName" xml:space="preserve"><value>Computer name:</value></data>
+  <data name="NewVmSecondaryIso" xml:space="preserve"><value>Second drive (virtio drivers, optional)</value></data>
+  <data name="Network" xml:space="preserve"><value>Network</value></data>
+  <data name="NetworkConnection" xml:space="preserve"><value>Network connection</value></data>
+  <data name="NewVmCommandLine" xml:space="preserve"><value>Generated QEMU command line</value></data>
+  <data name="NewVmBack" xml:space="preserve"><value>Back</value></data>
+  <data name="NewVmDefaultName" xml:space="preserve"><value>New virtual machine</value></data>
+  <data name="NewVmStepName" xml:space="preserve"><value>Name and location</value></data>
+  <data name="NewVmStepOs" xml:space="preserve"><value>Guest operating system</value></data>
+  <data name="NewVmStepPlatform" xml:space="preserve"><value>Processor, memory and firmware</value></data>
+  <data name="NewVmStepDisk" xml:space="preserve"><value>Virtual hard disk</value></data>
+  <data name="NewVmStepMedia" xml:space="preserve"><value>Installation media and network</value></data>
+  <data name="NewVmStepSummary" xml:space="preserve"><value>Summary</value></data>
+  <data name="NewVmStepCaption" xml:space="preserve"><value>Step {0} of {1}</value></data>
+  <data name="NewVmNext" xml:space="preserve"><value>Next</value></data>
+  <data name="NewVmNameExists" xml:space="preserve"><value>A virtual machine named “{0}” already exists.</value></data>
+  <data name="NewVmNoQemu" xml:space="preserve"><value>QEMU cannot be found: no virtual machine can be created.</value></data>
+  <data name="NewVmFolderExists" xml:space="preserve"><value>The folder {0} already exists. A number will be added to the name so nothing is overwritten.</value></data>
+  <data name="NewVmNeedCpu" xml:space="preserve"><value>At least one virtual processor is needed.</value></data>
+  <data name="NewVmNeedMemory" xml:space="preserve"><value>At least 128 MB of memory is needed.</value></data>
+  <data name="NewVmNoUefi" xml:space="preserve"><value>The requested UEFI firmware is missing from {0}. Choose BIOS or install the edk2 files.</value></data>
+  <data name="NewVmSecureBootWhpx" xml:space="preserve"><value>Secure Boot requires SMM mode, which the WHPX hypervisor does not provide: QEMU would refuse to start. Choose UEFI without Secure Boot.</value></data>
+  <data name="NewVmMemoryAdvisory" xml:space="preserve"><value>The host has {0}. Allocating {1} may push it onto the page file and slow down the whole system.</value></data>
+  <data name="NewVmCpuAdvisory" xml:space="preserve"><value>The host only has {0} logical processors. Beyond that, the vCPUs compete for the same hardware and performance drops.</value></data>
+  <data name="NewVmNoWhpx" xml:space="preserve"><value>WHPX hardware acceleration is unavailable: the VM will run emulated, about ten times slower.</value></data>
+  <data name="NewVmNoDiskFile" xml:space="preserve"><value>Enter the disk file to attach.</value></data>
+  <data name="FileNotFound" xml:space="preserve"><value>File not found: {0}</value></data>
+  <data name="NewVmExistingDiskAdvisory" xml:space="preserve"><value>The disk is used where it is now, not copied. Moving or deleting it will make the VM unable to start.</value></data>
+  <data name="NewVmDiskTooSmall" xml:space="preserve"><value>The disk must be at least 1 GB.</value></data>
+  <data name="NewVmDiskTooLarge" xml:space="preserve"><value>This wizard limits the disk to 8192 GB.</value></data>
+  <data name="NewVmSparseAdvisory" xml:space="preserve"><value>The disk declares {0} while only {1} is free. The qcow2 format is sparse: it only takes the space actually written, but the guest will run out of space before reaching its stated size.</value></data>
+  <data name="NewVmNoSpace" xml:space="preserve"><value>The {0} format reserves all the space at once, but only {1} is left on the volume.</value></data>
+  <data name="NewVmIsoNotFound" xml:space="preserve"><value>ISO image not found: {0}</value></data>
+  <data name="NewVmUbuntuPassword" xml:space="preserve"><value>Ubuntu needs a password to sign in: enter one.</value></data>
+  <data name="NewVmSecondIsoNotFound" xml:space="preserve"><value>Second ISO not found: {0}</value></data>
+  <data name="NewVmNoIsoAdvisory" xml:space="preserve"><value>Without installation media, the VM will start on an empty disk and stop at the firmware. You can add an ISO later.</value></data>
+  <data name="NewVmNoVirtioUnattended" xml:space="preserve"><value>Without the virtio-win ISO in the second drive, Windows will install without its virtio drivers or the guest agent: no shared folders, and no resolution that follows the window.</value></data>
+  <data name="NewVmVirtioSuggested" xml:space="preserve"><value>For this system, the virtio-win ISO in the second drive lets you use virtio devices (faster network and disk). Optional here, since the disk is set up on a bus recognized natively.</value></data>
+  <data name="NewVmHostSummary" xml:space="preserve"><value>Host: {0} logical processors, {1} of memory.</value></data>
+  <data name="NewVmUnattendedUbuntu" xml:space="preserve"><value>Ubuntu installs without asking anything: the whole disk, this account (administrator through sudo), this PC's language, keyboard and time zone, the guest agent and the clipboard agent (shared folders and copy and paste from the start). A NAT card is needed: the packages come from the Internet.</value></data>
+  <data name="NewVmUnattendedWindows" xml:space="preserve"><value>Windows installs without asking anything: the Pro edition, the whole disk, this account (administrator, signed in automatically the first time), this PC's language, keyboard and time zone. Then the virtio drivers and the guest agent, if the virtio-win ISO is in the second drive.</value></data>
+  <data name="NewVmSummaryName" xml:space="preserve"><value>Name: {0}</value></data>
+  <data name="NewVmSummaryLocation" xml:space="preserve"><value>Location: {0}</value></data>
+  <data name="NewVmSummaryGuest" xml:space="preserve"><value>Guest OS: {0} ({1})</value></data>
+  <data name="NewVmSummaryFirmware" xml:space="preserve"><value>Firmware: {0}</value></data>
+  <data name="NewVmSummaryCpus" xml:space="preserve"><value>Virtual processors: {0}</value></data>
+  <data name="NewVmSummaryMemory" xml:space="preserve"><value>Memory: {0}</value></data>
+  <data name="NewVmSummaryNewDisk" xml:space="preserve"><value>Disk: new, {0}, {1}, bus {2}</value></data>
+  <data name="NewVmSummaryExistingDisk" xml:space="preserve"><value>Disk: existing, {0}, bus {1}</value></data>
+  <data name="NewVmSummaryNoMedia" xml:space="preserve"><value>Installation media: none</value></data>
+  <data name="NewVmSummaryMedia" xml:space="preserve"><value>Installation media: {0}</value></data>
+  <data name="NewVmSummaryMediaBoot" xml:space="preserve"><value>Installation media: {0} (boots from it)</value></data>
+  <data name="NewVmSummarySecondDrive" xml:space="preserve"><value>Second drive: {0}</value></data>
+  <data name="NewVmSummaryNetwork" xml:space="preserve"><value>Network: {0}</value></data>
+  <data name="NewVmSummaryClockLocal" xml:space="preserve"><value>Hardware clock: local time</value></data>
+  <data name="NewVmSummaryClockUtc" xml:space="preserve"><value>Hardware clock: UTC</value></data>
+  <data name="NewVmPreviewNoQemu" xml:space="preserve"><value>(QEMU not found)</value></data>
+  <data name="NewVmPreviewFailed" xml:space="preserve"><value>(preview unavailable: {0})</value></data>
+  <data name="FirmwareBios" xml:space="preserve"><value>BIOS (legacy)</value></data>
+  <data name="FirmwareUefiSecureBoot" xml:space="preserve"><value>UEFI with Secure Boot</value></data>
+  <data name="BusVirtio" xml:space="preserve"><value>virtio (fast, driver required)</value></data>
+  <data name="BusSata" xml:space="preserve"><value>SATA (recognized everywhere)</value></data>
+  <data name="BusIde" xml:space="preserve"><value>IDE (legacy)</value></data>
+  <data name="BusLsiSas" xml:space="preserve"><value>LSI SAS (as in VMware)</value></data>
+  <data name="BusPvscsi" xml:space="preserve"><value>PVSCSI (VMware, driver required)</value></data>
+  <data name="NetworkModeNat" xml:space="preserve"><value>NAT (shares the host's connection)</value></data>
+  <data name="NetworkModeBridged" xml:space="preserve"><value>Bridged (TAP driver required)</value></data>
+  <data name="NetworkModeMulticast" xml:space="preserve"><value>Multicast segment (old)</value></data>
+  <data name="NetworkModeVirtual" xml:space="preserve"><value>Virtual network (Private, Internal…)</value></data>
+  <data name="NetworkModeNone" xml:space="preserve"><value>None</value></data>
+  <data name="SettingsSubtitle" xml:space="preserve"><value>Changes take effect immediately.</value></data>
+  <data name="SettingsQemu" xml:space="preserve"><value>QEMU installation</value></data>
+  <data name="SettingsQemuHint" xml:space="preserve"><value>WinQEMU does not install QEMU. Let automatic detection do the work, or point to the folder containing qemu-system-x86_64.exe and qemu-img.exe.</value></data>
+  <data name="SettingsQemuOverridden" xml:space="preserve"><value>Folder set in the settings — automatic detection is turned off.</value></data>
+  <data name="ChooseFolder" xml:space="preserve"><value>Choose a folder…</value></data>
+  <data name="SettingsQemuReset" xml:space="preserve"><value>Back to automatic detection</value></data>
+  <data name="SettingsQemuRedetect" xml:space="preserve"><value>Detect again</value></data>
+  <data name="SettingsAcceleration" xml:space="preserve"><value>Acceleration</value></data>
+  <data name="SettingsFirmwares" xml:space="preserve"><value>Firmware</value></data>
+  <data name="SettingsDiagnostics" xml:space="preserve"><value>Folders set aside during detection</value></data>
+  <data name="SettingsQemuMissing" xml:space="preserve"><value>QEMU cannot be found</value></data>
+  <data name="SettingsStartup" xml:space="preserve"><value>Startup</value></data>
+  <data name="SettingsStartAtLogon" xml:space="preserve"><value>Start WinQEMU when signing in to Windows</value></data>
+  <data name="SettingsSound" xml:space="preserve"><value>Virtual machine sound</value></data>
+  <data name="SettingsSoundHint" xml:space="preserve"><value>The output where all machines play their sound. Windows only remembers it for the QEMU program as a whole: it cannot differ from one machine to another. Volume and mute, however, are set for each machine with the Sound button.</value></data>
+  <data name="SettingsSoundOutput" xml:space="preserve"><value>Virtual machine audio output</value></data>
+  <data name="SettingsLibrary" xml:space="preserve"><value>Virtual machine library</value></data>
+  <data name="SettingsLibraryHint" xml:space="preserve"><value>Folder scanned at startup and offered by default when creating a machine. Changing it rereads the library; no file is moved, and the machines of the previous folder simply disappear from the list.</value></data>
+  <data name="OpenInExplorer" xml:space="preserve"><value>Open in File Explorer</value></data>
+  <data name="SettingsStartAtLogonHint" xml:space="preserve"><value>WinQEMU then opens in the notification area and starts the machines marked “Start with WinQEMU” (Automatic start section of each machine). Windows also lists it among its startup apps.</value></data>
+  <data name="SettingsStartupUnavailable" xml:space="preserve"><value>Windows does not give access to WinQEMU's startup: {0}</value></data>
+  <data name="SettingsStartupDisabledByUser" xml:space="preserve"><value>Turned off in Windows: turn WinQEMU back on in Settings &gt; Apps &gt; Startup.</value></data>
+  <data name="SettingsStartupByPolicy" xml:space="preserve"><value>Set by your organization's policy.</value></data>
+  <data name="SettingsStartupRefused" xml:space="preserve"><value>Windows refused: {0}</value></data>
+  <data name="NetworksTitle" xml:space="preserve"><value>Virtual networks</value></data>
+  <data name="NetworksIntro" xml:space="preserve"><value>Networks to plug the machines' cards into (Hardware, Network section, “Connection” list). WinQEMU runs them itself; on a private or internal network its DHCP server gives the machines their addresses, on an external network the router does. Each network has its own subnet.</value></data>
+  <data name="NetworksEmpty" xml:space="preserve"><value>No networks yet.</value></data>
+  <data name="NetworksName" xml:space="preserve"><value>Network name</value></data>
+  <data name="NetworksDhcpServer" xml:space="preserve"><value>DHCP server</value></data>
+  <data name="NetworksAdapter" xml:space="preserve"><value>Adapter</value></data>
+  <data name="NetworksAdapterName" xml:space="preserve"><value>This PC's network adapter</value></data>
+  <data name="NetworksSubnet" xml:space="preserve"><value>Subnet</value></data>
+  <data name="NetworksSubnetAddress" xml:space="preserve"><value>Subnet address</value></data>
+  <data name="NetworksSubnetMask" xml:space="preserve"><value>Subnet mask</value></data>
+  <data name="NetworksDhcpFrom" xml:space="preserve"><value>DHCP, from</value></data>
+  <data name="NetworksDhcpFirst" xml:space="preserve"><value>First address handed out</value></data>
+  <data name="NetworksDhcpTo" xml:space="preserve"><value>to</value></data>
+  <data name="NetworksDhcpLast" xml:space="preserve"><value>Last address handed out</value></data>
+  <data name="NetworksAddPrivate" xml:space="preserve"><value>Add a private network</value></data>
+  <data name="NetworksAddInternal" xml:space="preserve"><value>Add an internal network</value></data>
+  <data name="NetworksAddExternal" xml:space="preserve"><value>Add an external network</value></data>
+  <data name="NetworksTypesHint" xml:space="preserve"><value>An internal network also connects this PC to the machines, through a TAP-Windows adapter: one adapter per internal network. The driver (from OpenVPN, GPLv2 licence, source github.com/OpenVPN/tap-windows6) comes with WinQEMU and is installed with the first internal network. An external network puts the machines on this PC's network, each with its own address given by the router, thanks to Npcap; there they cannot reach this PC itself (for that: their NAT card, or an internal network).</value></data>
+  <data name="NetworksNpcapHint" xml:space="preserve"><value>An external network goes through Npcap, Wireshark's free capture driver. Install it with its default options, without checking “Restrict Npcap driver's access to Administrators only”, then click “Add an external network” again.</value></data>
+  <data name="NetworksNpcapDownload" xml:space="preserve"><value>Download Npcap from npcap.com</value></data>
+  <data name="NetworksDefaultPrivate" xml:space="preserve"><value>Private network</value></data>
+  <data name="NetworksDefaultInternal" xml:space="preserve"><value>Internal network</value></data>
+  <data name="NetworksDefaultExternal" xml:space="preserve"><value>External network</value></data>
+  <data name="NetworksDefaultNumbered" xml:space="preserve"><value>{0} {1}</value></data>
+  <data name="NetworksDefaultUnnamed" xml:space="preserve"><value>Unnamed network</value></data>
+  <data name="NetworksInstallingTap" xml:space="preserve"><value>Installing OpenVPN's TAP-Windows driver… Windows asks for administrator permission, and may ask whether to trust OpenVPN.</value></data>
+  <data name="NetworksAddingTap" xml:space="preserve"><value>Adding a TAP-Windows adapter… Windows asks for administrator permission.</value></data>
+  <data name="NetworksNoNewTap" xml:space="preserve"><value>The driver answered, but no new TAP-Windows adapter appeared. Try again in a moment.</value></data>
+  <data name="NetworksTapRefused" xml:space="preserve"><value>Nothing was installed: administrator permission was refused.</value></data>
+  <data name="NetworksNoPhysicalAdapter" xml:space="preserve"><value>No Wi-Fi or Ethernet adapter of this PC is connected: connect one, then try again.</value></data>
+  <data name="NetworksAdapterDisconnected" xml:space="preserve"><value>{0} (not connected)</value></data>
+  <data name="NetworksInUse" xml:space="preserve"><value>{0} is used by {1}: first change their network card in Hardware.</value></data>
+  <data name="NetworksProblem" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="NetworksSaveFailed" xml:space="preserve"><value>The networks could not be saved: {0}</value></data>
+  <data name="NetworksFixBeforeClosing" xml:space="preserve"><value>{0} Fix it before closing.</value></data>
+  <data name="GuestFilesTitle" xml:space="preserve"><value>Get files from the guest</value></data>
+  <data name="GuestFilesButton" xml:space="preserve"><value>Get…</value></data>
+  <data name="GuestFilesParent" xml:space="preserve"><value>Parent folder</value></data>
+  <data name="GuestFilesReading" xml:space="preserve"><value>Reading…</value></data>
+  <data name="GuestFilesEmpty" xml:space="preserve"><value>Empty folder.</value></data>
+  <data name="GuestFilesHint" xml:space="preserve"><value>Double-click a folder to open it. Check what to copy: a folder is copied with its contents.</value></data>
+  <data name="TrayOpen" xml:space="preserve"><value>Open WinQEMU</value></data>
+  <data name="TrayQuit" xml:space="preserve"><value>Shut down the machines and quit</value></data>
+  <data name="SessionEndReason" xml:space="preserve"><value>Shutting down virtual machines…</value></data>
+  <data name="DropCopyTo" xml:space="preserve"><value>Copy to %1</value></data>
+  <data name="DropGuestDesktop" xml:space="preserve"><value>the guest's desktop</value></data>
+  <data name="ChartNow" xml:space="preserve"><value>now</value></data>
+  <data name="ChartSecondsAgo" xml:space="preserve"><value>{0} s ago</value></data>
+  <data name="TreeOriginSubtitle" xml:space="preserve"><value>before any snapshot</value></data>
+  <data name="TreeCurrentSubtitle" xml:space="preserve"><value>the machine's current state</value></data>
+  <data name="TreeLinkedCloneSubtitle" xml:space="preserve"><value>linked clone</value></data>
+  <data name="TreeRetainedSubtitle" xml:space="preserve"><value>kept for a linked clone</value></data>
+  <data name="TreeTooltip" xml:space="preserve"><value>{0}
+{1}
+Taken on {2}</value></data>
+  <data name="ConsoleIdle" xml:space="preserve"><value>Start the virtual machine to show its console.</value></data>
+  <data name="ConsoleConnecting" xml:space="preserve"><value>Connecting to the console…</value></data>
+  <data name="ConsoleWindowNotFound" xml:space="preserve"><value>QEMU's console window cannot be found.</value></data>
+  <data name="ConsoleEmbedFailed" xml:space="preserve"><value>The console could not be embedded. It stays in a separate window.</value></data>
+  <data name="ConsoleReleaseTimeout" xml:space="preserve"><value>The console could not be released in time.</value></data>
+  <data name="StateStopped" xml:space="preserve"><value>Off</value></data>
+  <data name="StateStarting" xml:space="preserve"><value>Starting…</value></data>
+  <data name="StateRunning" xml:space="preserve"><value>Running</value></data>
+  <data name="StatePaused" xml:space="preserve"><value>Paused</value></data>
+  <data name="StateStopping" xml:space="preserve"><value>Shutting down…</value></data>
+  <data name="NetworkChoiceLabel" xml:space="preserve"><value>{0} — {1}</value></data>
+  <data name="NetworkChoiceNat" xml:space="preserve"><value>NAT (shares this PC's connection)</value></data>
+  <data name="NetworkChoiceNone" xml:space="preserve"><value>No network card</value></data>
+  <data name="SizeUnknown" xml:space="preserve"><value>size unknown</value></data>
+  <data name="AcceleratorAuto" xml:space="preserve"><value>Automatic (WHPX if available)</value></data>
+  <data name="AcceleratorWhpx" xml:space="preserve"><value>WHPX (hardware acceleration)</value></data>
+  <data name="AcceleratorTcg" xml:space="preserve"><value>TCG (emulation, slow)</value></data>
+  <data name="GraphicsVirtio" xml:space="preserve"><value>virtio (modern, driver required)</value></data>
+  <data name="GraphicsStd" xml:space="preserve"><value>std (works everywhere)</value></data>
+  <data name="GraphicsNone" xml:space="preserve"><value>none</value></data>
+  <data name="SnapshotsLiveDisks" xml:space="preserve"><value>live · disks</value></data>
+  <data name="SnapshotsMemory" xml:space="preserve"><value>memory {0}</value></data>
+  <data name="SnapshotsDiskState" xml:space="preserve"><value>disk state</value></data>
+  <data name="SnapshotsDiskCount" xml:space="preserve"><value>{0}/{1} disks</value></data>
+  <data name="SnapshotsCloneBase" xml:space="preserve"><value>base of a linked clone</value></data>
+  <data name="SnapshotsNameTaken" xml:space="preserve"><value>A snapshot already has this name.</value></data>
+  <data name="SnapshotsExcluded" xml:space="preserve"><value>Not covered, not being qcow2: {0}</value></data>
+  <data name="SnapshotsNoDisk" xml:space="preserve"><value>This machine has no disk.</value></data>
+  <data name="SnapshotsNoQcow2" xml:space="preserve"><value>No qcow2 disk: only these disks can hold an internal snapshot.</value></data>
+  <data name="SnapshotsReading" xml:space="preserve"><value>Reading snapshots…</value></data>
+  <data name="SnapshotsNone" xml:space="preserve"><value>No snapshots.</value></data>
+  <data name="SnapshotsNoMemory" xml:space="preserve"><value>Saving the memory requires migration support, which WHPX lacks: only a machine under TCG emulation allows it. On this machine, a live snapshot only captures the disks, as a power cut would.</value></data>
+  <data name="SnapshotsSavingMemory" xml:space="preserve"><value>Saving “{0}” with the memory…</value></data>
+  <data name="SnapshotsTakingLive" xml:space="preserve"><value>Live snapshot “{0}”…</value></data>
+  <data name="SnapshotsCreating" xml:space="preserve"><value>Creating “{0}”…</value></data>
+  <data name="SnapshotsResuming" xml:space="preserve"><value>Resuming “{0}”…</value></data>
+  <data name="SnapshotsRestoring" xml:space="preserve"><value>Restoring “{0}”…</value></data>
+  <data name="SnapshotsDeleting" xml:space="preserve"><value>Deleting “{0}”…</value></data>
+  <data name="BootOptical" xml:space="preserve"><value>Optical drive</value></data>
+  <data name="BootSecondOptical" xml:space="preserve"><value>Second optical drive</value></data>
+  <data name="BootDisk" xml:space="preserve"><value>Disk {0}</value></data>
+  <data name="BootEmpty" xml:space="preserve"><value>(empty)</value></data>
+  <data name="HardwareImageNotFound" xml:space="preserve"><value>Image not found: {0}</value></data>
+  <data name="HardwareFileExists" xml:space="preserve"><value>The file {0} already exists in the machine's folder.</value></data>
+  <data name="HardwareMustBeStopped" xml:space="preserve"><value>The machine must be shut down.</value></data>
+  <data name="HardwareNoQemuImg" xml:space="preserve"><value>qemu-img is not available: QEMU was not detected.</value></data>
+  <data name="HardwareDiskFileMissing" xml:space="preserve"><value>The disk file cannot be found.</value></data>
+</root>

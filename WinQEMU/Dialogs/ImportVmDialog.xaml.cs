@@ -10,6 +10,8 @@ using Microsoft.UI.Xaml.Controls;
 using WinQEMU.Core.Import;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Services;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 using WinQEMU.ViewModels;
 
 namespace WinQEMU.Dialogs
@@ -37,15 +39,16 @@ namespace WinQEMU.Dialogs
 
             TitleText.Text = plan.Source switch
             {
-                ImportSource.VMware => "Importer une machine VMware",
-                ImportSource.VirtualBox => "Importer une machine VirtualBox",
-                ImportSource.Ovf => "Importer un paquet OVF",
-                _ => "Importer un disque"
+                ImportSource.VMware => DialogText.ImportTitleVmware,
+                ImportSource.VirtualBox => DialogText.ImportTitleVirtualBox,
+                ImportSource.Ovf => DialogText.ImportTitleOvf,
+                _ => DialogText.ImportTitleDisk
             };
             SourceText.Text = plan.SourcePath;
             NameBox.Text = suggestedName;
             NameBox.SelectAll();
             SummaryText.Text = Summarize(plan);
+            CancelButton.Content = CommonText.Cancel;
 
             foreach (var note in plan.Notes)
             {
@@ -63,7 +66,7 @@ namespace WinQEMU.Dialogs
                 ShowError(plan.Blocker);
                 NameBox.IsEnabled = false;
                 ImportButton.IsEnabled = false;
-                CancelButton.Content = "Fermer";
+                CancelButton.Content = CommonText.Close;
             }
         }
 
@@ -77,34 +80,34 @@ namespace WinQEMU.Dialogs
             var text = new StringBuilder();
             var guest = plan.Profile.DisplayName;
             text.AppendLine(plan.SourceGuestOs.Length > 0
-                ? $"Système invité : {guest} (« {plan.SourceGuestOs} »)"
-                : $"Système invité : {guest}");
-            text.AppendLine($"Microprogramme : {NewVmViewModel.DescribeFirmware(plan.Firmware)}");
+                ? string.Format(CultureInfo.CurrentCulture, DialogText.ImportGuestOsFrom, guest, plan.SourceGuestOs)
+                : string.Format(CultureInfo.CurrentCulture, DialogText.ImportGuestOs, guest));
+            text.AppendLine(string.Format(CultureInfo.CurrentCulture, DialogText.ImportFirmware, NewVmViewModel.DescribeFirmware(plan.Firmware)));
 
             var cpu = plan.CoresPerSocket > 1
-                ? $"{plan.CpuCount} processeurs ({plan.CoresPerSocket} cœurs par socket)"
-                : $"{plan.CpuCount} processeur(s)";
-            text.AppendLine($"{cpu}, {plan.MemoryMb} Mio de mémoire");
+                ? string.Format(CultureInfo.CurrentCulture, DialogText.ImportCpusWithCores, plan.CpuCount, plan.CoresPerSocket)
+                : string.Format(CultureInfo.CurrentCulture, DialogText.ImportCpus, plan.CpuCount);
+            text.AppendLine(string.Format(CultureInfo.CurrentCulture, DialogText.ImportCpuAndMemory, cpu, Sizes.Format(plan.MemoryMb * 1024d * 1024)));
 
             for (var index = 0; index < plan.Disks.Count; index++)
             {
                 var disk = plan.Disks[index];
                 var size = disk.CapacityBytes > 0
-                    ? $"{disk.CapacityBytes / (1024d * 1024 * 1024):0.#} Gio, "
+                    ? Sizes.Format(disk.CapacityBytes) + ", "
                     : string.Empty;
                 text.AppendLine(
-                    $"Disque {index.ToString(CultureInfo.CurrentCulture)} : {disk.PackageEntry ?? Path.GetFileName(disk.SourcePath)} ({size}{disk.Format}, " +
-                    $"{disk.SourceSlot}) → {NewVmViewModel.DescribeBus(disk.Bus)}");
+                    string.Format(CultureInfo.CurrentCulture, DialogText.ImportDisk, index, disk.PackageEntry ?? Path.GetFileName(disk.SourcePath),
+                        size + disk.Format, disk.SourceSlot, NewVmViewModel.DescribeBus(disk.Bus)));
             }
 
             foreach (var adapter in plan.Adapters)
             {
-                var mac = adapter.MacAddress.Length > 0 ? $", adresse {adapter.MacAddress}" : string.Empty;
-                text.AppendLine($"Réseau : {adapter.Model}{mac}, {NewVmViewModel.DescribeNetwork(adapter.Mode)}");
+                var mac = adapter.MacAddress.Length > 0 ? string.Format(CultureInfo.CurrentCulture, DialogText.ImportMac, adapter.MacAddress) : string.Empty;
+                text.AppendLine(string.Format(CultureInfo.CurrentCulture, DialogText.ImportNetwork, adapter.Model + mac, NewVmViewModel.DescribeNetwork(adapter.Mode)));
             }
 
             if (plan.IsoPath.Length > 0)
-                text.AppendLine($"Lecteur optique : {plan.IsoPath}");
+                text.AppendLine(string.Format(CultureInfo.CurrentCulture, DialogText.ImportOptical, plan.IsoPath));
 
             return text.ToString().TrimEnd();
         }
@@ -129,7 +132,7 @@ namespace WinQEMU.Dialogs
             var progress = new Progress<double>(fraction =>
             {
                 CopyProgress.Value = fraction;
-                ProgressText.Text = $"Conversion des disques… {fraction:P0}";
+                ProgressText.Text = string.Format(CultureInfo.CurrentCulture, DialogText.ExportConverting, fraction);
             });
 
             try
@@ -163,7 +166,7 @@ namespace WinQEMU.Dialogs
             CancelButton.IsEnabled = true;
             ProgressPanel.Visibility = importing ? Visibility.Visible : Visibility.Collapsed;
             CopyProgress.Value = 0;
-            ProgressText.Text = "Préparation…";
+            ProgressText.Text = DialogText.Preparing;
         }
 
         private void ShowError(string? message)
@@ -186,7 +189,7 @@ namespace WinQEMU.Dialogs
         {
             if (IsImporting)
             {
-                ProgressText.Text = "Annulation…";
+                ProgressText.Text = DialogText.Cancelling;
                 CancelButton.IsEnabled = false;
                 _cancellation!.Cancel();
                 return;

@@ -1,6 +1,7 @@
 using System.Text;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -76,14 +77,14 @@ namespace WinQEMU.Core.Services
             "systemctl start qemu-guest-agent'";
 
         /// <summary>Run by the agent as root: the clipboard agent, without a question. Exit 31: no known package manager.</summary>
-        public const string LinuxToolsScript = """
+        public static readonly string LinuxToolsScript = """
             export DEBIAN_FRONTEND=noninteractive
             if command -v apt-get >/dev/null; then apt-get install -y spice-vdagent
             elif command -v dnf >/dev/null; then dnf install -y spice-vdagent
             elif command -v zypper >/dev/null; then zypper -n in spice-vdagent
             elif command -v pacman >/dev/null; then pacman -S --noconfirm spice-vdagent
             else exit 31; fi
-            """;
+            """.ReplaceLineEndings("\n");
 
         /// <summary>Whether the machine's profile is one WinQEMU has tools for.</summary>
         public static bool Applies(VmConfig config) =>
@@ -127,16 +128,14 @@ namespace WinQEMU.Core.Services
             }
 
             if (result.Output.Contains("present", StringComparison.Ordinal))
-                return new GuestToolsReport(GuestToolsState.Complete, "Outils invités installés.");
+                return new GuestToolsReport(GuestToolsState.Complete, CoreText.GuestToolsInstalled);
             if (result.Output.Contains("headless", StringComparison.Ordinal))
             {
-                return new GuestToolsReport(GuestToolsState.Complete,
-                    "L'agent invité répond. Sans interface graphique, l'invité n'a pas de presse-papiers à partager : pour y " +
-                    "coller du texte, « Taper le presse-papiers » (barre de la console) le tape au clavier.");
+                return new GuestToolsReport(GuestToolsState.Complete, CoreText.GuestToolsHeadless);
             }
             return new GuestToolsReport(GuestToolsState.Incomplete, windowsGuest
-                ? "L'agent invité répond, mais les outils virtio-win (pilotes, presse-papiers) ne sont pas installés."
-                : "L'agent invité répond, mais spice-vdagent n'est pas installé : le presse-papiers n'est pas partagé.");
+                ? CoreText.GuestToolsIncompleteWindows
+                : CoreText.GuestToolsIncompleteLinux);
         }
 
         /// <summary>Installs what the agent alone does not bring. Windows needs virtio-win's ISO in a drive.</summary>
@@ -152,9 +151,9 @@ namespace WinQEMU.Core.Services
 
         public static string Explain(GuestExecResult result) => result.ExitCode switch
         {
-            30 => "aucun lecteur ne contient l'ISO virtio-win",
-            31 => "la distribution n'a ni apt, ni dnf, ni zypper, ni pacman",
-            3010 => "installé ; un redémarrage de l'invité termine l'installation des pilotes",
+            30 => CoreText.GuestToolsNoVirtioDrive,
+            31 => CoreText.GuestToolsNoPackageManager,
+            3010 => CoreText.GuestToolsRestartNeeded,
             _ => $"code {result.ExitCode} {result.Error.Trim()}".Trim()
         };
 

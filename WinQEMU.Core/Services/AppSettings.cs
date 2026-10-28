@@ -43,6 +43,13 @@ namespace WinQEMU.Core.Services
         /// <summary>virtio-win's ISO, once chosen to install a Windows guest's tools (see GuestTools.FindVirtioWinIso).</summary>
         public string VirtioWinIsoPath { get => _virtioWinIsoPath; set => SetProperty(ref _virtioWinIsoPath, value ?? string.Empty); }
 
+        private string _language = string.Empty;
+        /// <summary>
+        /// The interface's language: "en", "fr", or empty for Windows' own (see Text.UiLanguage). Read once at
+        /// start: a change takes effect the next time WinQEMU starts.
+        /// </summary>
+        public string Language { get => _language; set => SetProperty(ref _language, value ?? string.Empty); }
+
         [JsonIgnore]
         public string EffectiveLibraryRoot =>
             string.IsNullOrWhiteSpace(LibraryRoot) ? DefaultLibraryRoot : LibraryRoot;

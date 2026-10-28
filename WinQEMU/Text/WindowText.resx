@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="VirtualNetworks" xml:space="preserve"><value>Virtual networks</value></data>
+  <data name="NotifyQemuMissing" xml:space="preserve"><value>QEMU not found</value></data>
+  <data name="NotifyQemuLocate" xml:space="preserve"><value>Locate the installation folder…</value></data>
+  <data name="NotifyOperationFailed" xml:space="preserve"><value>Operation failed</value></data>
+  <data name="LibraryTitle" xml:space="preserve"><value>Virtual machines</value></data>
+  <data name="LibraryNewVm" xml:space="preserve"><value>New virtual machine</value></data>
+  <data name="LibraryImportVm" xml:space="preserve"><value>Import a virtual machine</value></data>
+  <data name="LibraryImportVmTip" xml:space="preserve"><value>Import a VMware (.vmx) or VirtualBox (.vbox) machine, an OVF package (.ova, .ovf) or a Hyper-V disk (.vhdx)</value></data>
+  <data name="LibraryRefresh" xml:space="preserve"><value>Refresh the library</value></data>
+  <data name="LibraryRefreshTip" xml:space="preserve"><value>Detect QEMU again and rescan the library</value></data>
+  <data name="LibrarySearchName" xml:space="preserve"><value>Search virtual machines</value></data>
+  <data name="LibrarySearchPlaceholder" xml:space="preserve"><value>Search VMs...</value></data>
+  <data name="LibraryEmpty" xml:space="preserve"><value>No virtual machines. Use + to create one.</value></data>
+  <data name="LibraryNoResults" xml:space="preserve"><value>No results for this search.</value></data>
+  <data name="ToolbarStartTip" xml:space="preserve"><value>Starts the selected virtual machine</value></data>
+  <data name="ToolbarPauseTip" xml:space="preserve"><value>Freezes the machine without shutting it down, or resumes it exactly where it left off</value></data>
+  <data name="ToolbarShutDownTip" xml:space="preserve"><value>Asks the guest operating system to shut down cleanly (ACPI power button)</value></data>
+  <data name="ToolbarPowerOffTip" xml:space="preserve"><value>Turns the machine off immediately, without warning the guest, like pulling the plug. Use Shut down for a clean shutdown.</value></data>
+  <data name="ToolbarCtrlAltDel" xml:space="preserve"><value>Ctrl+Alt+Del</value></data>
+  <data name="ToolbarCtrlAltDelTip" xml:space="preserve"><value>Windows intercepts this key combination: it can only be sent to the guest from here</value></data>
+  <data name="ToolbarUsbTip" xml:space="preserve"><value>Connects a USB device of this PC to the running machine, or chooses the ones to connect at every start</value></data>
+  <data name="ToolbarSoundTip" xml:space="preserve"><value>Mutes this machine or sets its volume on this PC</value></data>
+  <data name="ToolbarPullFiles" xml:space="preserve"><value>Get files</value></data>
+  <data name="ToolbarPullFilesTip" xml:space="preserve"><value>Copies files or folders from the guest to this PC</value></data>
+  <data name="ToolbarSendFiles" xml:space="preserve"><value>Send</value></data>
+  <data name="ToolbarSendFilesTip" xml:space="preserve"><value>Copies files from this PC to the guest's desktop. You can also drag them onto the console, folders included.</value></data>
+  <data name="ToolbarClone" xml:space="preserve"><value>Clone</value></data>
+  <data name="ToolbarCloneTip" xml:space="preserve"><value>Creates a full copy of the selected virtual machine under a new name. The machine must be shut down.</value></data>
+  <data name="ToolbarExport" xml:space="preserve"><value>Export</value></data>
+  <data name="ToolbarExportTip" xml:space="preserve"><value>Exports the selected virtual machine as an OVA package, for VMware, VirtualBox or Proxmox. The machine must be shut down.</value></data>
+  <data name="ToolbarDeleteTip" xml:space="preserve"><value>Removes the selected virtual machine from the list, or deletes its files too; you are asked before anything is done</value></data>
+  <data name="ToolbarMore" xml:space="preserve"><value>More</value></data>
+  <data name="ToolbarMoreTip" xml:space="preserve"><value>The commands the window is too narrow to show</value></data>
+  <data name="HeaderState" xml:space="preserve"><value>State:</value></data>
+  <data name="ViewSummary" xml:space="preserve"><value>Summary</value></data>
+  <data name="ViewConsole" xml:space="preserve"><value>Console</value></data>
+  <data name="SummaryRename" xml:space="preserve"><value>Rename the virtual machine</value></data>
+  <data name="SummaryRenameButton" xml:space="preserve"><value>Rename…</value></data>
+  <data name="SummaryCpus" xml:space="preserve"><value>Virtual processors</value></data>
+  <data name="SummaryMemoryMb" xml:space="preserve"><value>Memory (MB)</value></data>
+  <data name="SummaryIso" xml:space="preserve"><value>ISO image</value></data>
+  <data name="SummaryIsoPath" xml:space="preserve"><value>ISO image path</value></data>
+  <data name="SummaryIsoNone" xml:space="preserve"><value>No optical media</value></data>
+  <data name="SummaryIsoBrowse" xml:space="preserve"><value>Choose an ISO image</value></data>
+  <data name="SummaryIsoInsert" xml:space="preserve"><value>Insert</value></data>
+  <data name="SummaryIsoInsertTip" xml:space="preserve"><value>Changes the disc in the drive of the running machine</value></data>
+  <data name="SummaryLocation" xml:space="preserve"><value>Location</value></data>
+  <data name="PlatformHeader" xml:space="preserve"><value>Platform</value></data>
+  <data name="PlatformArchitecture" xml:space="preserve"><value>Architecture</value></data>
+  <data name="PlatformFirmware" xml:space="preserve"><value>Firmware</value></data>
+  <data name="PlatformAcceleration" xml:space="preserve"><value>Acceleration</value></data>
+  <data name="PlatformMachineType" xml:space="preserve"><value>Machine type</value></data>
+  <data name="PlatformCpuModel" xml:space="preserve"><value>Processor model</value></data>
+  <data name="PlatformCoresPerSocket" xml:space="preserve"><value>Cores per socket</value></data>
+  <data name="PlatformCoresPerSocketHeader" xml:space="preserve"><value>Cores per socket (1 = let QEMU decide)</value></data>
+  <data name="PlatformGraphics" xml:space="preserve"><value>Graphics card</value></data>
+  <data name="PlatformVideoMemory" xml:space="preserve"><value>Video memory</value></data>
+  <data name="PlatformVideoMemoryHeader" xml:space="preserve"><value>Video memory (MB)</value></data>
+  <data name="PlatformSound" xml:space="preserve"><value>Sound</value></data>
+  <data name="PlatformMicrophone" xml:space="preserve"><value>Microphone</value></data>
+  <data name="PlatformMicrophoneTip" xml:space="preserve"><value>Gives the guest this PC's microphone. Windows asks for permission the first time.</value></data>
+  <data name="PlatformUsbTablet" xml:space="preserve"><value>USB tablet</value></data>
+  <data name="PlatformUsbTabletTip" xml:space="preserve"><value>Absolute pointer: without it the guest's cursor drifts away from the host's</value></data>
+  <data name="PlatformBalloon" xml:space="preserve"><value>Memory balloon</value></data>
+  <data name="PlatformBalloonTip" xml:space="preserve"><value>Lets the host reclaim memory the guest is not using</value></data>
+  <data name="PlatformLocalTime" xml:space="preserve"><value>Clock in local time</value></data>
+  <data name="PlatformLocalTimeTip" xml:space="preserve"><value>Expected by Windows; most Linux guests expect UTC</value></data>
+  <data name="PlatformSecondIso" xml:space="preserve"><value>Second optical drive</value></data>
+  <data name="PlatformSecondIsoHeader" xml:space="preserve"><value>Second optical drive (virtio-win drivers, for example)</value></data>
+  <data name="PlatformSecondIsoNone" xml:space="preserve"><value>None</value></data>
+  <data name="PlatformSecondIsoBrowse" xml:space="preserve"><value>Choose the second ISO</value></data>
+  <data name="PlatformExtraArgs" xml:space="preserve"><value>Extra arguments</value></data>
+  <data name="PlatformExtraArgsHeader" xml:space="preserve"><value>Extra QEMU arguments</value></data>
+  <data name="PlatformExtraArgsPlaceholder" xml:space="preserve"><value>Appended as is to the end of the command line</value></data>
+  <data name="PlatformProblemsTitle" xml:space="preserve"><value>This configuration would not start</value></data>
+  <data name="CommandLineHeader" xml:space="preserve"><value>Command line</value></data>
+  <data name="CommandLineHint" xml:space="preserve"><value>What these settings produce. The control port shown is only indicative: the real one is assigned at start.</value></data>
+  <data name="HardwareLocked" xml:space="preserve"><value>QEMU reads the hardware only when it starts. Shut the machine down to change it.</value></data>
+  <data name="BootOrderHeader" xml:space="preserve"><value>Boot order</value></data>
+  <data name="BootOrderHint" xml:space="preserve"><value>The firmware tries the devices in this order. With UEFI it is the only order that counts: a device missing from this list stays invisible to the boot manager.</value></data>
+  <data name="BootOrderUp" xml:space="preserve"><value>Move up</value></data>
+  <data name="BootOrderDown" xml:space="preserve"><value>Move down</value></data>
+  <data name="DisksHeader" xml:space="preserve"><value>Disks</value></data>
+  <data name="DiskImageFile" xml:space="preserve"><value>Image file</value></data>
+  <data name="DiskGrowName" xml:space="preserve"><value>Expand the disk</value></data>
+  <data name="DiskGrow" xml:space="preserve"><value>Expand…</value></data>
+  <data name="DiskConvertName" xml:space="preserve"><value>Convert the disk</value></data>
+  <data name="DiskConvert" xml:space="preserve"><value>Convert…</value></data>
+  <data name="DiskCompactName" xml:space="preserve"><value>Compact the disk</value></data>
+  <data name="DiskCompact" xml:space="preserve"><value>Compact…</value></data>
+  <data name="DiskCompactTip" xml:space="preserve"><value>Gives back to this PC the space the disk no longer uses</value></data>
+  <data name="DiskDetachName" xml:space="preserve"><value>Detach the disk</value></data>
+  <data name="DiskDetach" xml:space="preserve"><value>Detach</value></data>
+  <data name="DiskController" xml:space="preserve"><value>Controller</value></data>
+  <data name="DiskCache" xml:space="preserve"><value>Cache</value></data>
+  <data name="DiskLinkedClonePrefix" xml:space="preserve"><value>Linked clone: holds only what this machine has written, and reads the rest from </value></data>
+  <data name="DiskLinkedCloneSuffix" xml:space="preserve"><value>. “Convert…” makes it independent.</value></data>
+  <data name="DiskOverlayLevels" xml:space="preserve"><value>Overlay levels: </value></data>
+  <data name="DiskRevertToBase" xml:space="preserve"><value>Revert to the base image</value></data>
+  <data name="DiskCommitName" xml:space="preserve"><value>Merge into the base image</value></data>
+  <data name="DiskCommit" xml:space="preserve"><value>Merge</value></data>
+  <data name="DiskReadOnly" xml:space="preserve"><value>Read-only</value></data>
+  <data name="DiskDiscard" xml:space="preserve"><value>Pass TRIM through (discard)</value></data>
+  <data name="DiskDiscardTip" xml:space="preserve"><value>Lets the qcow2 image shrink when the guest frees space</value></data>
+  <data name="DisksHint" xml:space="preserve"><value>The format is that of the existing image: changing it here would convert nothing. Detaching does not delete the file.</value></data>
+  <data name="DisksCreate" xml:space="preserve"><value>Create a disk…</value></data>
+  <data name="DisksAttach" xml:space="preserve"><value>Attach an existing image…</value></data>
+  <data name="Network" xml:space="preserve"><value>Network</value></data>
+  <data name="NetworkCableConnected" xml:space="preserve"><value>Cable connected</value></data>
+  <data name="NetworkCableDisconnected" xml:space="preserve"><value>Cable disconnected: the guest sees no network on this adapter</value></data>
+  <data name="NetworkConnection" xml:space="preserve"><value>Connection</value></data>
+  <data name="NetworkConnectionPlaceholder" xml:space="preserve"><value>Choose a connection</value></data>
+  <data name="NetworkAdapterModel" xml:space="preserve"><value>Adapter model</value></data>
+  <data name="NetworkAdapter" xml:space="preserve"><value>Adapter</value></data>
+  <data name="NetworkMac" xml:space="preserve"><value>MAC address</value></data>
+  <data name="NetworkMacPlaceholder" xml:space="preserve"><value>Generated by QEMU if empty</value></data>
+  <data name="NetworkMacGenerate" xml:space="preserve"><value>Generate</value></data>
+  <data name="NetworkTap" xml:space="preserve"><value>TAP interface</value></data>
+  <data name="NetworkTapHeader" xml:space="preserve"><value>Host TAP interface</value></data>
+  <data name="NetworkNatHint" xml:space="preserve"><value>With NAT the guest can reach out but nothing gets in: a port forward is the only way to reach it from the host.</value></data>
+  <data name="NetworkProtocol" xml:space="preserve"><value>Protocol</value></data>
+  <data name="NetworkHostAddress" xml:space="preserve"><value>Host address</value></data>
+  <data name="NetworkHostPort" xml:space="preserve"><value>Host port</value></data>
+  <data name="NetworkGuestPort" xml:space="preserve"><value>Guest port</value></data>
+  <data name="NetworkAddPortForward" xml:space="preserve"><value>Add a port forward</value></data>
+  <data name="NetworkAddAdapter" xml:space="preserve"><value>Add a network adapter</value></data>
+  <data name="LanAccessHeader" xml:space="preserve"><value>Access from the network</value></data>
+  <data name="LanAccessFirewall" xml:space="preserve"><value>Firewall</value></data>
+  <data name="LanAccessAllowQemu" xml:space="preserve"><value>Allow QEMU…</value></data>
+  <data name="LanAccessOpenService" xml:space="preserve"><value>Open a service…</value></data>
+  <data name="GuestToolsHeader" xml:space="preserve"><value>Guest tools</value></data>
+  <data name="GuestToolsHint" xml:space="preserve"><value>The guest agent and the guest's tools: shared folders, drag and drop, clipboard, automatic screen size and the network chart depend on them. Checked every time the machine starts.</value></data>
+  <data name="GuestToolsInstall" xml:space="preserve"><value>Install guest tools…</value></data>
+  <data name="GuestToolsTrim" xml:space="preserve"><value>Report free space (TRIM)</value></data>
+  <data name="GuestToolsTrimTip" xml:space="preserve"><value>The guest reports the free blocks of its disks; “Compact…” (Hardware, machine shut down) then gives that space back to this PC</value></data>
+  <data name="AutoStartHeader" xml:space="preserve"><value>Automatic start</value></data>
+  <data name="AutoStartHint" xml:space="preserve"><value>The machine starts when WinQEMU opens, so also at Windows sign-in if WinQEMU starts then (Settings). The delay, counted from when WinQEMU opens, sets the order between machines.</value></data>
+  <data name="AutoStartEnable" xml:space="preserve"><value>Start with WinQEMU</value></data>
+  <data name="AutoStartDelay" xml:space="preserve"><value>Delay (seconds)</value></data>
+  <data name="SharedFoldersHeader" xml:space="preserve"><value>Shared folders</value></data>
+  <data name="SharedFoldersShare" xml:space="preserve"><value>Share a folder…</value></data>
+  <data name="SharedFoldersShareReadOnly" xml:space="preserve"><value>Share read-only…</value></data>
+  <data name="SnapshotsHeader" xml:space="preserve"><value>Snapshots</value></data>
+  <data name="SnapshotsHint" xml:space="preserve"><value>Three ways to take a snapshot, each undone differently. Machine shut down: internal snapshot of the disks, undone by bringing them back to that state. Live, disks: each disk gets an overlay; restoring or deleting is done here, with the machine shut down. Live with memory: the machine picks up at the captured moment, but this requires TCG emulation.</value></data>
+  <data name="SnapshotsAuto" xml:space="preserve"><value>Automatic snapshots</value></data>
+  <data name="SnapshotsAutoTip" xml:space="preserve"><value>Taken as the machine starts, while it is still shut down: under WHPX, a snapshot of a running machine can only be deleted once it is shut down. Only those named “Auto …” are deleted beyond the number kept.</value></data>
+  <data name="SnapshotsAutoFrequency" xml:space="preserve"><value>Automatic snapshot frequency</value></data>
+  <data name="SnapshotsAutoKeepName" xml:space="preserve"><value>Automatic snapshots kept</value></data>
+  <data name="SnapshotsAutoKept" xml:space="preserve"><value>kept</value></data>
+  <data name="SnapshotsTree" xml:space="preserve"><value>Snapshot tree</value></data>
+  <data name="SnapshotsNewName" xml:space="preserve"><value>New snapshot name</value></data>
+  <data name="SnapshotsTakeOffline" xml:space="preserve"><value>Offline</value></data>
+  <data name="SnapshotsTakeOfflineTip" xml:space="preserve"><value>Internal snapshot of the disks, machine powered off</value></data>
+  <data name="SnapshotsTakeLive" xml:space="preserve"><value>Live (disks)</value></data>
+  <data name="SnapshotsTakeLiveTip" xml:space="preserve"><value>Machine running: each disk gets an overlay and writes diverge from there. For the guest it is like a power cut.</value></data>
+  <data name="SnapshotsTakeMemory" xml:space="preserve"><value>Live (with memory)</value></data>
+  <data name="SnapshotsTakeMemoryTip" xml:space="preserve"><value>Machine running under emulation: memory is saved too, so resuming picks up at exactly the same moment.</value></data>
+  <data name="SnapshotsRestoreName" xml:space="preserve"><value>Restore the snapshot</value></data>
+  <data name="SnapshotsRestore" xml:space="preserve"><value>Restore</value></data>
+  <data name="SnapshotsRestoreTip" xml:space="preserve"><value>Machine shut down: brings the disks back to this state</value></data>
+  <data name="SnapshotsResumeName" xml:space="preserve"><value>Resume the snapshot</value></data>
+  <data name="SnapshotsResumeTip" xml:space="preserve"><value>Snapshot with memory, machine running: the machine picks up at the captured moment</value></data>
+  <data name="SnapshotsDeleteName" xml:space="preserve"><value>Delete the snapshot</value></data>
+  <data name="SnapshotsRefreshName" xml:space="preserve"><value>Refresh the snapshots</value></data>
+  <data name="SnapshotsRefresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="SnapshotsLockedHint" xml:space="preserve"><value>Restoring and deleting require the machine to be shut down: qemu-img cannot touch an image that a running QEMU holds open.</value></data>
+  <data name="LogHeader" xml:space="preserve"><value>QEMU log</value></data>
+  <data name="ResourcesHeader" xml:space="preserve"><value>Resources</value></data>
+  <data name="ResourcesCpu" xml:space="preserve"><value>Processor</value></data>
+  <data name="ResourcesMemory" xml:space="preserve"><value>Memory</value></data>
+  <data name="ResourcesDisk" xml:space="preserve"><value>Disk</value></data>
+  <data name="ConsoleHint" xml:space="preserve"><value>Click in the console to send keyboard and mouse to the guest. Ctrl+Alt+G releases the mouse. Drag files onto the console to copy them to the guest's desktop.</value></data>
+  <data name="ConsoleScaling" xml:space="preserve"><value>Console scaling</value></data>
+  <data name="ConsoleTypeClipboard" xml:space="preserve"><value>Type clipboard</value></data>
+  <data name="ConsoleTypeClipboardTip" xml:space="preserve"><value>Types the text of this PC's clipboard on the guest's keyboard, for a guest without a shared clipboard (a server's text console, a sign-in screen)</value></data>
+  <data name="ConsoleFullScreen" xml:space="preserve"><value>Full screen</value></data>
+  <data name="ConsoleFullScreenTip" xml:space="preserve"><value>F11 to come back. Esc is not enough: that key goes to the guest.</value></data>
+  <data name="FullScreenStartTip" xml:space="preserve"><value>Starts the virtual machine</value></data>
+  <data name="FullScreenPowerOffTip" xml:space="preserve"><value>Turns the machine off immediately, without warning the guest, like pulling the plug</value></data>
+  <data name="FullScreenSendFiles" xml:space="preserve"><value>Send files</value></data>
+  <data name="FullScreenPullFiles" xml:space="preserve"><value>Get files</value></data>
+  <data name="FullScreenExit" xml:space="preserve"><value>Exit full screen</value></data>
+</root>

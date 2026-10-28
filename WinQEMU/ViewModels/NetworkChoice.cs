@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
 using WinQEMU.Core;
 using WinQEMU.Core.Models;
+using WinQEMU.Text;
 
 namespace WinQEMU.ViewModels
 {
@@ -34,13 +36,13 @@ namespace WinQEMU.ViewModels
 
         public VirtualNetwork? Network { get; }
 
-        public string Label => Network is { } network ? $"{network.Name} — {network.TypeText}" : _label;
+        public string Label => Network is { } network ? string.Format(CultureInfo.CurrentCulture, DialogText.NetworkChoiceLabel, network.Name, network.TypeText) : _label;
 
         public static NetworkChoice Nat() =>
-            new(NetworkAdapterConfig.NatConnection, "NAT (partage la connexion de ce PC)", null);
+            new(NetworkAdapterConfig.NatConnection, DialogText.NetworkChoiceNat, null);
 
         public static NetworkChoice None() =>
-            new(NetworkAdapterConfig.NoConnection, "Aucune carte réseau", null);
+            new(NetworkAdapterConfig.NoConnection, DialogText.NetworkChoiceNone, null);
 
         public static NetworkChoice For(VirtualNetwork network) =>
             new(NetworkAdapterConfig.NetworkConnection(network.Id), string.Empty, network);

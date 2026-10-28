@@ -47,6 +47,21 @@
     <ProjectReference Include="..\WinQEMU.Core\WinQEMU.Core.csproj" />
   </ItemGroup>
 
+  <!-- Interface text, as in WinQEMU.Core: English in Text\X.resx, French in Text\X.fr.resx, a class per English
+       file. XAML reads it by x:Bind to the class's static properties ({x:Bind t:WindowText.Start}), so a key
+       misspelled in XAML does not build either. -->
+  <PropertyGroup>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Text\WindowText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Text" StronglyTypedClassName="WindowText" StronglyTypedFileName="$(IntermediateOutputPath)WindowText.g.cs" />
+    <EmbeddedResource Update="Text\ShellText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Text" StronglyTypedClassName="ShellText" StronglyTypedFileName="$(IntermediateOutputPath)ShellText.g.cs" />
+    <EmbeddedResource Update="Text\DialogText.resx" StronglyTypedLanguage="CSharp" StronglyTypedNamespace="WinQEMU.Text" StronglyTypedClassName="DialogText" StronglyTypedFileName="$(IntermediateOutputPath)DialogText.g.cs" />
+  </ItemGroup>
+  <!-- The XAML compiler runs its passes at the start of PrepareResources, before ResGen writes these classes:
+       XAML that binds to them then failed in pass 2, exit code 1 and no message at all. -->
+  <Target Name="GenerateTextBeforeXaml" BeforeTargets="MarkupCompilePass1" DependsOnTargets="PrepareResourceNames;ResGen" />
+
   <!--
     Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
     Explorer "Package and Publish" context menu entry to be enabled for this project even if

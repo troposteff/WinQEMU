@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.UI;
+using WinQEMU.Text;
 
 namespace WinQEMU.Controls
 {
@@ -240,7 +241,7 @@ namespace WinQEMU.Controls
             _crosshair.Visibility = Visibility.Visible;
 
             var ago = count - 1 - index;
-            var lines = new List<string> { ago == 0 ? "maintenant" : $"il y a {ago} s" };
+            var lines = new List<string> { ago == 0 ? DialogText.ChartNow : string.Format(CultureInfo.CurrentCulture, DialogText.ChartSecondsAgo, ago) };
             foreach (var (name, values) in _series)
             {
                 var value = values[index];

@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="LanguageWindows" xml:space="preserve"><value>Windows language</value></data>
+  <data name="ScaleFit" xml:space="preserve"><value>Fit</value></data>
+  <data name="ScaleActual" xml:space="preserve"><value>Actual size</value></data>
+  <data name="ChartCpu" xml:space="preserve"><value>CPU</value></data>
+  <data name="ChartMemory" xml:space="preserve"><value>Memory</value></data>
+  <data name="ChartRead" xml:space="preserve"><value>Read</value></data>
+  <data name="ChartWrite" xml:space="preserve"><value>Write</value></data>
+  <data name="ChartReceived" xml:space="preserve"><value>Received</value></data>
+  <data name="ChartSent" xml:space="preserve"><value>Sent</value></data>
+  <data name="ChartNetworkNoAgent" xml:space="preserve"><value>Measured by the guest agent, which is not responding in this machine.</value></data>
+  <data name="PercentFormat" xml:space="preserve"><value>{0}%</value></data>
+  <data name="GuestSizeScaled" xml:space="preserve"><value>{0} × {1} scaled: pointer offset (Actual size to aim precisely)</value></data>
+  <data name="MoreSendFiles" xml:space="preserve"><value>Send files…</value></data>
+  <data name="MorePullFiles" xml:space="preserve"><value>Get files…</value></data>
+  <data name="MoreClone" xml:space="preserve"><value>Clone…</value></data>
+  <data name="MoreExport" xml:space="preserve"><value>Export…</value></data>
+  <data name="MoreDelete" xml:space="preserve"><value>Delete…</value></data>
+  <data name="CreateFailedTitle" xml:space="preserve"><value>Could not create the virtual machine</value></data>
+  <data name="RenameBoxHeader" xml:space="preserve"><value>New name</value></data>
+  <data name="RenameTitle" xml:space="preserve"><value>Rename virtual machine</value></data>
+  <data name="RenameButton" xml:space="preserve"><value>Rename</value></data>
+  <data name="CompactNotPossibleTitle" xml:space="preserve"><value>Disk cannot be compacted</value></data>
+  <data name="CompactConfirmTitle" xml:space="preserve"><value>Compact {0}</value></data>
+  <data name="CompactConfirmBody" xml:space="preserve"><value>The disk is rewritten without its unused blocks, then replaces the original; its content does not change. Space freed by files deleted in the guest is only given back if the guest reported it: machine running, “Report free space (TRIM)” (Guest tools), on a disk with the “Discard” option.
+
+The volume needs as much free space as the disk takes up, for the time of the copy.</value></data>
+  <data name="CompactButton" xml:space="preserve"><value>Compact</value></data>
+  <data name="CompactProgressTitle" xml:space="preserve"><value>Compacting {0}…</value></data>
+  <data name="CompactDoneTitle" xml:space="preserve"><value>Disk compacted</value></data>
+  <data name="CompactDoneBody" xml:space="preserve"><value>{0}: {1} → {2}.</value></data>
+  <data name="TrimTitle" xml:space="preserve"><value>Guest free space</value></data>
+  <data name="LiveSnapshotTitle" xml:space="preserve"><value>Take a live snapshot of the disks?</value></data>
+  <data name="LiveSnapshotBody" xml:space="preserve"><value>Each disk gets an overlay, and the machine writes to it from now on; the current image becomes its base image.
+
+Memory is not captured: to the guest, going back will look like a power cut. The overlay is undone from the Disks section.</value></data>
+  <data name="LiveSnapshotButton" xml:space="preserve"><value>Take snapshot</value></data>
+  <data name="ResumeSnapshotTitle" xml:space="preserve"><value>Resume “{0}”?</value></data>
+  <data name="ResumeSnapshotBody" xml:space="preserve"><value>Taken {0}.
+
+The machine will resume exactly at that moment, memory included. Its current state, disks and memory, is lost.</value></data>
+  <data name="MergeLockedTitle" xml:space="preserve"><value>Cannot merge: a linked clone depends on it</value></data>
+  <data name="DiscardOverlayTitle" xml:space="preserve"><value>Revert “{0}” to its base image?</value></data>
+  <data name="DiscardOverlayKeptBody" xml:space="preserve"><value>{0} is the base of a linked clone: it is not changed. The disk starts again from its state on a new overlay, and the current overlay is deleted.</value></data>
+  <data name="DiscardOverlayBody" xml:space="preserve"><value>The overlay {0} will be deleted and the disk will go back to {1}.</value></data>
+  <data name="DiscardOverlayDeeper" xml:space="preserve"><value>That image is itself an overlay ({0} level(s) left), which you can undo in turn.</value></data>
+  <data name="DiscardOverlayLoss" xml:space="preserve"><value>Everything the guest has written since the snapshot is lost.</value></data>
+  <data name="DiscardOverlayButton" xml:space="preserve"><value>Revert to base</value></data>
+  <data name="CommitOverlayTitle" xml:space="preserve"><value>Merge “{0}” into its base image?</value></data>
+  <data name="CommitOverlayBody" xml:space="preserve"><value>The content of {0} is written into {1}, then the overlay is deleted.
+
+Nothing the guest has written is lost, but the snapshot ceases to exist: you will no longer be able to go back to it.</value></data>
+  <data name="CommitOverlayButton" xml:space="preserve"><value>Merge</value></data>
+  <data name="RestorePartial" xml:space="preserve"><value>This snapshot does not cover all of the machine's disks: those without it will stay in their current state, and the whole will be inconsistent.</value></data>
+  <data name="RestoreKeptForClone" xml:space="preserve"><value>A linked clone relies on this snapshot: the images it reads are kept, and the machine starts again from this state on a new layer, which will appear in the list under the same name or followed by “(2)”.</value></data>
+  <data name="RestoreSnapshotTitle" xml:space="preserve"><value>Restore “{0}”?</value></data>
+  <data name="RestoreSnapshotBody" xml:space="preserve"><value>Taken {0}.
+
+The disks will go back to that state. Everything written since will be lost.</value></data>
+  <data name="RestoreButton" xml:space="preserve"><value>Restore</value></data>
+  <data name="DeleteNamedTitle" xml:space="preserve"><value>Delete “{0}”?</value></data>
+  <data name="DeleteSnapshotBody" xml:space="preserve"><value>The snapshot is erased from the disks. Their current state is not affected, but you will no longer be able to go back to it.</value></data>
+  <data name="ImportUnreadableTitle" xml:space="preserve"><value>Cannot read the file</value></data>
+  <data name="ImportedSuffix" xml:space="preserve"><value>(imported)</value><comment>Appended to an imported machine's suggested name when a machine already has it.</comment></data>
+  <data name="SoundSwitchHeader" xml:space="preserve"><value>Machine's sound on this PC</value></data>
+  <data name="SoundOn" xml:space="preserve"><value>On</value></data>
+  <data name="SoundOff" xml:space="preserve"><value>Muted</value></data>
+  <data name="SoundVolume" xml:space="preserve"><value>Volume</value></data>
+  <data name="AudioDefaultOutput" xml:space="preserve"><value>Windows default output</value></data>
+  <data name="SoundOutputNote" xml:space="preserve"><value>Output: {0}. It is changed in Settings, for all machines.</value></data>
+  <data name="InstallToolsSwap" xml:space="preserve"><value>instead of {0}</value></data>
+  <data name="InstallToolsWindowsNoAgent" xml:space="preserve"><value>WinQEMU will insert {0} into the machine's drive{1}. Then, in the guest, open that drive (“virtio-win”) in File Explorer and run, in this order:
+
+1. virtio-win-guest-tools.exe (virtio drivers, clipboard); accept to trust Red Hat;
+2. guest-agent\qemu-ga-x86_64.msi (the guest agent).
+
+WinQEMU waits for the agent, then finishes on its own. It types nothing into Windows itself: Microsoft Defender takes a command typed in Run for an attack, and blocks it.</value></data>
+  <data name="InstallToolsWindowsAgent" xml:space="preserve"><value>The guest agent is responding. WinQEMU will insert {0} into the machine's drive{1} and install the virtio-win tools (drivers, clipboard) through it, without asking.</value></data>
+  <data name="InstallToolsLinuxNoAgent" xml:space="preserve"><value>Sign in and open a terminal in the guest (Ctrl+Alt+T on Ubuntu), then click “Type the command”. WinQEMU types there, with this PC's keyboard layout:
+
+{0}
+
+Do not touch the keyboard while it types (a few seconds). If sudo asks for your password, type it in the console.</value></data>
+  <data name="InstallToolsLinuxAgent" xml:space="preserve"><value>The guest agent is responding. WinQEMU will install spice-vdagent, which shares the clipboard, through it, without asking.</value></data>
+  <data name="InstallToolsTitle" xml:space="preserve"><value>Install guest tools</value></data>
+  <data name="InstallToolsTypeButton" xml:space="preserve"><value>Type the command</value></data>
+  <data name="InstallToolsButton" xml:space="preserve"><value>Install</value></data>
+  <data name="InstallToolsFailedTitle" xml:space="preserve"><value>Guest tools not installed</value></data>
+  <data name="VirtioIsoMissingTitle" xml:space="preserve"><value>virtio-win ISO not found</value></data>
+  <data name="VirtioIsoMissingBody" xml:space="preserve"><value>A Windows guest's tools (guest agent, virtio drivers, clipboard) are on Red Hat's virtio-win ISO, which WinQEMU does not download. It is on fedorapeople.org (groups/virt/virtio-win, “stable-virtio” folder).
+
+Choose it: WinQEMU will remember it for next time.</value></data>
+  <data name="VirtioIsoChooseButton" xml:space="preserve"><value>Choose the ISO…</value></data>
+  <data name="TypeNothingTitle" xml:space="preserve"><value>Nothing to type</value></data>
+  <data name="TypeNothingBody" xml:space="preserve"><value>This PC's clipboard contains no text.</value></data>
+  <data name="TypeClipboardTitle" xml:space="preserve"><value>Type the clipboard</value></data>
+  <data name="TypeClipboardBody" xml:space="preserve"><value>{0} characters, typed in about {1} s. Do not touch the guest's keyboard while it types: every key goes to whatever has the focus there.</value></data>
+  <data name="TypeButton" xml:space="preserve"><value>Type</value></data>
+  <data name="TypeFailedTitle" xml:space="preserve"><value>Text not typed</value></data>
+  <data name="PullFailedTitle" xml:space="preserve"><value>Files not retrieved</value></data>
+  <data name="DropCaption" xml:space="preserve"><value>Copy to the guest's desktop</value></data>
+  <data name="SendAgentError" xml:space="preserve"><value>The guest agent answered with an error: {0}</value></data>
+  <data name="SendFailedTitle" xml:space="preserve"><value>Files not copied</value></data>
+  <data name="UsbStoppedHint" xml:space="preserve"><value>Machine shut down: choose what will be connected at startup</value></data>
+  <data name="UsbNoDevices" xml:space="preserve"><value>No USB device plugged into this PC</value></data>
+  <data name="UsbAtStart" xml:space="preserve"><value>Connect at every startup</value></data>
+  <data name="UsbUnplugged" xml:space="preserve"><value>unplugged</value></data>
+  <data name="UsbWaiting" xml:space="preserve"><value>waiting</value></data>
+  <data name="UsbDriverRequired" xml:space="preserve"><value>WinUSB driver required</value></data>
+  <data name="UsbHelpItem" xml:space="preserve"><value>Make a device available (WinUSB driver)…</value></data>
+  <data name="UsbNotConnectedTitle" xml:space="preserve"><value>USB device not connected</value></data>
+  <data name="UsbHelpTitle" xml:space="preserve"><value>Make a USB device available</value></data>
+  <data name="UsbHelpBody" xml:space="preserve"><value>QEMU can only use USB devices that run Microsoft's generic WinUSB driver. Unlike VMware, it has no driver of its own that could take a device away from Windows.
+
+To put a device on WinUSB:
+1. Download Zadig (zadig.akeo.ie), the standard tool for this.
+2. Run it. In the Options menu, check “List All Devices”: without it, Zadig does not show devices that already have a driver.
+3. In the drop-down list at the top, choose the device. Check that “USB ID” shows the same numbers as this menu (for example 0781 559C).
+4. In the middle, the left box shows the current driver (for example USBSTOR); the right one, the driver to install: set it to WinUSB with its small arrows.
+5. Click the big “Replace Driver” button and wait until it finishes (about a minute).
+6. Open this menu again: the device connects.
+
+As long as it is on WinUSB, Windows no longer uses it itself: a USB drive no longer appears in File Explorer. To give it back: Device Manager, right-click the device, “Uninstall device” with “Attempt to remove the driver for this device” checked, then unplug it and plug it back in.
+
+Never do this for the keyboard, mouse or Bluetooth this PC needs.</value></data>
+  <data name="ServicePresetItem" xml:space="preserve"><value>{0} (port {1})</value></data>
+  <data name="ServiceOtherPort" xml:space="preserve"><value>Other guest port…</value></data>
+  <data name="ServiceNotOpenedTitle" xml:space="preserve"><value>Service not opened</value></data>
+  <data name="ServicePortHeader" xml:space="preserve"><value>Guest port</value></data>
+  <data name="ServiceUdp" xml:space="preserve"><value>UDP (TCP otherwise)</value></data>
+  <data name="ServiceOpenTitle" xml:space="preserve"><value>Open a guest port</value></data>
+  <data name="ServiceOpenButton" xml:space="preserve"><value>Open</value></data>
+  <data name="FirewallUnchangedTitle" xml:space="preserve"><value>Firewall unchanged</value></data>
+  <data name="ShareFailedTitle" xml:space="preserve"><value>Folder not shared</value></data>
+  <data name="ExportedTitle" xml:space="preserve"><value>Machine exported</value></data>
+  <data name="ExportedBody" xml:space="preserve"><value>{0}
+
+Import this file into VMware (File &gt; Open), VirtualBox (File &gt; Import Appliance) or Proxmox (qm importovf).</value></data>
+  <data name="ShowInExplorer" xml:space="preserve"><value>Show in File Explorer</value></data>
+  <data name="OvfPackage" xml:space="preserve"><value>OVF package</value></data>
+  <data name="DeleteVmBody" xml:space="preserve"><value>The virtual disks are in:
+{0}</value></data>
+  <data name="DeleteVmLinkedClone" xml:space="preserve"><value>This is a linked clone: once removed from the list, it no longer protects its original's disks, and will stop working if the original changes them.</value></data>
+  <data name="DeleteVmFilesButton" xml:space="preserve"><value>Delete files</value></data>
+  <data name="DeleteVmRemoveButton" xml:space="preserve"><value>Remove from list</value></data>
+  <data name="CloseRunningTitle" xml:space="preserve"><value>Virtual machines are running</value></data>
+  <data name="CloseRunningBody" xml:space="preserve"><value>{0}
+
+In the background, they keep running and WinQEMU stays in the notification area, from where its window opens again. Shutting down turns them off cleanly, as the Shut down button does, before quitting.</value></data>
+  <data name="CloseRunInBackground" xml:space="preserve"><value>Run in background</value></data>
+  <data name="CloseShutDownAndQuit" xml:space="preserve"><value>Shut down and quit</value></data>
+  <data name="ShutdownReason" xml:space="preserve"><value>Shutting down virtual machines: {0}</value><comment>Shown by Windows on its 'these apps are preventing shutdown' screen.</comment></data>
+  <data name="ShuttingDownTitle" xml:space="preserve"><value>Shutting down virtual machines</value></data>
+  <data name="PowerOffNow" xml:space="preserve"><value>Power off now</value></data>
+  <data name="ShuttingDownBody" xml:space="preserve"><value>The guest systems are shutting down, as with the Shut down button. WinQEMU will close afterwards.
+
+Still running: {0}
+
+“Power off now” cuts those that remain, as if the power were unplugged.</value></data>
+  <data name="TrayStartedWithWindows" xml:space="preserve"><value>WinQEMU started with Windows. The machines set to start with WinQEMU are starting.</value></data>
+  <data name="TrayBackgroundExplained" xml:space="preserve"><value>The machines keep running. Click the WinQEMU icon to reopen its window.</value></data>
+  <data name="TrayOneRunning" xml:space="preserve"><value>WinQEMU — 1 machine running</value></data>
+  <data name="TrayManyRunning" xml:space="preserve"><value>WinQEMU — {0} machines running</value></data>
+  <data name="TrayBalloonTitle" xml:space="preserve"><value>WinQEMU keeps running in the background</value></data>
+  <data name="StateNoSelection" xml:space="preserve"><value>No VM selected</value></data>
+  <data name="StateStopped" xml:space="preserve"><value>Off</value></data>
+  <data name="StateStarting" xml:space="preserve"><value>Starting…</value></data>
+  <data name="StateRunning" xml:space="preserve"><value>Running</value></data>
+  <data name="StatePaused" xml:space="preserve"><value>Paused</value></data>
+  <data name="StateStopping" xml:space="preserve"><value>Shutting down…</value></data>
+  <data name="QemuDetecting" xml:space="preserve"><value>Detecting QEMU…</value></data>
+  <data name="QemuAutoDetectNothing" xml:space="preserve"><value>Automatic detection — nothing found</value></data>
+  <data name="AccelerationWhpx" xml:space="preserve"><value>WHPX available</value></data>
+  <data name="AccelerationNone" xml:space="preserve"><value>Unavailable — machines will run emulated, about ten times slower</value></data>
+  <data name="FirmwareNone" xml:space="preserve"><value>No OVMF image found — only BIOS boot is possible</value></data>
+  <data name="FirmwareAvailable" xml:space="preserve"><value>{0} — Secure Boot remains impossible under WHPX</value></data>
+  <data name="MetricsMemoryNone" xml:space="preserve"><value>Memory —</value></data>
+  <data name="MetricsDiskNone" xml:space="preserve"><value>Disk —</value></data>
+  <data name="MetricsHostCpu" xml:space="preserve"><value>Host CPU {0}%</value></data>
+  <data name="MetricsMemory" xml:space="preserve"><value>Memory {0} / {1}</value></data>
+  <data name="MetricsDisk" xml:space="preserve"><value>Disk read {0} · written {1}</value></data>
+  <data name="QemuNotFound" xml:space="preserve"><value>QEMU was not found. No virtual machine can start.</value></data>
+  <data name="QemuNotFoundDetail" xml:space="preserve"><value>Install QEMU for Windows, then run detection again. You can also give its installation folder in the settings.</value></data>
+  <data name="QemuAccelWhpx" xml:space="preserve"><value>WHPX acceleration available</value></data>
+  <data name="QemuAccelNone" xml:space="preserve"><value>hardware acceleration unavailable (TCG emulation only)</value></data>
+  <data name="AutoStartFailed" xml:space="preserve"><value>“{0}” could not start with WinQEMU: {1}</value></data>
+  <data name="NoVmSelected" xml:space="preserve"><value>No virtual machine is selected.</value></data>
+  <data name="LanServiceTitle" xml:space="preserve"><value>{0} — port {1} of this PC to port {2} of the guest</value></data>
+  <data name="LanServiceLocalOnly" xml:space="preserve"><value>{0} (from this PC only)</value></data>
+  <data name="LanServiceNoAddress" xml:space="preserve"><value>This PC has no address on a local network at the moment.</value></data>
+  <data name="LanAccessHintNat" xml:space="preserve"><value>The machine uses NAT: it reaches the network, but nothing reaches it from other devices, except the services opened here. They open at once if it is running.</value></data>
+  <data name="LanAccessHintNoNat" xml:space="preserve"><value>Opening services needs a network adapter using NAT (Network section).</value></data>
+  <data name="FirewallWarning" xml:space="preserve"><value>Windows Firewall blocks QEMU: from the network, nothing will reach the opened services until it is allowed (private and domain networks only, not public networks).</value></data>
+  <data name="LanNeedNat" xml:space="preserve"><value>Opening a service needs a network adapter using NAT.</value></data>
+  <data name="LanServiceAlreadyOpen" xml:space="preserve"><value>This service is already open, on port {0} of this PC.</value></data>
+  <data name="FirewallDenied" xml:space="preserve"><value>The firewall was not changed: administrator permission was refused.</value></data>
+  <data name="FirewallNoEffect" xml:space="preserve"><value>The rule did not take effect. A company policy may forbid local firewall rules.</value></data>
+  <data name="NameTaken" xml:space="preserve"><value>Another machine already has this name.</value></data>
+  <data name="SharedFolderHint" xml:space="preserve"><value>Like VMware's shared folders: WinQEMU serves them itself over a private channel, with no network or password. A Linux guest finds them in ~/{0}, a Windows guest on a drive of its own. The guest needs the guest agent, once (Linux: sudo apt install qemu-guest-agent).</value></data>
+  <data name="ShareMountWaiting" xml:space="preserve"><value>Waiting for the guest agent to mount the folders…</value></data>
+  <data name="ShareMountFailed" xml:space="preserve"><value>The folders could not be mounted: {0}</value></data>
+  <data name="ShareAlreadyShared" xml:space="preserve"><value>This folder is already shared with this machine.</value></data>
+  <data name="UsbDefaultName" xml:space="preserve"><value>USB device</value></data>
+  <data name="UsbWrongDriver" xml:space="preserve"><value>{0} uses the “{1}” driver, which QEMU cannot open: it needs the WinUSB driver. The USB menu explains how to install it.</value></data>
+  <data name="UsbNotPlugged" xml:space="preserve"><value>{0} is not plugged in.</value></data>
+  <data name="UsbOpenFailed" xml:space="preserve"><value>QEMU could not open {0}: another program is probably using it (Windows Hello for a fingerprint reader, the manufacturer's software…), or it is already given to another machine.</value></data>
+  <data name="AutoSnapshotFailed" xml:space="preserve"><value>The automatic snapshot of “{0}” could not be taken: {1}</value></data>
+  <data name="MachineMustRun" xml:space="preserve"><value>The machine must be running.</value></data>
+  <data name="AgentNotAnswering" xml:space="preserve"><value>The guest agent is not responding: install the guest tools first.</value></data>
+  <data name="TrimDone" xml:space="preserve"><value>{0} guest file system(s) reported their free space. Shut down the machine, then “Compact…” each disk (Hardware) to give that space back to this PC.</value></data>
+  <data name="TrimNoDiscard" xml:space="preserve"><value>The disk(s) {0} do not have the “Discard” option: free space does not reach the image there. Check it in Hardware (machine shut down) before trying again.</value></data>
+  <data name="TrimFailed" xml:space="preserve"><value>The guest could not report its free space: {0}</value></data>
+  <data name="TypeInterrupted" xml:space="preserve"><value>Typing was interrupted: {0}</value></data>
+  <data name="ToolsChecking" xml:space="preserve"><value>Looking for the guest agent…</value></data>
+  <data name="ToolsAgentMissing" xml:space="preserve"><value>The guest tools are not installed: shared folders, drag and drop, clipboard and automatic screen size depend on them.</value></data>
+  <data name="ToolsInstalling" xml:space="preserve"><value>Installing guest tools…</value></data>
+  <data name="ToolsMissingWarning" xml:space="preserve"><value>Guest tools missing or incomplete.</value></data>
+  <data name="ToolsNeedIso" xml:space="preserve"><value>The virtio-win ISO is needed for a Windows guest.</value></data>
+  <data name="ToolsInsertingIso" xml:space="preserve"><value>Inserting the virtio-win ISO…</value></data>
+  <data name="ToolsWindowsWaitAgent" xml:space="preserve"><value>In the guest, run virtio-win-guest-tools.exe, then guest-agent\qemu-ga-x86_64.msi, from the virtio-win drive; WinQEMU is waiting for the agent…</value></data>
+  <data name="ToolsTypingCommand" xml:space="preserve"><value>Typing the command in the guest…</value></data>
+  <data name="ToolsSudoPassword" xml:space="preserve"><value>Type your password in the guest's terminal if sudo asks for it; the installation follows…</value></data>
+  <data name="ToolsAgentStillMissingWindows" xml:space="preserve"><value>The guest agent is still not responding. Check in the guest that both installations completed.</value></data>
+  <data name="ToolsAgentStillMissingLinux" xml:space="preserve"><value>The guest agent is still not responding after ten minutes. Check in the guest that the command ran correctly.</value></data>
+  <data name="ToolsInstallingThroughAgent" xml:space="preserve"><value>Installing the tools through the guest agent…</value></data>
+  <data name="ToolsAgentStopped" xml:space="preserve"><value>The guest agent stopped responding.</value></data>
+  <data name="ToolsInstallFailed" xml:space="preserve"><value>The tools could not be installed: {0}.</value></data>
+  <data name="ToolsRestartGuest" xml:space="preserve"><value>Restart the guest to finish installing the drivers.</value></data>
+  <data name="ToolsReopenSession" xml:space="preserve"><value>Sign out of the guest and back in for the clipboard to be shared.</value></data>
+  <data name="ToolsInstalled" xml:space="preserve"><value>Guest tools installed.</value></data>
+  <data name="ToolsInstalledNote" xml:space="preserve"><value>Guest tools installed. {0}</value></data>
+  <data name="SoundLabel" xml:space="preserve"><value>Sound</value></data>
+  <data name="SoundMutedLabel" xml:space="preserve"><value>Sound muted</value></data>
+  <data name="AudioChosenUnplugged" xml:space="preserve"><value>Chosen output (unplugged)</value></data>
+  <data name="TransferToGuest" xml:space="preserve"><value>Copying to the guest's desktop</value></data>
+  <data name="TransferFromGuest" xml:space="preserve"><value>Copying from the guest</value></data>
+  <data name="TransferProgress" xml:space="preserve"><value>{0}: {1} of {2}</value></data>
+  <data name="SendNeedsRunning" xml:space="preserve"><value>The machine must be running to receive files.</value></data>
+  <data name="SendAlreadyBusy" xml:space="preserve"><value>A copy to this machine is already under way: wait for it to finish.</value></data>
+  <data name="PullAlreadyBusy" xml:space="preserve"><value>A copy with this machine is already under way: wait for it to finish.</value></data>
+  <data name="TransferNamesMore" xml:space="preserve"><value>{0} and {1} more</value></data>
+  <data name="SentToDesktop" xml:space="preserve"><value>Copied to the guest's desktop: {0}</value></data>
+  <data name="SendCancelled" xml:space="preserve"><value>Copy cancelled: nothing was left in the guest.</value></data>
+  <data name="PulledTo" xml:space="preserve"><value>Copied to {0}: {1}</value></data>
+  <data name="PullCancelled" xml:space="preserve"><value>Copy cancelled: nothing was left on this PC.</value></data>
+</root>

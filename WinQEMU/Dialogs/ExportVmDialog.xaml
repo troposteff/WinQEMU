@@ -3,6 +3,8 @@
     x:Class="WinQEMU.Dialogs.ExportVmDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ct="using:WinQEMU.Core.Text"
+    xmlns:t="using:WinQEMU.Text"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -24,7 +26,7 @@
 
             <TextBlock
                 Style="{StaticResource Hint}"
-                Text="Un paquet OVA (OVF 1.0, disques VMDK compressés) que VMware Workstation, ESXi, VirtualBox et Proxmox savent importer. La machine est exportée dans son état actuel." />
+                Text="{x:Bind t:DialogText.ExportIntro}" />
 
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
@@ -33,15 +35,15 @@
                 </Grid.ColumnDefinitions>
                 <TextBox
                     x:Name="PathBox"
-                    AutomationProperties.Name="Fichier OVA"
-                    Header="Fichier OVA"
+                    AutomationProperties.Name="{x:Bind t:DialogText.ExportFile}"
+                    Header="{x:Bind t:DialogText.ExportFile}"
                     TextChanged="OnPathChanged" />
                 <Button
                     x:Name="BrowseButton"
                     Grid.Column="1"
                     VerticalAlignment="Bottom"
                     Click="OnBrowseClick"
-                    Content="Parcourir…" />
+                    Content="{x:Bind ct:CommonText.Browse}" />
             </Grid>
 
             <TextBlock x:Name="SizeText" Style="{StaticResource Hint}" />
@@ -71,13 +73,13 @@
                     Grid.Column="0"
                     HorizontalAlignment="Stretch"
                     Click="OnCancelClick"
-                    Content="Annuler" />
+                    Content="{x:Bind ct:CommonText.Cancel}" />
                 <Button
                     x:Name="ExportButton"
                     Grid.Column="1"
                     HorizontalAlignment="Stretch"
                     Click="OnExportClick"
-                    Content="Exporter"
+                    Content="{x:Bind t:DialogText.ExportButton}"
                     Style="{StaticResource AccentButtonStyle}" />
             </Grid>
         </StackPanel>

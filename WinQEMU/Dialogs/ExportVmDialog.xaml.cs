@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -7,6 +8,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WinQEMU.Core.Export;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 
 namespace WinQEMU.Dialogs
 {
@@ -37,15 +40,14 @@ namespace WinQEMU.Dialogs
             _export = export;
             _pickDestination = pickDestination;
 
-            TitleText.Text = $"Exporter « {source.Name} »";
+            TitleText.Text = string.Format(CultureInfo.CurrentCulture, DialogText.ExportTitle, source.Name);
             PathBox.Text = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 OvaExporter.PackageBaseName(source.Name) + ".ova");
 
             // An upper bound before compression: what the guest has written is all that goes in.
             var capacity = source.Disks.Sum(d => d.CapacityBytes);
-            SizeText.Text = $"{source.Disks.Count} disque(s), {capacity / (1024d * 1024 * 1024):0.#} Gio au plus avant compression. " +
-                            "Pendant l'export, le disque de destination doit avoir environ deux fois la taille du paquet de libre.";
+            SizeText.Text = string.Format(CultureInfo.CurrentCulture, DialogText.ExportSize, source.Disks.Count, Sizes.Format(capacity));
 
             foreach (var note in OvaExporter.Notes(source))
             {
@@ -86,7 +88,7 @@ namespace WinQEMU.Dialogs
             var text = PathBox.Text.Trim().Trim('"');
             if (text.Length == 0)
             {
-                ShowError("Indiquez le fichier à écrire.");
+                ShowError(DialogText.ExportNoFile);
                 return null;
             }
 
@@ -97,7 +99,7 @@ namespace WinQEMU.Dialogs
             }
             catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
             {
-                ShowError("Ce chemin n'est pas valide.");
+                ShowError(DialogText.InvalidPath);
                 return null;
             }
 
@@ -105,12 +107,12 @@ namespace WinQEMU.Dialogs
                 path += ".ova";
             if (!Directory.Exists(Path.GetDirectoryName(path)))
             {
-                ShowError($"Le dossier {Path.GetDirectoryName(path)} n'existe pas.");
+                ShowError(string.Format(CultureInfo.CurrentCulture, DialogText.FolderMissing, Path.GetDirectoryName(path)));
                 return null;
             }
             if (File.Exists(path) && !string.Equals(path, _confirmedOverwrite, StringComparison.OrdinalIgnoreCase))
             {
-                ShowError("Ce fichier existe déjà. Choisissez un autre nom, ou passez par Parcourir… pour le remplacer.");
+                ShowError(DialogText.ExportFileExists);
                 return null;
             }
 
@@ -133,8 +135,8 @@ namespace WinQEMU.Dialogs
             {
                 ExportProgress.Value = fraction;
                 ProgressText.Text = fraction < 0.85
-                    ? $"Conversion des disques… {fraction:P0}"
-                    : $"Écriture du paquet… {fraction:P0}";
+                    ? string.Format(CultureInfo.CurrentCulture, DialogText.ExportConverting, fraction)
+                    : string.Format(CultureInfo.CurrentCulture, DialogText.ExportWriting, fraction);
             });
 
             try
@@ -156,7 +158,7 @@ namespace WinQEMU.Dialogs
             {
                 // Kept open with the reason, so a full disk or a wrong folder can be fixed and retried.
                 ShowError(ex is IOException { HResult: unchecked((int)0x80070070) }
-                    ? "Le disque de destination est plein. Libérez de la place ou choisissez un autre disque."
+                    ? DialogText.ExportDiskFull
                     : ex.Message);
             }
 
@@ -172,7 +174,7 @@ namespace WinQEMU.Dialogs
             CancelButton.IsEnabled = true;
             ProgressPanel.Visibility = exporting ? Visibility.Visible : Visibility.Collapsed;
             ExportProgress.Value = 0;
-            ProgressText.Text = "Préparation…";
+            ProgressText.Text = DialogText.Preparing;
         }
 
         private void ShowError(string? message)
@@ -194,7 +196,7 @@ namespace WinQEMU.Dialogs
         {
             if (IsExporting)
             {
-                ProgressText.Text = "Annulation…";
+                ProgressText.Text = DialogText.Cancelling;
                 CancelButton.IsEnabled = false;
                 _cancellation!.Cancel();
                 return;

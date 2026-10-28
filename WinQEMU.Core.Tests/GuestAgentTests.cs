@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -39,6 +40,27 @@ public class GuestAgentTests
     {
         Assert.Contains("/dev/virtio-ports/" + QemuArgumentBuilder.SharedFoldersPortName, GuestShareMounter.MountScript);
         Assert.Contains("trans=unix,version=9p2000.L", GuestShareMounter.MountScript);
+    }
+
+    [Fact]
+    public void A_new_guest_gets_the_folder_and_drive_in_the_interfaces_language_but_keeps_one_it_has()
+    {
+        var before = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+            Assert.Contains("then name='Partages'; else name='Shares'", GuestShareMounter.MountScript);
+            Assert.Contains("else { $label = 'WinQEMU Shares' }", GuestShareMounter.WindowsSetupFor("\\\\10.0.2.2@1234\\x"));
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fr-FR");
+            Assert.Contains("then name='Shares'; else name='Partages'", GuestShareMounter.MountScript);
+            Assert.Contains("else { $label = 'Partages WinQEMU' }", GuestShareMounter.WindowsSetupFor("\\\\10.0.2.2@1234\\x"));
+            // A guest set up before the name was noted had the French one.
+            Assert.Contains("if ($saved.SharesUrl) { $label = 'Partages WinQEMU' }", GuestShareMounter.WindowsSetupFor("\\\\10.0.2.2@1234\\x"));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = before;
+        }
     }
 
     [Theory]

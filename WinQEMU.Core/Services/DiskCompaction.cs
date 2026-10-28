@@ -1,5 +1,7 @@
+using System.Globalization;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -24,19 +26,19 @@ namespace WinQEMU.Core.Services
         public static string? WhyNot(VmConfig config, DiskConfig disk, DiskImageInfo info, Func<string, bool> isProtected)
         {
             if (disk.Format != DiskFormat.Qcow2)
-                return "Seul un disque qcow2 se compacte.";
+                return CoreText.CompactionQcow2Only;
             if (disk.IsOverlay)
-                return "Ce disque porte des instantanés à chaud : supprimez-les ou fusionnez-les d'abord, sinon ils seraient perdus.";
+                return CoreText.CompactionRefusedOverlay;
             if (disk.IsLinkedClone)
-                return "C'est le disque d'un clone lié : le compacter recopierait l'image dont il dépend. Rendez-le d'abord indépendant (« Convertir… »).";
+                return CoreText.CompactionRefusedLinkedClone;
             var path = config.ResolvePath(disk.FileName);
             if (isProtected(path))
-                return "Un clone lié lit cette image : elle ne doit plus jamais changer.";
+                return CoreText.CompactionRefusedProtected;
             if (info.Snapshots.Count > 0)
-                return $"Ce disque porte {info.Snapshots.Count} instantané(s) interne(s), que le compactage ne garderait pas : supprimez-les d'abord.";
+                return string.Format(CultureInfo.CurrentCulture, CoreText.CompactionRefusedSnapshots, info.Snapshots.Count);
             var root = Path.GetPathRoot(Path.GetFullPath(path));
             if (root is not null && new DriveInfo(root).AvailableFreeSpace < info.ActualSizeBytes)
-                return "Il faut sur le volume du disque autant de place libre que le disque en occupe, pour la copie.";
+                return CoreText.CompactionNoSpace;
             return null;
         }
 

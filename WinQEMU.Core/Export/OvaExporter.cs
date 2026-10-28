@@ -4,6 +4,7 @@ using System.Text;
 using WinQEMU.Core.Import;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Export
 {
@@ -24,11 +25,11 @@ namespace WinQEMU.Core.Export
         public static string? WhyCannotExport(VmConfig config)
         {
             if (config.Architecture != GuestArchitecture.X86_64)
-                return "Seules les machines x86-64 s'exportent : VMware et VirtualBox n'exécutent pas d'autre architecture.";
+                return PlatformText.ExportX86Only;
             if (config.Disks.Count == 0)
-                return "Cette machine n'a aucun disque à exporter.";
+                return PlatformText.ExportNoDisk;
             return config.Disks.Select(d => config.ResolvePath(d.FileName)).FirstOrDefault(p => !File.Exists(p)) is { } missing
-                ? $"Disque introuvable : {missing}"
+                ? string.Format(CultureInfo.CurrentCulture, PlatformText.ExportDiskNotFound, missing)
                 : null;
         }
 
@@ -42,37 +43,31 @@ namespace WinQEMU.Core.Export
             {
                 notes.Add(family switch
                 {
-                    "Windows" => "Les disques VirtIO deviennent SATA, VirtIO n'existant ni chez VMware ni chez VirtualBox. " +
-                                 "Windows ne démarre sur SATA que si son pilote AHCI démarre avec lui : avant d'exporter, " +
-                                 "lancez dans la machine sc config storahci start= boot, sinon INACCESSIBLE_BOOT_DEVICE.",
-                    "Linux" => "Les disques VirtIO deviennent SATA, VirtIO n'existant ni chez VMware ni chez VirtualBox. " +
-                               "Un Linux dont l'initramfs n'a que les pilotes en usage (dracut en mode hostonly) s'arrêtera en " +
-                               "« emergency mode » : avant d'exporter, lancez dans la machine echo 'hostonly=\"no\"' | sudo tee " +
-                               "/etc/dracut.conf.d/90-generic.conf puis sudo dracut --force --regenerate-all.",
-                    _ => "Les disques VirtIO deviennent SATA, VirtIO n'existant ni chez VMware ni chez VirtualBox."
+                    "Windows" => PlatformText.ExportVirtioDisksWindows,
+                    "Linux" => PlatformText.ExportVirtioDisksLinux,
+                    _ => PlatformText.ExportVirtioDisks
                 });
             }
 
             if (config.NetworkAdapters.Any(a => a.Mode != NetworkMode.None && a.Model is NicModel.VirtioNet or NicModel.Rtl8139))
             {
                 notes.Add(family == "Windows"
-                    ? "Les cartes réseau VirtIO deviennent des Intel e1000e, dont Windows a le pilote."
-                    : "Les cartes réseau VirtIO deviennent des Intel e1000, dont tous les systèmes ont le pilote.");
+                    ? PlatformText.ExportVirtioNicsWindows
+                    : PlatformText.ExportVirtioNics);
             }
 
             if (config.NetworkAdapters.Any(a => a.Mode != NetworkMode.None))
-                notes.Add("Les cartes réseau sont branchées sur un réseau nommé « nat » : l'hyperviseur qui importe demande où les brancher.");
+                notes.Add(PlatformText.ExportNatNetworkName);
 
             if (config.Firmware == FirmwareType.Uefi)
             {
-                notes.Add("Machine UEFI : VMware le lit dans le paquet ; dans VirtualBox, cochez « Activer EFI » si l'import ne l'a pas fait. " +
-                          "Les entrées de démarrage ne suivent pas : le microprogramme démarre \\EFI\\BOOT\\BOOTX64.EFI.");
+                notes.Add(PlatformText.ExportUefi);
             }
 
             if (config.Disks.Any(d => d.IsOverlay || d.IsLinkedClone) || config.SnapshotLinks.Count > 0)
-                notes.Add("Seul l'état actuel est exporté : les instantanés restent ici.");
+                notes.Add(PlatformText.ExportCurrentStateOnly);
 
-            notes.Add("Les dossiers partagés, l'accès depuis le réseau et les périphériques USB ne suivent pas.");
+            notes.Add(PlatformText.ExportNotCarriedOver);
             return notes;
         }
 

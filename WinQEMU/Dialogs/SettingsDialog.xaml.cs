@@ -1,9 +1,11 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
 using Windows.System;
+using WinQEMU.Text;
 using WinQEMU.ViewModels;
 
 namespace WinQEMU.Dialogs
@@ -34,6 +36,9 @@ namespace WinQEMU.Dialogs
             // plugged in since the last time.
             AudioOutputBox.ItemsSource = viewModel.AudioOutputChoices;
             AudioOutputBox.SelectedValue = viewModel.SelectedAudioOutputId;
+            LanguageBox.ItemsSource = viewModel.LanguageChoices;
+            LanguageBox.SelectedValue = viewModel.SelectedLanguage;
+            StartAtLogonHint.Text = DialogText.SettingsStartAtLogonHint;
 
             _ = ReadStartAtLogonAsync();
         }
@@ -55,7 +60,7 @@ namespace WinQEMU.Dialogs
             catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or ArgumentException)
             {
                 StartAtLogonSwitch.IsEnabled = false;
-                StartAtLogonHint.Text = $"Windows ne donne pas accès au démarrage de WinQEMU : {ex.Message}";
+                StartAtLogonHint.Text = string.Format(CultureInfo.CurrentCulture, DialogText.SettingsStartupUnavailable, ex.Message);
             }
             finally
             {
@@ -71,9 +76,9 @@ namespace WinQEMU.Dialogs
             _readingStartup = false;
             // Turned off in Windows' settings, or by policy: only Windows can turn it back on.
             if (state == Windows.ApplicationModel.StartupTaskState.DisabledByUser)
-                StartAtLogonHint.Text = "Désactivé dans Windows : réactivez WinQEMU dans Paramètres > Applications > Démarrage.";
+                StartAtLogonHint.Text = DialogText.SettingsStartupDisabledByUser;
             else if (state is Windows.ApplicationModel.StartupTaskState.DisabledByPolicy or Windows.ApplicationModel.StartupTaskState.EnabledByPolicy)
-                StartAtLogonHint.Text = "Fixé par une stratégie de l'organisation.";
+                StartAtLogonHint.Text = DialogText.SettingsStartupByPolicy;
             StartAtLogonSwitch.IsEnabled = state is Windows.ApplicationModel.StartupTaskState.Enabled
                 or Windows.ApplicationModel.StartupTaskState.Disabled;
         }
@@ -95,11 +100,17 @@ namespace WinQEMU.Dialogs
             }
             catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or ArgumentException)
             {
-                StartAtLogonHint.Text = $"Windows a refusé : {ex.Message}";
+                StartAtLogonHint.Text = string.Format(CultureInfo.CurrentCulture, DialogText.SettingsStartupRefused, ex.Message);
             }
         }
 
         // ---- Sound ----
+
+        private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (LanguageBox.SelectedValue is string code)
+                _viewModel.SelectedLanguage = code;
+        }
 
         private void OnAudioOutputChanged(object sender, SelectionChangedEventArgs e)
         {

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -182,7 +183,7 @@ namespace WinQEMU.Core.Services
             {
                 // Read out of the ISO now, so the first start does not wait on a hundred megabytes.
                 if (!UbuntuUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), linux, request.IsoPath))
-                    throw new InvalidOperationException("Cette image ISO n'a pas le noyau d'installation d'Ubuntu (casper) : l'installation automatique est impossible.");
+                    throw new InvalidOperationException(CoreText.LibraryUbuntuIsoWithoutInstaller);
                 config.UnattendedSetup = UnattendedSetupState.Pending;
                 // The installer's own kernel is booted for the first start; every later one is the disk's.
                 config.BootFromIso = false;
@@ -242,7 +243,7 @@ namespace WinQEMU.Core.Services
             {
                 var path = source.ResolvePath(disk.FileName);
                 if (!File.Exists(path))
-                    throw new FileNotFoundException($"Le disque « {disk.Id} » est introuvable : {path}", path);
+                    throw new FileNotFoundException(string.Format(CultureInfo.CurrentCulture, CoreText.LibraryDiskNotFound, disk.Id, path), path);
 
                 var info = await _imgService.GetInfoAsync(path, cancellationToken).ConfigureAwait(false);
                 sizes.Add(Math.Max(1, info.VirtualSizeBytes));
@@ -345,7 +346,8 @@ namespace WinQEMU.Core.Services
             var config = new VmConfig
             {
                 Name = name.Trim(),
-                Description = $"Importée {SourceName(plan.Source)} le {DateTime.Now:dd/MM/yyyy} : {plan.SourcePath}",
+                Description = string.Format(CultureInfo.CurrentCulture, CoreText.LibraryImportedDescription,
+                    SourceName(plan.Source), DateTime.Now.ToString("d", CultureInfo.CurrentCulture), plan.SourcePath),
                 GuestOs = plan.GuestOs,
                 Architecture = GuestArchitecture.X86_64,
                 Firmware = plan.Firmware,
@@ -425,10 +427,10 @@ namespace WinQEMU.Core.Services
 
         private static string SourceName(Import.ImportSource source) => source switch
         {
-            Import.ImportSource.VMware => "de VMware",
-            Import.ImportSource.VirtualBox => "de VirtualBox",
-            Import.ImportSource.Ovf => "d'un paquet OVF",
-            _ => "d'une image disque"
+            Import.ImportSource.VMware => CoreText.LibraryImportedFromVmware,
+            Import.ImportSource.VirtualBox => CoreText.LibraryImportedFromVirtualBox,
+            Import.ImportSource.Ovf => CoreText.LibraryImportedFromOvf,
+            _ => CoreText.LibraryImportedFromDisk
         };
 
         /// <summary>
@@ -472,7 +474,7 @@ namespace WinQEMU.Core.Services
             {
                 var path = source.ResolvePath(disk.FileName);
                 if (!File.Exists(path))
-                    throw new FileNotFoundException($"Le disque « {disk.Id} » est introuvable : {path}", path);
+                    throw new FileNotFoundException(string.Format(CultureInfo.CurrentCulture, CoreText.LibraryDiskNotFound, disk.Id, path), path);
 
                 var info = await _imgService.GetInfoAsync(path, cancellationToken).ConfigureAwait(false);
                 bases.Add((path, info.VirtualSizeBytes));
@@ -550,14 +552,14 @@ namespace WinQEMU.Core.Services
             var others = source.Disks.Where(d => d.Format != DiskFormat.Qcow2).ToList();
             return others.Count == 0
                 ? null
-                : "Un clone lié exige des disques qcow2 : " +
-                  string.Join(", ", others.Select(d => $"{d.Id} ({d.Format.ToString().ToLowerInvariant()})")) +
-                  " ne peut pas servir de base. Faites une copie complète, ou convertissez ces disques en qcow2.";
+                : string.Format(CultureInfo.CurrentCulture, CoreText.LibraryLinkedCloneNeedsQcow2,
+                    string.Join(", ", others.Select(d => $"{d.Id} ({d.Format.ToString().ToLowerInvariant()})")));
         }
 
         /// <summary>
-        /// "Base de Debian (copie)": the live snapshot the source gains, named after the clone so the list
-        /// says why it is there. ASCII only, as every snapshot name (see
+        /// "Base of Debian (copy)", "Base de Debian (copie)" in French: the live snapshot the source gains, named
+        /// after the clone so the list says why it is there, in the interface's language when it is taken; nothing
+        /// reads the name back. ASCII only, as every snapshot name (see
         /// <see cref="QemuImgService.ValidateSnapshotName"/>), and unused by any level of the source's chains.
         /// </summary>
         private static string UniqueLinkedSnapshotName(VmConfig source, string cloneName)
@@ -568,7 +570,7 @@ namespace WinQEMU.Core.Services
                     .ToArray())
                 .Trim();
 
-            var stem = $"Base de {(folded.Length == 0 ? "clone" : folded)}";
+            var stem = string.Format(CultureInfo.InvariantCulture, CoreText.LibraryLinkedCloneSnapshotName, folded.Length == 0 ? "clone" : folded);
             var candidate = stem;
             for (var index = 2; Taken(candidate); index++)
                 candidate = $"{stem} {index.ToString(CultureInfo.InvariantCulture)}";
@@ -716,21 +718,22 @@ namespace WinQEMU.Core.Services
         public static string? ValidateName(string? name)
         {
             if (string.IsNullOrWhiteSpace(name))
-                return "Le nom de la machine virtuelle est obligatoire.";
+                return CoreText.LibraryNameRequired;
 
             var trimmed = name.Trim();
             if (trimmed.Length > 100)
-                return "Le nom ne peut pas dépasser 100 caractères.";
+                return CoreText.LibraryNameTooLong;
 
             var invalid = trimmed.Where(c => Path.GetInvalidFileNameChars().Contains(c)).Distinct().ToArray();
             if (invalid.Length > 0)
-                return $"Le nom ne peut pas contenir {string.Join(" ", invalid.Select(c => $"« {c} »"))}";
+                return string.Format(CultureInfo.CurrentCulture, CoreText.LibraryNameInvalidCharacters,
+                    string.Join(" ", invalid.Select(c => string.Format(CultureInfo.CurrentCulture, CoreText.QuotedName, c))));
 
             // Win32 resolves a reserved device name from the part before the first dot, so "CON.vm"
             // is refused just as "CON" is -- and the descriptor would be "CON.vm.wqvm", still CON.
             var baseName = trimmed.Split('.')[0].TrimEnd();
             if (ReservedDeviceNames.Contains(baseName))
-                return $"« {baseName} » est un nom réservé par Windows.";
+                return string.Format(CultureInfo.CurrentCulture, CoreText.LibraryNameReserved, baseName);
 
             return null;
         }

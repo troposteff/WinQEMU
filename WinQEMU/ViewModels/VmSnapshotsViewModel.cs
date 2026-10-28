@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
 using WinQEMU.Core.Services;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 
 namespace WinQEMU.ViewModels
 {
@@ -38,7 +40,7 @@ namespace WinQEMU.ViewModels
         public bool IsPartial => Snapshot.IsPartial;
 
         public string CreatedText =>
-            Snapshot.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.CurrentCulture);
+            Snapshot.CreatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
 
         public string DetailText
         {
@@ -47,18 +49,18 @@ namespace WinQEMU.ViewModels
                 var parts = new List<string>
                 {
                     Snapshot.IsLive
-                        ? "à chaud · disques"
+                        ? DialogText.SnapshotsLiveDisks
                         : Snapshot.HasMemoryState
-                            ? $"mémoire {Snapshot.VmStateSizeBytes / 1024d / 1024d:0.#} Mio"
-                            : "état disque"
+                            ? string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsMemory, Sizes.Format(Snapshot.VmStateSizeBytes))
+                            : DialogText.SnapshotsDiskState
                 };
 
                 // Only worth saying when the machine has more than one disk to be inconsistent about.
                 if (Snapshot.TotalDisks > 1)
-                    parts.Add($"{Snapshot.PresentOnDisks}/{Snapshot.TotalDisks} disques");
+                    parts.Add(string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsDiskCount, Snapshot.PresentOnDisks, Snapshot.TotalDisks));
 
                 if (IsLocked)
-                    parts.Add("base d'un clone lié");
+                    parts.Add(DialogText.SnapshotsCloneBase);
 
                 return string.Join(" · ", parts);
             }
@@ -228,7 +230,7 @@ namespace WinQEMU.ViewModels
                     return null;   // nothing typed yet is not an error, just nothing to do
 
                 if (Snapshots.Any(s => string.Equals(s.Name, trimmed, StringComparison.OrdinalIgnoreCase)))
-                    return "Un instantané porte déjà ce nom.";
+                    return DialogText.SnapshotsNameTaken;
 
                 // What qemu-img can actually store; the rule lives in the core, next to the tool it
                 // describes, and is covered by its tests.
@@ -258,8 +260,8 @@ namespace WinQEMU.ViewModels
                 var excluded = VmSnapshotAggregator.UnsupportedDisks(_config);
                 return excluded.Count == 0
                     ? string.Empty
-                    : "Non couverts, faute de format qcow2 : " +
-                      string.Join(", ", excluded.Select(d => $"{d.Id} ({d.Format.ToString().ToLowerInvariant()})"));
+                    : string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsExcluded,
+                        string.Join(", ", excluded.Select(d => $"{d.Id} ({d.Format.ToString().ToLowerInvariant()})")));
             }
         }
 
@@ -344,15 +346,15 @@ namespace WinQEMU.ViewModels
                 Snapshots.Clear();
                 Tree = null;
                 Status = config.Disks.Count == 0
-                    ? "Cette machine n'a aucun disque."
-                    : "Aucun disque au format qcow2 : seuls ces disques savent porter un instantané interne.";
+                    ? DialogText.SnapshotsNoDisk
+                    : DialogText.SnapshotsNoQcow2;
                 _loaded = true;
                 RaiseAll();
                 return;
             }
 
             IsBusy = true;
-            Status = "Lecture des instantanés…";
+            Status = DialogText.SnapshotsReading;
             try
             {
                 var perDisk = new List<IReadOnlyCollection<DiskSnapshot>>();
@@ -382,7 +384,7 @@ namespace WinQEMU.ViewModels
                 }
 
                 Selected = Snapshots.FirstOrDefault(s => s.Name == previous) ?? Snapshots.FirstOrDefault();
-                Status = Snapshots.Count == 0 ? "Aucun instantané." : string.Empty;
+                Status = Snapshots.Count == 0 ? DialogText.SnapshotsNone : string.Empty;
                 _loaded = true;
             }
             catch (Exception ex)
@@ -441,9 +443,7 @@ namespace WinQEMU.ViewModels
         public string MemorySnapshotUnavailableReason =>
             Session?.SupportsMemorySnapshots == true
                 ? string.Empty
-                : "Enregistrer la mémoire exige le support de migration, absent de WHPX : seule une machine " +
-                  "en émulation TCG le permet. Sur cette machine, un instantané à chaud ne capture que les " +
-                  "disques, comme une coupure de courant.";
+                : DialogText.SnapshotsNoMemory;
 
         public bool HasMemorySnapshotCaveat => MemorySnapshotUnavailableReason.Length > 0;
 
@@ -457,7 +457,7 @@ namespace WinQEMU.ViewModels
 
             var name = NewName.Trim();
             IsBusy = true;
-            Status = $"Enregistrement de « {name} » avec la mémoire…";
+            Status = string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsSavingMemory, name);
             try
             {
                 var parent = CurrentParent;
@@ -487,7 +487,7 @@ namespace WinQEMU.ViewModels
 
             var name = NewName.Trim();
             IsBusy = true;
-            Status = $"Instantané à chaud « {name} »…";
+            Status = string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsTakingLive, name);
             try
             {
                 var parent = CurrentParent;
@@ -525,7 +525,7 @@ namespace WinQEMU.ViewModels
 
             var name = NewName.Trim();
             IsBusy = true;
-            Status = $"Création de « {name} »…";
+            Status = string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsCreating, name);
             try
             {
                 var parent = CurrentParent;
@@ -568,7 +568,7 @@ namespace WinQEMU.ViewModels
                 return;
 
             IsBusy = true;
-            Status = $"Reprise de « {item.Name} »…";
+            Status = string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsResuming, item.Name);
             try
             {
                 await Session.RestoreSnapshotAsync(item.Name);
@@ -593,7 +593,7 @@ namespace WinQEMU.ViewModels
                 return;
 
             IsBusy = true;
-            Status = $"Restauration de « {item.Name} »…";
+            Status = string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsRestoring, item.Name);
             try
             {
                 if (item.Snapshot.IsLive)
@@ -629,7 +629,7 @@ namespace WinQEMU.ViewModels
                 return;
 
             IsBusy = true;
-            Status = $"Suppression de « {item.Name} »…";
+            Status = string.Format(CultureInfo.CurrentCulture, DialogText.SnapshotsDeleting, item.Name);
             var parent = Tree is { } tree ? SnapshotTree.ParentOf(tree, item.Name) : string.Empty;
             try
             {

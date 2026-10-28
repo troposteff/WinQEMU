@@ -34,6 +34,7 @@ namespace WinQEMU
                 return 0;
             }
 
+            ApplyLanguage(Core.Services.AppSettings.Load().Language);
             main.Activated += (_, _) => App.ShowMainWindow();
             Application.Start(_ =>
             {
@@ -42,6 +43,28 @@ namespace WinQEMU
                 new App();
             });
             return 0;
+        }
+
+        /// <summary>
+        /// The interface's language, before any window or text is made. WinUI's own text (a NumberBox's buttons,
+        /// a CommandBar's "More") follows the same override.
+        /// </summary>
+        private static void ApplyLanguage(string code)
+        {
+            Core.Text.UiLanguage.Apply(code);
+            try
+            {
+                Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = code switch
+                {
+                    "en" => "en-US",
+                    "fr" => "fr-FR",
+                    _ => string.Empty
+                };
+            }
+            catch (Exception ex) when (ex is ArgumentException or System.Runtime.InteropServices.COMException)
+            {
+                // WinUI's few words of its own stay in Windows' language; WinQEMU's text is set above.
+            }
         }
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]

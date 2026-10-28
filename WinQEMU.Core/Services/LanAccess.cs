@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -27,9 +28,9 @@ namespace WinQEMU.Core.Services
         public static IReadOnlyList<ServicePreset> Presets { get; } = new[]
         {
             new ServicePreset("SSH", PortForwardProtocol.Tcp, 22),
-            new ServicePreset("Bureau à distance", PortForwardProtocol.Tcp, 3389),
+            new ServicePreset(CoreText.LanAccessRemoteDesktop, PortForwardProtocol.Tcp, 3389),
             new ServicePreset("Web (HTTP)", PortForwardProtocol.Tcp, 80),
-            new ServicePreset("Web sécurisé (HTTPS)", PortForwardProtocol.Tcp, 443)
+            new ServicePreset(CoreText.LanAccessHttps, PortForwardProtocol.Tcp, 443)
         };
 
         public static bool IsOnNetwork(PortForward forward) => forward.HostAddress is AllInterfaces or "";
@@ -54,7 +55,7 @@ namespace WinQEMU.Core.Services
                 if (Available(port))
                     return port;
             }
-            throw new InvalidOperationException("Aucun port libre sur ce PC.");
+            throw new InvalidOperationException(CoreText.LanAccessNoFreePort);
         }
 
         public static bool IsTcpPortFree(int port)
@@ -89,13 +90,13 @@ namespace WinQEMU.Core.Services
                 .Distinct()
                 .ToList();
 
-        /// <summary>What to type on another machine to reach the service, e.g. "ssh -p 2222 utilisateur@192.168.1.20".</summary>
+        /// <summary>What to type on another machine to reach the service, e.g. "ssh -p 2222 user@192.168.1.20".</summary>
         public static string UsageOf(PortForward forward, string address)
         {
             var port = forward.HostPort.ToString(CultureInfo.InvariantCulture);
             return forward.GuestPort switch
             {
-                22 => $"ssh -p {port} utilisateur@{address}",
+                22 => string.Format(CultureInfo.CurrentCulture, CoreText.LanAccessSshUsage, port, address),
                 3389 => $"mstsc /v:{address}:{port}",
                 80 => forward.HostPort == 80 ? $"http://{address}" : $"http://{address}:{port}",
                 443 => forward.HostPort == 443 ? $"https://{address}" : $"https://{address}:{port}",
@@ -117,6 +118,7 @@ namespace WinQEMU.Core.Services
             $"{(forward.Protocol == PortForwardProtocol.Udp ? "udp" : "tcp")}:{(forward.HostAddress.Length == 0 ? AllInterfaces : forward.HostAddress)}:" +
             forward.HostPort.ToString(CultureInfo.InvariantCulture);
 
+        /// <summary>Kept in French whatever the interface's language: the rule lives on in Windows' firewall.</summary>
         private const string FirewallRuleName = "WinQEMU - QEMU (accès depuis le réseau)";
 
         /// <summary>

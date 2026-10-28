@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WinQEMU.Core.Sharing;
+using WinQEMU.Core.Text;
+using WinQEMU.Text;
 using WinQEMU.ViewModels;
 
 namespace WinQEMU.Dialogs
@@ -30,14 +32,14 @@ namespace WinQEMU.Dialogs
         {
             _viewModel = viewModel;
             _windows = viewModel.IsSelectedWindowsGuest;
-            Title = "Récupérer des fichiers de l'invité";
-            PrimaryButtonText = "Récupérer…";
-            CloseButtonText = "Annuler";
+            Title = DialogText.GuestFilesTitle;
+            PrimaryButtonText = DialogText.GuestFilesButton;
+            CloseButtonText = CommonText.Cancel;
             DefaultButton = ContentDialogButton.Primary;
             IsPrimaryButtonEnabled = false;
 
             var up = new Button { Content = new FontIcon { Glyph = "", FontSize = 14 } };
-            ToolTipService.SetToolTip(up, "Dossier parent");
+            ToolTipService.SetToolTip(up, DialogText.GuestFilesParent);
             up.Click += async (_, _) => await OpenAsync(GuestFilePull.Parent(_folder, _windows));
             _path.KeyDown += async (_, e) =>
             {
@@ -80,7 +82,7 @@ namespace WinQEMU.Dialogs
         {
             if (folder.Length == 0)
                 return;
-            _status.Text = "Lecture…";
+            _status.Text = DialogText.GuestFilesReading;
             try
             {
                 var entries = await _viewModel.ListGuestFolderAsync(folder);
@@ -88,8 +90,8 @@ namespace WinQEMU.Dialogs
                 _path.Text = folder;
                 _list.ItemsSource = entries.Select(e => new Item(e)).ToList();
                 _status.Text = entries.Count == 0
-                    ? "Dossier vide."
-                    : "Double-cliquez sur un dossier pour l'ouvrir. Cochez ce qui est à copier : un dossier est copié avec son contenu.";
+                    ? DialogText.GuestFilesEmpty
+                    : DialogText.GuestFilesHint;
             }
             catch (Exception ex) when (ex is Core.Qemu.GuestAgentException or InvalidOperationException or System.IO.IOException)
             {
@@ -101,15 +103,7 @@ namespace WinQEMU.Dialogs
         {
             public override string ToString() => Entry.IsDirectory
                 ? $"📁  {Entry.Name}"
-                : $"📄  {Entry.Name}    {Size(Entry.Size)}";
-
-            private static string Size(long bytes) => bytes switch
-            {
-                < 1024 => $"{bytes} o",
-                < 1024 * 1024 => $"{bytes / 1024.0:0.#} Ko",
-                < 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} Mo",
-                _ => $"{bytes / (1024.0 * 1024 * 1024):0.##} Go"
-            };
+                : $"📄  {Entry.Name}    {Sizes.Format(Entry.Size)}";
         }
     }
 }

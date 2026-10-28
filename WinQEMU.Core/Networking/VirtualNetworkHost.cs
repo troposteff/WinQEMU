@@ -1,4 +1,6 @@
+using System.Globalization;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Networking
 {
@@ -27,9 +29,9 @@ namespace WinQEMU.Core.Networking
                     return StartExternal(network);
 
                 var scope = network.Scope ?? throw new InvalidOperationException(
-                    $"Les adresses du réseau {network.Name} ne conviennent pas : {network.Problem}");
+                    string.Format(CultureInfo.CurrentCulture, PlatformText.NetworkAddressesInvalid, network.Name, network.Problem));
                 if (network.ConflictAmong(all) is { } conflict)
-                    throw new InvalidOperationException($"Le réseau {network.Name} ne peut pas démarrer. {conflict} (Réseaux virtuels)");
+                    throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.NetworkCannotStart, network.Name, conflict));
 
                 // An internal network is this PC's too: its TAP adapter becomes one more port, and the
                 // DHCP server keeps .1 for it. Opened before anything starts, so a missing or refused
@@ -40,8 +42,7 @@ namespace WinQEMU.Core.Networking
                 {
                     var adapter = TapAdapter.List().FirstOrDefault(a => a.Id.Equals(network.TapAdapterId, StringComparison.OrdinalIgnoreCase))
                         ?? throw new InvalidOperationException(
-                            $"La carte TAP-Windows du réseau {network.Name} (« {network.TapAdapterName} ») est introuvable : " +
-                            "le pilote a-t-il été désinstallé ? Choisissez une autre carte dans Réseaux virtuels.");
+                            string.Format(CultureInfo.CurrentCulture, PlatformText.NetworkTapAdapterMissing, network.Name, network.TapAdapterName));
                     device = TapDevice.Open(adapter);
                     if (adapter.Mac is { } mac)
                         reserved[mac] = scope.HostAddress;
@@ -65,11 +66,10 @@ namespace WinQEMU.Core.Networking
         {
             if (!Npcap.IsInstalled)
                 throw new InvalidOperationException(
-                    $"Le réseau {network.Name} passe par Npcap, qui n'est plus installé : réinstallez-le depuis npcap.com.");
+                    string.Format(CultureInfo.CurrentCulture, PlatformText.NetworkNpcapMissing, network.Name));
             var adapter = PhysicalAdapter.List().FirstOrDefault(a => a.Id.Equals(network.PhysicalAdapterId, StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidOperationException(
-                    $"La carte « {network.PhysicalAdapterName} » du réseau {network.Name} n'est pas connectée " +
-                    "(Wi-Fi coupé, câble débranché ?). Branchez-la, ou choisissez une autre carte dans Réseaux virtuels.");
+                    string.Format(CultureInfo.CurrentCulture, PlatformText.NetworkPhysicalAdapterMissing, network.PhysicalAdapterName, network.Name));
 
             var device = Npcap.Open(adapter);
             var created = new VirtualSwitch(null);

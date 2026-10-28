@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="QuotedName" xml:space="preserve"><value>"{0}"</value></data>
+  <data name="GuestOsWindows11Caveat" xml:space="preserve"><value>Windows 11 requires TPM 2.0 and Secure Boot. Neither is possible here: swtpm is missing from QEMU's Windows builds, and Secure Boot needs the SMM mode that the WHPX hypervisor does not provide. The profile therefore stays plain UEFI, and WinQEMU lifts the hardware requirements check by itself: during installation, the machine gets a "WINQEMU" USB stick whose answer file tells Windows Setup to skip it.</value></data>
+  <data name="GuestOsVirtioCaveat" xml:space="preserve"><value>Windows has no built-in virtio driver, so the disk uses SATA, which works without one. For better performance, provide the virtio-win ISO and switch the disk back to virtio after installation.</value></data>
+  <data name="GuestOsWindows7Caveat" xml:space="preserve"><value>These versions do not handle UEFI reliably under QEMU: the firmware stays BIOS and the disk IDE.</value></data>
+  <data name="GuestOsLinuxGeneric" xml:space="preserve"><value>Linux (generic)</value></data>
+  <data name="GuestOsArm64Caveat" xml:space="preserve"><value>Architecture different from the host: QEMU will emulate the processor (TCG), without hardware acceleration. Expect performance to be roughly an order of magnitude lower.</value></data>
+  <data name="GuestOsOther" xml:space="preserve"><value>Other / unknown</value></data>
+  <data name="GuestOsOtherCaveat" xml:space="preserve"><value>Safe configuration: BIOS and SATA, which almost any system can boot from.</value></data>
+  <data name="SharedFolderReadOnly" xml:space="preserve"><value>Read-only</value></data>
+  <data name="SharedFolderReadWrite" xml:space="preserve"><value>Read and write</value></data>
+  <data name="VirtualNetworkTypePrivate" xml:space="preserve"><value>Private (the machines with each other)</value></data>
+  <data name="VirtualNetworkTypeInternal" xml:space="preserve"><value>Internal (the machines and this PC)</value></data>
+  <data name="VirtualNetworkTypeExternal" xml:space="preserve"><value>External (the physical network)</value></data>
+  <data name="VirtualNetworkExternalSummary" xml:space="preserve"><value>on "{0}", addresses given by the physical network (the router)</value></data>
+  <data name="VirtualNetworkDhcpRange" xml:space="preserve"><value>, DHCP from {0} to {1}</value></data>
+  <data name="VirtualNetworkHostOnAdapter" xml:space="preserve"><value>, this PC at {0} on "{1}"</value></data>
+  <data name="VirtualNetworkBadSubnet" xml:space="preserve"><value>"{0}" is not an IPv4 subnet address (example: 10.77.1.0).</value></data>
+  <data name="VirtualNetworkBadMask" xml:space="preserve"><value>The mask ranges from /8 (255.0.0.0) to /29 (255.255.255.248).</value></data>
+  <data name="VirtualNetworkNotSubnetStart" xml:space="preserve"><value>{0} is not the start of a /{1} subnet: that would be {2}.</value></data>
+  <data name="VirtualNetworkDhcpNotAddresses" xml:space="preserve"><value>DHCP addresses must be complete IPv4 addresses (example: 10.77.1.100).</value></data>
+  <data name="VirtualNetworkDhcpOutOfRange" xml:space="preserve"><value>DHCP addresses must be between {0} and {1}: {2} is this PC's on an internal network, {3} the DHCP server's.</value></data>
+  <data name="VirtualNetworkDhcpOrder" xml:space="preserve"><value>The first DHCP address must come before the last.</value></data>
+  <data name="VirtualNetworkSubnetLabel" xml:space="preserve"><value>The subnet {0}</value></data>
+  <data name="VirtualNetworkOverlapsNat" xml:space="preserve"><value>{0} overlaps {1} ({2}): choose another subnet.</value></data>
+  <data name="VirtualNetworkOverlapsNetwork" xml:space="preserve"><value>{0} overlaps that of network {1} ({2}): two virtual networks cannot share addresses. Choose another subnet.</value></data>
+  <data name="VirtualNetworkOverlapsHost" xml:space="preserve"><value>{0} overlaps the network of {1} ({2}): this PC would no longer know how to reach these addresses.</value></data>
+  <data name="KeyboardCannotType" xml:space="preserve"><value>"{0}" cannot be typed with this PC's keyboard layout.</value></data>
+  <data name="AutoSnapshotEachStart" xml:space="preserve"><value>At each start</value></data>
+  <data name="AutoSnapshotHourly" xml:space="preserve"><value>At most once an hour</value></data>
+  <data name="AutoSnapshotWeekly" xml:space="preserve"><value>At most once a week</value></data>
+  <data name="AutoSnapshotDaily" xml:space="preserve"><value>At most once a day</value></data>
+  <data name="AutoSnapshotEveryHours" xml:space="preserve"><value>At most once every {0} hours</value></data>
+  <data name="CompactionQcow2Only" xml:space="preserve"><value>Only a qcow2 disk can be compacted.</value></data>
+  <data name="CompactionRefusedOverlay" xml:space="preserve"><value>This disk has live snapshots: delete or merge them first, or they would be lost.</value></data>
+  <data name="CompactionRefusedLinkedClone" xml:space="preserve"><value>This is a linked clone's disk: compacting it would copy the image it depends on. Make it independent first ("Convert…").</value></data>
+  <data name="CompactionRefusedProtected" xml:space="preserve"><value>A linked clone reads this image: it must never change again.</value></data>
+  <data name="CompactionRefusedSnapshots" xml:space="preserve"><value>This disk has {0} internal snapshot(s), which compacting would not keep: delete them first.</value></data>
+  <data name="CompactionNoSpace" xml:space="preserve"><value>The disk's volume needs as much free space as the disk takes up, for the copy.</value></data>
+  <data name="ElevationDeclined" xml:space="preserve"><value>Administrator permission was refused.</value></data>
+  <data name="LanAccessRemoteDesktop" xml:space="preserve"><value>Remote Desktop</value></data>
+  <data name="LanAccessHttps" xml:space="preserve"><value>Secure web (HTTPS)</value></data>
+  <data name="LanAccessNoFreePort" xml:space="preserve"><value>No free port on this PC.</value></data>
+  <data name="LanAccessSshUsage" xml:space="preserve"><value>ssh -p {0} user@{1}</value></data>
+  <data name="LinkedCloneOneReader" xml:space="preserve"><value>the linked clone {0}</value></data>
+  <data name="LinkedCloneManyReaders" xml:space="preserve"><value>the linked clones {0}</value></data>
+  <data name="LinkedCloneMergeRefused" xml:space="preserve"><value>Disk "{0}" is the base of {1}: deleting or merging this level would write to an image the clone reads, and corrupt its data. Restoring is still possible: the images the clone needs are then kept.</value></data>
+  <data name="LinkedCloneFilesRefused" xml:space="preserve"><value>This machine's files are the base of {0}. Deleting them would destroy the clone. Delete the clone first, or make its disks independent with "Convert…".</value></data>
+  <data name="LinkedCloneAttachRefused" xml:space="preserve"><value>This image is the base of {0}: a machine writing to it would corrupt the clone.</value></data>
+  <data name="LibraryUbuntuIsoWithoutInstaller" xml:space="preserve"><value>This ISO image does not have Ubuntu's installer kernel (casper): unattended installation is impossible.</value></data>
+  <data name="LibraryDiskNotFound" xml:space="preserve"><value>Disk "{0}" was not found: {1}</value></data>
+  <data name="LibraryImportedDescription" xml:space="preserve"><value>Imported {0} on {1}: {2}</value></data>
+  <data name="LibraryImportedFromVmware" xml:space="preserve"><value>from VMware</value></data>
+  <data name="LibraryImportedFromVirtualBox" xml:space="preserve"><value>from VirtualBox</value></data>
+  <data name="LibraryImportedFromOvf" xml:space="preserve"><value>from an OVF package</value></data>
+  <data name="LibraryImportedFromDisk" xml:space="preserve"><value>from a disk image</value></data>
+  <data name="LibraryLinkedCloneNeedsQcow2" xml:space="preserve"><value>A linked clone requires qcow2 disks: {0} cannot serve as a base. Make a full copy, or convert these disks to qcow2.</value></data>
+  <data name="LibraryLinkedCloneSnapshotName" xml:space="preserve"><value>Base of {0}</value><comment>Snapshot name: must stay ASCII (qemu-img receives it through the ANSI code page).</comment></data>
+  <data name="LibraryNameRequired" xml:space="preserve"><value>The virtual machine's name is required.</value></data>
+  <data name="LibraryNameTooLong" xml:space="preserve"><value>The name cannot be longer than 100 characters.</value></data>
+  <data name="LibraryNameInvalidCharacters" xml:space="preserve"><value>The name cannot contain {0}</value></data>
+  <data name="LibraryNameReserved" xml:space="preserve"><value>"{0}" is a name reserved by Windows.</value></data>
+  <data name="ManagerStopBeforeClone" xml:space="preserve"><value>Shut down the virtual machine before cloning it.</value></data>
+  <data name="ManagerStopBeforeExport" xml:space="preserve"><value>Shut down the virtual machine before exporting it.</value></data>
+  <data name="ManagerCloneName" xml:space="preserve"><value>{0} (copy)</value></data>
+  <data name="ManagerCloneNameNumbered" xml:space="preserve"><value>{0} (copy {1})</value></data>
+  <data name="UnattendedUserNameRequired" xml:space="preserve"><value>Enter a user name.</value></data>
+  <data name="UnattendedLinuxUserNameRule" xml:space="preserve"><value>On Linux, a user name starts with a lowercase letter and contains only lowercase letters, digits, "-" and "_" (32 at most).</value></data>
+  <data name="UnattendedLinuxReservedAccount" xml:space="preserve"><value>"{0}" is a reserved system account: choose another name.</value></data>
+  <data name="UnattendedWindowsUserNameTooLong" xml:space="preserve"><value>A Windows user name is 20 characters at most.</value></data>
+  <data name="UnattendedWindowsUserNameCharacters" xml:space="preserve"><value>A Windows user name cannot contain any of these characters: " / \ [ ] : ; | = , + * ? &lt; &gt; @</value></data>
+  <data name="UnattendedWindowsBuiltInAccount" xml:space="preserve"><value>"{0}" is a built-in Windows account: choose another name.</value></data>
+  <data name="GuestToolsInstalled" xml:space="preserve"><value>Guest tools installed.</value></data>
+  <data name="GuestToolsHeadless" xml:space="preserve"><value>The guest agent answers. Without a graphical interface, the guest has no clipboard to share: to paste text into it, "Type the clipboard" (console bar) types it on the keyboard.</value></data>
+  <data name="GuestToolsIncompleteWindows" xml:space="preserve"><value>The guest agent answers, but the virtio-win tools (drivers, clipboard) are not installed.</value></data>
+  <data name="GuestToolsIncompleteLinux" xml:space="preserve"><value>The guest agent answers, but spice-vdagent is not installed: the clipboard is not shared.</value></data>
+  <data name="GuestToolsNoVirtioDrive" xml:space="preserve"><value>no drive holds the virtio-win ISO</value></data>
+  <data name="GuestToolsNoPackageManager" xml:space="preserve"><value>the distribution has neither apt, dnf, zypper nor pacman</value></data>
+  <data name="GuestToolsRestartNeeded" xml:space="preserve"><value>installed; restarting the guest finishes installing the drivers</value></data>
+  <data name="GuestSharesNoUser" xml:space="preserve"><value>the guest has no user account to put them in</value></data>
+  <data name="GuestSharesMountError" xml:space="preserve"><value>mounting failed: {0}</value></data>
+  <data name="GuestSharesNoChannel" xml:space="preserve"><value>the machine does not have the shared folders' channel: shut it down, then start it again from WinQEMU</value></data>
+  <data name="GuestSharesRelayFailed" xml:space="preserve"><value>the channel's relay could not start in /run/winqemu</value></data>
+  <data name="GuestSharesNoRelayTool" xml:space="preserve"><value>the guest has neither perl nor python3 to relay the channel</value></data>
+  <data name="GuestSharesNoWebClient" xml:space="preserve"><value>Windows' WebDAV client (WebClient service) is missing; on Windows Server, add the "WebDAV Redirector" feature</value></data>
+  <data name="GuestSharesTaskFailed" xml:space="preserve"><value>the task that maps the drive at sign-in could not be created: {0}</value></data>
+  <data name="GuestSharesScriptFailed" xml:space="preserve"><value>the script stopped with code {0}: {1}</value></data>
+  <data name="GuestSharesNoAgentWindows" xml:space="preserve"><value>The guest agent is not answering. Install it once in Windows, from the virtio-win drive: guest-agent\qemu-ga-x86_64.msi. The folders will then appear in a "{0}" drive.</value></data>
+  <data name="GuestSharesNoAgentLinux" xml:space="preserve"><value>The guest agent is not answering. Install it once in the guest (sudo apt install qemu-guest-agent) and restart the guest: the folders will appear in ~/{0}.</value></data>
+  <data name="GuestSharesUnsupportedGuest" xml:space="preserve"><value>This guest is neither Linux nor Windows: shared folders do not open in it.</value></data>
+  <data name="GuestSharesMountedAt" xml:space="preserve"><value>In the guest: {0}</value></data>
+  <data name="GuestSharesMountFailed" xml:space="preserve"><value>The folders could not be mounted in the guest: {0}.</value></data>
+  <data name="GuestSharesNeedNat" xml:space="preserve"><value>In a Windows guest, shared folders go through the NAT network adapter: add one in Hardware (or reconnect its cable), then restart the machine.</value></data>
+  <data name="GuestSharesDriveMapped" xml:space="preserve"><value>In the guest: "{0}" drive in This PC.</value></data>
+  <data name="GuestSharesOpenFailed" xml:space="preserve"><value>The folders could not be opened in the guest: {0}.</value></data>
+  <data name="FileDropWholeDrive" xml:space="preserve"><value>"{0}" is a whole drive: drop the folders it contains instead.</value></data>
+  <data name="FileDropNotFound" xml:space="preserve"><value>"{0}" was not found.</value></data>
+  <data name="FileDropChanged" xml:space="preserve"><value>"{0}" changed during the copy.</value></data>
+  <data name="FileDropInterrupted" xml:space="preserve"><value>The copy was interrupted in the guest: {0}</value></data>
+  <data name="FileDropCouldNotStart" xml:space="preserve"><value>The copy could not start in the guest: {0}</value></data>
+  <data name="FileDropNoAnswer" xml:space="preserve"><value>The guest did not answer in time to receive the files.</value></data>
+  <data name="FileDropGuestSilent" xml:space="preserve"><value>The guest stopped answering during the copy.</value></data>
+  <data name="FileDropFailed" xml:space="preserve"><value>The copy failed in the guest: {0}.</value></data>
+  <data name="FileDropUnexpectedAnswer" xml:space="preserve"><value>Unexpected answer from the guest: {0}</value></data>
+  <data name="FileDropNotRunning" xml:space="preserve"><value>The machine is not running.</value></data>
+  <data name="FileDropStartedWithoutChannel" xml:space="preserve"><value>This machine was started without the copy channel: shut it down, then start it again from WinQEMU.</value></data>
+  <data name="FileDropNoAgentWindows" xml:space="preserve"><value>The guest agent is not answering. Install it once in Windows, from the virtio-win drive: guest-agent\qemu-ga-x86_64.msi.</value></data>
+  <data name="FileDropNoAgentLinux" xml:space="preserve"><value>The guest agent is not answering. Install it once in the guest (sudo apt install qemu-guest-agent).</value></data>
+  <data name="FileDropReceiverNotStarted" xml:space="preserve"><value>The receiver could not be started in the guest: {0}</value></data>
+  <data name="FileDropChannelMissing" xml:space="preserve"><value>the copy channel is missing: shut down the machine, then start it again from WinQEMU</value></data>
+  <data name="FileDropReceiverExited" xml:space="preserve"><value>the receiver stopped (code {0}) {1}</value></data>
+  <data name="FileDropGuestNoUser" xml:space="preserve"><value>the guest has no user account</value></data>
+  <data name="FileDropGuestNoSession" xml:space="preserve"><value>no session is open in the guest: sign in to Windows, then try again</value></data>
+  <data name="FileDropGuestNoDesktop" xml:space="preserve"><value>the user's Desktop was not found</value></data>
+  <data name="FileDropGuestNoFolder" xml:space="preserve"><value>the folder {0} was not found</value></data>
+  <data name="FileDropGuestBadName" xml:space="preserve"><value>invalid name</value></data>
+  <data name="FileDropGuestBadNameOf" xml:space="preserve"><value>invalid name: {0}</value></data>
+  <data name="FileDropGuestBadRecord" xml:space="preserve"><value>unknown record</value></data>
+  <data name="FileDropGuestBadChunk" xml:space="preserve"><value>invalid chunk</value></data>
+  <data name="FilePullUnreadable" xml:space="preserve"><value>{0} cannot be read.</value></data>
+  <data name="FilePullGuestStoppedSending" xml:space="preserve"><value>The guest stopped sending before the end.</value></data>
+  <data name="FilePullInvalidName" xml:space="preserve"><value>Invalid name sent by the guest: {0}</value></data>
+  <data name="FilePullUnexpectedAnswer" xml:space="preserve"><value>Unexpected answer from the guest.</value></data>
+  <data name="FilePullInvalidChunk" xml:space="preserve"><value>Invalid chunk sent by the guest.</value></data>
+  <data name="FilePullNoAgent" xml:space="preserve"><value>The guest agent is not answering: install the guest tools first.</value></data>
+  <data name="FilePullSenderNotStarted" xml:space="preserve"><value>Sending could not be started in the guest: {0}</value></data>
+  <data name="FilePullSenderExited" xml:space="preserve"><value>the sender stopped (code {0}) {1}</value></data>
+  <data name="FilePullGuestBadPath" xml:space="preserve"><value>{0}: invalid path</value></data>
+  <data name="FilePullGuestNotFound" xml:space="preserve"><value>{0}: not found</value></data>
+  <data name="FilePullGuestChanged" xml:space="preserve"><value>{0} changed during the copy</value></data>
+</root>

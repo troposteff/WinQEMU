@@ -125,8 +125,43 @@ namespace WinQEMU.Core.Models
         /// <summary>Host USB devices connected at every start (see <see cref="UsbDeviceConfig"/>).</summary>
         public ObservableCollection<UsbDeviceConfig> UsbDevices { get; set; } = new();
 
+        private ObservableCollection<SharedFolderConfig> _sharedFolders = new();
         /// <summary>Host folders shared with this machine (see <see cref="SharedFolderConfig"/>).</summary>
-        public ObservableCollection<SharedFolderConfig> SharedFolders { get; set; } = new();
+        public ObservableCollection<SharedFolderConfig> SharedFolders
+        {
+            get => _sharedFolders;
+            set
+            {
+                _sharedFolders.CollectionChanged -= OnSharedFoldersChanged;
+                _sharedFolders = value ?? new();
+                _sharedFolders.CollectionChanged += OnSharedFoldersChanged;
+                ShowGuestSharesFolder();
+            }
+        }
+
+        private string _guestSharesFolder = string.Empty;
+        /// <summary>
+        /// The folder under the guest user's home that its shared folders are mounted in, as the guest last reported
+        /// it: ~/Partages for a guest set up while WinQEMU was in French, ~/Shares in English. Empty until then.
+        /// </summary>
+        public string GuestSharesFolder
+        {
+            get => _guestSharesFolder;
+            set
+            {
+                if (SetProperty(ref _guestSharesFolder, value ?? string.Empty))
+                    ShowGuestSharesFolder();
+            }
+        }
+
+        private void OnSharedFoldersChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+            ShowGuestSharesFolder();
+
+        private void ShowGuestSharesFolder()
+        {
+            foreach (var folder in _sharedFolders)
+                folder.GuestFolder = _guestSharesFolder;
+        }
 
         /// <summary>
         /// Where an unattended installation stands (Services.WindowsUnattendedSetup): its answer file waits

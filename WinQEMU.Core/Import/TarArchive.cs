@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Import
 {
@@ -44,8 +45,8 @@ namespace WinQEMU.Core.Import
                     break;
                 if (!ChecksumMatches(header))
                     throw new FormatException(entries.Count == 0
-                        ? "Ce fichier n'est pas une archive OVA (tar) valide."
-                        : $"L'archive est abîmée après « {entries[^1].Name} ».");
+                        ? PlatformText.ImportTarInvalid
+                        : string.Format(CultureInfo.CurrentCulture, PlatformText.ImportTarDamaged, entries[^1].Name));
 
                 var size = ParseNumber(header.AsSpan(124, 12));
                 var type = (char)header[156];
@@ -208,7 +209,7 @@ namespace WinQEMU.Core.Import
         private static string ReadText(Stream stream, long size)
         {
             if (size > 1024 * 1024)
-                throw new FormatException("En-tête d'archive démesuré : ce fichier n'est pas une archive OVA valide.");
+                throw new FormatException(PlatformText.ImportTarHeaderTooLarge);
             var data = new byte[size];
             ReadFully(stream, data);
             return Encoding.UTF8.GetString(data);

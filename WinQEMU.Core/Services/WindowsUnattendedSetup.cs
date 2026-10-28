@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Xml.Linq;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
@@ -92,14 +93,14 @@ namespace WinQEMU.Core.Services
         {
             var name = userName.Trim();
             if (name.Length == 0)
-                return "Indiquez un nom d'utilisateur.";
+                return CoreText.UnattendedUserNameRequired;
             if (name.Length > 20)
-                return "Un nom d'utilisateur Windows fait au plus 20 caractères.";
+                return CoreText.UnattendedWindowsUserNameTooLong;
             if (name.IndexOfAny("\"/\\[]:;|=,+*?<>@".ToCharArray()) >= 0 || name.EndsWith('.'))
-                return "Un nom d'utilisateur Windows ne peut contenir aucun de ces caractères : \" / \\ [ ] : ; | = , + * ? < > @";
+                return CoreText.UnattendedWindowsUserNameCharacters;
             if (name.Equals("Administrateur", StringComparison.OrdinalIgnoreCase) || name.Equals("Administrator", StringComparison.OrdinalIgnoreCase)
                 || name.Equals("Invité", StringComparison.OrdinalIgnoreCase) || name.Equals("Guest", StringComparison.OrdinalIgnoreCase))
-                return $"« {name} » est un compte intégré de Windows : choisissez un autre nom.";
+                return string.Format(CultureInfo.CurrentCulture, CoreText.UnattendedWindowsBuiltInAccount, name);
             return null;
         }
 

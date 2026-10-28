@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Input
 {
@@ -58,7 +60,7 @@ namespace WinQEMU.Core.Input
                 }
 
                 strokes.Add(Composed(ch, layout)
-                    ?? throw new ArgumentException($"« {ch} » ne se tape pas avec la disposition de clavier de ce PC.", nameof(text)));
+                    ?? throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, CoreText.KeyboardCannotType, ch), nameof(text)));
             }
             return strokes;
         }

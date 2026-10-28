@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Networking
 {
@@ -7,7 +9,7 @@ namespace WinQEMU.Core.Networking
     public sealed record HostSubnet(uint Network, int PrefixLength, string Card)
     {
         /// <summary>QEMU's NAT, which every machine with a NAT card is on: 10.0.2.0/24.</summary>
-        public static HostSubnet QemuNat { get; } = new(0x0A000200, 24, "le NAT de QEMU");
+        public static HostSubnet QemuNat { get; } = new(0x0A000200, 24, PlatformText.NetworkQemuNatLabel);
 
         /// <summary>
         /// The networks of this PC's cards that are up, except the ones named (the TAP adapters of
@@ -32,7 +34,8 @@ namespace WinQEMU.Core.Networking
                     if (value >> 16 == 0xA9FE)
                         continue;
                     var mask = uint.MaxValue << (32 - address.PrefixLength);
-                    found.Add(new HostSubnet(value & mask, address.PrefixLength, $"la carte « {card.Name} » de ce PC"));
+                    found.Add(new HostSubnet(value & mask, address.PrefixLength,
+                        string.Format(CultureInfo.CurrentCulture, PlatformText.NetworkHostAdapterLabel, card.Name)));
                 }
             }
             return found;

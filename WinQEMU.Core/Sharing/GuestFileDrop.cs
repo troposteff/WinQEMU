@@ -583,7 +583,8 @@ namespace WinQEMU.Core.Sharing
                 var finished = await Task.WhenAny(writing, answer, Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None)).ConfigureAwait(false);
                 if (finished == answer)
                 {
-                    // An early answer can only be a failure: stop writing (a blocked write ends with the stream).
+                    // An early answer is a failure, or the ABORTED that follows a cancel: stop writing (a blocked
+                    // write ends with the stream).
                     stop.Cancel();
                     port.Dispose();
                     break;
@@ -627,14 +628,16 @@ namespace WinQEMU.Core.Sharing
             {
                 if (died is not null)
                     throw new GuestFileDropException($"La copie s'est interrompue dans l'invité : {died}");
-                if (answer.IsCompletedSuccessfully && answer.Result is { } early)
-                    throw new GuestFileDropException(Failure(early));
+                // Before the early answer: once cancelled, that answer is the guest's ABORTED, which can come
+                // before the writer has seen the cancel itself (seen on the CI's runner, never on this PC).
                 if (cancellationToken.IsCancellationRequested)
                 {
                     // Give the guest a moment to remove what it had written; it says ABORTED when done.
                     await Task.WhenAny(answer, Task.Delay(TimeSpan.FromSeconds(10), CancellationToken.None)).ConfigureAwait(false);
                     throw new OperationCanceledException(cancellationToken);
                 }
+                if (answer.IsCompletedSuccessfully && answer.Result is { } early)
+                    throw new GuestFileDropException(Failure(early));
                 throw;
             }
 

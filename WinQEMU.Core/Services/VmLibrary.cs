@@ -41,6 +41,9 @@ namespace WinQEMU.Core.Services
 
         /// <summary>For an unattended Windows installation, its answers; null to install by hand.</summary>
         public UnattendedWindows? Unattended { get; init; }
+
+        /// <summary>For an unattended Ubuntu installation, its answers; null to install by hand.</summary>
+        public UnattendedLinux? UnattendedLinux { get; init; }
         public bool RtcLocalTime { get; init; }
     }
 
@@ -174,6 +177,15 @@ namespace WinQEMU.Core.Services
             {
                 WindowsUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), unattended);
                 config.UnattendedSetup = UnattendedSetupState.Pending;
+            }
+            else if (request.UnattendedLinux is { } linux && !string.IsNullOrWhiteSpace(request.IsoPath))
+            {
+                // Read out of the ISO now, so the first start does not wait on a hundred megabytes.
+                if (!UbuntuUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), linux, request.IsoPath))
+                    throw new InvalidOperationException("Cette image ISO n'a pas le noyau d'installation d'Ubuntu (casper) : l'installation automatique est impossible.");
+                config.UnattendedSetup = UnattendedSetupState.Pending;
+                // The installer's own kernel is booted for the first start; every later one is the disk's.
+                config.BootFromIso = false;
             }
 
             if (request.NetworkMode != NetworkMode.None)

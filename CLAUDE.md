@@ -424,6 +424,15 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   « Press any key to boot from CD » (une seule fois, sinon l'installation recommencerait à chaque redémarrage) →
   `Installing` → quand l'agent répond, fichiers de réponses supprimés (mot de passe en base64 seulement) et
   `BootFromIso` désactivé.
+- **Installation automatique d'Ubuntu** (`UbuntuUnattendedSetup`, même case de l'assistant, profil Ubuntu et ISO qui a
+  `casper/vmlinuz`) : fichier `autoinstall` (cloud-init) sur une clé vvfat nommée **CIDATA**, où regarde la source
+  NoCloud ; mot de passe en **SHA-512 crypt** (`Sha512Crypt`, vérifié sur les vecteurs de la spécification) ;
+  `qemu-guest-agent` et `spice-vdagent` installés d'office. L'installateur demande confirmation sauf si `autoinstall`
+  est sur la ligne du noyau : au lieu de réécrire le menu de l'ISO, le **premier démarrage** (`Pending`) lance le
+  noyau et l'initrd de l'ISO **directement** (`-kernel`, lus dans l'ISO à la création), les suivants partent du disque
+  (`BootFromIso` faux). Avec `-kernel`, l'index de démarrage 0 est pris : les périphériques partent de 1 (sinon
+  « The bootindex 0 has already been used »). Vérifié de bout en bout sur l'ISO Ubuntu 26.04 bureau : 24 min, agent
+  qui répond, écran de connexion.
 - **`-accel whpx` sans `kernel-irqchip`** : par défaut QEMU prend l'APIC de l'hyperviseur s'il en a un, sinon le
   sien. Forcé à `off` (l'ancienne règle, de l'époque où le défaut refusait de démarrer), **un invité Windows à plus
   d'un vCPU se figeait sur la roue de démarrage**, installation de Windows 11 comprise ; 1 vCPU démarrait, et tout

@@ -157,6 +157,7 @@ namespace WinQEMU.Core.Qemu
 
             AppendPlatform(args, config, installation);
             AppendFirmware(args, config, installation);
+            AppendInstallerKernel(args, config);
             AppendStorage(args, config);
             AppendNetworking(args, config, networkPorts);
             AppendDisplayAndInput(args, config);
@@ -401,7 +402,7 @@ namespace WinQEMU.Core.Qemu
                     .ToList();
 
                 ranked.AddRange(available.Where(id => !ranked.Contains(id, StringComparer.Ordinal)));
-                return ToBootIndexMap(ranked);
+                return ToBootIndexMap(ranked, FirstBootIndex(config));
             }
 
             var order = new List<string>();
@@ -420,12 +421,18 @@ namespace WinQEMU.Core.Qemu
             if (!string.IsNullOrWhiteSpace(config.SecondaryIsoPath))
                 order.Add(SecondaryCdId);
 
-            return ToBootIndexMap(order);
+            return ToBootIndexMap(order, FirstBootIndex(config));
         }
 
-        private static Dictionary<string, int> ToBootIndexMap(IEnumerable<string> order) =>
+        /// <summary>
+        /// 1 while QEMU boots the installer's kernel itself: -kernel takes boot index 0, and a device given it
+        /// too stops QEMU ("The bootindex 0 has already been used").
+        /// </summary>
+        private static int FirstBootIndex(VmConfig config) => NeedsLinuxInstallerBoot(config) ? 1 : 0;
+
+        private static Dictionary<string, int> ToBootIndexMap(IEnumerable<string> order, int first) =>
             order
-                .Select((id, index) => (id, index))
+                .Select((id, index) => (id, index: index + first))
                 .ToDictionary(entry => entry.id, entry => entry.index, StringComparer.Ordinal);
 
         /// <summary>QEMU device of each SCSI controller and the id its disks attach to, by bus.</summary>
@@ -701,6 +708,18 @@ namespace WinQEMU.Core.Qemu
                 args.Add("-device");
                 args.Add($"usb-storage,id=wq-setup-stick,bus={UsbPassthroughControllerId}.0,drive=wq-setup,removable=on");
             }
+
+            if (NeedsLinuxInstallerBoot(config))
+            {
+                // Labelled CIDATA: where cloud-init's NoCloud source, and so Ubuntu's installer, looks.
+                var cidata = Path.Combine(GetWindowsSetupFolder(config), Services.UbuntuUnattendedSetup.CidataFolder);
+                args.Add("-blockdev");
+                args.Add($"driver=vvfat,node-name=wq-cidata-fat,dir={EscapeOptionValue(cidata)},label=CIDATA,read-only=on");
+                args.Add("-blockdev");
+                args.Add("driver=raw,node-name=wq-cidata,file=wq-cidata-fat,read-only=on");
+                args.Add("-device");
+                args.Add($"usb-storage,id=wq-cidata-stick,bus={UsbPassthroughControllerId}.0,drive=wq-cidata,removable=on");
+            }
         }
 
         /// <summary>
@@ -712,6 +731,29 @@ namespace WinQEMU.Core.Qemu
             (config.GuestOs == "windows-11" || config.UnattendedSetup != UnattendedSetupState.None)
             && config.BootFromIso && !string.IsNullOrWhiteSpace(config.IsoPath)
             && config.Architecture == GuestArchitecture.X86_64;
+
+        /// <summary>
+        /// Whether the first start of an unattended Linux installation is due: QEMU then boots the ISO's own
+        /// kernel with "autoinstall" (Services.UbuntuUnattendedSetup), and the answers ride on a CIDATA stick.
+        /// Only that start: the installer reboots into the installed system.
+        /// </summary>
+        public static bool NeedsLinuxInstallerBoot(VmConfig config) =>
+            config.UnattendedSetup == UnattendedSetupState.Pending
+            && GuestOsCatalog.Find(config.GuestOs)?.Family == "Linux"
+            && config.Architecture == GuestArchitecture.X86_64;
+
+        private static void AppendInstallerKernel(List<string> args, VmConfig config)
+        {
+            if (!NeedsLinuxInstallerBoot(config))
+                return;
+            var folder = GetWindowsSetupFolder(config);
+            args.Add("-kernel");
+            args.Add(Path.Combine(folder, Services.UbuntuUnattendedSetup.KernelFile));
+            args.Add("-initrd");
+            args.Add(Path.Combine(folder, Services.UbuntuUnattendedSetup.InitrdFile));
+            args.Add("-append");
+            args.Add(Services.UbuntuUnattendedSetup.KernelArguments);
+        }
 
         /// <summary>The machine's folder the setup stick shows.</summary>
         public static string GetWindowsSetupFolder(VmConfig config) => Path.Combine(config.FolderPath, "winqemu-setup");

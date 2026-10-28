@@ -245,7 +245,7 @@
                         <CheckBox Content="Installation automatique" IsChecked="{Binding Unattended, Mode=TwoWay}" />
                         <TextBlock
                             Style="{StaticResource Hint}"
-                            Text="Windows s'installe sans rien demander : l'édition Professionnel, tout le disque, ce compte (administrateur, ouvert automatiquement la première fois), la langue, le clavier et le fuseau horaire de ce PC. Puis les pilotes virtio et l'agent invité, si l'ISO virtio-win est en second lecteur."
+                            Text="{Binding UnattendedHint, Mode=OneWay}"
                             TextWrapping="Wrap" />
                         <Grid
                             ColumnSpacing="8"
@@ -262,7 +262,7 @@
                             <PasswordBox
                                 x:Name="UnattendedPasswordBox"
                                 Grid.Column="1"
-                                Header="Mot de passe (facultatif)"
+                                Header="Mot de passe"
                                 PasswordChanged="OnUnattendedPasswordChanged" />
                         </Grid>
                         <TextBlock

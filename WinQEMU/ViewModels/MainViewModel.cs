@@ -589,8 +589,10 @@ namespace WinQEMU.ViewModels
             {
                 config.UnattendedSetup = UnattendedSetupState.Installing;
                 Manager.Save(config);
-                _ = session.PressBootKeyAsync(TimeSpan.FromSeconds(20));
-                AppendDiagnostic("Unattended installation: starting Windows Setup from the ISO.");
+                // Ubuntu's installer kernel is booted directly by QEMU: no firmware prompt to answer.
+                if (GuestOsCatalog.Find(config.GuestOs)?.Family == "Windows")
+                    _ = session.PressBootKeyAsync(TimeSpan.FromSeconds(20));
+                AppendDiagnostic("Unattended installation: starting the installer from the ISO.");
             }
 
             MountSharedFolders(session);
@@ -1188,10 +1190,28 @@ namespace WinQEMU.ViewModels
         /// </summary>
         private void PrepareGuestDisplay(VmSession session)
         {
-            if (GuestOsCatalog.Find(session.Config.GuestOs)?.Family != "Windows"
-                || session.GuestAgentPort is not { } port || !_displayRuns.Add((session, port)))
+            if (session.GuestAgentPort is not { } port || !_displayRuns.Add((session, port)))
                 return;
-            _ = PrepareGuestDisplayAsync(session, port);
+            if (GuestOsCatalog.Find(session.Config.GuestOs)?.Family == "Windows")
+                _ = PrepareGuestDisplayAsync(session, port);
+            else if (session.Config.UnattendedSetup == UnattendedSetupState.Installing)
+                _ = FinishWhenAgentAnswersAsync(session);
+        }
+
+        /// <summary>A Linux guest follows the window by itself; only an unattended installation waits on its agent.</summary>
+        private async Task FinishWhenAgentAnswersAsync(VmSession session)
+        {
+            try
+            {
+                // The installer reboots into the installed system, which installs the agent on first boot: long.
+                await using var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(60));
+                if (agent is not null)
+                    FinishUnattendedSetup(session.Config);
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
+            {
+                AppendDiagnostic($"Unattended installation: the guest agent did not answer ({ex.Message}).");
+            }
         }
 
         private async Task PrepareGuestDisplayAsync(VmSession session, int port)
@@ -1232,7 +1252,12 @@ namespace WinQEMU.ViewModels
                 return;
 
             var folder = QemuArgumentBuilder.GetWindowsSetupFolder(config);
-            foreach (var file in new[] { WindowsSetupAnswer.FileName, WindowsUnattendedSetup.ScriptFileName, WindowsUnattendedSetup.AccountScriptFileName })
+            foreach (var file in new[]
+                     {
+                         WindowsSetupAnswer.FileName, WindowsUnattendedSetup.ScriptFileName, WindowsUnattendedSetup.AccountScriptFileName,
+                         UbuntuUnattendedSetup.KernelFile, UbuntuUnattendedSetup.InitrdFile,
+                         Path.Combine(UbuntuUnattendedSetup.CidataFolder, "user-data"), Path.Combine(UbuntuUnattendedSetup.CidataFolder, "meta-data")
+                     })
             {
                 try
                 {

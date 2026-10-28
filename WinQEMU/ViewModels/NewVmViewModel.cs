@@ -281,8 +281,12 @@ namespace WinQEMU.ViewModels
             if (!string.IsNullOrWhiteSpace(IsoPath) && !File.Exists(IsoPath))
                 return ($"Image ISO introuvable : {IsoPath}", null);
 
-            if (UseUnattended && WindowsUnattendedSetup.WhyUserNameIsRefused(UnattendedUser) is { } refused)
+            if (UseUnattended && (IsLinuxUnattended
+                    ? UbuntuUnattendedSetup.WhyUserNameIsRefused(UnattendedUser)
+                    : WindowsUnattendedSetup.WhyUserNameIsRefused(UnattendedUser)) is { } refused)
                 return (refused, null);
+            if (UseUnattended && IsLinuxUnattended && UnattendedPassword.Length == 0)
+                return ("Ubuntu demande un mot de passe pour ouvrir une session : indiquez-en un.", null);
 
             if (!string.IsNullOrWhiteSpace(SecondaryIsoPath) && !File.Exists(SecondaryIsoPath))
                 return ($"Second ISO introuvable : {SecondaryIsoPath}", null);
@@ -295,7 +299,7 @@ namespace WinQEMU.ViewModels
                                "microprogramme. Vous pourrez ajouter un ISO plus tard.");
             }
 
-            if (UseUnattended && string.IsNullOrWhiteSpace(SecondaryIsoPath))
+            if (UseUnattended && !IsLinuxUnattended && string.IsNullOrWhiteSpace(SecondaryIsoPath))
             {
                 advisories.Add("Sans l'ISO virtio-win en second lecteur, Windows s'installera sans ses pilotes virtio ni " +
                                "l'agent invité : pas de dossiers partagés, ni de résolution qui suit la fenêtre.");
@@ -365,6 +369,7 @@ namespace WinQEMU.ViewModels
                     return;
 
                 ApplyProfile(value);
+                RaiseUnattended();
                 RevalidateCurrentStep();
             }
         }
@@ -503,8 +508,29 @@ namespace WinQEMU.ViewModels
         /// simplifiée". Windows 7 and 8.1 keep BIOS and their own answer file format.
         /// </summary>
         public bool CanInstallUnattended =>
-            SelectedProfile.Family == "Windows" && SelectedProfile.Key != "windows-7"
-            && Firmware == FirmwareType.Uefi && BootFromIso && !string.IsNullOrWhiteSpace(IsoPath);
+            BootFromIso && !string.IsNullOrWhiteSpace(IsoPath)
+            && (SelectedProfile.Family == "Windows"
+                ? SelectedProfile.Key != "windows-7" && Firmware == FirmwareType.Uefi
+                : SelectedProfile.Key == "ubuntu" && IsUbuntuInstaller(IsoPath));
+
+        /// <summary>Ubuntu's own unattended installation (UbuntuUnattendedSetup) rather than Windows'.</summary>
+        public bool IsLinuxUnattended => SelectedProfile.Family == "Linux";
+
+        public string UnattendedHint => IsLinuxUnattended
+            ? "Ubuntu s'installe sans rien demander : tout le disque, ce compte (administrateur par sudo), la langue, le clavier et le fuseau horaire de ce PC, l'agent invité et l'agent de presse-papiers (dossiers partagés et copier-coller d'emblée). Il faut une carte en NAT : les paquets viennent d'Internet."
+            : "Windows s'installe sans rien demander : l'édition Professionnel, tout le disque, ce compte (administrateur, ouvert automatiquement la première fois), la langue, le clavier et le fuseau horaire de ce PC. Puis les pilotes virtio et l'agent invité, si l'ISO virtio-win est en second lecteur.";
+
+        // Reading the ISO's directory on every keystroke of a path would be wasteful: once per file.
+        private readonly Dictionary<string, bool> _ubuntuInstallers = new(StringComparer.OrdinalIgnoreCase);
+
+        private bool IsUbuntuInstaller(string isoPath)
+        {
+            if (!File.Exists(isoPath))
+                return false;
+            if (!_ubuntuInstallers.TryGetValue(isoPath, out var found))
+                _ubuntuInstallers[isoPath] = found = UbuntuUnattendedSetup.CanInstall(isoPath);
+            return found;
+        }
 
         private bool _unattended = true;
         public bool Unattended
@@ -525,10 +551,23 @@ namespace WinQEMU.ViewModels
         /// <summary>Kept in memory only: it goes into the answer file, never into the descriptor.</summary>
         public string UnattendedPassword { get; set; } = string.Empty;
 
-        public string UnattendedComputerName => WindowsUnattendedSetup.ComputerNameFor(Name);
+        public string UnattendedComputerName => IsLinuxUnattended
+            ? UbuntuUnattendedSetup.HostnameFor(Name)
+            : WindowsUnattendedSetup.ComputerNameFor(Name);
 
         private void RaiseUnattended()
         {
+            // Linux account names are lower case: "Stéphane" from Windows becomes "stephane".
+            if (IsLinuxUnattended && UbuntuUnattendedSetup.WhyUserNameIsRefused(UnattendedUser) is not null)
+            {
+                var folded = UbuntuUnattendedSetup.HostnameFor(UnattendedUser).Replace("-", string.Empty, StringComparison.Ordinal);
+                if (UbuntuUnattendedSetup.WhyUserNameIsRefused(folded) is null)
+                    _unattendedUser = folded;
+                RaisePropertyChanged(nameof(UnattendedUser));
+            }
+            RaisePropertyChanged(nameof(IsLinuxUnattended));
+            RaisePropertyChanged(nameof(UnattendedHint));
+            RaisePropertyChanged(nameof(UnattendedComputerName));
             RaisePropertyChanged(nameof(CanInstallUnattended));
             RaisePropertyChanged(nameof(UseUnattended));
             RevalidateCurrentStep();
@@ -678,8 +717,11 @@ namespace WinQEMU.ViewModels
             NetworkId = ChosenConnection().NetworkId,
             NicModel = NicModel,
             RtcLocalTime = RtcLocalTime,
-            Unattended = UseUnattended
+            Unattended = UseUnattended && !IsLinuxUnattended
                 ? WindowsUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, Name.Trim(), IsoPath, SelectedProfile.Key)
+                : null,
+            UnattendedLinux = UseUnattended && IsLinuxUnattended
+                ? UbuntuUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, Name.Trim())
                 : null
         };
 

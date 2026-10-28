@@ -324,6 +324,37 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
 - **L'agent invité n'est pas dans virtio-win-guest-tools** (qui n'apporte que spice-vdagent) : `guest-agent\qemu-ga-x86_64.msi`
   du même lecteur, à installer à part ; le message de WinQEMU le dit pour un invité Windows.
 
+## Outils invités
+
+Comme les VMware Tools (`Services.GuestTools`) : l'agent invité, dont dépendent dossiers partagés, glisser-déposer, taille
+d'écran et graphique réseau, plus spice-vdagent (presse-papiers) ; sous Windows, les outils virtio-win (pilotes, agent
+spice) et l'agent, installateur à part sur la même ISO. Vérifiés à chaque processus QEMU (`MainViewModel.CheckGuestTools`,
+pas pendant une installation ni sur une ISO) : agent attendu 3 min, puis interrogé (Windows : service `spice-agent` ;
+Linux : `spice-vdagent`, **sauf invité sans bureau** — aucune session dans `/usr/share/xsessions` ni `wayland-sessions` :
+le presse-papiers n'y a pas d'usage, et la Debian serveur de l'utilisateur était dite incomplète à tort ; `systemctl
+get-default` y répondait pourtant `graphical.target`). Absents : lien dans la barre de la console et section
+**Outils invités** du résumé. L'interface ne cite pas les VMware Tools (choix de l'utilisateur).
+
+- **Sans agent, rien ne s'exécute dans l'invité.** Linux : WinQEMU **tape** la commande (`apt-get`/`dnf`/`zypper`/`pacman`)
+  dans un terminal que l'utilisateur a ouvert (`Input.KeyboardText` : touches de la disposition de ce PC, AltGr = Alt droit,
+  touche morte suivie d'espace, détectée par `ToUnicodeEx` avec les modificateurs ; un caractère à la fois, le tampon PS/2
+  de l'invité perdrait des touches). Windows : WinQEMU insère l'ISO virtio-win et l'utilisateur lance
+  `virtio-win-guest-tools.exe` **puis** `guest-agent\qemu-ga-x86_64.msi`.
+- **Abandonné : taper la commande dans Exécuter (Win+R) de Windows.** Une commande PowerShell tapée là et lancée en
+  administrateur est exactement l'attaque « ClickFix » : Microsoft Defender l'a arrêtée
+  (`Behavior:Win32/SuspClickFix.G2`, gravité 5) et a tué l'installateur virtio qu'elle avait lancé. Une protection ne se
+  contourne pas. Une première version (msiexec de l'agent seul) passait, mais n'aurait servi à rien :
+- **Sous Windows l'agent passe par le pilote virtio-serial des outils virtio-win** : désinstaller les outils a fait taire
+  un agent qui fonctionnait. Les outils d'abord, donc.
+- **Le reste passe par l'agent**, en SYSTEM ou root, sans question : sous Windows, l'éditeur Red Hat est approuvé d'abord
+  (signature d'un catalogue de pilote), sinon chaque pilote demande « Installer ce logiciel de périphérique ? ».
+- **ISO virtio-win jamais téléchargée** : celle déjà choisie (`AppSettings.VirtioWinIsoPath`), sinon celle qu'une VM de la
+  bibliothèque utilise (nom `virtio-win*.iso`), sinon la plus récente des Téléchargements, sinon demandée (où la trouver
+  est dit). Insérée dans le lecteur principal, qu'elle remplace (`ChangeIsoAsync`).
+- Une fois l'agent là, montage des dossiers et affichage sont relancés (ils avaient pu abandonner faute d'agent).
+- Vérifié sur une copie jetable de Windows 11 : agent désinstallé puis revenu ; outils et agent désinstallés,
+  diagnostic par captures `screendump` (PNG) et une console tapée par QMP. Saisie testée en AZERTY et QWERTY.
+
 ## Démarrage automatique et arrière-plan
 
 - **Démarrer avec WinQEMU** (section Démarrage automatique du résumé, `VmConfig.AutoStart` /

@@ -1040,6 +1040,101 @@ namespace WinQEMU
         private bool OnlyClosedItsMenu(object sender) =>
             ReferenceEquals(sender, _closedMenuTarget) && DateTime.UtcNow - _closedMenuAt < TimeSpan.FromMilliseconds(500);
 
+        /// <summary>
+        /// Installs the selection's guest tools, after saying what will happen in the guest: without an agent,
+        /// WinQEMU types at a Linux guest's keyboard, which the user must leave alone, and a Windows guest's user
+        /// starts the installers from the drive WinQEMU fills.
+        /// </summary>
+        private async void OnInstallGuestToolsClick(object sender, RoutedEventArgs e)
+        {
+            if (!_viewModel.CanInstallGuestTools)
+                return;
+            var windows = _viewModel.IsSelectedWindowsGuest;
+            var agentMissing = _viewModel.GuestToolsState == Core.Services.GuestToolsState.AgentMissing;
+
+            string? iso = null;
+            if (windows)
+            {
+                iso = _viewModel.FindVirtioWinIso() ?? await PickVirtioWinIsoAsync();
+                if (iso is null)
+                    return;
+            }
+
+            var current = _viewModel.SelectedVm?.IsoPath;
+            var swap = windows && !string.IsNullOrWhiteSpace(current) && !string.Equals(current, iso, StringComparison.OrdinalIgnoreCase)
+                ? $" à la place de {System.IO.Path.GetFileName(current)}"
+                : string.Empty;
+            var text = (windows, agentMissing) switch
+            {
+                (true, true) =>
+                    $"WinQEMU va insérer {System.IO.Path.GetFileName(iso)} dans le lecteur de la machine{swap}. Ensuite, dans " +
+                    "l'invité, ouvrez ce lecteur (« virtio-win ») dans l'Explorateur et lancez, dans cet ordre :\n\n" +
+                    "1. virtio-win-guest-tools.exe (pilotes virtio, presse-papiers) ; acceptez la confiance envers Red Hat ;\n" +
+                    "2. guest-agent\\qemu-ga-x86_64.msi (l'agent invité).\n\n" +
+                    "WinQEMU attend l'agent puis termine seul. Il ne tape rien lui-même dans Windows : Microsoft Defender prend " +
+                    "une commande tapée dans Exécuter pour une attaque, et la bloque.",
+                (true, false) =>
+                    $"L'agent invité répond. WinQEMU va insérer {System.IO.Path.GetFileName(iso)} dans le lecteur de la machine{swap} " +
+                    "et installer par lui les outils virtio-win (pilotes, presse-papiers), sans question.",
+                (false, true) =>
+                    "Ouvrez une session et un terminal dans l'invité (Ctrl+Alt+T sous Ubuntu), puis cliquez sur « Taper la commande ». " +
+                    "WinQEMU y tape, au clavier de ce PC :\n\n" + Core.Services.GuestTools.LinuxInstallCommand + "\n\n" +
+                    "Ne touchez pas au clavier pendant la saisie (quelques secondes). Si sudo demande votre mot de passe, tapez-le " +
+                    "dans la console.",
+                (false, false) =>
+                    "L'agent invité répond. WinQEMU va installer par lui spice-vdagent, qui partage le presse-papiers, sans question."
+            };
+
+            var choice = await ShowDialogAsync(new ContentDialog
+            {
+                Title = "Installer les outils invités",
+                Content = DialogBody(text),
+                PrimaryButtonText = !windows && agentMissing ? "Taper la commande" : "Installer",
+                CloseButtonText = "Annuler",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Content.XamlRoot
+            });
+            if (choice != ContentDialogResult.Primary)
+                return;
+
+            // The console is back: keys typed now reach the guest window that has its focus.
+            await Task.Delay(800);
+            var problem = await _viewModel.InstallGuestToolsAsync(iso);
+            if (problem is not null)
+                await ShowProblemAsync("Outils invités non installés", problem);
+        }
+
+        /// <summary>
+        /// virtio-win's ISO, chosen by the user when none was found. Nothing is downloaded: WinQEMU says where
+        /// Red Hat publishes it.
+        /// </summary>
+        private async Task<string?> PickVirtioWinIsoAsync()
+        {
+            var choice = await ShowDialogAsync(new ContentDialog
+            {
+                Title = "ISO virtio-win introuvable",
+                Content = DialogBody(
+                    "Les outils d'un invité Windows (agent invité, pilotes virtio, presse-papiers) sont sur l'ISO virtio-win de Red Hat, " +
+                    "que WinQEMU ne télécharge pas. Elle se trouve sur fedorapeople.org (groups/virt/virtio-win, dossier " +
+                    "« stable-virtio »).\n\nChoisissez-la : WinQEMU la retiendra pour les fois suivantes."),
+                PrimaryButtonText = "Choisir l'ISO…",
+                CloseButtonText = "Annuler",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Content.XamlRoot
+            });
+            if (choice != ContentDialogResult.Primary)
+                return null;
+
+            var picker = new Windows.Storage.Pickers.FileOpenPicker();
+            picker.FileTypeFilter.Add(".iso");
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            var file = await picker.PickSingleFileAsync();
+            if (file is null || string.IsNullOrEmpty(file.Path))
+                return null;
+            _viewModel.RememberVirtioWinIso(file.Path);
+            return file.Path;
+        }
+
         private async void OnSendFilesClick(object sender, RoutedEventArgs e)
         {
             var picker = new Windows.Storage.Pickers.FileOpenPicker();

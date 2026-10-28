@@ -550,6 +550,7 @@ namespace WinQEMU.ViewModels
                 BackgroundConsoleStarted?.Invoke(processId);
                 MountSharedFolders(session);
                 PrepareGuestDisplay(session);
+                CheckGuestTools(session);
             });
         }
 
@@ -701,6 +702,7 @@ namespace WinQEMU.ViewModels
 
             MountSharedFolders(session);
             PrepareGuestDisplay(session);
+            CheckGuestTools(session);
         }
 
         private Task PauseOrResumeAsync()
@@ -814,6 +816,7 @@ namespace WinQEMU.ViewModels
                 {
                     MountSharedFolders(running);
                     PrepareGuestDisplay(running);
+                    CheckGuestTools(running);
                 }
 
                 if (state == VmState.Error && SelectedSession?.LastError is { Length: > 0 } error)
@@ -879,6 +882,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(HasSharedFolderStatus));
             RaiseFileTransferProperties();
             RaiseSoundProperties();
+            RaiseGuestToolsProperties();
 
             // Boot order, disks and adapters are only read when QEMU starts, so they stay locked for
             // as long as a process exists — including while it is stopping.
@@ -1670,6 +1674,199 @@ namespace WinQEMU.ViewModels
                 RaisePropertyChanged(nameof(HasError));
         }
 
+        // ---- Guest tools ----
+
+        private readonly Dictionary<VmConfig, GuestToolsReport> _toolsReports = new();
+        private readonly HashSet<(VmSession Session, int Port)> _toolsRuns = new();
+        private readonly HashSet<VmConfig> _toolsInstalls = new();
+
+        /// <summary>
+        /// Looks for the guest's tools once per QEMU process (a guest reboot starts a new one): waits a few
+        /// minutes for the agent, then asks it what else is there. Not during an installation.
+        /// </summary>
+        private void CheckGuestTools(VmSession session)
+        {
+            if (!GuestTools.ShouldCheck(session.Config) || session.GuestAgentPort is not { } port || !_toolsRuns.Add((session, port)))
+                return;
+            _ = CheckGuestToolsAsync(session, GuestTools.AgentWait);
+        }
+
+        private async Task CheckGuestToolsAsync(VmSession session, TimeSpan agentWait)
+        {
+            var config = session.Config;
+            SetToolsReport(config, new GuestToolsReport(GuestToolsState.Checking, "Recherche de l'agent invité…"));
+            GuestToolsReport report;
+            try
+            {
+                await using var agent = await GuestShareMounter.WaitForAgentAsync(session, agentWait);
+                report = agent is null
+                    ? new GuestToolsReport(GuestToolsState.AgentMissing,
+                        "Les outils invités ne sont pas installés : dossiers partagés, glisser-déposer, presse-papiers et taille " +
+                        "d'écran automatique en dépendent.")
+                    : await GuestTools.CheckAsync(agent, GuestTools.IsWindows(config));
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
+            {
+                report = new GuestToolsReport(GuestToolsState.Unknown, string.Empty);
+            }
+            if (session.IsRunning && !_toolsInstalls.Contains(config))
+                SetToolsReport(config, report);
+        }
+
+        private void SetToolsReport(VmConfig config, GuestToolsReport report)
+        {
+            _toolsReports[config] = report;
+            RaiseGuestToolsProperties();
+        }
+
+        private GuestToolsReport? SelectedToolsReport =>
+            SelectedVm is { } vm && IsSelectedRunning && _toolsReports.TryGetValue(vm, out var report) ? report : null;
+
+        public GuestToolsState GuestToolsState => SelectedToolsReport?.State ?? GuestToolsState.Unknown;
+
+        /// <summary>Where the selection's tools stand, for the summary; null while unknown.</summary>
+        public string? GuestToolsText => SelectedToolsReport is { State: not GuestToolsState.Unknown } report ? report.Text : null;
+
+        public bool HasGuestToolsText => GuestToolsText is not null;
+
+        public bool IsInstallingGuestTools => SelectedVm is { } vm && _toolsInstalls.Contains(vm);
+
+        public bool CanInstallGuestTools =>
+            !IsInstallingGuestTools && GuestToolsState is GuestToolsState.AgentMissing or GuestToolsState.Incomplete;
+
+        /// <summary>Said in the console bar too: missing tools, or their installation under way.</summary>
+        public bool HasGuestToolsWarning => CanInstallGuestTools || IsInstallingGuestTools;
+
+        public bool ShowGuestToolsWarning => HasGuestToolsWarning && !HasSendFilesStatus;
+
+        public bool ShowConsoleHint => !HasSendFilesStatus && !HasGuestToolsWarning;
+
+        public string GuestToolsWarning => IsInstallingGuestTools
+            ? GuestToolsText ?? "Installation des outils invités…"
+            : "Outils invités absents ou incomplets.";
+
+        public bool IsSelectedWindowsGuest => SelectedVm is { } vm && GuestTools.IsWindows(vm);
+
+        private void RaiseGuestToolsProperties()
+        {
+            RaisePropertyChanged(nameof(GuestToolsState));
+            RaisePropertyChanged(nameof(GuestToolsText));
+            RaisePropertyChanged(nameof(HasGuestToolsText));
+            RaisePropertyChanged(nameof(IsInstallingGuestTools));
+            RaisePropertyChanged(nameof(CanInstallGuestTools));
+            RaisePropertyChanged(nameof(HasGuestToolsWarning));
+            RaisePropertyChanged(nameof(ShowGuestToolsWarning));
+            RaisePropertyChanged(nameof(ShowConsoleHint));
+            RaisePropertyChanged(nameof(GuestToolsWarning));
+        }
+
+        /// <summary>virtio-win's ISO if one can be found without asking (GuestTools.FindVirtioWinIso).</summary>
+        public string? FindVirtioWinIso() => GuestTools.FindVirtioWinIso(Settings.VirtioWinIsoPath, Manager.VirtualMachines);
+
+        public void RememberVirtioWinIso(string path)
+        {
+            Settings.VirtioWinIsoPath = path;
+            Settings.Save();
+        }
+
+        /// <summary>
+        /// Installs the selection's tools: types the first step at the guest's keyboard when there is no agent
+        /// (see GuestTools), waits for the agent, then completes through it. Windows needs virtio-win's ISO,
+        /// put in the machine's drive. Returns what went wrong, or null.
+        /// </summary>
+        public async Task<string?> InstallGuestToolsAsync(string? virtioWinIso)
+        {
+            if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
+                return "La machine doit être en marche.";
+            var windows = GuestTools.IsWindows(target);
+            var agentMissing = GuestToolsState == GuestToolsState.AgentMissing;
+            var layout = Core.Input.KeyboardText.CurrentLayout();
+            _toolsInstalls.Add(target);
+            void Say(string text) => SetToolsReport(target, new GuestToolsReport(GuestToolsState.Checking, text));
+            try
+            {
+                if (windows)
+                {
+                    if (virtioWinIso is null)
+                        return "L'ISO virtio-win est nécessaire pour un invité Windows.";
+                    Say("Insertion de l'ISO virtio-win…");
+                    await ChangeIsoAsync(virtioWinIso);
+                    // Time for Windows to see the new disc and give it a letter.
+                    await Task.Delay(TimeSpan.FromSeconds(6));
+                }
+
+                if (agentMissing)
+                {
+                    if (windows)
+                    {
+                        // Started by the user from the drive: typed in the Run box, Defender takes it for the
+                        // "ClickFix" attack and stops it (see GuestTools).
+                        Say("Dans l'invité, lancez virtio-win-guest-tools.exe puis guest-agent\\qemu-ga-x86_64.msi depuis le lecteur virtio-win ; WinQEMU attend l'agent…");
+                    }
+                    else
+                    {
+                        Say("Saisie de la commande dans l'invité…");
+                        await session.TypeAsync(Core.Input.KeyboardText.ToKeystrokes(GuestTools.LinuxInstallCommand + "\n", layout));
+                        Say("Tapez votre mot de passe dans le terminal de l'invité si sudo le demande ; l'installation suit…");
+                        AppendDiagnostic("Guest tools: installation command typed in the guest.");
+                    }
+
+                    await using var answered = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(windows ? 20 : 10));
+                    if (answered is null)
+                    {
+                        return windows
+                            ? "L'agent invité ne répond toujours pas. Vérifiez dans l'invité que les deux installations sont allées à leur terme."
+                            : "L'agent invité ne répond toujours pas après dix minutes. Vérifiez dans l'invité que la commande s'est bien exécutée.";
+                    }
+                }
+
+                Say("Installation des outils par l'agent invité…");
+                string? note = null;
+                await using (var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(1)))
+                {
+                    if (agent is null)
+                        return "L'agent invité a cessé de répondre.";
+                    if ((await GuestTools.CheckAsync(agent, windows)).State != GuestToolsState.Complete)
+                    {
+                        var result = await GuestTools.CompleteAsync(agent, windows);
+                        if (result.ExitCode is not (0 or 3010))
+                            return $"Les outils n'ont pas pu être installés : {GuestTools.Explain(result)}.";
+                        note = result.ExitCode == 3010
+                            ? "Redémarrez l'invité pour terminer l'installation des pilotes."
+                            : windows ? null : "Rouvrez la session de l'invité pour que le presse-papiers soit partagé.";
+                    }
+                }
+
+                // What waited for the agent and gave up can try again.
+                if (session.GuestAgentPort is { } port)
+                {
+                    _mountRuns.Remove((session, port));
+                    MountSharedFolders(session);
+                    PrepareGuestDisplay(session);
+                }
+                AppendDiagnostic("Guest tools: installed.");
+                _toolsInstalls.Remove(target);
+                SetToolsReport(target, new GuestToolsReport(GuestToolsState.Complete,
+                    note is null ? "Outils invités installés." : $"Outils invités installés. {note}"));
+                return null;
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or QmpException or InvalidOperationException
+                                           or ArgumentException or OperationCanceledException)
+            {
+                return ex.Message;
+            }
+            finally
+            {
+                if (_toolsInstalls.Remove(target) && session.IsRunning)
+                {
+                    // Failed: look again, so the state shown is the guest's, not the attempt's.
+                    if (session.GuestAgentPort is { } port)
+                        _toolsRuns.Remove((session, port));
+                    _ = CheckGuestToolsAsync(session, TimeSpan.FromSeconds(10));
+                }
+            }
+        }
+
         // ---- Sound ----
 
         /// <summary>What has been laid on one running machine's audio: its sessions, and the output it was sent to.</summary>
@@ -1867,6 +2064,8 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(SendFilesStatus));
             RaisePropertyChanged(nameof(HasSendFilesStatus));
             RaisePropertyChanged(nameof(HasNoSendFilesStatus));
+            RaisePropertyChanged(nameof(ShowGuestToolsWarning));
+            RaisePropertyChanged(nameof(ShowConsoleHint));
         }
 
         /// <summary>

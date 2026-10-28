@@ -1262,6 +1262,27 @@
                                     </StackPanel>
                                 </muxc:Expander>
 
+                                <!-- Guest tools (Services.GuestTools): what the guest has, and their installation. -->
+                                <muxc:Expander
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch">
+                                    <muxc:Expander.Header>
+                                        <TextBlock FontWeight="SemiBold" Text="Outils invités" />
+                                    </muxc:Expander.Header>
+                                    <StackPanel Spacing="8">
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="L'agent invité et les outils de l'invité : dossiers partagés, glisser-déposer, presse-papiers, taille d'écran automatique et graphique réseau en dépendent. Vérifiés à chaque démarrage de la machine."
+                                            TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding GuestToolsText, Mode=OneWay}" TextWrapping="Wrap"
+                                                   Visibility="{Binding HasGuestToolsText, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                        <Button
+                                            Click="OnInstallGuestToolsClick"
+                                            Content="Installer les outils invités…"
+                                            IsEnabled="{Binding CanInstallGuestTools, Mode=OneWay}" />
+                                    </StackPanel>
+                                </muxc:Expander>
+
                                 <!-- Start with WinQEMU (Models.AutoStartPlan), as Hyper-V's automatic start: any time, running or not. -->
                                 <muxc:Expander
                                     HorizontalAlignment="Stretch"
@@ -1581,7 +1602,27 @@
                             Text="Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris. Glissez des fichiers sur la console pour les copier sur le Bureau de l'invité."
                             TextTrimming="CharacterEllipsis"
                             ToolTipService.ToolTip="Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris. Glissez des fichiers sur la console pour les copier sur le Bureau de l'invité."
-                            Visibility="{Binding HasNoSendFilesStatus, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                            Visibility="{Binding ShowConsoleHint, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        <!-- Missing guest tools: a click installs them. -->
+                        <StackPanel
+                            Grid.Column="0"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding ShowGuestToolsWarning, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                            <FontIcon FontSize="14" Foreground="{ThemeResource SystemFillColorCautionBrush}" Glyph="&#xE7BA;" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Text="{Binding GuestToolsWarning, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <HyperlinkButton
+                                Padding="4,0"
+                                Click="OnInstallGuestToolsClick"
+                                Content="Installer les outils invités…"
+                                FontSize="12"
+                                Visibility="{Binding CanInstallGuestTools, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
                         <!-- Files sent to the guest: the copy under way (with its cancel), then how it ended. -->
                         <StackPanel
                             Grid.Column="0"

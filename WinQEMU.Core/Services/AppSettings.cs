@@ -39,6 +39,10 @@ namespace WinQEMU.Core.Services
         /// </summary>
         public string AudioOutputId { get => _audioOutputId; set => SetProperty(ref _audioOutputId, value ?? string.Empty); }
 
+        private string _virtioWinIsoPath = string.Empty;
+        /// <summary>virtio-win's ISO, once chosen to install a Windows guest's tools (see GuestTools.FindVirtioWinIso).</summary>
+        public string VirtioWinIsoPath { get => _virtioWinIsoPath; set => SetProperty(ref _virtioWinIsoPath, value ?? string.Empty); }
+
         [JsonIgnore]
         public string EffectiveLibraryRoot =>
             string.IsNullOrWhiteSpace(LibraryRoot) ? DefaultLibraryRoot : LibraryRoot;

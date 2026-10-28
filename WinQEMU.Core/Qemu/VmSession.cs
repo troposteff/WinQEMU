@@ -464,6 +464,19 @@ namespace WinQEMU.Core.Qemu
             return RequireQmp().ExecuteAsync("input-send-event", new JsonObject { ["events"] = events }, cancellationToken);
         }
 
+        /// <summary>
+        /// Types at the guest's keyboard, one character's keys at a time (see Input.KeyboardText): sent at
+        /// once, a long command could overflow the guest's PS/2 keyboard buffer and lose keys.
+        /// </summary>
+        public async Task TypeAsync(IReadOnlyList<IReadOnlyList<(int Number, bool Down)>> strokes, CancellationToken cancellationToken = default)
+        {
+            foreach (var keys in strokes)
+            {
+                await SendKeysAsync(keys, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(15, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
         public Task SendKeyAsync(int number, bool down, CancellationToken cancellationToken = default) =>
             SendKeysAsync(new[] { (number, down) }, cancellationToken);
 

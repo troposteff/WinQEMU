@@ -40,6 +40,38 @@ namespace WinQEMU.Core.Import
             return FromLinuxName(id);
         }
 
+        /// <summary>
+        /// An OVF descriptor's guest: VMware's vmw:osType ("windows9_64Guest", the vSphere spelling, which
+        /// <see cref="FromVmware"/> reads as well), else VirtualBox's vbox:OSType, else the standard CIM number
+        /// and its description ("Microsoft Windows 10 (64-bit)").
+        /// </summary>
+        public static string FromOvf(string? vmwareOsType, string? virtualBoxOsType, long? cimOsType, string description)
+        {
+            if (!string.IsNullOrWhiteSpace(vmwareOsType) && FromVmware(vmwareOsType) is var vmware && vmware != "other")
+                return vmware;
+            if (!string.IsNullOrWhiteSpace(virtualBoxOsType) && FromVirtualBox(virtualBoxOsType) is var virtualBox && virtualBox != "other")
+                return virtualBox;
+
+            var text = description.ToLowerInvariant();
+            if (text.Contains("windows", StringComparison.Ordinal))
+            {
+                if (text.Contains("server", StringComparison.Ordinal))
+                    return "windows-server";
+                if (text.Contains("11", StringComparison.Ordinal))
+                    return "windows-11";
+                return text.Contains("10", StringComparison.Ordinal) ? "windows-10" : "windows-7";
+            }
+
+            return cimOsType switch
+            {
+                93 or 94 => "ubuntu",
+                95 or 96 => "debian",
+                79 or 80 or 106 or 107 => "fedora",
+                36 or 99 or 100 or 101 => "linux",
+                _ => FromLinuxName(text)
+            };
+        }
+
         private static string FromLinuxName(string id)
         {
             if (id.Contains("ubuntu", StringComparison.Ordinal))

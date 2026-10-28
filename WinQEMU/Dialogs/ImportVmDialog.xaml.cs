@@ -39,6 +39,7 @@ namespace WinQEMU.Dialogs
             {
                 ImportSource.VMware => "Importer une machine VMware",
                 ImportSource.VirtualBox => "Importer une machine VirtualBox",
+                ImportSource.Ovf => "Importer un paquet OVF",
                 _ => "Importer un disque"
             };
             SourceText.Text = plan.SourcePath;
@@ -92,7 +93,7 @@ namespace WinQEMU.Dialogs
                     ? $"{disk.CapacityBytes / (1024d * 1024 * 1024):0.#} Gio, "
                     : string.Empty;
                 text.AppendLine(
-                    $"Disque {index.ToString(CultureInfo.CurrentCulture)} : {Path.GetFileName(disk.SourcePath)} ({size}{disk.Format}, " +
+                    $"Disque {index.ToString(CultureInfo.CurrentCulture)} : {disk.PackageEntry ?? Path.GetFileName(disk.SourcePath)} ({size}{disk.Format}, " +
                     $"{disk.SourceSlot}) → {NewVmViewModel.DescribeBus(disk.Bus)}");
             }
 

@@ -130,7 +130,31 @@ namespace WinQEMU.Core.Qemu
                 arguments.Add("-c");
             arguments.Add(sourcePath);
             arguments.Add(destinationPath);
+            await RunConvertAsync(arguments, progress, cancellationToken).ConfigureAwait(false);
+        }
 
+        /// <summary>
+        /// Writes the whole chain as a streamOptimized VMDK, the compressed, append-only form OVF packages
+        /// carry and VMware, VirtualBox and Proxmox import.
+        /// </summary>
+        /// <param name="adapterType">What the descriptor records ("ide", "lsilogic"); the OVF's controller is what counts.</param>
+        public Task ConvertToStreamOptimizedVmdkAsync(
+            string sourcePath,
+            string destinationPath,
+            string adapterType,
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default) =>
+            RunConvertAsync(
+                new List<string>
+                {
+                    "convert", "-p", "-O", "vmdk", "-o", $"subformat=streamOptimized,adapter_type={adapterType}",
+                    sourcePath, destinationPath
+                },
+                progress,
+                cancellationToken);
+
+        private async Task RunConvertAsync(List<string> arguments, IProgress<double>? progress, CancellationToken cancellationToken)
+        {
             await RunAsync(
                 arguments,
                 cancellationToken,

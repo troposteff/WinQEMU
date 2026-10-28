@@ -169,6 +169,24 @@ namespace WinQEMU.Core.Services
             return clone;
         }
 
+        /// <summary>
+        /// Exports a VM as an .ova. Refused while it has a QEMU process, paused included, for the same reason
+        /// as a clone: qemu-img would read disks caught mid-write.
+        /// </summary>
+        public Task ExportVirtualMachineAsync(
+            VmConfig source,
+            string destination,
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            var images = DiskService ?? throw new QemuNotAvailableException("QEMU is required to export a virtual machine.");
+
+            if (FindSession(source) is { } session && session.State != VmState.Stopped)
+                throw new InvalidOperationException("Arrêtez la machine virtuelle avant de l'exporter.");
+
+            return Export.OvaExporter.ExportAsync(source, destination, images, progress, cancellationToken);
+        }
+
         /// <summary>Imports a machine of another hypervisor and adds it to the library.</summary>
         public async Task<VmConfig> ImportVirtualMachineAsync(
             Import.ImportPlan plan,

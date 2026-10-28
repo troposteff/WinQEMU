@@ -11,7 +11,7 @@ namespace WinQEMU.Core.Import
     public static class VmImporter
     {
         /// <summary>The extensions offered by the file picker, configuration files first.</summary>
-        public static IReadOnlyList<string> Extensions { get; } = new[] { ".vmx", ".vbox", ".vhdx", ".vhd", ".avhdx", ".vmdk", ".vdi", ".qcow2", ".img" };
+        public static IReadOnlyList<string> Extensions { get; } = new[] { ".vmx", ".vbox", ".ova", ".ovf", ".vhdx", ".vhd", ".avhdx", ".vmdk", ".vdi", ".qcow2", ".img" };
 
         public static async Task<ImportPlan> ReadAsync(string path, QemuImgService images, CancellationToken cancellationToken = default)
         {
@@ -20,6 +20,7 @@ namespace WinQEMU.Core.Import
             {
                 ".vmx" => VmxReader.Read(full),
                 ".vbox" => VboxReader.Read(full),
+                ".ova" or ".ovf" => OvfReader.Read(full),
                 _ => DiskOnly(full)
             };
 
@@ -30,7 +31,7 @@ namespace WinQEMU.Core.Import
             {
                 try
                 {
-                    var info = await images.GetInfoAsync(disk.SourcePath, cancellationToken).ConfigureAwait(false);
+                    var info = await images.GetInfoAsync(disk.ImageSpec, cancellationToken).ConfigureAwait(false);
                     disk.CapacityBytes = info.VirtualSizeBytes;
                     disk.Format = info.Format;
                 }
@@ -86,7 +87,7 @@ namespace WinQEMU.Core.Import
             byte[] start;
             try
             {
-                start = await images.ReadStartAsync(plan.Disks[0].SourcePath, PartitionTableSectors, cancellationToken).ConfigureAwait(false);
+                start = await images.ReadStartAsync(plan.Disks[0].ImageSpec, PartitionTableSectors, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is QemuImgException or IOException)
             {

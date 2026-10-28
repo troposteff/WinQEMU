@@ -552,6 +552,13 @@ namespace WinQEMU.ViewModels
             return clone;
         }
 
+        /// <summary>Exports the selected machine as an .ova; the same conditions as a clone (<see cref="CanClone"/>).</summary>
+        public Task ExportSelectedAsync(string path, IProgress<double> progress, System.Threading.CancellationToken cancellationToken)
+        {
+            var source = SelectedVm ?? throw new InvalidOperationException("Aucune machine virtuelle n'est sélectionnée.");
+            return Manager.ExportVirtualMachineAsync(source, path, progress, cancellationToken);
+        }
+
         /// <summary>Imports a foreign machine and selects it.</summary>
         public async Task<VmConfig> ImportAsync(
             Core.Import.ImportPlan plan, string name, IProgress<double> progress, System.Threading.CancellationToken cancellationToken)

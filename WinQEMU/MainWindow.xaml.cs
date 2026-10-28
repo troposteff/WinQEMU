@@ -1111,6 +1111,48 @@ namespace WinQEMU
             await ShowDialogAsync(dialog);
         }
 
+        private async void OnExportClick(object sender, RoutedEventArgs e)
+        {
+            var selected = _viewModel.SelectedVm;
+            if (selected is null || !_viewModel.CanClone)
+                return;
+
+            var dialog = new Dialogs.ExportVmDialog(selected, PickOvaAsync, _viewModel.ExportSelectedAsync)
+            {
+                XamlRoot = Content.XamlRoot
+            };
+            await ShowDialogAsync(dialog);
+            if (dialog.ExportedPath is not { } path)
+                return;
+
+            var result = await ShowDialogAsync(new ContentDialog
+            {
+                Title = "Machine exportée",
+                Content = DialogBody($"{path}\n\nImportez ce fichier dans VMware (Fichier > Ouvrir), VirtualBox (Fichier > Importer " +
+                                     "un appareil virtuel) ou Proxmox (qm importovf)."),
+                PrimaryButtonText = "Afficher dans l'Explorateur",
+                CloseButtonText = "Fermer",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Content.XamlRoot
+            });
+            if (result == ContentDialogResult.Primary)
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = false });
+        }
+
+        /// <summary>The save picker for an export, starting from the dialog's file name; null when dismissed.</summary>
+        private async Task<string?> PickOvaAsync(string current)
+        {
+            var picker = new Windows.Storage.Pickers.FileSavePicker
+            {
+                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary,
+                SuggestedFileName = System.IO.Path.GetFileNameWithoutExtension(current)
+            };
+            picker.FileTypeChoices.Add("Paquet OVF", new System.Collections.Generic.List<string> { ".ova" });
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            var file = await picker.PickSaveFileAsync();
+            return file?.Path;
+        }
+
         private async void OnDeleteClick(object sender, RoutedEventArgs e)
         {
             var selected = _viewModel.SelectedVm;

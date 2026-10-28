@@ -377,7 +377,7 @@ namespace WinQEMU.Core.Services
                     var before = done;
 
                     await _imgService.ConvertAsync(
-                        source.SourcePath,
+                        source.ImageSpec,
                         Path.Combine(folder, fileName),
                         DiskFormat.Qcow2,
                         compress: false,
@@ -427,6 +427,7 @@ namespace WinQEMU.Core.Services
         {
             Import.ImportSource.VMware => "de VMware",
             Import.ImportSource.VirtualBox => "de VirtualBox",
+            Import.ImportSource.Ovf => "d'un paquet OVF",
             _ => "d'une image disque"
         };
 
@@ -777,10 +778,17 @@ namespace WinQEMU.Core.Services
             return candidate;
         }
 
-        private static string SanitizeFolderName(string name)
+        /// <summary>
+        /// The machine's name as a folder name, accents folded and anything else non-ASCII replaced:
+        /// qemu-system cannot open a non-ASCII path (see QemuArgumentBuilder.QemuReadablePath), and the 8.3
+        /// short name that works around it is not made on every volume.
+        /// </summary>
+        public static string SanitizeFolderName(string name)
         {
             var cleaned = new string(name.Trim()
-                .Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)
+                .Normalize(System.Text.NormalizationForm.FormD)
+                .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                .Select(c => Path.GetInvalidFileNameChars().Contains(c) || !char.IsAscii(c) ? '_' : c)
                 .ToArray())
                 .TrimEnd('.', ' ');
 

@@ -200,7 +200,7 @@ le clone sans aucune erreur**. Tout le dispositif sert à ce que F ne bouge plus
   `LinkedBaseFileName`), sauf si ce disque porte des superpositions : sa chaîne enregistrée finit alors
   encore sur l'image qui lit F, le lien est gardé. Ou bien faire une copie complète du clone.
 
-## Import (VMware, VirtualBox, Hyper-V)
+## Import (VMware, VirtualBox, Hyper-V, OVF)
 
 `WinQEMU.Core/Import` : un fichier choisi devient un `ImportPlan` (montré, puis confirmé), puis
 `VmLibrary.ImportAsync` convertit chaque disque en qcow2 dans un nouveau dossier. **La machine source
@@ -231,6 +231,39 @@ n'est que lue** et reste utilisable dans son hyperviseur.
   toujours NAT (ponté et hôte seul exigent un pilote TAP), c'est dit.
 - Pas de NVRAM UEFI reprise (formats propres à chaque hyperviseur) : le microprogramme retombe sur le
   chemin de secours `\EFI\BOOT\BOOTX64.EFI`, présent pour Windows et la plupart des distributions.
+- **OVF** (`OvfReader`, `.ova` ou `.ovf` à côté de ses fichiers) : XML du DMTF, éléments et attributs cherchés par
+  nom local (OVF 1 et 2 n'ont pas le même espace de noms ; `vmw:osType`, `vbox:OSType`). Matériel en éléments CIM
+  (ResourceType 3 CPU, 4 mémoire, 5/6/20 contrôleurs, 17 disque, 10 carte) reliés par InstanceID/Parent ; UEFI par
+  `vmw:Config firmware=efi` ou le `Firmware` du `vbox:Machine` embarqué. **Les disques d'un .ova sont lus sur place,
+  rien n'est extrait** : `TarArchive` donne la position de chaque fichier, et qemu-img ouvre un nom `json:` (pilote
+  vmdk sur la fenêtre `offset`/`size` du pilote raw ; vérifié octet pour octet). Disque compressé (`ovf:compression`)
+  ou découpé (`chunkSize`) : refusé.
+
+## Export OVA (`Export.OvaExporter`)
+
+Bouton **Exporter**, machine arrêtée (mêmes conditions que le clonage). Un `.ova` tar : descripteur `.ovf`,
+manifeste `.mf` (SHA-256), puis chaque disque en **VMDK streamOptimized** (`qemu-img convert` lit toute la chaîne :
+état actuel, sans les instantanés, base d'un clone lié comprise).
+
+- **Descripteur à la manière de VMware**, l'importateur le plus strict (`OvfWriter`) : famille `vmx-14`, SATA en
+  `vmware.sata.ahci` (VMware refuse le `AHCI` de VirtualBox), système par `vmw:osType` **et** `vbox:OSType`, UEFI par
+  `vmw:Config`, éléments rasd dans l'ordre alphabétique du schéma.
+- **VirtualBox ne lit le microprogramme que dans sa propre configuration** (`vbox:Machine`, format 1.16) : sans elle,
+  une Debian UEFI était importée avec le BIOS du type Debian et s'arrêtait sur « No bootable medium found! ». Quand
+  elle est présente, VirtualBox l'emploie à la place des éléments CIM ; ses disques renvoient à ceux de la DiskSection
+  par `vbox:uuid`. Carte VirtIO gardée pour un Linux (VirtualBox l'a), Intel sinon. Vérifié par `VBoxManage import`
+  puis `showvminfo` (firmware EFI, SATA, virtio) et en démarrant la Debian exportée dans VirtualBox 7.2.
+- **VirtualBox ne sait pas importer un disque entièrement vide** venant de qemu-img (`VERR_EOF` à la création du
+  support) ; dès que le disque contient des données, l'import passe.
+- **VirtIO n'existe ni chez VMware ni chez VirtualBox** : disques VirtIO → SATA, cartes VirtIO/RTL8139 → e1000e pour
+  Windows (plus de pilote e1000 depuis Windows 8), e1000 sinon. Le dialogue dit quoi faire avant d'exporter (pilote
+  AHCI de Windows, initramfs dracut *hostonly* d'un Linux), comme les notes de l'import dans l'autre sens.
+- **Le manifeste précède les disques** dans le tar (OVF 1.0) : chaque disque est d'abord converti dans
+  `<paquet>.ova.parts`, à côté du paquet (même volume : le temporaire de C: pourrait être plein quand la destination
+  ne l'est pas), haché, puis recopié et supprimé. Il faut donc environ deux fois la taille du paquet ; le dialogue le dit.
+- **Tar écrit à la main** (`TarArchive`) : ustar simple, et au-delà de 8 Gio la taille en base 256 de GNU (lue par
+  GNU tar, VirtualBox, 7-Zip, Python), pas un en-tête PAX qu'un lecteur qui ne le connaît pas prendrait pour un fichier
+  « PaxHeader/… ». Vérifié avec Python et GNU tar. Annulé ou échoué : paquet et fichiers de travail supprimés.
 
 ## Périphériques USB de l'hôte
 
@@ -439,6 +472,13 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   nombre de vCPU avec l'APIC de l'hyperviseur. Trouvé par sondes QMP sans affichage (`screendump`) : ni le modèle
   CPU, ni CET, ni la topologie, ni x2APIC, ni HPET, ni i440fx n'y changeaient rien. Ubuntu et Debian démarrent
   pareil avec 4 vCPU.
+- **qemu-system n'ouvre aucun chemin non ASCII** (qemu-img, si) : il passe sa ligne de commande en UTF-8 puis ouvre
+  les fichiers par l'API ANSI. Une machine importée sous « Debian (importée) » s'arrêtait sur « Could not open
+  '…\Debian (importÃ©e)\firmware-vars.fd': Le chemin d'accès spécifié est introuvable ». D'où des **dossiers de VM en
+  ASCII** (`VmLibrary.SanitizeFolderName` : accents repliés, le reste en `_` ; le nom affiché garde ses accents), et
+  tout chemin passé à QEMU par `QemuArgumentBuilder.QemuReadablePath` : un chemin accentué (ISO dans
+  « Téléchargements », machine plus ancienne) devient son nom court 8.3, ASCII, vérifié ; un volume sans noms courts
+  le laisse tel quel. La sortie de QEMU est lue en UTF-8 (`VmSession.StartProcess`).
 - « failed to get xsave state » sur la sortie d'erreur : deux par vCPU secondaire au démarrage, sans effet.
 
 ## Pièges WinUI 3

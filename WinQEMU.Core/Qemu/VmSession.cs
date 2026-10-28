@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Nodes;
 using WinQEMU.Core.Models;
 
@@ -370,7 +371,7 @@ namespace WinQEMU.Core.Qemu
                     new JsonObject
                     {
                         ["device"] = disk.Id,
-                        ["snapshot-file"] = overlayPath,
+                        ["snapshot-file"] = QemuArgumentBuilder.QemuReadablePath(overlayPath),
                         ["format"] = "qcow2"
                     },
                     cancellationToken).ConfigureAwait(false);
@@ -514,7 +515,7 @@ namespace WinQEMU.Core.Qemu
                 new JsonObject
                 {
                     ["id"] = deviceId,
-                    ["filename"] = resolved,
+                    ["filename"] = QemuArgumentBuilder.QemuReadablePath(resolved),
                     // An ISO is a raw image; stating it beats letting QEMU probe the format.
                     ["format"] = "raw"
                 },
@@ -705,7 +706,7 @@ namespace WinQEMU.Core.Qemu
             {
                 await qmp.ExecuteAsync(
                     "screendump",
-                    new JsonObject { ["filename"] = path },
+                    new JsonObject { ["filename"] = QemuArgumentBuilder.QemuReadablePath(path) },
                     cancellationToken).ConfigureAwait(false);
 
                 // Only the header is needed, and the body can be several megabytes.
@@ -903,6 +904,9 @@ namespace WinQEMU.Core.Qemu
                 FileName = executable,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                // QEMU writes UTF-8; read as the ANSI code page, a failing path showed as "importÃ©e".
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 // Creates QEMU's SDL windows hidden (STARTF_USESHOWWINDOW / SW_HIDE), so the console

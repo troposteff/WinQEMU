@@ -6,6 +6,8 @@ namespace WinQEMU.Core.Import
     {
         VMware,
         VirtualBox,
+        /// <summary>An OVF package (.ova, or .ovf with its files), as VMware, VirtualBox and Proxmox export.</summary>
+        Ovf,
         /// <summary>A lone disk image: what Hyper-V leaves readable, or any image without its machine.</summary>
         DiskImage
     }
@@ -15,6 +17,18 @@ namespace WinQEMU.Core.Import
     {
         /// <summary>Absolute path of the image the source machine writes to — the top of its chain.</summary>
         public required string SourcePath { get; init; }
+
+        /// <summary>
+        /// What qemu-img opens when it is not the file itself: a disk inside an .ova, read in place as a
+        /// <c>json:</c> filename (format driver over raw's offset and size), so nothing is extracted.
+        /// </summary>
+        public string? QemuSource { get; init; }
+
+        /// <summary>The disk's file name inside its .ova, for display.</summary>
+        public string? PackageEntry { get; init; }
+
+        /// <summary>The image as qemu-img takes it.</summary>
+        public string ImageSpec => QemuSource ?? SourcePath;
 
         /// <summary>The controller to attach it to here, chosen for what the guest can already boot from.</summary>
         public DiskBus Bus { get; set; }

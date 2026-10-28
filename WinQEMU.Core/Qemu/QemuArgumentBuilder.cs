@@ -333,10 +333,10 @@ namespace WinQEMU.Core.Qemu
             // Firmware is split in two flash banks: read-only code, and a writable variable store
             // that must be private to this VM or boot entries would leak between machines.
             args.Add("-drive");
-            args.Add($"if=pflash,format=raw,unit=0,readonly=on,file={EscapeOptionValue(code)}");
+            args.Add($"if=pflash,format=raw,unit=0,readonly=on,file={FileOption(code)}");
 
             args.Add("-drive");
-            args.Add($"if=pflash,format=raw,unit=1,file={EscapeOptionValue(GetUefiVarsPath(config))}");
+            args.Add($"if=pflash,format=raw,unit=1,file={FileOption(GetUefiVarsPath(config))}");
 
             if (secureBoot)
             {
@@ -460,7 +460,7 @@ namespace WinQEMU.Core.Qemu
             foreach (var disk in config.Disks)
             {
                 var path = config.ResolvePath(disk.FileName);
-                var drive = new StringBuilder($"if=none,id={disk.Id},file={EscapeOptionValue(path)}");
+                var drive = new StringBuilder($"if=none,id={disk.Id},file={FileOption(path)}");
                 drive.Append($",format={FormatName(disk.Format)}");
                 drive.Append($",cache={CacheName(disk.Cache)}");
                 if (disk.Discard)
@@ -542,7 +542,7 @@ namespace WinQEMU.Core.Qemu
             args.Add("-drive");
             var drive = new StringBuilder($"if=none,id={driveId},media=cdrom,readonly=on");
             if (hasMedium)
-                drive.Append($",file={EscapeOptionValue(config.ResolvePath(isoPath))}");
+                drive.Append($",file={FileOption(config.ResolvePath(isoPath))}");
             args.Add(drive.ToString());
 
             var device = new StringBuilder();
@@ -702,7 +702,7 @@ namespace WinQEMU.Core.Qemu
                 // vvfat shows a host folder as a FAT disk, read-only here. A USB stick, not a CD: the
                 // installation ISO already is one, and a removable drive is where Setup looks first.
                 args.Add("-blockdev");
-                args.Add($"driver=vvfat,node-name=wq-setup-fat,dir={EscapeOptionValue(GetWindowsSetupFolder(config))},label=WINQEMU,read-only=on");
+                args.Add($"driver=vvfat,node-name=wq-setup-fat,dir={FileOption(GetWindowsSetupFolder(config))},label=WINQEMU,read-only=on");
                 args.Add("-blockdev");
                 args.Add("driver=raw,node-name=wq-setup,file=wq-setup-fat,read-only=on");
                 args.Add("-device");
@@ -714,7 +714,7 @@ namespace WinQEMU.Core.Qemu
                 // Labelled CIDATA: where cloud-init's NoCloud source, and so Ubuntu's installer, looks.
                 var cidata = Path.Combine(GetWindowsSetupFolder(config), Services.UbuntuUnattendedSetup.CidataFolder);
                 args.Add("-blockdev");
-                args.Add($"driver=vvfat,node-name=wq-cidata-fat,dir={EscapeOptionValue(cidata)},label=CIDATA,read-only=on");
+                args.Add($"driver=vvfat,node-name=wq-cidata-fat,dir={FileOption(cidata)},label=CIDATA,read-only=on");
                 args.Add("-blockdev");
                 args.Add("driver=raw,node-name=wq-cidata,file=wq-cidata-fat,read-only=on");
                 args.Add("-device");
@@ -748,9 +748,9 @@ namespace WinQEMU.Core.Qemu
                 return;
             var folder = GetWindowsSetupFolder(config);
             args.Add("-kernel");
-            args.Add(Path.Combine(folder, Services.UbuntuUnattendedSetup.KernelFile));
+            args.Add(QemuReadablePath(Path.Combine(folder, Services.UbuntuUnattendedSetup.KernelFile)));
             args.Add("-initrd");
-            args.Add(Path.Combine(folder, Services.UbuntuUnattendedSetup.InitrdFile));
+            args.Add(QemuReadablePath(Path.Combine(folder, Services.UbuntuUnattendedSetup.InitrdFile)));
             args.Add("-append");
             args.Add(Services.UbuntuUnattendedSetup.KernelArguments);
         }
@@ -878,6 +878,51 @@ namespace WinQEMU.Core.Qemu
         /// (common in Windows paths under "Program Files, Inc"-style folders) must be doubled.
         /// </summary>
         public static string EscapeOptionValue(string value) => value.Replace(",", ",,");
+
+        /// <summary>A file or folder as a QEMU option value: readable by QEMU, commas doubled.</summary>
+        private static string FileOption(string path) => EscapeOptionValue(QemuReadablePath(path));
+
+        /// <summary>
+        /// A path qemu-system can open. It turns its command line into UTF-8 but opens files with the ANSI
+        /// API, so any non-ASCII character breaks the path: a machine imported as "Debian (importée)" stopped
+        /// with "Could not open 'C:\qemu\Debian (importÃ©e)\firmware-vars.fd': Le chemin d'accès spécifié
+        /// est introuvable" (qemu-img is not affected). Such a path is given as its 8.3 short name, which is
+        /// ASCII; on a volume that does not make short names it is left as it is, and QEMU says so. A file QEMU
+        /// is about to create (a snapshot overlay, a screen dump) has no short name yet: its nearest existing
+        /// folder is shortened instead.
+        /// </summary>
+        public static string QemuReadablePath(string path)
+        {
+            if (path.All(char.IsAscii) || !OperatingSystem.IsWindows())
+                return path;
+
+            string existing, rest = string.Empty;
+            try
+            {
+                existing = Path.GetFullPath(path);
+                while (!File.Exists(existing) && !Directory.Exists(existing))
+                {
+                    rest = rest.Length == 0 ? Path.GetFileName(existing) : Path.Combine(Path.GetFileName(existing), rest);
+                    if (Path.GetDirectoryName(existing) is not { } parent)
+                        return path;
+                    existing = parent;
+                }
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return path;
+            }
+
+            var buffer = new StringBuilder(1024);
+            var length = GetShortPathName(existing, buffer, buffer.Capacity);
+            if (length <= 0 || length >= buffer.Capacity)
+                return path;
+            var readable = rest.Length == 0 ? buffer.ToString() : Path.Combine(buffer.ToString(), rest);
+            return readable.All(char.IsAscii) ? readable : path;
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetShortPathNameW")]
+        private static extern int GetShortPathName(string longPath, StringBuilder shortPath, int bufferLength);
 
         /// <summary>Splits user-supplied extra arguments on whitespace, honouring double quotes.</summary>
         public static IReadOnlyList<string> TokenizeExtraArguments(string raw)

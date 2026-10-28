@@ -395,6 +395,14 @@ namespace WinQEMU.Core.Services
 
         public IEnumerable<VmSession> RunningSessions => _sessions.Values.Where(s => s.IsRunning);
 
+        /// <summary>
+        /// Every machine whose QEMU still lives, those shutting down included. What quitting must wait for:
+        /// <see cref="RunningSessions"/> leaves out a guest stopping, and waiting on it, WinQEMU took a guest
+        /// it had just asked to shut down for stopped and cut its power.
+        /// </summary>
+        public IEnumerable<VmSession> LiveSessions =>
+            _sessions.Values.Where(s => s.State is VmState.Starting or VmState.Running or VmState.Paused or VmState.Stopping);
+
         public async Task DeleteVirtualMachineAsync(
             VmConfig config,
             bool deleteFiles,

@@ -553,13 +553,18 @@ namespace WinQEMU.ViewModels
             });
         }
 
-        /// <summary>Asks every running machine's guest to shut down, as its Arrêter button does.</summary>
+        /// <summary>
+        /// Asks every running machine's guest to shut down, as its Arrêter button does. A paused one is resumed
+        /// first: frozen, it would never hear the power button.
+        /// </summary>
         public async Task RequestShutdownOfAllAsync()
         {
             foreach (var session in Manager.RunningSessions.ToList())
             {
                 try
                 {
+                    if (session.State == VmState.Paused)
+                        await session.ResumeAsync();
                     await session.RequestShutdownAsync();
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or QmpException or IOException)

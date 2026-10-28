@@ -347,7 +347,16 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
   défaut), interrupteur dans les Paramètres (`StartupTask.RequestEnableAsync`) ; désactivée dans Windows
   (`DisabledByUser`), seul Windows peut la réactiver, c'est dit. Lancé ainsi (`ExtendedActivationKind.StartupTask`),
   WinQEMU reste dans la zone de notification ; l'initialisation ne dépend plus du `Loaded` de la fenêtre.
-- **Pas géré** : l'arrêt ou la déconnexion de Windows avec des machines en marche les coupe, comme avant.
+- **Arrêt, redémarrage ou déconnexion de Windows** (`SessionEndWatcher`, comme VMware Workstation) : machines en
+  marche, `WM_QUERYENDSESSION` est refusé avec un motif (`ShutdownBlockReasonCreate`, « Arrêt des machines virtuelles :
+  Ubuntu… », tenu à jour) qui place WinQEMU sur l'écran « ces applications empêchent l'arrêt » ; les invités reçoivent
+  le bouton d'alimentation, et WinQEMU quitte une fois tous arrêtés, ce qui laisse Windows continuer. Annulé
+  (`WM_ENDSESSION` faux), WinQEMU reste ; les invités déjà priés s'arrêtent quand même. Vérifié en envoyant ces
+  messages à la fenêtre (Ubuntu éteint par lui-même, code 0, puis WinQEMU fermé) ; pas sur un vrai arrêt de Windows.
+- **Attendre les machines vivantes** (`VmManager.LiveSessions`), pas `RunningSessions` : une machine priée de
+  s'arrêter passe « Arrêt en cours », que `RunningSessions` exclut. Les premières versions de « Arrêter et quitter »
+  la croyaient donc arrêtée aussitôt et coupaient QEMU en quittant (Ubuntu « arrêté » en 3 s). Une machine en pause est
+  reprise avant le bouton d'alimentation : figée, elle ne l'entendrait pas.
 
 ## Son
 

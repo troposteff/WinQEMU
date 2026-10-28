@@ -94,6 +94,13 @@ namespace WinQEMU
             };
             _viewModel.BackgroundConsoleStarted += processId => _ = ConsoleHost.AdoptAsync(processId);
 
+            _sessionEnd = new SessionEndWatcher(WinRT.Interop.WindowNative.GetWindowHandle(this),
+                () => _viewModel.Manager.LiveSessions.Any(),
+                () => DispatcherQueue.TryEnqueue(() => _ = StopMachinesForWindowsAsync()),
+                ending => DispatcherQueue.TryEnqueue(() => OnWindowsSessionEnded(ending)));
+            if (!_sessionEnd.IsInstalled)
+                _viewModel.AppendDiagnostic("Windows: cannot hold its shutdown; running machines would lose their power with it.");
+
             // The window carried no icon at all — WM_GETICON returned nothing — so the title bar fell
             // back to whatever the shell had cached for the package. Setting it explicitly makes the
             // title bar, Alt+Tab and the taskbar show the application's own icon.
@@ -1428,7 +1435,7 @@ namespace WinQEMU
             if (_closeConfirmed)
                 return;
 
-            var running = _viewModel.Manager.RunningSessions.ToList();
+            var running = _viewModel.Manager.LiveSessions.ToList();
             if (running.Count == 0)
             {
                 ConsoleHost.Detach();
@@ -1458,6 +1465,57 @@ namespace WinQEMU
                 HideToBackground();
             else if (choice == ContentDialogResult.Secondary)
                 await StopMachinesAndQuitAsync();
+        }
+
+        // ---- Windows ending the session ----
+
+        private readonly SessionEndWatcher _sessionEnd;
+        private bool _windowsEnding;
+
+        /// <summary>
+        /// Windows is shutting down, restarting or signing out, and waits: every guest is asked to shut down
+        /// (ACPI, as the Arrêter button), Windows' shutdown screen names those still running, and WinQEMU quits
+        /// once none is left, which lets Windows carry on.
+        /// </summary>
+        private async Task StopMachinesForWindowsAsync()
+        {
+            // Windows asks again each time the user tries once more: one stop is enough.
+            if (_windowsEnding)
+                return;
+            _windowsEnding = true;
+            _viewModel.AppendDiagnostic("Windows is ending the session: the machines are shut down first.");
+            await _viewModel.RequestShutdownOfAllAsync();
+
+            while (_windowsEnding)
+            {
+                var left = _viewModel.Manager.LiveSessions.Select(s => s.Config.Name).ToList();
+                if (left.Count == 0)
+                    break;
+                _sessionEnd.SetReason($"Arrêt des machines virtuelles : {string.Join(", ", left)}");
+                await Task.Delay(500);
+            }
+            if (!_windowsEnding)
+                return;
+
+            ConsoleHost.Detach();
+            _tray?.Dispose();
+            _tray = null;
+            await _viewModel.Manager.DisposeAsync();
+            _sessionEnd.ClearReason();
+            _closeConfirmed = true;
+            Close();
+        }
+
+        /// <param name="ending">
+        /// True: the session ends now (the user chose to shut down anyway, or WinQEMU was done). False: the
+        /// user cancelled; the guests asked to shut down keep doing so, but WinQEMU stays.
+        /// </param>
+        private void OnWindowsSessionEnded(bool ending)
+        {
+            if (ending)
+                return;
+            _windowsEnding = false;
+            _sessionEnd.ClearReason();
         }
 
         // ---- Background ----
@@ -1500,7 +1558,7 @@ namespace WinQEMU
                     await StopMachinesAndQuitAsync();
                 });
             }
-            var count = _viewModel.Manager.RunningSessions.Count();
+            var count = _viewModel.Manager.LiveSessions.Count();
             var tip = count switch
             {
                 0 => "WinQEMU",
@@ -1540,7 +1598,7 @@ namespace WinQEMU
             timer.Interval = TimeSpan.FromMilliseconds(500);
             void Refresh()
             {
-                var left = _viewModel.Manager.RunningSessions.Select(s => s.Config.Name).ToList();
+                var left = _viewModel.Manager.LiveSessions.Select(s => s.Config.Name).ToList();
                 if (left.Count == 0)
                 {
                     allStopped = true;

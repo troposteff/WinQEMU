@@ -114,6 +114,12 @@ namespace WinQEMU.Core.Models
         public ObservableCollection<SharedFolderConfig> SharedFolders { get; set; } = new();
 
         /// <summary>
+        /// Where an unattended installation stands (Services.WindowsUnattendedSetup): its answer file waits
+        /// on the setup stick until the guest agent, installed at the first logon, answers.
+        /// </summary>
+        public UnattendedSetupState UnattendedSetup { get; set; } = UnattendedSetupState.None;
+
+        /// <summary>
         /// Which state each snapshot was taken from, by name ("" for the machine's original state), as
         /// VMware's snapshot tree knows it. Recorded by WinQEMU from the moment it existed: qcow2 keeps no
         /// parent for its internal snapshots, so earlier ones hang from the original state, by date.

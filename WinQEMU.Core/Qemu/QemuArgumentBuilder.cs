@@ -709,7 +709,8 @@ namespace WinQEMU.Core.Qemu
         /// no harm once Windows is installed, which never looks for the file again.
         /// </summary>
         public static bool NeedsWindowsSetupStick(VmConfig config) =>
-            config.GuestOs == "windows-11" && config.BootFromIso && !string.IsNullOrWhiteSpace(config.IsoPath)
+            (config.GuestOs == "windows-11" || config.UnattendedSetup != UnattendedSetupState.None)
+            && config.BootFromIso && !string.IsNullOrWhiteSpace(config.IsoPath)
             && config.Architecture == GuestArchitecture.X86_64;
 
         /// <summary>The machine's folder the setup stick shows.</summary>

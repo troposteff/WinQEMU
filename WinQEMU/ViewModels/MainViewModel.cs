@@ -582,6 +582,17 @@ namespace WinQEMU.ViewModels
             // Stamped here rather than in the core: this continuation is back on the UI thread, which
             // is the only thread allowed to raise PropertyChanged on a data-bound config.
             config.LastStartedUtc = DateTime.UtcNow;
+
+            // An unattended installation's first start presses "any key" for the CD, once: pressed again
+            // at a later start, Setup would begin all over.
+            if (config.UnattendedSetup == UnattendedSetupState.Pending)
+            {
+                config.UnattendedSetup = UnattendedSetupState.Installing;
+                Manager.Save(config);
+                _ = session.PressBootKeyAsync(TimeSpan.FromSeconds(20));
+                AppendDiagnostic("Unattended installation: starting Windows Setup from the ISO.");
+            }
+
             MountSharedFolders(session);
             PrepareGuestDisplay(session);
         }
@@ -659,6 +670,12 @@ namespace WinQEMU.ViewModels
                 // had nothing to detach and every reselection stacked another handler pair on the same
                 // session — the log then showed each QEMU line once per accumulated subscription.
                 _observedSession = session;
+
+                // A machine that restarted while another was shown (an unattended installation reboots
+                // several times) still gets its display set up, and its installation finished. Once per
+                // QEMU run either way.
+                if (session.IsRunning)
+                    PrepareGuestDisplay(session);
             }
 
             RaiseStateDependentProperties();
@@ -1187,6 +1204,7 @@ namespace WinQEMU.ViewModels
                     await using var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(5));
                     if (agent is null)
                         return;
+                    FinishUnattendedSetup(session.Config);
                     await WindowsGuestDisplay.SetupAsync(agent);
                     _displayReady.Add((session, port));
                     AppendDiagnostic("Display: the guest's resolution now follows the console.");
@@ -1201,6 +1219,34 @@ namespace WinQEMU.ViewModels
                         await Task.Delay(TimeSpan.FromSeconds(20));
                 }
             }
+        }
+
+        /// <summary>
+        /// An unattended installation is over once the guest agent, installed at the first logon, answers:
+        /// the answer file goes (it holds the password, base64 only), and the machine stops starting from the
+        /// ISO, whose prompt would otherwise greet every start.
+        /// </summary>
+        private void FinishUnattendedSetup(VmConfig config)
+        {
+            if (config.UnattendedSetup != UnattendedSetupState.Installing)
+                return;
+
+            var folder = QemuArgumentBuilder.GetWindowsSetupFolder(config);
+            foreach (var file in new[] { WindowsSetupAnswer.FileName, WindowsUnattendedSetup.ScriptFileName, WindowsUnattendedSetup.AccountScriptFileName })
+            {
+                try
+                {
+                    File.Delete(Path.Combine(folder, file));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    AppendDiagnostic($"Unattended installation: {file} could not be deleted ({ex.Message}).");
+                }
+            }
+            config.BootFromIso = false;
+            config.UnattendedSetup = UnattendedSetupState.None;
+            Manager.Save(config);
+            AppendDiagnostic("Unattended installation: done. Answer file deleted; the machine now starts from its disk.");
         }
 
         /// <summary>

@@ -38,6 +38,9 @@ namespace WinQEMU.Core.Services
         /// <summary>The virtual network a <see cref="NetworkMode.Network"/> card is plugged into.</summary>
         public string NetworkId { get; init; } = string.Empty;
         public NicModel NicModel { get; init; } = NicModel.VirtioNet;
+
+        /// <summary>For an unattended Windows installation, its answers; null to install by hand.</summary>
+        public UnattendedWindows? Unattended { get; init; }
         public bool RtcLocalTime { get; init; }
     }
 
@@ -166,6 +169,12 @@ namespace WinQEMU.Core.Services
             };
 
             await AddSystemDiskAsync(config, request, folder, cancellationToken).ConfigureAwait(false);
+
+            if (request.Unattended is { } unattended && config.BootFromIso)
+            {
+                WindowsUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), unattended);
+                config.UnattendedSetup = UnattendedSetupState.Pending;
+            }
 
             if (request.NetworkMode != NetworkMode.None)
             {

@@ -57,6 +57,16 @@ public class WindowsSetupTests
     }
 
     [Fact]
+    public void Any_Windows_installed_unattended_gets_the_stick_for_its_answers()
+    {
+        var config = Windows11();
+        config.GuestOs = "windows-10";
+        config.UnattendedSetup = UnattendedSetupState.Installing;
+
+        Assert.Contains(Fixtures.Values(Fixtures.Build(config), "-device"), d => d.StartsWith("usb-storage,id=wq-setup-stick", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void The_answer_file_only_sets_the_LabConfig_switches_before_the_hardware_check()
     {
         var document = XDocument.Parse(WindowsSetupAnswer.Content);

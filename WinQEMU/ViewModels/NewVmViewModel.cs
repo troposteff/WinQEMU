@@ -281,6 +281,9 @@ namespace WinQEMU.ViewModels
             if (!string.IsNullOrWhiteSpace(IsoPath) && !File.Exists(IsoPath))
                 return ($"Image ISO introuvable : {IsoPath}", null);
 
+            if (UseUnattended && WindowsUnattendedSetup.WhyUserNameIsRefused(UnattendedUser) is { } refused)
+                return (refused, null);
+
             if (!string.IsNullOrWhiteSpace(SecondaryIsoPath) && !File.Exists(SecondaryIsoPath))
                 return ($"Second ISO introuvable : {SecondaryIsoPath}", null);
 
@@ -292,7 +295,12 @@ namespace WinQEMU.ViewModels
                                "microprogramme. Vous pourrez ajouter un ISO plus tard.");
             }
 
-            if (SelectedProfile.SuggestsVirtioDrivers && string.IsNullOrWhiteSpace(SecondaryIsoPath))
+            if (UseUnattended && string.IsNullOrWhiteSpace(SecondaryIsoPath))
+            {
+                advisories.Add("Sans l'ISO virtio-win en second lecteur, Windows s'installera sans ses pilotes virtio ni " +
+                               "l'agent invité : pas de dossiers partagés, ni de résolution qui suit la fenêtre.");
+            }
+            else if (SelectedProfile.SuggestsVirtioDrivers && string.IsNullOrWhiteSpace(SecondaryIsoPath))
             {
                 advisories.Add("Pour ce système, l'ISO virtio-win en second lecteur permet d'utiliser les " +
                                "périphériques virtio (réseau et disque plus rapides). Facultatif ici, car le " +
@@ -471,7 +479,7 @@ namespace WinQEMU.ViewModels
         public string IsoPath
         {
             get => _isoPath;
-            set { if (SetProperty(ref _isoPath, value)) RevalidateCurrentStep(); }
+            set { if (SetProperty(ref _isoPath, value)) RaiseUnattended(); }
         }
 
         private string _secondaryIsoPath = string.Empty;
@@ -482,7 +490,49 @@ namespace WinQEMU.ViewModels
         }
 
         private bool _bootFromIso = true;
-        public bool BootFromIso { get => _bootFromIso; set => SetProperty(ref _bootFromIso, value); }
+        public bool BootFromIso
+        {
+            get => _bootFromIso;
+            set { if (SetProperty(ref _bootFromIso, value)) RaiseUnattended(); }
+        }
+
+        // ---- Unattended installation (Services.WindowsUnattendedSetup) ----
+
+        /// <summary>
+        /// Offered for a Windows from 10 on, in UEFI, starting from its ISO: VMware's "installation
+        /// simplifiée". Windows 7 and 8.1 keep BIOS and their own answer file format.
+        /// </summary>
+        public bool CanInstallUnattended =>
+            SelectedProfile.Family == "Windows" && SelectedProfile.Key != "windows-7"
+            && Firmware == FirmwareType.Uefi && BootFromIso && !string.IsNullOrWhiteSpace(IsoPath);
+
+        private bool _unattended = true;
+        public bool Unattended
+        {
+            get => _unattended;
+            set { if (SetProperty(ref _unattended, value)) RaiseUnattended(); }
+        }
+
+        public bool UseUnattended => CanInstallUnattended && Unattended;
+
+        private string _unattendedUser = Environment.UserName;
+        public string UnattendedUser
+        {
+            get => _unattendedUser;
+            set { if (SetProperty(ref _unattendedUser, value)) RevalidateCurrentStep(); }
+        }
+
+        /// <summary>Kept in memory only: it goes into the answer file, never into the descriptor.</summary>
+        public string UnattendedPassword { get; set; } = string.Empty;
+
+        public string UnattendedComputerName => WindowsUnattendedSetup.ComputerNameFor(Name);
+
+        private void RaiseUnattended()
+        {
+            RaisePropertyChanged(nameof(CanInstallUnattended));
+            RaisePropertyChanged(nameof(UseUnattended));
+            RevalidateCurrentStep();
+        }
 
         private string _networkConnection = NetworkAdapterConfig.NatConnection;
         /// <summary>What the machine's card is plugged into, as <see cref="NetworkAdapterConfig.Connection"/> takes it.</summary>
@@ -627,7 +677,10 @@ namespace WinQEMU.ViewModels
             NetworkMode = NetworkMode,
             NetworkId = ChosenConnection().NetworkId,
             NicModel = NicModel,
-            RtcLocalTime = RtcLocalTime
+            RtcLocalTime = RtcLocalTime,
+            Unattended = UseUnattended
+                ? WindowsUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, Name.Trim(), IsoPath, SelectedProfile.Key)
+                : null
         };
 
         // ---- Display helpers ----

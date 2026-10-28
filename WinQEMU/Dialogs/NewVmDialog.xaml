@@ -231,6 +231,48 @@
                     </Grid>
                     <CheckBox Content="Démarrer sur ce support" IsChecked="{Binding BootFromIso, Mode=TwoWay}" />
 
+                    <!--
+                        VMware's "installation simplifiée": Windows installs by itself, then its drivers and the
+                        guest agent from the virtio-win drive. The password stays in the dialog and the answer
+                        file, never in the descriptor.
+                    -->
+                    <StackPanel
+                        Padding="12"
+                        Background="#11000000"
+                        CornerRadius="6"
+                        Spacing="8"
+                        Visibility="{Binding CanInstallUnattended, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                        <CheckBox Content="Installation automatique" IsChecked="{Binding Unattended, Mode=TwoWay}" />
+                        <TextBlock
+                            Style="{StaticResource Hint}"
+                            Text="Windows s'installe sans rien demander : l'édition Professionnel, tout le disque, ce compte (administrateur, ouvert automatiquement la première fois), la langue, le clavier et le fuseau horaire de ce PC. Puis les pilotes virtio et l'agent invité, si l'ISO virtio-win est en second lecteur."
+                            TextWrapping="Wrap" />
+                        <Grid
+                            ColumnSpacing="8"
+                            RowSpacing="6"
+                            Visibility="{Binding UseUnattended, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                Grid.Column="0"
+                                Header="Nom d'utilisateur"
+                                Text="{Binding UnattendedUser, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <PasswordBox
+                                x:Name="UnattendedPasswordBox"
+                                Grid.Column="1"
+                                Header="Mot de passe (facultatif)"
+                                PasswordChanged="OnUnattendedPasswordChanged" />
+                        </Grid>
+                        <TextBlock
+                            Style="{StaticResource Hint}"
+                            Visibility="{Binding UseUnattended, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                            <Run Text="Nom de l'ordinateur :" />
+                            <Run Text="{Binding UnattendedComputerName, Mode=OneWay}" />
+                        </TextBlock>
+                    </StackPanel>
+
                     <TextBlock Margin="0,8,0,0" Style="{StaticResource FieldLabel}" Text="Second lecteur (pilotes virtio, facultatif)" />
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>

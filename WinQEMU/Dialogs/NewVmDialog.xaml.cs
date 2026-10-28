@@ -92,6 +92,10 @@ namespace WinQEMU.Dialogs
                 ViewModel.IsoPath = file;
         }
 
+        /// <summary>PasswordBox has no bindable password: copied to the view model, kept in memory only.</summary>
+        private void OnUnattendedPasswordChanged(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
+            ViewModel.UnattendedPassword = UnattendedPasswordBox.Password;
+
         private async void OnBrowseDriversClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             var file = await PickFileAsync(".iso");

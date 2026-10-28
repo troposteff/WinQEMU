@@ -107,7 +107,8 @@ namespace WinQEMU.Core.Qemu
                 State = VmState.Starting;
 
                 EnsureUefiVarsStore();
-                if (QemuArgumentBuilder.NeedsWindowsSetupStick(Config))
+                // An unattended installation's own answer file is already there and must stay as written.
+                if (QemuArgumentBuilder.NeedsWindowsSetupStick(Config) && Config.UnattendedSetup == UnattendedSetupState.None)
                     Services.WindowsSetupAnswer.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(Config));
 
                 var qmpPort = ReserveLoopbackPort();
@@ -519,6 +520,28 @@ namespace WinQEMU.Core.Qemu
                 },
                 cancellationToken).ConfigureAwait(false);
             AppendLog($"Optical drive now holds {resolved}.");
+        }
+
+        /// <summary>
+        /// Presses a key now and then for a while, for the firmware's "Press any key to boot from CD or DVD":
+        /// the first start of an unattended installation only, or Setup would start again at every reboot.
+        /// </summary>
+        public async Task PressBootKeyAsync(TimeSpan duration)
+        {
+            var end = DateTime.UtcNow + duration;
+            while (DateTime.UtcNow < end && IsRunning)
+            {
+                try
+                {
+                    await SendKeyAsync(0x39, true).ConfigureAwait(false);    // space
+                    await SendKeyAsync(0x39, false).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is QmpException or InvalidOperationException or ObjectDisposedException)
+                {
+                    return;
+                }
+                await Task.Delay(700).ConfigureAwait(false);
+            }
         }
 
         /// <summary>Plugs a running machine's card in or out: the guest sees its cable connected or not.</summary>

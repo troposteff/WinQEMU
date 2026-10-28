@@ -410,6 +410,20 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   `autounattend.xml` (`WindowsSetupAnswer`) qui ne fait que poser les clés `LabConfig` (TPM, Secure Boot, RAM,
   CPU, stockage) dans la passe windowsPE ; l'installation pose ses questions habituelles. Le modèle CPU par
   défaut a déjà SSE4.2 et POPCNT, exigés sans contournement possible par Windows 11 24H2.
+- **Installation automatique de Windows** (« installation simplifiée » de VMware, case de l'assistant pour un Windows
+  10/11 en UEFI qui démarre sur son ISO) : `WindowsUnattendedSetup` écrit sur la même clé un `autounattend.xml`
+  complet (édition Pro par la clé générique publiée de Microsoft, qui n'active rien ; tout le disque ; langue lue
+  **dans l'ISO**, `sources\lang.ini` par `IsoFileReader` — les ISO Microsoft sont **UDF seul**, leur arbre ISO 9660
+  ne contient qu'un README ; locale, clavier et fuseau de ce PC) et deux scripts. **Toute commande RunSynchronous est
+  limitée à 259 caractères** : le script du compte, en ligne (1694), faisait échouer la passe specialize avec
+  « L'ordinateur a redémarré de manière inattendue » (lu par Maj+F10 dans `Panther\setuperr.log`) ; d'où
+  `WQUSER.PS1` (compte créé puis ajouté aux administrateurs **par SID** S-1-5-32-544, le nom du groupe étant
+  traduit) et `WQSETUP.PS1` à la première ouverture de session (certificat de Red Hat approuvé, sinon chaque pilote
+  demande confirmation ; virtio-win-guest-tools puis l'agent invité, en silence), lancés depuis la clé quelle que
+  soit sa lettre. `VmConfig.UnattendedSetup` : `Pending` → au premier démarrage le shell appuie sur une touche pour
+  « Press any key to boot from CD » (une seule fois, sinon l'installation recommencerait à chaque redémarrage) →
+  `Installing` → quand l'agent répond, fichiers de réponses supprimés (mot de passe en base64 seulement) et
+  `BootFromIso` désactivé.
 - **`-accel whpx` sans `kernel-irqchip`** : par défaut QEMU prend l'APIC de l'hyperviseur s'il en a un, sinon le
   sien. Forcé à `off` (l'ancienne règle, de l'époque où le défaut refusait de démarrer), **un invité Windows à plus
   d'un vCPU se figeait sur la roue de démarrage**, installation de Windows 11 comprise ; 1 vCPU démarrait, et tout

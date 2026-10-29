@@ -419,6 +419,17 @@ namespace WinQEMU.ViewModels
 
         public string LibraryRootDisplay => Settings.EffectiveLibraryRoot;
 
+        /// <summary>"WinQEMU version 2026.0.1_beta", from the package's own version (Core.AppVersion).</summary>
+        public string AppVersionText
+        {
+            get
+            {
+                var version = Windows.ApplicationModel.Package.Current.Id.Version;
+                return string.Format(CultureInfo.CurrentCulture, DialogText.SettingsAppVersion,
+                    Core.AppVersion.Display(new Version(version.Major, version.Minor, version.Build, version.Revision)));
+            }
+        }
+
         public string DiagnosticsText => string.Join(Environment.NewLine, Manager.Warnings);
 
         public bool HasDiagnostics => Manager.Warnings.Count > 0;

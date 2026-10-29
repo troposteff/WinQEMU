@@ -128,6 +128,9 @@
                         </muxc:Expander>
 
                         <!-- Where QEMU is described, so the name is not read as the QEMU project's own: its mark. -->
+                        <TextBlock IsTextSelectionEnabled="True"
+                                   Style="{StaticResource Hint}"
+                                   Text="{Binding AppVersionText, Mode=OneWay}" />
                         <TextBlock Style="{StaticResource Hint}"
                                    Text="{x:Bind t:DialogText.SettingsQemuTrademark}"
                                    TextWrapping="Wrap" />

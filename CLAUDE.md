@@ -46,9 +46,19 @@ dotnet build WinQEMU\WinQEMU.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifie
 
 ## Paquet installable (`tools/Build-Package.ps1`)
 
-`pwsh ./tools/Build-Package.ps1` écrit `artifacts\v<version>\` : le MSIX signé, `WinQEMU.appinstaller`, `WinQEMU.cer` et
-`Install-WinQEMU.ps1` (à lancer en administrateur sur le PC cible : approuve le certificat dans `TrustedPeople`, puis
-installe). **Monter `Version` du manifeste à chaque version publiée** : App Installer ne met à jour que vers plus haut.
+`pwsh ./tools/Build-Package.ps1` écrit `artifacts\v<version>\` : le MSIX signé, `WinQEMU.cer`, `Install-WinQEMU.ps1` (à
+lancer en administrateur sur le PC cible : approuve le certificat dans `TrustedPeople`, puis installe) et, pour une
+version finale seulement, `WinQEMU.appinstaller`. **Monter `Version` du manifeste à chaque version publiée** : App
+Installer ne met à jour que vers plus haut.
+
+- **Numérotation** (choix de l'utilisateur, repartie de zéro le 29/10/2026 : releases 1.1.0.0 et 1.2.0.0 supprimées) :
+  `2026.0.1_beta`, `2026.0.2_beta`… pour les fonctionnalités en cours, puis `2026.1.0` pour la version finale. **MSIX
+  n'accepte que quatre nombres** : le manifeste porte `2026.0.1.0`, quatrième nombre toujours 0, et le suffixe n'existe
+  que dans le nom affiché (Paramètres), le fichier, l'étiquette Git et le titre de la release. **Version mineure 0 = bêta**
+  (`Core.AppVersion`, même règle dans le script).
+- **Bêtas publiées en pré-versions GitHub** (choix de l'utilisateur) : `releases/latest` ne pointe jamais vers une
+  pré-version, donc pas de mise à jour automatique ni de `.appinstaller` avant `2026.1.0` ; chaque bêta s'installe par son
+  `.msix`. Le script affiche la commande `gh release create` (`--prerelease` pour une bêta).
 
 - **Signé par un certificat auto-signé `CN=troposteff`** (magasin personnel de l'utilisateur, 5 ans ; partie publique
   dans `packaging\WinQEMU.cer`), choix de l'utilisateur. L'éditeur du manifeste doit être exactement ce sujet.

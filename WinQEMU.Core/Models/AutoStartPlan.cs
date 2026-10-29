@@ -13,9 +13,19 @@ namespace WinQEMU.Core.Models
         public const int MaxDelaySeconds = 3600;
 
         public static IReadOnlyList<AutoStartEntry> For(IEnumerable<VmConfig> library) =>
-            library
+            Order(library.Where(machine => machine.AutoStart));
+
+        /// <summary>
+        /// A folder started at once (LibraryTree.MachinesIn): every machine of it, whether it starts with WinQEMU or not, in
+        /// the same order and with the same delays, counted from the click. Their delays are what orders a group of machines
+        /// that depend on one another (a server first, its clients after), as VMware's teams do.
+        /// </summary>
+        public static IReadOnlyList<AutoStartEntry> ForGroup(IEnumerable<VmConfig> machines) => Order(machines);
+
+        private static IReadOnlyList<AutoStartEntry> Order(IEnumerable<VmConfig> machines) =>
+            machines
                 .Select((machine, index) => (machine, index))
-                .Where(m => m.machine.AutoStart && !m.machine.IsTemplate)
+                .Where(m => !m.machine.IsTemplate)
                 .OrderBy(m => m.machine.AutoStartDelaySeconds)
                 .ThenBy(m => m.index)
                 .Select(m => new AutoStartEntry(m.machine, TimeSpan.FromSeconds(m.machine.AutoStartDelaySeconds)))

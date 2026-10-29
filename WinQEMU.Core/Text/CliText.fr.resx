@@ -18,6 +18,12 @@ Usage : winqemu &lt;commande&gt; [arguments]
                                         Demande à l'invité de s'arrêter (bouton d'alimentation).
   poweroff &lt;machine&gt;                    Éteint la machine aussitôt, comme en débranchant la prise.
   pause &lt;machine&gt; | resume &lt;machine&gt;    Met en pause ou reprend une machine en marche.
+  start --folder &lt;dossier&gt;              Démarre les machines du dossier, sous-dossiers compris,
+                                        chacune après son délai de démarrage automatique. Une
+                                        machine chiffrée doit avoir son mot de passe mémorisé.
+  stop --folder &lt;dossier&gt;               Demande aux machines en marche du dossier de s'arrêter.
+  pause --folder &lt;dossier&gt; | resume --folder &lt;dossier&gt;
+                                        Met en pause ou reprend les machines du dossier.
   snapshot list &lt;machine&gt;
   snapshot create &lt;machine&gt; &lt;nom&gt;
   snapshot restore &lt;machine&gt; &lt;nom&gt;
@@ -26,6 +32,7 @@ Usage : winqemu &lt;commande&gt; [arguments]
   help                                  Affiche cette aide.
 
 Une machine se désigne par son nom dans la bibliothèque de WinQEMU (sans tenir compte de la casse) ou par son identifiant.
+Un dossier se désigne par son chemin, tel que list l'affiche (Linux/Serveurs).
 Codes de sortie : 0 réussite, 1 échec, 2 commande incorrecte.</value></data>
   <data name="Cancelled" xml:space="preserve"><value>Attente interrompue ; la machine est laissée telle quelle.</value></data>
   <data name="ConnectionLost" xml:space="preserve"><value>WinQEMU a fermé la connexion sans répondre.</value></data>
@@ -67,4 +74,10 @@ Codes de sortie : 0 réussite, 1 échec, 2 commande incorrecte.</value></data>
   <data name="SnapshotDeleted" xml:space="preserve"><value>Instantané « {0} » de {1} supprimé.</value></data>
   <data name="PasswordPrompt" xml:space="preserve"><value>Mot de passe des disques de {0} :</value></data>
   <data name="PasswordNeeded" xml:space="preserve"><value>Les disques de cette machine sont chiffrés : donnez le mot de passe par --password-stdin, ou faites-le mémoriser par WinQEMU.</value></data>
+  <data name="UnknownFolder" xml:space="preserve"><value>Aucun dossier « {0} » dans la bibliothèque (winqemu list montre les dossiers).</value></data>
+  <data name="FolderStarted" xml:space="preserve"><value>{0} : {1} machine(s) démarrée(s).</value></data>
+  <data name="FolderStopRequested" xml:space="preserve"><value>{0} : arrêt demandé à {1} machine(s).</value></data>
+  <data name="FolderPaused" xml:space="preserve"><value>{0} : {1} machine(s) mise(s) en pause.</value></data>
+  <data name="FolderResumed" xml:space="preserve"><value>{0} : {1} machine(s) reprise(s).</value></data>
+  <data name="FolderNeedsPassword" xml:space="preserve"><value>ses disques sont chiffrés et aucun mot de passe n'est mémorisé</value></data>
 </root>

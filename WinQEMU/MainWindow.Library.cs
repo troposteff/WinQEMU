@@ -140,6 +140,12 @@ namespace WinQEMU
                 else
                     Add(LibraryText.Expand, "", () => _viewModel.SetExpanded(folder, true));
                 menu.Items.Add(new MenuFlyoutSeparator());
+                // Its machines as one, subfolders included (MainWindow.Folders).
+                var machines = _viewModel.MachinesOf(folder.Id);
+                Add(LibraryText.FolderStart, "", () => _ = RunOnFolderAsync(folder.Id, id => _viewModel.StartFolderAsync(id)),
+                    !_viewModel.IsStartingFolder && machines.Count > 0);
+                Add(LibraryText.FolderStop, "", () => _ = RunOnFolderAsync(folder.Id, _viewModel.StopFolderAsync), machines.Count > 0);
+                menu.Items.Add(new MenuFlyoutSeparator());
                 Add(LibraryText.NewSubfolder, "", () => _ = NewFolderAsync(folder.Id));
                 Add(LibraryText.RenameFolder, "", () => _ = RenameFolderAsync(folder));
                 Add(LibraryText.DeleteFolder, "", () => _ = DeleteFolderAsync(folder));

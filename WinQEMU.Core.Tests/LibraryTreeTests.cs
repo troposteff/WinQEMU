@@ -44,6 +44,28 @@ public class LibraryTreeTests
     }
 
     [Fact]
+    public void A_folder_holds_its_own_machines_then_its_subfolders_ones()
+    {
+        var tree = new LibraryTree();
+        var lab = Add(tree, "Lab");
+        var servers = Add(tree, "Servers", lab);
+        var clients = Add(tree, "Clients", lab);
+        Add(tree, "Other");
+        VmConfig Vm(string name, LibraryFolder? folder)
+        {
+            var vm = new VmConfig { Name = name };
+            if (folder is not null)
+                tree.MoveMachine(vm.Id, folder.Id);
+            return vm;
+        }
+        var machines = new[] { Vm("Web", servers), Vm("Proxy", lab), Vm("Laptop", clients), Vm("Db", servers), Vm("Alone", null) };
+
+        // Lab's own, then Clients before Servers (the tree's order, by name), by name in each.
+        Assert.Equal(new[] { "Proxy", "Laptop", "Db", "Web" }, tree.MachinesIn(lab.Id, machines).Select(m => m.Name));
+        Assert.Equal(new[] { "Db", "Web" }, tree.MachinesIn(servers.Id, machines).Select(m => m.Name));
+    }
+
+    [Fact]
     public void A_collapsed_folder_hides_what_it_holds_and_keeps_its_line()
     {
         var tree = new LibraryTree();

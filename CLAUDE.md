@@ -121,7 +121,9 @@ d'une carte sont liés par élément, hors de portée de `Bindings.Update`. La l
 - **Nom accessible d'une section** (`Expander`) calculé une fois : reposé à la main, sinon Narrateur lisait « Disques »
   sous « Disks ».
 - Les textes gardés dans des objets (étiquettes de connexion réseau, intervalles des instantanés automatiques) sont
-  calculés à chaque lecture : remplacer la liste viderait la sélection, donc le réglage lié en deux sens.
+  calculés à chaque lecture : remplacer la liste viderait la sélection, donc le réglage lié en deux sens. **Et ils
+  signalent leur changement** (`RefreshText`) : la boîte d'une ComboBox ne relit l'élément sélectionné qu'alors —
+  « Au plus une fois par jour » restait en français sous une interface anglaise.
 - Vérifié dans l'app : FR → EN → FR et retour à la langue de Windows, Paramètres ouverts, toutes les sections du résumé,
   la console ; aucun descripteur de machine réécrit.
 
@@ -207,7 +209,9 @@ courant, et dit pourquoi les autres ne le sont pas.
   `qemu-img commit` écrit dans la base **immédiate** de la superposition, vérifié sur une chaîne de trois
   niveaux. Avant ce suivi, revenir sur le niveau du haut laissait celui du dessous sans base enregistrée.
 
-- **Arborescence** (`SnapshotTree`, dessinée par `Controls.SnapshotTreeView`, comme le gestionnaire de VMware) :
+- **Arborescence** (`SnapshotTree`, dessinée par `Controls.SnapshotTreeView` **de haut en bas, comme une arborescence de
+  fichiers** : une ligne par nœud dans l'ordre en profondeur, un retrait par niveau ; de gauche à droite comme chez VMware,
+  elle débordait du résumé dès trois niveaux) :
   « État d'origine », les instantanés sous celui dont ils partent, « Vous êtes ici », les clones liés et les
   branches conservées pour eux (grisées). Filiation des instantanés à chaud lue dans la chaîne (la superposition
   de S repose sur celle du précédent ; la machine écrit dans celle du haut). **qcow2 ne retient aucun parent pour
@@ -330,6 +334,16 @@ une propriété des machines** : `AppSettings.Library` (`Models.LibraryTree`), j
   chemin, dossiers masqués. Nouvelle machine (création, clone, import) : dans le dossier courant.
 - Accessibilité : motif développer/réduire et niveau sur chaque ligne (`LibraryListViewItemPeer`), nom « Dossier
   Travail, 3 machines ».
+- **Un dossier comme un tout** (comme les « teams » de VMware ; `MainViewModel.Folders`, résumé du dossier, son menu dans
+  la liste, `winqemu start|stop|pause|resume --folder <chemin>`) : ses machines **et celles de ses sous-dossiers**
+  (`LibraryTree.MachinesIn` : celles du dossier, puis chaque sous-dossier dans l'ordre de l'arbre, par nom). Démarrage dans
+  l'ordre et avec les délais du démarrage automatique de chacune, comptés depuis le clic (`AutoStartPlan.ForGroup` : toutes
+  les machines, cochées « Démarrer avec WinQEMU » ou non, modèles exclus) ; un seul dossier à la fois, annulable entre deux
+  machines, l'heure de la suivante affichée ; un échec est dit et les suivantes démarrent. Arrêt (bouton d'alimentation)
+  dans l'ordre inverse, une machine en pause reprise d'abord. **Depuis la ligne de commande, personne ne tape de mot de
+  passe** : une machine chiffrée démarre avec son mot de passe mémorisé, sinon elle est laissée et c'est dit. Vérifié dans
+  l'app et par la commande sur des machines jetables (seconde machine 15 s après la première, pause, reprise, arrêt,
+  annulation, dossier inconnu → code 1).
 
 ### Modèles (`VmConfig.IsTemplate`)
 

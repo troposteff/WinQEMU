@@ -20,7 +20,9 @@ l'accélération matérielle de la plateforme d'hyperviseur Windows (WHPX).
 
 - **Bibliothèque** :
   - chaque machine est un dossier autonome (descripteur `.wqvm`, disques, NVRAM UEFI), déplaçable tel quel ;
-  - les machines se rangent dans des dossiers imbriqués, avec tri et recherche.
+  - les machines se rangent dans des dossiers imbriqués, avec tri et recherche ;
+  - un dossier entier se démarre, s'arrête, se met en pause ou reprend en un clic, comme les « teams » de VMware : ses
+    machines démarrent l'une après l'autre, chacune après son propre délai.
 - **Assistant de création** :
   - profils de systèmes invités ;
   - mémoire, processeurs, disques, ISO, micrologiciel BIOS ou UEFI.
@@ -63,7 +65,10 @@ l'accélération matérielle de la plateforme d'hyperviseur Windows (WHPX).
   - hors ligne (machine arrêtée) ;
   - à chaud sur les disques (machine en marche) ;
   - à chaud avec la mémoire (sous émulation TCG seulement).
-- **Arborescence des instantanés**, comme dans VMware, clones liés déployés compris.
+- **Arborescence des instantanés**, dessinée de haut en bas comme celle des fichiers, clones liés déployés compris.
+
+  ![L'arborescence des instantanés](docs/images/snapshots-fr.png)
+
 - **Instantanés automatiques** au démarrage, selon un intervalle, en ne gardant que les plus récents.
 
 ### Disques
@@ -102,6 +107,7 @@ winqemu start <machine> [--wait] [--password-stdin]
 winqemu stop <machine> [--wait] [--timeout <secondes>]
 winqemu poweroff <machine>
 winqemu pause <machine> | resume <machine>
+winqemu start|stop|pause|resume --folder <dossier>
 winqemu snapshot list|create|restore|delete <machine> [<nom>]
 winqemu show [<machine>]
 ```

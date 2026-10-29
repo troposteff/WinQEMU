@@ -1650,13 +1650,13 @@
                                         </controls:WrapPanel>
 
                                         <!--
-                                            The snapshots as a tree, as VMware's snapshot manager draws them
-                                            (SnapshotTree for the shape, SnapshotTreeView for the drawing).
-                                            A click on a snapshot selects it for the buttons below; a click
-                                            on a linked clone opens that machine.
+                                            The snapshots as a tree, drawn downwards like a file tree so that it
+                                            fits the summary's width (SnapshotTree for the shape, SnapshotTreeView
+                                            for the drawing). A click on a snapshot selects it for the buttons
+                                            below; a click on a linked clone opens that machine.
                                         -->
                                         <ScrollViewer
-                                            MaxHeight="300"
+                                            MaxHeight="400"
                                             HorizontalScrollBarVisibility="Auto"
                                             HorizontalScrollMode="Enabled"
                                             IsTabStop="True"
@@ -1664,6 +1664,7 @@
                                             <controls:SnapshotTreeView
                                                 x:Name="SnapshotTreeDrawing"
                                                 Margin="0,4,0,4"
+                                                HorizontalAlignment="Left"
                                                 AutomationProperties.Name="{x:Bind t:WindowText.SnapshotsTree}" />
                                         </ScrollViewer>
 
@@ -1992,6 +1993,41 @@
                             TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding SelectedFolder.Summary, Mode=OneWay}" />
                         <TextBlock Opacity="0.7" Text="{Binding SelectedFolder.ParentPathText, Mode=OneWay}" TextWrapping="Wrap" />
+                        <!-- Its machines as one, subfolders included (MainViewModel.Folders), as VMware's teams. -->
+                        <controls:WrapPanel Margin="0,8,0,0" HorizontalSpacing="8" VerticalSpacing="8">
+                            <Button Click="OnStartFolderClick" AutomationProperties.Name="{x:Bind t:LibraryText.FolderStart}" IsEnabled="{Binding CanStartFolder, Mode=OneWay}"
+                                    ToolTipService.ToolTip="{x:Bind t:LibraryText.FolderStartTip}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="16" Glyph="&#xE768;" />
+                                    <TextBlock Text="{x:Bind t:LibraryText.FolderStart}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Click="OnStopFolderClick" AutomationProperties.Name="{x:Bind t:LibraryText.FolderStop}" IsEnabled="{Binding CanStopFolder, Mode=OneWay}"
+                                    ToolTipService.ToolTip="{x:Bind t:LibraryText.FolderStopTip}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="16" Glyph="&#xE71A;" />
+                                    <TextBlock Text="{x:Bind t:LibraryText.FolderStop}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Click="OnPauseFolderClick" AutomationProperties.Name="{x:Bind t:LibraryText.FolderPause}" IsEnabled="{Binding CanPauseFolder, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="16" Glyph="&#xE769;" />
+                                    <TextBlock Text="{x:Bind t:LibraryText.FolderPause}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Click="OnResumeFolderClick" AutomationProperties.Name="{x:Bind t:LibraryText.FolderResume}" IsEnabled="{Binding CanResumeFolder, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="16" Glyph="&#xE768;" />
+                                    <TextBlock Text="{x:Bind t:LibraryText.FolderResume}" />
+                                </StackPanel>
+                            </Button>
+                        </controls:WrapPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="12"
+                                    Visibility="{Binding IsStartingFolder, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                            <muxc:ProgressRing Width="16" Height="16" IsActive="{Binding IsStartingFolder, Mode=OneWay}" />
+                            <TextBlock VerticalAlignment="Center" Text="{Binding FolderStartStatus, Mode=OneWay}" TextWrapping="Wrap" />
+                            <Button Click="OnCancelFolderStartClick" Content="{x:Bind ct:CommonText.Cancel}" />
+                        </StackPanel>
                         <StackPanel Margin="0,8,0,0" Orientation="Horizontal" Spacing="8">
                             <Button Click="OnNewFolderClick">
                                 <StackPanel Orientation="Horizontal" Spacing="8">

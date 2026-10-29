@@ -33,10 +33,14 @@ namespace WinQEMU.ViewModels
                 {
                     "list" => List(args),
                     "status" => Status(args),
+                    "start" when Option(args, "--folder") is { } folder => await OnFolderAsync(folder, StartFolderFromCommandAsync, CliText.FolderStarted),
                     "start" => await StartFromCommandAsync(args, request.Password, cancellationToken),
+                    "stop" when Option(args, "--folder") is { } folder => await OnFolderAsync(folder, StopFolderAsync, CliText.FolderStopRequested),
                     "stop" => await StopFromCommandAsync(args, cancellationToken),
                     "poweroff" => await OnRunningAsync(args, s => s.PowerOffAsync(), CliText.PoweredOff),
+                    "pause" when Option(args, "--folder") is { } folder => await OnFolderAsync(folder, PauseFolderAsync, CliText.FolderPaused),
                     "pause" => await OnRunningAsync(args, s => s.PauseAsync(), CliText.Paused),
+                    "resume" when Option(args, "--folder") is { } folder => await OnFolderAsync(folder, ResumeFolderAsync, CliText.FolderResumed),
                     "resume" => await OnRunningAsync(args, s => s.ResumeAsync(), CliText.Resumed),
                     "snapshot" => await SnapshotFromCommandAsync(args, request.Password),
                     "show" => Show(args),
@@ -219,6 +223,56 @@ namespace WinQEMU.ViewModels
             if (!await WaitForAsync(session, s => !IsLive(s.State), TimeSpan.FromSeconds(seconds), cancellationToken))
                 throw new CommandException(string.Format(CultureInfo.CurrentCulture, CliText.StillRunning, config.Name, seconds));
             return Ok(string.Format(CultureInfo.CurrentCulture, CliText.Stopped, config.Name));
+        }
+
+        /// <summary>"Linux/Debian-based", as winqemu list writes it (case ignored).</summary>
+        private string FindFolder(string path)
+        {
+            var wanted = path.Trim('/');
+            return Library.AllFolders()
+                       .Select(f => f.Folder.Id)
+                       .FirstOrDefault(id => string.Equals(string.Join("/", Library.PathOf(id).Select(f => f.Name)), wanted,
+                           StringComparison.CurrentCultureIgnoreCase))
+                   ?? throw new CommandException(string.Format(CultureInfo.CurrentCulture, CliText.UnknownFolder, wanted));
+        }
+
+        /// <summary>A folder command: how many machines it acted on, then each one left and why.</summary>
+        private async Task<CliResponse> OnFolderAsync(string path, Func<string, Task<FolderOutcome>> action, string done)
+        {
+            var folderId = FindFolder(path);
+            var outcome = await action(folderId);
+            var text = new StringBuilder(string.Format(CultureInfo.CurrentCulture, done, path.Trim('/'), outcome.Done));
+            foreach (var skipped in outcome.Skipped)
+                text.AppendLine().Append("  ").Append(skipped);
+            return outcome.Skipped.Count > 0 && outcome.Done == 0
+                ? new CliResponse(CliProtocol.Failure, string.Empty, text.ToString())
+                : Ok(text.ToString());
+        }
+
+        /// <summary>
+        /// Nobody types a password for a folder started from a terminal: an encrypted machine starts with its remembered
+        /// password, or is left and said so.
+        /// </summary>
+        private Task<FolderOutcome> StartFolderFromCommandAsync(string folderId)
+        {
+            if (!Manager.IsQemuAvailable)
+                throw new CommandException(CliText.NoQemu);
+            return StartFolderAsync(folderId, async machine =>
+            {
+                if (!machine.DisksEncrypted || Manager.IsUnlocked(machine))
+                    return null;
+                if (!Manager.IsDiskPasswordRemembered(machine))
+                    return CliText.FolderNeedsPassword;
+                try
+                {
+                    await Manager.UnlockAsync(machine, interactive: false);
+                    return null;
+                }
+                catch (DiskPasswordException ex)
+                {
+                    return ex.Message;
+                }
+            });
         }
 
         private VmSession RunningSessionOf(VmConfig config) =>

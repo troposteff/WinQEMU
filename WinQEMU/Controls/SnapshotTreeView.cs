@@ -13,15 +13,23 @@ using WinQEMU.ViewModels;
 namespace WinQEMU.Controls
 {
     /// <summary>
-    /// Draws a machine's snapshot tree as VMware's snapshot manager does: boxes from left to right, each
-    /// joined to the one it comes from by a right-angled line. The layout itself is SnapshotTree's.
+    /// Draws a machine's snapshot tree as a file tree is drawn: one box per line, top to bottom, each set in from the one
+    /// it comes from and joined to it by a right-angled line. SnapshotTree gives the shape (who comes from whom, in what
+    /// order); the lines are its nodes in depth-first order.
     /// </summary>
+    /// <remarks>
+    /// Top to bottom rather than VMware's left to right: from three levels on, left to right ran out of the summary's
+    /// width and the tree was cut, with a scroll bar for the rest. Downwards, a level costs one indent, not one box.
+    /// </remarks>
     public sealed class SnapshotTreeView : Canvas
     {
-        private const double BoxWidth = 176;
-        private const double BoxHeight = 52;
-        private const double ColumnGap = 36;
-        private const double RowGap = 14;
+        private const double BoxWidth = 300;
+        private const double BoxHeight = 46;
+        private const double Indent = 28;
+        private const double RowGap = 8;
+
+        /// <summary>Each node's line and level, for the drawing in progress.</summary>
+        private readonly Dictionary<SnapshotTreeNode, (int Row, int Depth)> _places = new();
 
         /// <summary>A box was clicked: a snapshot to select, or a linked clone to open.</summary>
         public event Action<SnapshotTreeNode>? NodeClicked;
@@ -37,7 +45,10 @@ namespace WinQEMU.Controls
                 return;
             }
 
+            // SelfAndDescendants is depth-first, children in order: exactly a file tree's lines.
             var nodes = root.SelfAndDescendants().ToList();
+            _places.Clear();
+            Place(root, 0);
             var lines = Themed("ControlStrongStrokeColorDefaultBrush");
             foreach (var node in nodes)
             {
@@ -48,28 +59,33 @@ namespace WinQEMU.Controls
                 Children.Add(Box(node, items.FirstOrDefault(i => !node.IsRetained && node.Kind == SnapshotNodeKind.Snapshot && i.Name == node.Title),
                     node.Kind == SnapshotNodeKind.Snapshot && !node.IsRetained && node.Title == selectedName));
 
-            Width = (nodes.Max(n => n.Column) + 1) * (BoxWidth + ColumnGap);
-            Height = (nodes.Max(n => n.Row) + 1) * (BoxHeight + RowGap);
+            Width = _places.Values.Max(p => p.Depth) * Indent + BoxWidth;
+            Height = _places.Count * (BoxHeight + RowGap) - RowGap;
+        }
+
+        private void Place(SnapshotTreeNode node, int depth)
+        {
+            _places[node] = (_places.Count, depth);
+            foreach (var child in node.Children)
+                Place(child, depth + 1);
         }
 
         /// <summary>A brush of this element's theme (ThemeBrushes); grey should a name ever be missing, rather than a crash.</summary>
         private Brush Themed(string key) => ThemeBrushes.Get(this, key) ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
 
-        private static double Left(SnapshotTreeNode node) => node.Column * (BoxWidth + ColumnGap);
+        private double Left(SnapshotTreeNode node) => _places[node].Depth * Indent;
 
-        private static double Top(SnapshotTreeNode node) => node.Row * (BoxHeight + RowGap);
+        private double Top(SnapshotTreeNode node) => _places[node].Row * (BoxHeight + RowGap);
 
-        /// <summary>From the right of the parent to the left of the child, turning halfway across the gap.</summary>
-        private static Polyline Connector(SnapshotTreeNode parent, SnapshotTreeNode child, Brush brush)
+        /// <summary>Down from under the parent's box, then right into the child's, as a file tree joins its lines.</summary>
+        private Polyline Connector(SnapshotTreeNode parent, SnapshotTreeNode child, Brush brush)
         {
-            var startX = Left(parent) + BoxWidth;
-            var startY = Top(parent) + BoxHeight / 2;
-            var endX = Left(child);
+            var x = Left(parent) + Indent / 2;
+            var startY = Top(parent) + BoxHeight;
             var endY = Top(child) + BoxHeight / 2;
-            var turnX = startX + ColumnGap / 2;
             return new Polyline
             {
-                Points = { new(startX, startY), new(turnX, startY), new(turnX, endY), new(endX, endY) },
+                Points = { new(x, startY), new(x, endY), new(Left(child), endY) },
                 Stroke = brush,
                 StrokeThickness = 1.5,
                 StrokeDashArray = child.IsRetained ? new DoubleCollection { 3, 2 } : null

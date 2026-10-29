@@ -45,4 +45,10 @@
   <data name="FolderSummaryHint" xml:space="preserve"><value>Select a machine to see its details and its console. To file a machine or a folder elsewhere, right-click it or drag it.</value></data>
   <data name="FolderLabel" xml:space="preserve"><value>Folder</value></data>
   <data name="TemplateState" xml:space="preserve"><value>Template</value></data>
+  <data name="FolderStart" xml:space="preserve"><value>Start the machines</value></data>
+  <data name="FolderStartTip" xml:space="preserve"><value>Starts the folder's machines, subfolders included, one after the other with each one's automatic start delay (Automatic start section).</value></data>
+  <data name="FolderStop" xml:space="preserve"><value>Shut down the machines</value></data>
+  <data name="FolderStopTip" xml:space="preserve"><value>Asks the folder's running machines to shut down (power button), in the reverse order of a start.</value></data>
+  <data name="FolderPause" xml:space="preserve"><value>Pause</value></data>
+  <data name="FolderResume" xml:space="preserve"><value>Resume</value></data>
 </root>

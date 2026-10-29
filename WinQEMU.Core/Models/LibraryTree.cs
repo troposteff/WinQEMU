@@ -101,6 +101,23 @@ namespace WinQEMU.Core.Models
         }
 
         /// <summary>
+        /// The machines in a folder and in all its subfolders, as a folder's commands act on them (start them all, as
+        /// VMware's teams do): the folder's own first, then each subfolder's in the tree's order, by name in each.
+        /// </summary>
+        public IReadOnlyList<VmConfig> MachinesIn(string folderId, IEnumerable<VmConfig> machines)
+        {
+            var order = new List<string> { folderId };
+            order.AddRange(AllFolders().Select(f => f.Folder.Id).Where(id => id != folderId && IsSameOrInside(id, folderId)));
+            return machines
+                .Select(machine => (machine, folder: FolderOf(machine.Id)))
+                .Where(m => m.folder is not null && IsSameOrInside(m.folder, folderId))
+                .OrderBy(m => order.IndexOf(m.folder!))
+                .ThenBy(m => m.machine.Name, NameComparer)
+                .Select(m => m.machine)
+                .ToList();
+        }
+
+        /// <summary>
         /// Folder names compare as Windows compares file names: "linux" and "Linux" side by side would read
         /// as the same folder. Read each time rather than kept: it follows the culture of the moment.
         /// </summary>

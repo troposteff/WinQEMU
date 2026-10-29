@@ -262,4 +262,8 @@ The template's snapshots are frozen as well. You can convert it back to a virtua
   <data name="CaptureSaved" xml:space="preserve"><value>Saved as {0} in Pictures\WinQEMU.</value></data>
   <data name="CaptureSavedCopied" xml:space="preserve"><value>Saved as {0} in Pictures\WinQEMU, and copied to the clipboard.</value></data>
   <data name="CaptureOpenFolder" xml:space="preserve"><value>Show in Explorer</value></data>
+  <data name="FolderStartBusy" xml:space="preserve"><value>A folder is already being started: wait for it, or cancel it.</value></data>
+  <data name="FolderStartWaiting" xml:space="preserve"><value>{0} starts at {1:T}.</value></data>
+  <data name="FolderStartProgress" xml:space="preserve"><value>Starting {0} ({1} of {2})…</value></data>
+  <data name="FolderStartFailed" xml:space="preserve"><value>“{0}” could not start: {1}</value></data>
 </root>

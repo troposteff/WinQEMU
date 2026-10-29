@@ -23,6 +23,17 @@ public class AutoStartTests
     }
 
     [Fact]
+    public void A_folder_starts_every_machine_with_its_delay_but_never_a_template()
+    {
+        var template = Machine("Modèle", false);
+        template.IsTemplate = true;
+        var plan = AutoStartPlan.ForGroup(new[] { Machine("Client", false, 30), template, Machine("Serveur", false), Machine("Base", true, 30) });
+
+        Assert.Equal(new[] { "Serveur", "Client", "Base" }, plan.Select(e => e.Machine.Name));
+        Assert.Equal(new[] { 0d, 30, 30 }, plan.Select(e => e.After.TotalSeconds));
+    }
+
+    [Fact]
     public void A_template_never_starts_with_winqemu()
     {
         var template = Machine("Modèle", true, 0);

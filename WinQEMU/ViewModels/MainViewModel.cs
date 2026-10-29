@@ -733,11 +733,18 @@ namespace WinQEMU.ViewModels
 
         /// <summary>
         /// The label is read each time rather than kept: the same items stay in the list when the language changes
-        /// (a new list would clear the selection, and with it the machine's interval through the two-way binding).
+        /// (a new list would clear the selection, and with it the machine's interval through the two-way binding). It
+        /// says it changed, too: the box showing the selected one reads it again only then.
         /// </summary>
-        public sealed record AutoSnapshotInterval(int Hours)
+        public sealed class AutoSnapshotInterval : ObservableObject
         {
+            public AutoSnapshotInterval(int hours) => Hours = hours;
+
+            public int Hours { get; }
+
             public string Label => AutoSnapshots.IntervalLabel(Hours);
+
+            public void RefreshText() => RaisePropertyChanged(nameof(Label));
         }
 
         public IReadOnlyList<AutoSnapshotInterval> AutoSnapshotIntervals { get; } =
@@ -2224,6 +2231,8 @@ namespace WinQEMU.ViewModels
             foreach (var item in _allItems)
                 item.RefreshText();
             RefreshLanServices(checkFirewall: false);
+            foreach (var interval in AutoSnapshotIntervals)
+                interval.RefreshText();
             Hardware.RefreshText();
             _ = Snapshots.RefreshAsync();
             RaisePropertyChanged(string.Empty);

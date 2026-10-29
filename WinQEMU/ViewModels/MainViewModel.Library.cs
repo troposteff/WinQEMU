@@ -199,6 +199,8 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(ShowsLibraryEmpty));
             if (SelectedFolder is not null)
                 RaisePropertyChanged(nameof(SelectedFolder));
+            // A machine going up or down changes what the folder's buttons can do.
+            RaiseFolderActions();
         }
 
         private void OnRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -218,6 +220,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(SelectedRow));
             RaisePropertyChanged(nameof(SelectedFolder));
             RaisePropertyChanged(nameof(IsFolderSelected));
+            RaiseFolderActions();
         }
 
         /// <summary>

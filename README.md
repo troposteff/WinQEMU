@@ -20,7 +20,9 @@ through the Windows Hypervisor Platform (WHPX).
 
 - **Library**:
   - each machine is a self-contained folder (`.wqvm` descriptor, disks, UEFI NVRAM) that can be moved as is;
-  - the machines are arranged in nested folders, sorted, and searched.
+  - the machines are arranged in nested folders, sorted, and searched;
+  - a whole folder starts, shuts down, pauses or resumes in one click, as VMware's teams do: its machines start one after
+    the other, each after its own delay.
 - **Creation wizard**:
   - guest system profiles;
   - memory, processors, disks, ISO, BIOS or UEFI firmware.
@@ -63,7 +65,10 @@ through the Windows Hypervisor Platform (WHPX).
   - offline (machine stopped);
   - live on the disks (machine running);
   - live with memory (under TCG emulation only).
-- **Snapshot tree**, as in VMware, with deployed linked clones.
+- **Snapshot tree**, drawn downwards like a file tree, with deployed linked clones.
+
+  ![The snapshot tree](docs/images/snapshots-en.png)
+
 - **Automatic snapshots** at start, at an interval, keeping only the latest ones.
 
 ### Disks
@@ -102,6 +107,7 @@ winqemu start <machine> [--wait] [--password-stdin]
 winqemu stop <machine> [--wait] [--timeout <seconds>]
 winqemu poweroff <machine>
 winqemu pause <machine> | resume <machine>
+winqemu start|stop|pause|resume --folder <folder>
 winqemu snapshot list|create|restore|delete <machine> [<name>]
 winqemu show [<machine>]
 ```

@@ -18,6 +18,12 @@ Usage: winqemu &lt;command&gt; [arguments]
                                         Asks the guest to shut down (power button).
   poweroff &lt;machine&gt;                    Turns the machine off at once, like pulling the plug.
   pause &lt;machine&gt; | resume &lt;machine&gt;    Pauses or resumes a running machine.
+  start --folder &lt;folder&gt;               Starts the folder's machines, subfolders included,
+                                        each after its automatic start delay. An encrypted
+                                        one needs a remembered password.
+  stop --folder &lt;folder&gt;                Asks the folder's running machines to shut down.
+  pause --folder &lt;folder&gt; | resume --folder &lt;folder&gt;
+                                        Pauses or resumes the folder's machines.
   snapshot list &lt;machine&gt;
   snapshot create &lt;machine&gt; &lt;name&gt;
   snapshot restore &lt;machine&gt; &lt;name&gt;
@@ -25,7 +31,8 @@ Usage: winqemu &lt;command&gt; [arguments]
   show [&lt;machine&gt;]                      Shows WinQEMU's window, on that machine.
   help                                  Shows this help.
 
-A machine is named as in WinQEMU's library (case does not matter) or by its id.
+A machine is named as in WinQEMU's library (case does not matter) or by its id. A folder is
+named by its path, as list shows it (Linux/Servers).
 Exit codes: 0 success, 1 failure, 2 incorrect command.</value></data>
   <data name="Cancelled" xml:space="preserve"><value>Stopped waiting; the machine is left as it is.</value></data>
   <data name="ConnectionLost" xml:space="preserve"><value>WinQEMU closed the connection without answering.</value></data>
@@ -67,4 +74,10 @@ Exit codes: 0 success, 1 failure, 2 incorrect command.</value></data>
   <data name="SnapshotDeleted" xml:space="preserve"><value>Snapshot “{0}” of {1} deleted.</value></data>
   <data name="PasswordPrompt" xml:space="preserve"><value>Password of {0}’s disks:</value></data>
   <data name="PasswordNeeded" xml:space="preserve"><value>This machine's disks are encrypted: give the password with --password-stdin, or have WinQEMU remember it.</value></data>
+  <data name="UnknownFolder" xml:space="preserve"><value>No folder “{0}” in the library (winqemu list shows the folders).</value></data>
+  <data name="FolderStarted" xml:space="preserve"><value>{0}: {1} machine(s) started.</value></data>
+  <data name="FolderStopRequested" xml:space="preserve"><value>{0}: shutdown asked of {1} machine(s).</value></data>
+  <data name="FolderPaused" xml:space="preserve"><value>{0}: {1} machine(s) paused.</value></data>
+  <data name="FolderResumed" xml:space="preserve"><value>{0}: {1} machine(s) resumed.</value></data>
+  <data name="FolderNeedsPassword" xml:space="preserve"><value>its disks are encrypted and no password is remembered</value></data>
 </root>

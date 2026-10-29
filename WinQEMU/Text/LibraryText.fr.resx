@@ -45,4 +45,10 @@
   <data name="FolderSummaryHint" xml:space="preserve"><value>Sélectionnez une machine pour voir ses détails et sa console. Pour ranger une machine ou un dossier ailleurs, faites un clic droit dessus ou faites-le glisser.</value></data>
   <data name="FolderLabel" xml:space="preserve"><value>Dossier</value></data>
   <data name="TemplateState" xml:space="preserve"><value>Modèle</value></data>
+  <data name="FolderStart" xml:space="preserve"><value>Démarrer les machines</value></data>
+  <data name="FolderStartTip" xml:space="preserve"><value>Démarre les machines du dossier, sous-dossiers compris, l'une après l'autre avec le délai de démarrage automatique de chacune (section Démarrage automatique).</value></data>
+  <data name="FolderStop" xml:space="preserve"><value>Arrêter les machines</value></data>
+  <data name="FolderStopTip" xml:space="preserve"><value>Demande aux machines en marche du dossier de s'arrêter (bouton d'alimentation), dans l'ordre inverse du démarrage.</value></data>
+  <data name="FolderPause" xml:space="preserve"><value>Mettre en pause</value></data>
+  <data name="FolderResume" xml:space="preserve"><value>Reprendre</value></data>
 </root>

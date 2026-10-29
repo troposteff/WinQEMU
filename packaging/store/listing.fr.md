@@ -1,6 +1,6 @@
 # Fiche du Microsoft Store — français
 
-Champs de Partner Center, Fiches du Store, français (France). Coller chaque bloc tel quel.
+Champs de Partner Center, Fiches du Store, français (France) : importés par New-ListingImport.ps1, ou collés bloc par bloc. Texte brut : le Store n'affiche pas de Markdown.
 
 ## Nom du produit
 
@@ -8,7 +8,7 @@ WinQEMU
 
 ## Description
 
-Nécessite QEMU pour Windows, installé à part et gratuit : https://qemu.weilnetz.de/w64/ ou `winget install SoftwareFreedomConservancy.QEMU`. WinQEMU le trouve tout seul et vous guide pour l'installer. WinQEMU est une interface indépendante et non officielle : elle n'est ni affiliée au projet QEMU ni approuvée par lui. QEMU est une marque de Fabrice Bellard.
+Nécessite QEMU pour Windows, installé à part et gratuit : https://qemu.weilnetz.de/w64/ ou la commande « winget install SoftwareFreedomConservancy.QEMU ». WinQEMU le trouve tout seul et vous guide pour l'installer. WinQEMU est une interface indépendante et non officielle : elle n'est ni affiliée au projet QEMU ni approuvée par lui. QEMU est une marque de Fabrice Bellard.
 
 WinQEMU est une interface Windows au-dessus de QEMU, qui vise le confort de VMware Workstation ou de Hyper-V. Créez, lancez et gérez des machines virtuelles sans taper de ligne de commande, avec l'accélération matérielle de la plateforme d'hyperviseur Windows.
 

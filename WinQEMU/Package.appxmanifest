@@ -29,7 +29,11 @@
   </Dependencies>
 
   <Resources>
-    <Resource Language="x-generate"/>
+    <!-- Named rather than x-generate: the interface's French is in .NET satellite assemblies (fr\*.resources.dll, from
+         Text\*.fr.resx), which MakePri does not see, so the package declared English only and the Microsoft Store listed
+         WinQEMU as English-only. -->
+    <Resource Language="en-US"/>
+    <Resource Language="fr-FR"/>
   </Resources>
 
   <Applications>

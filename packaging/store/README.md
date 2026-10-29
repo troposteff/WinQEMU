@@ -7,6 +7,7 @@ What WinQEMU needs on the Store, prepared but not submitted. The background is i
 |---|---|
 | `identity.json` | The Store identity, copied from Partner Center (to create, see below). Read by `tools/Build-StorePackage.ps1`. |
 | `listing.en.md`, `listing.fr.md` | Store listings: description, short description, features, search terms, links. |
+| `New-ListingImport.ps1` | Fills Partner Center's exported listing (.csv) from the two files above, with the screenshots: a folder to import. |
 | `certification-notes.md` | Notes for certification: QEMU, `runFullTrust`, elevated actions, optional drivers, how to test. |
 | [`PRIVACY.md`](../../PRIVACY.md) | Privacy policy, its URL given in the listing. |
 
@@ -35,6 +36,11 @@ What WinQEMU needs on the Store, prepared but not submitted. The background is i
    - Packages: the `.msix`.
    - Store listings: English (United States) and French (France), from the two listing files. Screenshots at least
      1366 x 768: `docs/images/summary-*.png` and `console-*.png` (1920 x 1150); the snapshot tree (850 x 830) is too small.
+     Rather than pasting: **Export listings**, then
+     `pwsh ./packaging/store/New-ListingImport.ps1 -Export <exported .csv>`, then **Import listings**, **Import folder**,
+     `artifacts\store\listing\WinQEMU-listing`. The export comes first because its Field, ID and Type columns must come
+     back unchanged (the IDs are Partner Center's); website, support and privacy policy are not listing fields: they go
+     in Properties.
    - Submission options: restricted capability `runFullTrust`, the short block at the top of `certification-notes.md`
      (the field is short: the long notes did not fit); Notes for certification, the rest of that file.
 6. Submit. Certification takes a few days; a refusal comes with the policy and the reason.

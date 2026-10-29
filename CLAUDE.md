@@ -105,6 +105,12 @@ Installer ne met à jour que vers plus haut.
     `settings.json` de l'installation GitHub (famille `…_6swaqgnpzyjaw`, lu dans `%LOCALAPPDATA%\Packages\…\LocalCache`), et
     un bandeau demande de désinstaller celle-ci. Vérifié avec un paquet d'identité de test enregistré à côté (bibliothèque,
     dossiers, QEMU repris ; réglages d'origine inchangés), puis retiré.
+- **Ce que Partner Center a refusé ou signalé, corrigé** : application `Cli` cachée (voir Ligne de commande) ;
+  `Windows.Universal` en plus de `Windows.Desktop` (modèle WinUI : le Store l'aurait proposé sur Xbox) ; langues du paquet
+  en `x-generate`, qui ne déclarait que l'anglais (le français est dans les assemblies satellites `.resx`, que MakePri ne
+  voit pas) : `en-US` et `fr-FR` nommées. Justification de `runFullTrust` : champ court, texte de 311 caractères en tête
+  de `certification-notes.md`. Fiches importables : `packaging/store/New-ListingImport.ps1` remplit l'export de Partner
+  Center (ses colonnes Field, ID, Type doivent revenir intactes) et écrit le dossier à importer.
 - **`systemAIModels` retirée** (2026.0.3) : reste du modèle de projet, jamais utilisée, et qu'il aurait fallu justifier au Store.
 
 ## Préparer ce PC (`Dialogs.ReadinessDialog`)

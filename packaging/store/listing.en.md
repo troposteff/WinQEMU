@@ -1,6 +1,6 @@
 # Microsoft Store listing — English
 
-Fields of Partner Center, Store listings, English (United States). Paste each block as is.
+Fields of Partner Center, Store listings, English (United States): imported by New-ListingImport.ps1, or pasted block by block. Plain text: the Store shows no Markdown.
 
 ## Product name
 
@@ -8,7 +8,7 @@ WinQEMU
 
 ## Description
 
-Requires QEMU for Windows, installed separately and free: https://qemu.weilnetz.de/w64/ or `winget install SoftwareFreedomConservancy.QEMU`. WinQEMU finds it by itself and guides you through installing it. WinQEMU is an independent, unofficial interface: it is neither affiliated with nor endorsed by the QEMU project. QEMU is a trademark of Fabrice Bellard.
+Requires QEMU for Windows, installed separately and free: https://qemu.weilnetz.de/w64/ or the command "winget install SoftwareFreedomConservancy.QEMU". WinQEMU finds it by itself and guides you through installing it. WinQEMU is an independent, unofficial interface: it is neither affiliated with nor endorsed by the QEMU project. QEMU is a trademark of Fabrice Bellard.
 
 WinQEMU is a Windows interface over QEMU, aiming at the comfort of VMware Workstation or Hyper-V. Create, run and manage virtual machines without typing a command line, with hardware acceleration through the Windows Hypervisor Platform.
 

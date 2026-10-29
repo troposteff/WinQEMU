@@ -6,6 +6,10 @@ A Windows interface (WinUI 3) over [QEMU](https://www.qemu.org/), aiming at the 
 Hyper-V. You create, run and manage virtual machines without typing a command line, with hardware acceleration
 through the Windows Hypervisor Platform (WHPX).
 
+![A machine's summary, with its resource charts](docs/images/summary-en.png)
+
+![The integrated console](docs/images/console-en.png)
+
 > WinQEMU is an independent, unofficial interface: it is neither affiliated with nor endorsed by the QEMU project.
 > QEMU is a trademark of Fabrice Bellard. This project is unrelated to the old port of QEMU to Visual C++ also named
 > WinQEMU (SourceForge, 2009), abandoned since.

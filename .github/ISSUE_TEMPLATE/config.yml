@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: A bug in QEMU itself
+    url: https://www.qemu.org/contribute/report-a-bug/
+    about: WinQEMU only drives QEMU. Problems of the emulator itself are reported to the QEMU project.

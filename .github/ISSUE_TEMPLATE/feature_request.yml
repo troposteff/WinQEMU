@@ -1,0 +1,19 @@
+name: Feature request
+description: Something WinQEMU could do, or do better.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: In English or in French, as you prefer.
+  - type: textarea
+    id: need
+    attributes:
+      label: What you would like to do
+      description: The task you want to carry out, and what stops you today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Optional. How VMware, VirtualBox or Hyper-V do it, if you know.

@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in WinQEMU does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. In English or in French, as you prefer.
+        WinQEMU is an unofficial interface: a bug in QEMU itself belongs to the [QEMU project](https://www.qemu.org/contribute/report-a-bug/).
+  - type: input
+    id: winqemu-version
+    attributes:
+      label: WinQEMU version
+      description: Shown in Settings, under the QEMU installation (for example 2026.0.1_beta).
+    validations:
+      required: true
+  - type: input
+    id: qemu-version
+    attributes:
+      label: QEMU version
+      description: Shown in Settings (for example 11.1.0).
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version
+      description: Run `winver` (for example Windows 11 24H2, build 26100).
+    validations:
+      required: true
+  - type: input
+    id: guest
+    attributes:
+      label: Guest system
+      description: The system in the virtual machine, if the problem concerns one (for example Ubuntu 26.04, Windows 11).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, step by step, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: QEMU log
+      description: The machine's log, at the bottom of its summary in WinQEMU, if the problem concerns a machine. Remove anything you would rather keep private.
+      render: text

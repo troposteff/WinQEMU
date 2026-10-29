@@ -83,6 +83,7 @@ namespace WinQEMU.Core.Services
 
         public static AppSettings Load()
         {
+            SettingsImport.ImportIfFirstStart();
             try
             {
                 if (File.Exists(SettingsPath))

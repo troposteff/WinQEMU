@@ -318,4 +318,6 @@ Pris le {2}</value></data>
   <data name="ReadinessTcgNote" xml:space="preserve"><value>Sans accélération, les machines tournent quand même, en émulation (TCG), environ dix fois plus lentement ; certains invités, dont Windows 11, deviennent difficilement utilisables.</value></data>
   <data name="ReadinessDismiss" xml:space="preserve"><value>Ne plus afficher au démarrage</value></data>
   <data name="SettingsCheckPc" xml:space="preserve"><value>Vérifier ce PC…</value></data>
+  <data name="NetworksTapHint" xml:space="preserve"><value>Un réseau interne passe par TAP-Windows, le pilote gratuit d'OpenVPN. Installez-le (Windows demande l'autorisation d'administrateur, et peut demander s'il faut faire confiance à OpenVPN), puis cliquez à nouveau sur « Ajouter un réseau interne ».</value></data>
+  <data name="NetworksTapDownload" xml:space="preserve"><value>Télécharger TAP-Windows sur openvpn.net</value></data>
 </root>

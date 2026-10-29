@@ -200,4 +200,6 @@
   <data name="ConsoleCapture" xml:space="preserve"><value>Capturer l'écran</value></data>
   <data name="ConsoleCaptureTip" xml:space="preserve"><value>Enregistre l'écran de l'invité en image dans Images\WinQEMU, à sa propre résolution, et la copie dans le presse-papiers.</value></data>
   <data name="NotifyQemuSetup" xml:space="preserve"><value>Comment l'installer…</value></data>
+  <data name="NotifySettingsImported" xml:space="preserve"><value>Réglages repris</value></data>
+  <data name="NotifySettingsImportedDetail" xml:space="preserve"><value>WinQEMU a repris les réglages de la version installée depuis GitHub : bibliothèque, dossiers, réseaux virtuels. Désinstallez cette version (Paramètres, Applications) pour qu'un seul WinQEMU pilote vos machines ; elles restent où elles sont.</value></data>
 </root>

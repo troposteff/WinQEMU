@@ -318,4 +318,6 @@ Taken on {2}</value></data>
   <data name="ReadinessTcgNote" xml:space="preserve"><value>Without acceleration, machines still run, in emulation (TCG), about ten times slower; some guests, Windows 11 among them, become hardly usable.</value></data>
   <data name="ReadinessDismiss" xml:space="preserve"><value>Do not show at start</value></data>
   <data name="SettingsCheckPc" xml:space="preserve"><value>Check this PC…</value></data>
+  <data name="NetworksTapHint" xml:space="preserve"><value>An internal network goes through OpenVPN's free TAP-Windows driver. Install it (Windows asks for administrator permission, and may ask whether to trust OpenVPN), then click “Add an internal network” again.</value></data>
+  <data name="NetworksTapDownload" xml:space="preserve"><value>Download TAP-Windows from openvpn.net</value></data>
 </root>

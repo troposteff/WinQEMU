@@ -35,6 +35,7 @@ namespace WinQEMU.ViewModels
             _dispatcher = DispatcherQueue.GetForCurrentThread();
 
             Settings = AppSettings.Load();
+            _settingsImported = SettingsImport.ImportedAtThisStart;
             Manager = new VmManager(Settings);
 
             // Follows every session the manager creates, so it must exist before the first one is.
@@ -470,6 +471,15 @@ namespace WinQEMU.ViewModels
         public string ErrorMessage { get => _errorMessage; private set => SetProperty(ref _errorMessage, value); }
 
         public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+        private bool _settingsImported;
+        /// <summary>
+        /// The settings came from WinQEMU installed from GitHub (SettingsImport), at this start: said once, with the way
+        /// to remove that installation, which would otherwise keep running beside this one on the same machines.
+        /// </summary>
+        public bool SettingsImported { get => _settingsImported; private set => SetProperty(ref _settingsImported, value); }
+
+        public void DismissSettingsImported() => SettingsImported = false;
 
         public void ClearError() => ErrorMessage = string.Empty;
 

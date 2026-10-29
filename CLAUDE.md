@@ -89,6 +89,22 @@ Installer ne met à jour que vers plus haut.
   activé : le paquet s'installe mais WinQEMU ne démarre pas** (certificat auto-signé, hors du programme de racines de
   Microsoft). Seule issue de notre côté : une signature reconnue (Store, SignPath, OV). QEMU de weilnetz risque le même
   sort (`.exe` signés par un certificat expiré en 2023, DLL non signées), pas encore vérifié.
+- **Microsoft Store préparé, pas soumis** (choix de l'utilisateur, plutôt que SignPath : éditeur affiché troposteff, mises à
+  jour par le Store, rien à réécrire de la publication). `packaging/store/` (fiche FR/EN, notes de certification, étapes),
+  `PRIVACY.md` (exigée par la capacité micro). Compte Partner Center, réservation du nom, `identity.json` et soumission :
+  à l'utilisateur.
+  - `tools/Build-StorePackage.ps1` : `.msix` **non signé** (le Store signe) avec l'identité de Partner Center, donnée au
+    build par une copie du manifeste (`WinQemuStoreManifest` du csproj ; sans `AppxManifest` déclaré, les outils MSIX
+    ajoutent eux-mêmes `Package.appxmanifest`). `.msix` plutôt que `.msixupload` : la tâche du Windows App SDK qui écrit ce
+    dernier levait une exception masquée (System.Security.Permissions introuvable).
+  - **Pas de pilote embarqué dans la version Store** (`WinQemuStore`, règle 10.2.4 : dépendre d'un pilote non Microsoft est en
+    général refusé) : l'installateur TAP-Windows est **retiré** des éléments `Content` (le SDK les liste tous par défaut :
+    une simple condition sur la copie le laissait dans le paquet, le script l'a vu). Réseau interne : lien vers l'installateur
+    d'OpenVPN, comme Npcap (`TapDriver.IsBundled`). Non vérifié dans l'interface : ce PC a déjà le pilote.
+  - **Une autre identité = une autre application** : au premier démarrage sans réglages, `Services.SettingsImport` copie le
+    `settings.json` de l'installation GitHub (famille `…_6swaqgnpzyjaw`, lu dans `%LOCALAPPDATA%\Packages\…\LocalCache`), et
+    un bandeau demande de désinstaller celle-ci. Vérifié avec un paquet d'identité de test enregistré à côté (bibliothèque,
+    dossiers, QEMU repris ; réglages d'origine inchangés), puis retiré.
 - **`systemAIModels` retirée** (2026.0.3) : reste du modèle de projet, jamais utilisée, et qu'il aurait fallu justifier au Store.
 
 ## Préparer ce PC (`Dialogs.ReadinessDialog`)

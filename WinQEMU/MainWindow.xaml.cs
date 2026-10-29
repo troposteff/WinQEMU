@@ -604,6 +604,8 @@ namespace WinQEMU
 
         private void OnDismissErrorClick(InfoBar sender, object args) => _viewModel.ClearError();
 
+        private void OnDismissSettingsImportedClick(InfoBar sender, object args) => _viewModel.DismissSettingsImported();
+
         private async void OnNewVmClick(object sender, RoutedEventArgs e)
         {
             if (!_viewModel.IsQemuAvailable)

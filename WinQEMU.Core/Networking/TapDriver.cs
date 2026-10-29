@@ -26,6 +26,15 @@ namespace WinQEMU.Core.Networking
         /// <summary>Where the bundled installer is: next to the application, under Assets\Drivers.</summary>
         public static string InstallerPath => Path.Combine(AppContext.BaseDirectory, "Assets", "Drivers", InstallerFileName);
 
+        /// <summary>
+        /// Whether this package carries the installer: not the Microsoft Store build, where the user installs the driver
+        /// from <see cref="DownloadPage"/>, as Npcap.
+        /// </summary>
+        public static bool IsBundled => File.Exists(InstallerPath);
+
+        /// <summary>OpenVPN's own downloads, where the bundled installer comes from (Assets\Drivers\README.txt).</summary>
+        public const string DownloadPage = "https://build.openvpn.net/downloads/releases/tap-windows-9.24.7-I601-Win10.exe";
+
         /// <summary>The driver's install folder, as its installer records it; null when it is not installed.</summary>
         public static string? InstallDirectory
         {

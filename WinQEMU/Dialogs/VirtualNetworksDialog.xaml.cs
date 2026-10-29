@@ -68,6 +68,14 @@ namespace WinQEMU.Dialogs
             if (free is null)
             {
                 var installing = !Core.Networking.TapDriver.IsInstalled;
+                if (installing && !Core.Networking.TapDriver.IsBundled)
+                {
+                    ShowError(null);
+                    TapDownloadLink.NavigateUri = new Uri(Core.Networking.TapDriver.DownloadPage);
+                    TapPanel.Visibility = Visibility.Visible;
+                    return;
+                }
+                TapPanel.Visibility = Visibility.Collapsed;
                 ShowProgress(installing
                     ? DialogText.NetworksInstallingTap
                     : DialogText.NetworksAddingTap);
@@ -125,6 +133,7 @@ namespace WinQEMU.Dialogs
         /// </summary>
         private void OnAddExternalClick(object sender, RoutedEventArgs e)
         {
+            TapPanel.Visibility = Visibility.Collapsed;
             if (!Npcap.IsInstalled)
             {
                 ShowError(null);

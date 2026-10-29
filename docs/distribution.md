@@ -126,24 +126,38 @@ publisher became `CN=troposteff` (version 1.1). What it takes:
 3. Turn « start at sign-in » on again in the new one if it was.
 4. Remove the old package (`Remove-AppxPackage`), which deletes its own settings copy only.
 
-Done by hand once; a release changing the identity should ship a migration step (WinQEMU reading the old family's settings
-on first start) and say so in its notes.
+Done by hand once. Step 2 is now automatic towards any other identity (the Store's): at its first start, a WinQEMU that has
+no settings yet copies the GitHub installation's (`WinQEMU.Core.Services.SettingsImport`, by its family name
+`cfde84db-…_6swaqgnpzyjaw`), then says so and asks for the GitHub installation to be uninstalled, so that a single WinQEMU
+drives the machines. The source is copied, never moved. Checked with a package of a test identity: library, folders and
+virtual networks taken over, the GitHub installation's file unchanged.
 
 ## Microsoft Store
 
-Prepared, not submitted. What a submission involves:
+Prepared, not submitted: the submission is the author's. The Store signs the package, so WinQEMU then starts under Smart
+App Control, needs no certificate on users' PCs, and is updated by the Store. What is ready, in `packaging/store/`:
 
-- An individual developer account in Partner Center (free; identity check with a government ID). Partner Center reserves the
-  name and assigns `Name` and `Publisher`; the Store package uses them, so it is the separate application described above.
-  The sideloaded package and the Store one can coexist; settings would have to be migrated once.
-- `runFullTrust` is a restricted capability: the submission asks why it is needed (a desktop WinUI 3 application driving
-  QEMU processes, named pipes, and windows of those processes).
-- The Store signs the package: no certificate on users' PCs, and the Store updates it.
-- Points to settle with the Store's policies before submitting: the dependency on QEMU, installed separately by the user
-  (the listing must say so); the bundled TAP-Windows installer, run elevated with the user's consent to add a network
-  adapter; the GPL-3.0 (allowed: the listing links to the source, and the Store's terms add no restriction on the user's
-  rights under the GPL).
-- Not needed for the Store: `WinQEMU.appinstaller`, `Install-WinQEMU.ps1`, the certificate.
+- **The package**: `pwsh ./tools/Build-StorePackage.ps1` writes an unsigned `.msix` with the Store identity, read from
+  `packaging/store/identity.json` (`Name`, `Publisher`, `PublisherDisplayName`, from Partner Center, Product identity,
+  once the name is reserved). `Package.appxmanifest` keeps the GitHub identity; the build is given a copy
+  (`WinQemuStoreManifest`). Built and run with a test identity: it installs beside the GitHub package, takes its settings
+  over, and carries no driver installer.
+- **No bundled driver**: Store policy 10.2.4 generally refuses a dependency on a non-Microsoft driver. The Store build
+  leaves the TAP-Windows installer out (`WinQemuStore`); creating an internal network then points the user at OpenVPN's
+  installer, as an external network points at Npcap's (`TapDriver.IsBundled`). Both drivers serve optional features and
+  are declared in the certification notes.
+- **The listing**, English and French (`listing.en.md`, `listing.fr.md`): the QEMU dependency stated at the beginning of
+  the description (policy 10.2.4).
+- **The certification notes** (`certification-notes.md`): why `runFullTrust`, what runs elevated and when, the optional
+  drivers, the microphone, how to test.
+- **The privacy policy** ([`PRIVACY.md`](../PRIVACY.md)), required by the microphone capability: WinQEMU collects nothing.
+
+Left to the author: the Partner Center account (free for individuals; identity check with a government ID), the name
+reservation (the "QEMU" trademark in the name is the author's call, see the README notice), `identity.json`, age rating,
+markets, price (free), screenshots (`docs/images`), and the submission. Betas can go to a package flight (a private
+audience) instead of GitHub pre-releases.
+
+Not needed for the Store: `WinQEMU.appinstaller`, `Install-WinQEMU.ps1`, the certificate, `SHA256SUMS.txt`.
 
 ## WinGet
 

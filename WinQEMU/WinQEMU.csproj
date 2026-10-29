@@ -25,12 +25,26 @@
          asset missing from this list is silently absent from the package. -->
     <Content Include="Assets\**\*.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\WinQEMU.ico" CopyToOutputDirectory="PreserveNewest" />
-    <!-- TAP-Windows driver installer (OpenVPN, GPLv2), run by WinQEMU for internal networks: see Assets\Drivers\README.txt. -->
+    <!-- TAP-Windows driver installer (OpenVPN, GPLv2), run by WinQEMU for internal networks: see Assets\Drivers\README.txt.
+         Left out of a Microsoft Store build (-p:WinQemuStore=true): Store policy 10.2.4 generally refuses a product that
+         depends on a non-Microsoft driver, and the Store certifies what is in the package. The user installs it there,
+         guided, as Npcap (TapDriver.IsBundled). Removed, not just left uncopied: the SDK's default items list every file
+         of the project as Content, and the Store package carried the installer all the same. -->
     <Content Include="Assets\Drivers\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(WinQemuStore)' == 'true'">
+    <Content Remove="Assets\Drivers\**" />
+    <None Remove="Assets\Drivers\**" />
   </ItemGroup>
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!-- The Microsoft Store build's package manifest: a copy of Package.appxmanifest with the identity Partner Center gives
+       (tools/Build-StorePackage.ps1). Declared here, the MSIX tools no longer add Package.appxmanifest themselves. -->
+  <ItemGroup Condition="'$(WinQemuStoreManifest)' != ''">
+    <AppxManifest Include="$(WinQemuStoreManifest)" />
   </ItemGroup>
 
   <!--

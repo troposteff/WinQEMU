@@ -73,6 +73,15 @@
                 Severity="Warning"
                 Title="{x:Bind t:WindowText.NotifyOperationFailed}"
                 Message="{Binding ErrorMessage, Mode=OneWay}" />
+
+            <muxc:InfoBar
+                CloseButtonClick="OnDismissSettingsImportedClick"
+                Margin="0,12,0,0"
+                IsOpen="{Binding SettingsImported, Mode=OneWay}"
+                Visibility="{Binding SettingsImported, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
+                Severity="Informational"
+                Title="{x:Bind t:WindowText.NotifySettingsImported}"
+                Message="{x:Bind t:WindowText.NotifySettingsImportedDetail}" />
         </StackPanel>
 
         <!--

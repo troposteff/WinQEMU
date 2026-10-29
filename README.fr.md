@@ -125,12 +125,14 @@ winqemu show [<machine>]
   - Il retrouve seul les installations courantes : installateur de [qemu.weilnetz.de](https://qemu.weilnetz.de/w64/), `winget install SoftwareFreedomConservancy.QEMU`, Chocolatey, Scoop, MSYS2, `PATH`.
   - Sinon, on lui désigne le dossier.
   - Développé avec QEMU 11.1.
-- Pour l'accélération, la fonctionnalité Windows **Plateforme de l'hyperviseur Windows**, activée en administrateur
-  (puis redémarrage) :
+- Pour l'accélération, la fonctionnalité Windows **Plateforme de l'hyperviseur Windows**. WinQEMU la vérifie et propose
+  de l'activer (une demande de droits d'administrateur, puis un redémarrage) ; à la main, en administrateur :
 
   ```powershell
   Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform
   ```
+
+  Sans elle, les machines tournent quand même, en émulation, environ dix fois plus lentement.
 
 - Facultatif, selon l'usage :
   - [Npcap](https://npcap.com/) pour les réseaux virtuels externes ;
@@ -148,11 +150,42 @@ Unblock-File .\Install-WinQEMU.ps1
 .\Install-WinQEMU.ps1
 ```
 
-Le script approuve le certificat de signature sur ce PC, puis installe WinQEMU. Le paquet est signé par son auteur, pas
-par une autorité publique. WinQEMU apparaît ensuite dans le menu Démarrer, et `winqemu` fonctionne dans un terminal.
+Le script vérifie le paquet par rapport à `SHA256SUMS.txt` et sa signature par rapport à `WinQEMU.cer`, ajoute le
+certificat aux Personnes autorisées de ce PC (pas comme autorité racine), puis installe WinQEMU. Le paquet est signé par
+son auteur, pas par une autorité publique. WinQEMU apparaît ensuite dans le menu Démarrer, et `winqemu` fonctionne dans un
+terminal.
 
-Les versions 2026.0.x sont des **bêtas**, publiées en pré-versions : chacune s'installe par son `.msix`. Les mises à
-jour automatiques commencent avec la version 2026.1.0.
+Au premier démarrage, WinQEMU indique si ce PC est prêt à faire tourner des machines (QEMU, accélération matérielle) et
+quoi faire sinon. Cette vérification reste accessible dans les paramètres (**Vérifier ce PC…**).
+
+### Bêtas et versions finales
+
+Les versions 2026.0.x sont des **bêtas**, publiées en pré-versions : chacune s'installe par son `.msix`. À partir de la
+version 2026.1.0, les versions sont accompagnées de `WinQEMU.appinstaller` : un PC installé par ce fichier est mis à jour
+par Windows lui-même, en arrière-plan.
+
+### Mettre à jour
+
+Installez le `.msix` plus récent (double-clic, ou relancez `Install-WinQEMU.ps1`). La mise à jour se fait sur place : les
+paramètres, la bibliothèque et les machines virtuelles sont conservés.
+
+### Vérifier un téléchargement
+
+Chaque version liste l'empreinte SHA-256 de ses fichiers dans `SHA256SUMS.txt`. Dans PowerShell :
+
+```powershell
+Get-FileHash .\WinQEMU_<version>_x64.msix -Algorithm SHA256
+```
+
+La valeur doit être celle de `SHA256SUMS.txt`. La signature du paquet se lit dans ses Propriétés, onglet Signatures
+numériques : `troposteff`.
+
+### Désinstaller
+
+Désinstallez WinQEMU depuis Paramètres, Applications (ou `Get-AppxPackage *cfde84db* | Remove-AppxPackage`). Cela retire
+l'application et ses paramètres ; **les machines virtuelles restent** dans leur dossier (`Documents\WinQEMU VMs` par défaut, ou
+celui choisi dans les paramètres), et une nouvelle installation les retrouve une fois ce dossier indiqué. Le certificat se retire dans
+`certlm.msc`, Personnes autorisées.
 
 ## Compiler depuis les sources
 
@@ -172,7 +205,8 @@ Add-AppxPackage -Register WinQEMU\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x
 ```
 
 WinQEMU ouvert verrouille ses fichiers : le fermer avant de recompiler. `tools/Build-Package.ps1` construit le paquet
-signé, installable.
+signé, installable ; [`docs/distribution.md`](docs/distribution.md) décrit l'empaquetage, la signature et les publications
+(en anglais).
 
 ## Limites connues sous WHPX
 

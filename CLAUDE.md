@@ -71,6 +71,38 @@ Installer ne met à jour que vers plus haut.
   d'authentification) : installation par le `.msix` local.
 - **Vérifié dans Windows Sandbox** (Windows vierge, sans QEMU) : certificat approuvé, `Add-AppxPackage`, WinQEMU démarre,
   `winqemu help` répond.
+- **Distribution** décrite en détail (en anglais, pour le dépôt public) dans `docs/distribution.md` : publication, canaux,
+  signature, changement d'identité, Store, WinGet, vérifications manuelles. Points clés :
+  - `tools/Get-WinQemuVersion.ps1` : la version lue du manifeste et son nom affiché, même règle que `Core.AppVersion` ;
+    utilisé par `Build-Package.ps1` et par le workflow `release-check.yml`.
+  - `SHA256SUMS.txt` écrit avec chaque paquet ; `Install-WinQEMU.ps1` vérifie le `.msix` contre lui **et** que le `.msix`
+    est signé par le `WinQEMU.cer` qu'il va approuver, avant d'approuver quoi que ce soit (Personnes autorisées, jamais
+    Racine).
+  - **Release check** (`.github/workflows/release-check.yml`, sur les étiquettes `v20*`) : étiquette = version du manifeste,
+    tests, paquet non signé en artefact. **Ne signe ni ne publie rien**, jeton en lecture seule : la clé reste sur le PC de
+    l'auteur (choix de l'utilisateur), un tag poussé par un tiers ne peut produire aucun paquet signé.
+  - Signature reconnue plus tard : toute option (Store, SignPath Foundation, certificat OV) change le `Publisher`, donc
+    l'identité : une migration, comme le passage à `CN=troposteff` (1.1). Azure Artifact Signing exclut les particuliers hors
+    États-Unis et Canada.
+- **`systemAIModels` retirée** (2026.0.3) : reste du modèle de projet, jamais utilisée, et qu'il aurait fallu justifier au Store.
+
+## Préparer ce PC (`Dialogs.ReadinessDialog`)
+
+Ouvert au démarrage tant que QEMU ou l'accélération manque (sauf « Ne plus afficher au démarrage »,
+`AppSettings.ReadinessDismissed`), depuis les Paramètres (« Vérifier ce PC… ») et le bandeau « QEMU introuvable ».
+
+- **QEMU** : trouvé (version, dossier, architectures) ou la marche à suivre ; la commande winget est **copiée, jamais
+  lancée**, et le lien mène au site des versions Windows : WinQEMU n'installe pas QEMU.
+- **WHPX lu chez Windows** (`Services.HypervisorPlatform`, sans droits) : `WinHvPlatform.dll` absente → non activée ;
+  présente et `WHvGetCapability(HypervisorPresent)` vrai → prête (ce que QEMU lui-même interroge) ; sinon, virtualisation
+  du firmware (`IsProcessorFeaturePresent(PF_VIRT_FIRMWARE_ENABLED)`) éteinte → BIOS/UEFI, allumée → redémarrage (ou
+  hyperviseur empêché par bcdedit). Le firmware n'est cru que si la fonctionnalité est là et qu'aucun hyperviseur ne tourne :
+  Hyper-V seul le masque.
+- **Bug corrigé au passage** : `QemuInstallation.SupportsWhpx` ne regardait que la compilation de QEMU (`-accel help`). Sur un
+  PC sans la fonctionnalité, « Automatique » demandait WHPX et la machine ne démarrait pas, là où l'émulation l'aurait fait
+  tourner. Désormais `WhpxInBuild && Platform == Ready`.
+- **Activer** : `dism /Online /Enable-Feature /FeatureName:HypervisorPlatform /All /NoRestart` par `Services.Elevation`
+  (une invite UAC, sur clic de l'utilisateur) ; 0 ou 3010 = fait, redémarrage nécessaire, et c'est dit.
 
 ## Décisions d'architecture
 

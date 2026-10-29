@@ -1,0 +1,70 @@
+name: Release check
+
+# Run for each release tag (v2026.0.3_beta, v2026.1.0): checks that the tag is the manifest's version, runs the tests, and
+# builds the package from the tagged sources, unsigned, with its SHA-256, as an artifact: proof that the tag builds and
+# passes on a clean machine. It is not byte for byte the published package, which signing changes.
+#
+# It signs nothing and publishes nothing, so a tag pushed by anyone with write access cannot sign or release a build:
+# the signing key stays on the author's PC (tools/Build-Package.ps1, docs/distribution.md). Read-only token.
+on:
+  push:
+    tags: ['v20*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Tag matches the manifest
+        id: version
+        shell: pwsh
+        run: |
+          $info = & ./tools/Get-WinQemuVersion.ps1
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $info.Tag) {
+            throw "Tag $env:GITHUB_REF_NAME does not match the manifest's version $($info.Package): expected $($info.Tag)."
+          }
+          "display=$($info.Display)" >> $env:GITHUB_OUTPUT
+          "package=$($info.Package)" >> $env:GITHUB_OUTPUT
+          "Version $($info.Package), released as $($info.Tag)"
+
+      # As in CI: without QEMU the tests that drive the real qemu-img pass vacuously.
+      - name: Install QEMU
+        run: choco install qemu --no-progress -y
+
+      - name: Test core
+        run: dotnet test WinQEMU.Core.Tests -c Release
+
+      - name: Build the package (unsigned)
+        shell: pwsh
+        run: |
+          dotnet publish WinQEMU/WinQEMU.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 `
+            -p:GenerateAppxPackageOnBuild=true -p:AppxPackageSigningEnabled=false `
+            -p:AppxBundle=Never -p:UapAppxPackageBuildMode=SideloadOnly "-p:AppxPackageDir=$PWD\out\"
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)." }
+          $msix = Get-ChildItem out -Recurse -Filter "WinQEMU_${{ steps.version.outputs.package }}_x64.msix" | Select-Object -First 1
+          if (-not $msix) { throw "The package was not produced." }
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item $msix.FullName "dist/WinQEMU_${{ steps.version.outputs.display }}_x64-unsigned.msix"
+          Get-ChildItem dist | ForEach-Object { "$((Get-FileHash $_.FullName).Hash.ToLowerInvariant()) *$($_.Name)" } |
+            Set-Content dist/SHA256SUMS-unsigned.txt -Encoding ascii
+          Get-Content dist/SHA256SUMS-unsigned.txt
+
+      - name: Upload the unsigned package
+        uses: actions/upload-artifact@v4
+        with:
+          name: winqemu-${{ steps.version.outputs.display }}-unsigned
+          path: dist
+          retention-days: 30

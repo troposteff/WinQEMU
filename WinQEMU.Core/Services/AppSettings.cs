@@ -53,6 +53,13 @@ namespace WinQEMU.Core.Services
         /// </summary>
         public string Language { get => _language; set => SetProperty(ref _language, value ?? string.Empty); }
 
+        private bool _readinessDismissed;
+        /// <summary>
+        /// "Do not show again" ticked in the readiness assistant: it no longer opens by itself at start while this PC is not
+        /// ready to run machines. It stays in the settings (Vérifier ce PC).
+        /// </summary>
+        public bool ReadinessDismissed { get => _readinessDismissed; set => SetProperty(ref _readinessDismissed, value); }
+
         private Models.LibraryTree _library = new();
         /// <summary>
         /// The library's folders and which machine is in which, as VMware's inventory: the application's view

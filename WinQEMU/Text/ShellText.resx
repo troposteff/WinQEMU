@@ -185,7 +185,7 @@ Still running: {0}
   <data name="MetricsMemory" xml:space="preserve"><value>Memory {0} / {1}</value></data>
   <data name="MetricsDisk" xml:space="preserve"><value>Disk read {0} · written {1}</value></data>
   <data name="QemuNotFound" xml:space="preserve"><value>QEMU was not found. No virtual machine can start.</value></data>
-  <data name="QemuNotFoundDetail" xml:space="preserve"><value>Install QEMU for Windows, then run detection again. You can also give its installation folder in the settings.</value></data>
+  <data name="QemuNotFoundDetail" xml:space="preserve"><value>Install QEMU for Windows (winget install SoftwareFreedomConservancy.QEMU), then detect it again. You can also give its folder in the settings.</value></data>
   <data name="QemuAccelWhpx" xml:space="preserve"><value>WHPX acceleration available</value></data>
   <data name="QemuAccelNone" xml:space="preserve"><value>hardware acceleration unavailable (TCG emulation only)</value></data>
   <data name="AutoStartFailed" xml:space="preserve"><value>“{0}” could not start with WinQEMU: {1}</value></data>

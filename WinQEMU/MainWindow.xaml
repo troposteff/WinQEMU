@@ -54,7 +54,7 @@
                 Title="{x:Bind t:WindowText.NotifyQemuMissing}"
                 Message="{Binding QemuStatusText, Mode=OneWay}">
                 <muxc:InfoBar.ActionButton>
-                    <HyperlinkButton Click="OnSettingsClick" Content="{x:Bind t:WindowText.NotifyQemuLocate}" />
+                    <HyperlinkButton Click="OnReadinessClick" Content="{x:Bind t:WindowText.NotifyQemuSetup}" />
                 </muxc:InfoBar.ActionButton>
                 <muxc:InfoBar.Content>
                     <TextBlock

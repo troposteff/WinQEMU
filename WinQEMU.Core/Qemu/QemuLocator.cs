@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using WinQEMU.Core.Models;
+using WinQEMU.Core.Services;
 using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Qemu
@@ -79,7 +80,8 @@ namespace WinQEMU.Core.Qemu
                         SystemBinaries = binaries,
                         QemuImgPath = qemuImg,
                         Version = await ProbeVersionAsync(primary, cancellationToken).ConfigureAwait(false),
-                        SupportsWhpx = await ProbeWhpxAsync(primary, cancellationToken).ConfigureAwait(false),
+                        WhpxInBuild = await ProbeWhpxAsync(primary, cancellationToken).ConfigureAwait(false),
+                        Platform = HypervisorPlatform.Probe(),
                         UefiCodeX64 = FindFirmware(directory, "edk2-x86_64-code.fd", "OVMF_CODE.fd", "OVMF_CODE_4M.fd"),
                         UefiCodeX64SecureBoot = FindFirmware(directory, "edk2-x86_64-secure-code.fd", "OVMF_CODE.secboot.fd"),
                         UefiVarsTemplateX64 = FindFirmware(directory, "edk2-i386-vars.fd", "OVMF_VARS.fd", "OVMF_VARS_4M.fd"),
@@ -198,8 +200,8 @@ namespace WinQEMU.Core.Qemu
 
         private static async Task<bool> ProbeWhpxAsync(string systemBinary, CancellationToken cancellationToken)
         {
-            // Asking QEMU what it supports is more reliable than inspecting the Windows feature
-            // state: the build may simply lack WHPX support even when the platform has it enabled.
+            // Asking QEMU what it supports: the build may simply lack WHPX support even when the platform has it
+            // enabled. The platform is asked too (HypervisorPlatform), as the build having it says nothing of Windows.
             try
             {
                 using var timeout = CreateProbeTimeout(cancellationToken);

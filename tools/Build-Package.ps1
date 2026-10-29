@@ -9,6 +9,7 @@
       Install-WinQEMU.ps1          trusts the certificate and installs (run as administrator on the target PC)
       WinQEMU.appinstaller         releases only, not betas: points at the GitHub release, so that Windows updates
                                    WinQEMU by itself
+      SHA256SUMS.txt               the SHA-256 of each of these files, to check a download against
 
     The version is the manifest's (Package.appxmanifest), raised by hand for each release: App Installer only updates
     to a higher one. Numbering chosen by the user: 2026.0.1, 2026.0.2… are betas (minor version 0, published as GitHub
@@ -27,13 +28,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-[xml]$manifest = Get-Content (Join-Path $root 'WinQEMU\Package.appxmanifest')
-$identity = $manifest.Package.Identity
-$version = $identity.Version
-$parts = $version.Split('.')
-if ($parts.Count -ne 4 -or $parts[3] -ne '0') { throw "The manifest's version is ${version}: its fourth number must be 0 (2026.0.1.0)." }
-$beta = $parts[1] -eq '0'
-$display = "$($parts[0]).$($parts[1]).$($parts[2])" + ($(if ($beta) { '_beta' } else { '' }))
+$info = & (Join-Path $PSScriptRoot 'Get-WinQemuVersion.ps1') -Root $root
+$identity = [pscustomobject]@{ Name = $info.Name; Publisher = $info.Publisher }
+$version = $info.Package
+$beta = $info.Beta
+$display = $info.Display
 
 if (-not $Thumbprint) {
     $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -eq $identity.Publisher -and $_.HasPrivateKey } |
@@ -75,6 +74,12 @@ if (-not $beta) {
 </AppInstaller>
 "@ | Set-Content (Join-Path $out 'WinQEMU.appinstaller') -Encoding utf8
 }
+
+# What a download can be checked against (README, "Verifying a download"), in sha256sum's format: Get-FileHash on Windows,
+# sha256sum -c elsewhere. Install-WinQEMU.ps1 checks the package against it before trusting anything.
+Get-ChildItem $out -File | Where-Object Name -ne 'SHA256SUMS.txt' | Sort-Object Name | ForEach-Object {
+    "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) *$($_.Name)"
+} | Set-Content (Join-Path $out 'SHA256SUMS.txt') -Encoding ascii
 
 $signature = Get-AuthenticodeSignature (Join-Path $out $msixName)
 "Package : $(Join-Path $out $msixName) ($([math]::Round((Get-Item (Join-Path $out $msixName)).Length / 1MB, 1)) MB)"

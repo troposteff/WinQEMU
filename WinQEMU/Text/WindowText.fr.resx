@@ -199,4 +199,5 @@
   <data name="SnapshotsTemplateHint" xml:space="preserve"><value>Les instantanés d'un modèle sont figés : reconvertissez-le en machine virtuelle pour en prendre, en restaurer ou en supprimer.</value></data>
   <data name="ConsoleCapture" xml:space="preserve"><value>Capturer l'écran</value></data>
   <data name="ConsoleCaptureTip" xml:space="preserve"><value>Enregistre l'écran de l'invité en image dans Images\WinQEMU, à sa propre résolution, et la copie dans le presse-papiers.</value></data>
+  <data name="NotifyQemuSetup" xml:space="preserve"><value>Comment l'installer…</value></data>
 </root>

@@ -15,8 +15,21 @@ namespace WinQEMU.Core.Qemu
         /// <summary>Version reported by <c>--version</c>, or null when the probe has not run yet.</summary>
         public string? Version { get; init; }
 
-        /// <summary>True when QEMU lists <c>whpx</c> in <c>-accel help</c>, i.e. hardware acceleration is usable.</summary>
-        public bool SupportsWhpx { get; init; }
+        /// <summary>True when QEMU lists <c>whpx</c> in <c>-accel help</c>: this build can use hardware acceleration.</summary>
+        public bool WhpxInBuild { get; init; }
+
+        /// <summary>Windows Hypervisor Platform on this PC, as it stood at detection (Services.HypervisorPlatform).</summary>
+        public Services.HypervisorPlatformState Platform { get; init; } = Services.HypervisorPlatformState.Ready;
+
+        /// <summary>
+        /// Hardware acceleration is usable: the build has it and Windows runs the hypervisor. What "Automatic" goes by; with
+        /// the build alone, a PC without the feature was given WHPX and its machines did not start.
+        /// </summary>
+        public bool SupportsWhpx
+        {
+            get => WhpxInBuild && Platform == Services.HypervisorPlatformState.Ready;
+            init => WhpxInBuild = value;
+        }
 
         /// <summary>Read-only UEFI firmware volume, keyed by architecture and secure-boot flag.</summary>
         public string? UefiCodeX64 { get; init; }

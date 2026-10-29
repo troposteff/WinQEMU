@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="WinQEMU.Dialogs.ReadinessDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ct="using:WinQEMU.Core.Text"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:t="using:WinQEMU.Text"
+    mc:Ignorable="d"
+    Background="Transparent"
+    BorderThickness="0"
+    KeyDown="OnDialogKeyDown"
+    Padding="0">
+
+    <!-- Own chrome and button row, as the settings: rounded corners, and only Fermer. -->
+    <Border
+        Padding="24"
+        Background="{ThemeResource ContentDialogBackground}"
+        BorderBrush="{ThemeResource ContentDialogBorderBrush}"
+        BorderThickness="1"
+        CornerRadius="8">
+        <Grid Width="600" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Spacing="2">
+                <TextBlock FontSize="20" FontWeight="SemiBold" Text="{x:Bind t:DialogText.ReadinessTitle}" />
+                <TextBlock Style="{StaticResource Hint}" Text="{x:Bind t:DialogText.ReadinessSubtitle}" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" MaxHeight="460" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="18">
+
+                    <!-- QEMU: found, or how to get it. WinQEMU never installs or downloads it. -->
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon x:Name="QemuIcon" FontSize="16" />
+                            <TextBlock FontWeight="SemiBold" Text="QEMU" />
+                        </StackPanel>
+                        <TextBlock IsTextSelectionEnabled="True" Text="{Binding QemuReadinessText, Mode=OneWay}" TextWrapping="Wrap" />
+                        <StackPanel x:Name="QemuInstallPanel" Spacing="8">
+                            <TextBlock Style="{StaticResource Hint}" Text="{x:Bind t:DialogText.ReadinessQemuHowTo}" TextWrapping="Wrap" />
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="WingetBox" FontFamily="Consolas" IsReadOnly="True"
+                                         AutomationProperties.Name="{x:Bind t:DialogText.ReadinessWingetName}" />
+                                <Button Grid.Column="1" Click="OnCopyWingetClick" Content="{x:Bind t:DialogText.ReadinessCopy}" />
+                            </Grid>
+                            <HyperlinkButton x:Name="QemuSiteLink" Padding="0" Content="{x:Bind t:DialogText.ReadinessQemuSite}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Click="OnChooseQemuFolderClick" Content="{x:Bind t:DialogText.ChooseFolder}" />
+                            <Button Click="OnRedetectClick" Content="{x:Bind t:DialogText.SettingsQemuRedetect}" />
+                            <muxc:ProgressRing x:Name="BusyRing" Width="20" Height="20" IsActive="False" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Windows Hypervisor Platform: its state, and enabling it on request. -->
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon x:Name="AccelerationIcon" FontSize="16" />
+                            <TextBlock FontWeight="SemiBold" Text="{x:Bind t:DialogText.ReadinessWhpxHeader}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding AccelerationReadinessText, Mode=OneWay}" TextWrapping="Wrap" />
+                        <Button x:Name="EnableButton" Click="OnEnableAccelerationClick"
+                                Content="{x:Bind t:DialogText.ReadinessWhpxEnable}"
+                                Visibility="{Binding CanEnableAcceleration, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        <TextBlock x:Name="EnableResult" TextWrapping="Wrap" Visibility="Collapsed" />
+                        <TextBlock Style="{StaticResource Hint}" Text="{x:Bind t:DialogText.ReadinessTcgNote}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Grid Grid.Row="2" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <CheckBox x:Name="DismissBox" Content="{x:Bind t:DialogText.ReadinessDismiss}"
+                          IsChecked="{Binding ReadinessDismissed, Mode=TwoWay}" />
+                <Button Grid.Column="1" MinWidth="120" Click="OnCloseClick" Content="{x:Bind ct:CommonText.Close}"
+                        Style="{StaticResource AccentButtonStyle}" />
+            </Grid>
+        </Grid>
+    </Border>
+</ContentDialog>

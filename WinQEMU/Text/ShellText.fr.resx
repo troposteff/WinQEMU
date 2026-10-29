@@ -185,7 +185,7 @@ Encore en marche : {0}
   <data name="MetricsMemory" xml:space="preserve"><value>Mémoire {0} / {1}</value></data>
   <data name="MetricsDisk" xml:space="preserve"><value>Disque lu {0} · écrit {1}</value></data>
   <data name="QemuNotFound" xml:space="preserve"><value>QEMU est introuvable. Aucune machine virtuelle ne peut démarrer.</value></data>
-  <data name="QemuNotFoundDetail" xml:space="preserve"><value>Installez QEMU pour Windows, puis relancez la détection. Vous pouvez aussi indiquer le dossier d'installation dans les paramètres.</value></data>
+  <data name="QemuNotFoundDetail" xml:space="preserve"><value>Installez QEMU pour Windows (winget install SoftwareFreedomConservancy.QEMU), puis relancez la détection. Vous pouvez aussi indiquer son dossier dans les paramètres.</value></data>
   <data name="QemuAccelWhpx" xml:space="preserve"><value>accélération WHPX disponible</value></data>
   <data name="QemuAccelNone" xml:space="preserve"><value>accélération matérielle indisponible (émulation TCG uniquement)</value></data>
   <data name="AutoStartFailed" xml:space="preserve"><value>« {0} » n'a pas pu démarrer avec WinQEMU : {1}</value></data>

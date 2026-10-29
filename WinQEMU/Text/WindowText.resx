@@ -199,4 +199,5 @@
   <data name="SnapshotsTemplateHint" xml:space="preserve"><value>A template's snapshots are frozen: convert it back to a virtual machine to take, restore or delete one.</value></data>
   <data name="ConsoleCapture" xml:space="preserve"><value>Capture the screen</value></data>
   <data name="ConsoleCaptureTip" xml:space="preserve"><value>Saves the guest's screen as an image in Pictures\WinQEMU, at its own resolution, and copies it to the clipboard.</value></data>
+  <data name="NotifyQemuSetup" xml:space="preserve"><value>How to install it…</value></data>
 </root>

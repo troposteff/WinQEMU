@@ -503,6 +503,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(IsQemuMissing));
             RaisePropertyChanged(nameof(CanClone));
             RaiseSettingsProperties();
+            RaiseReadiness();
 
             // Sessions only become available once QEMU is found, so the rows are built after detection
             // rather than relying on the collection-changed hook alone.

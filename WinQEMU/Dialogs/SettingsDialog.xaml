@@ -83,6 +83,8 @@
                                 Content="{x:Bind t:DialogText.SettingsQemuReset}"
                                 IsEnabled="{Binding IsQemuDirectoryOverridden, Mode=OneWay}" />
                             <Button Click="OnRedetectClick" Content="{x:Bind t:DialogText.SettingsQemuRedetect}" />
+                            <!-- QEMU and the hardware acceleration together, with what to do about them (ReadinessDialog). -->
+                            <Button Click="OnReadinessClick" Content="{x:Bind t:DialogText.SettingsCheckPc}" />
                             <muxc:ProgressRing
                                 x:Name="BusyRing"
                                 Width="20"

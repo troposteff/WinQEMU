@@ -297,4 +297,25 @@ Taken on {2}</value></data>
   <data name="DeployLinkedHint" xml:space="preserve"><value>Instant and almost free in space: the new machine only records what it writes, and reads the rest from the template's disks, which stay as they are for every machine deployed from it. The template's files cannot be deleted while one of them exists. Always move the template and its machines together.</value></data>
   <data name="SettingsQemuTrademark" xml:space="preserve"><value>WinQEMU is an independent, unofficial interface for QEMU: it is neither affiliated with nor endorsed by the QEMU project. QEMU is a trademark of Fabrice Bellard.</value></data>
   <data name="SettingsAppVersion" xml:space="preserve"><value>WinQEMU version {0}</value></data>
+  <data name="ReadinessTitle" xml:space="preserve"><value>Get this PC ready</value></data>
+  <data name="ReadinessSubtitle" xml:space="preserve"><value>What WinQEMU needs to run virtual machines, and what to do about anything missing. Nothing is installed without you.</value></data>
+  <data name="ReadinessQemuFound" xml:space="preserve"><value>QEMU {0} found in {1} (guests: {2}).</value></data>
+  <data name="ReadinessQemuMissing" xml:space="preserve"><value>QEMU is not installed, or not where WinQEMU looks for it: no virtual machine can start.</value></data>
+  <data name="ReadinessQemuHowTo" xml:space="preserve"><value>WinQEMU neither bundles nor downloads QEMU. Install it with this command in a terminal, or from its Windows builds' site, then detect it again. If it is installed elsewhere, choose its folder.</value></data>
+  <data name="ReadinessWingetName" xml:space="preserve"><value>Command that installs QEMU with winget</value></data>
+  <data name="ReadinessCopy" xml:space="preserve"><value>Copy</value></data>
+  <data name="ReadinessQemuSite" xml:space="preserve"><value>QEMU for Windows (qemu.weilnetz.de)</value></data>
+  <data name="ReadinessWhpxHeader" xml:space="preserve"><value>Hardware acceleration (Windows Hypervisor Platform)</value></data>
+  <data name="ReadinessWhpxReady" xml:space="preserve"><value>Available: machines run at the processor's speed.</value></data>
+  <data name="ReadinessWhpxNotEnabled" xml:space="preserve"><value>The Windows Hypervisor Platform feature is not enabled. WinQEMU can enable it: Windows asks for administrator rights, then a restart.</value></data>
+  <data name="ReadinessWhpxRestartOrBlocked" xml:space="preserve"><value>The feature is enabled but the hypervisor is not running: restart Windows. If it still is not, the hypervisor is kept from starting (bcdedit hypervisorlaunchtype).</value></data>
+  <data name="ReadinessWhpxFirmware" xml:space="preserve"><value>The processor's virtualization is turned off in the PC's firmware: turn it on in the BIOS/UEFI settings (Intel VT-x or AMD-V, often called SVM).</value></data>
+  <data name="ReadinessWhpxNotInBuild" xml:space="preserve"><value>Windows is ready, but this QEMU was built without WHPX: install the Windows build of QEMU.</value></data>
+  <data name="ReadinessWhpxEnable" xml:space="preserve"><value>Enable (administrator rights)…</value></data>
+  <data name="ReadinessWhpxRestart" xml:space="preserve"><value>Windows Hypervisor Platform is enabled: restart Windows for machines to use it.</value></data>
+  <data name="ReadinessWhpxDeclined" xml:space="preserve"><value>Nothing was changed: administrator rights were refused.</value></data>
+  <data name="ReadinessWhpxFailed" xml:space="preserve"><value>The feature could not be enabled ({0}).</value></data>
+  <data name="ReadinessTcgNote" xml:space="preserve"><value>Without acceleration, machines still run, in emulation (TCG), about ten times slower; some guests, Windows 11 among them, become hardly usable.</value></data>
+  <data name="ReadinessDismiss" xml:space="preserve"><value>Do not show at start</value></data>
+  <data name="SettingsCheckPc" xml:space="preserve"><value>Check this PC…</value></data>
 </root>

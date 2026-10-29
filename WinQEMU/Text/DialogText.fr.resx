@@ -297,4 +297,25 @@ Pris le {2}</value></data>
   <data name="DeployLinkedHint" xml:space="preserve"><value>Instantané et presque gratuit en place : la nouvelle machine n'enregistre que ce qu'elle écrit, et lit le reste dans les disques du modèle, figés pour toutes les machines qui en sont déployées. Les fichiers du modèle ne peuvent pas être supprimés tant que l'une d'elles existe. Déplacez toujours le modèle et ses machines ensemble.</value></data>
   <data name="SettingsQemuTrademark" xml:space="preserve"><value>WinQEMU est une interface indépendante et non officielle pour QEMU : il n'est ni affilié au projet QEMU, ni approuvé par lui. QEMU est une marque de Fabrice Bellard.</value></data>
   <data name="SettingsAppVersion" xml:space="preserve"><value>WinQEMU version {0}</value></data>
+  <data name="ReadinessTitle" xml:space="preserve"><value>Préparer ce PC</value></data>
+  <data name="ReadinessSubtitle" xml:space="preserve"><value>Ce dont WinQEMU a besoin pour faire tourner des machines virtuelles, et quoi faire s'il manque quelque chose. Rien n'est installé sans vous.</value></data>
+  <data name="ReadinessQemuFound" xml:space="preserve"><value>QEMU {0} trouvé dans {1} (invités : {2}).</value></data>
+  <data name="ReadinessQemuMissing" xml:space="preserve"><value>QEMU n'est pas installé, ou pas là où WinQEMU le cherche : aucune machine virtuelle ne peut démarrer.</value></data>
+  <data name="ReadinessQemuHowTo" xml:space="preserve"><value>WinQEMU n'embarque ni ne télécharge QEMU. Installez-le avec cette commande dans un terminal, ou depuis le site de ses versions pour Windows, puis relancez la détection. S'il est installé ailleurs, choisissez son dossier.</value></data>
+  <data name="ReadinessWingetName" xml:space="preserve"><value>Commande qui installe QEMU avec winget</value></data>
+  <data name="ReadinessCopy" xml:space="preserve"><value>Copier</value></data>
+  <data name="ReadinessQemuSite" xml:space="preserve"><value>QEMU pour Windows (qemu.weilnetz.de)</value></data>
+  <data name="ReadinessWhpxHeader" xml:space="preserve"><value>Accélération matérielle (plateforme de l'hyperviseur Windows)</value></data>
+  <data name="ReadinessWhpxReady" xml:space="preserve"><value>Disponible : les machines tournent à la vitesse du processeur.</value></data>
+  <data name="ReadinessWhpxNotEnabled" xml:space="preserve"><value>La fonctionnalité Plateforme de l'hyperviseur Windows n'est pas activée. WinQEMU peut l'activer : Windows demande les droits d'administrateur, puis un redémarrage.</value></data>
+  <data name="ReadinessWhpxRestartOrBlocked" xml:space="preserve"><value>La fonctionnalité est activée mais l'hyperviseur ne tourne pas : redémarrez Windows. S'il ne tourne toujours pas, son lancement est empêché (bcdedit hypervisorlaunchtype).</value></data>
+  <data name="ReadinessWhpxFirmware" xml:space="preserve"><value>La virtualisation du processeur est désactivée dans le micrologiciel du PC : activez-la dans les réglages du BIOS/UEFI (Intel VT-x ou AMD-V, souvent appelée SVM).</value></data>
+  <data name="ReadinessWhpxNotInBuild" xml:space="preserve"><value>Windows est prêt, mais ce QEMU a été compilé sans WHPX : installez la version de QEMU pour Windows.</value></data>
+  <data name="ReadinessWhpxEnable" xml:space="preserve"><value>Activer (droits d'administrateur)…</value></data>
+  <data name="ReadinessWhpxRestart" xml:space="preserve"><value>La plateforme de l'hyperviseur Windows est activée : redémarrez Windows pour que les machines l'utilisent.</value></data>
+  <data name="ReadinessWhpxDeclined" xml:space="preserve"><value>Rien n'a été modifié : les droits d'administrateur ont été refusés.</value></data>
+  <data name="ReadinessWhpxFailed" xml:space="preserve"><value>La fonctionnalité n'a pas pu être activée ({0}).</value></data>
+  <data name="ReadinessTcgNote" xml:space="preserve"><value>Sans accélération, les machines tournent quand même, en émulation (TCG), environ dix fois plus lentement ; certains invités, dont Windows 11, deviennent difficilement utilisables.</value></data>
+  <data name="ReadinessDismiss" xml:space="preserve"><value>Ne plus afficher au démarrage</value></data>
+  <data name="SettingsCheckPc" xml:space="preserve"><value>Vérifier ce PC…</value></data>
 </root>

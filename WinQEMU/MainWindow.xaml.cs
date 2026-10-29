@@ -99,6 +99,7 @@ namespace WinQEMU
                     NameInTooltips(fullScreenCommands);
                 ApplyAdaptiveLayout();
                 await InitializeOnceAsync();
+                await OfferReadinessAsync();
             };
             _viewModel.BackgroundConsoleStarted += processId => _ = ConsoleHost.AdoptAsync(processId);
 
@@ -654,6 +655,9 @@ namespace WinQEMU
             };
 
             await ShowDialogAsync(dialog);
+            // Its « Vérifier ce PC » closes it first: one dialog at a time.
+            if (dialog.ReadinessRequested)
+                await ShowReadinessAsync();
         }
 
         private async void OnRenameClick(object sender, RoutedEventArgs e)

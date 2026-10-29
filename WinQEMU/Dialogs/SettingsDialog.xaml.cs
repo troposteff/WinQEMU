@@ -184,6 +184,15 @@ namespace WinQEMU.Dialogs
         private async void OnRedetectClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
             await RunAsync(() => _viewModel.InitializeAsync());
 
+        /// <summary>Set by « Vérifier ce PC »: the window opens the assistant once this dialog is closed.</summary>
+        public bool ReadinessRequested { get; private set; }
+
+        private void OnReadinessClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            ReadinessRequested = true;
+            Hide();
+        }
+
         // ---- Library ----
 
         private async void OnBrowseLibraryClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

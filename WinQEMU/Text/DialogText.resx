@@ -295,4 +295,5 @@ Taken on {2}</value></data>
   <data name="DeployTitle" xml:space="preserve"><value>Deploy {0}</value></data>
   <data name="DeployButton" xml:space="preserve"><value>Deploy</value></data>
   <data name="DeployLinkedHint" xml:space="preserve"><value>Instant and almost free in space: the new machine only records what it writes, and reads the rest from the template's disks, which stay as they are for every machine deployed from it. The template's files cannot be deleted while one of them exists. Always move the template and its machines together.</value></data>
+  <data name="SettingsQemuTrademark" xml:space="preserve"><value>WinQEMU is an independent, unofficial interface for QEMU: it is neither affiliated with nor endorsed by the QEMU project. QEMU is a trademark of Fabrice Bellard.</value></data>
 </root>

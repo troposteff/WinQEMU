@@ -295,4 +295,5 @@ Pris le {2}</value></data>
   <data name="DeployTitle" xml:space="preserve"><value>Déployer {0}</value></data>
   <data name="DeployButton" xml:space="preserve"><value>Déployer</value></data>
   <data name="DeployLinkedHint" xml:space="preserve"><value>Instantané et presque gratuit en place : la nouvelle machine n'enregistre que ce qu'elle écrit, et lit le reste dans les disques du modèle, figés pour toutes les machines qui en sont déployées. Les fichiers du modèle ne peuvent pas être supprimés tant que l'une d'elles existe. Déplacez toujours le modèle et ses machines ensemble.</value></data>
+  <data name="SettingsQemuTrademark" xml:space="preserve"><value>WinQEMU est une interface indépendante et non officielle pour QEMU : il n'est ni affilié au projet QEMU, ni approuvé par lui. QEMU est une marque de Fabrice Bellard.</value></data>
 </root>

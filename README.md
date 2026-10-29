@@ -3,6 +3,10 @@
 Interface graphique Windows (WinUI 3) au-dessus de [QEMU](https://www.qemu.org/), qui vise le confort de
 VMware ou d'Hyper-V : on crée, lance et pilote ses machines virtuelles sans écrire de ligne de commande.
 
+> WinQEMU est une interface indépendante et non officielle : il n'est ni affilié au projet QEMU, ni approuvé par
+> lui. QEMU est une marque de Fabrice Bellard. Ce projet n'a pas non plus de lien avec l'ancien portage de QEMU
+> vers Visual C++ également nommé WinQEMU (SourceForge, 2009), abandonné depuis.
+
 - **Bibliothèque de VM** : chaque machine est un dossier autonome (descripteur `.wqvm`, disques, NVRAM
   UEFI), déplaçable tel quel.
 - **Assistant de création** : système invité, mémoire, processeurs, disques, ISO, firmware BIOS ou UEFI.

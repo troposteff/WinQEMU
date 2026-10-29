@@ -126,6 +126,11 @@
                                 Text="{Binding DiagnosticsText, Mode=OneWay}"
                                 TextWrapping="Wrap" />
                         </muxc:Expander>
+
+                        <!-- Where QEMU is described, so the name is not read as the QEMU project's own: its mark. -->
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="{x:Bind t:DialogText.SettingsQemuTrademark}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
 
                     <muxc:InfoBar

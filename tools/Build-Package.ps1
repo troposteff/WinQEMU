@@ -77,9 +77,11 @@ if (-not $beta) {
 
 # What a download can be checked against (README, "Verifying a download"), in sha256sum's format: Get-FileHash on Windows,
 # sha256sum -c elsewhere. Install-WinQEMU.ps1 checks the package against it before trusting anything.
-Get-ChildItem $out -File | Where-Object Name -ne 'SHA256SUMS.txt' | Sort-Object Name | ForEach-Object {
-    "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) *$($_.Name)"
-} | Set-Content (Join-Path $out 'SHA256SUMS.txt') -Encoding ascii
+# LF line ends: with Set-Content's CRLF, sha256sum -c read each name with a trailing \r and found no file.
+$sums = Get-ChildItem $out -File | Where-Object Name -ne 'SHA256SUMS.txt' | Sort-Object Name | ForEach-Object {
+    "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) *$($_.Name)`n"
+}
+[System.IO.File]::WriteAllText((Join-Path $out 'SHA256SUMS.txt'), -join $sums, [System.Text.Encoding]::ASCII)
 
 $signature = Get-AuthenticodeSignature (Join-Path $out $msixName)
 "Package : $(Join-Path $out $msixName) ($([math]::Round((Get-Item (Join-Path $out $msixName)).Length / 1MB, 1)) MB)"

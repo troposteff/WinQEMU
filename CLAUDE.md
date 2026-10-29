@@ -666,9 +666,11 @@ démarrée d'un terminal est celle que montre la fenêtre, avec sa console, et r
 
 - **`WinQEMU.Cli`**, programme console autonome copié à côté de `WinQEMU.exe` par la référence de projet du shell (il y
   partage le runtime .NET autonome du shell ; `RuntimeIdentifier` déduit de la plateforme, sinon NETSDK1150 : un exe
-  autonome ne référence qu'un exe autonome). **Alias `winqemu.exe`** dans le manifeste, sur une **application à part**
-  (`Id="Cli"`, absente du menu Démarrer) : un alias console exige `SupportsMultipleInstances`, que WinQEMU lui-même ne
-  doit pas avoir (Windows refusait le manifeste : 0x80080204).
+  autonome ne référence qu'un exe autonome). **Alias `winqemu.exe`** dans le manifeste, extension de l'application
+  WinQEMU avec son propre `Executable="WinQEMU.Cli.exe"`. Un alias console exige `SupportsMultipleInstances` sur
+  l'application (sinon 0x80080204) : WinQEMU l'a, et reste unique par `Program.Main` (vérifié : deux lancements, un seul
+  processus, la fenêtre de celui en arrière-plan réaffichée). **Plus d'application `Cli` cachée** (`AppListEntry="none"`) :
+  Partner Center refuse le paquet (« application sans périphérique de contrôle »).
 - **Canal** : tube nommé `WinQEMU.cli.<SID>` (`Core.Cli.CliProtocol` : longueur sur 4 octets puis JSON), réservé à
   l'utilisateur (`Cli.CommandServer`), servi une fois la bibliothèque lue. Chaque requête s'exécute sur le fil de
   l'interface (`MainViewModel.RunCommandAsync`) : mêmes chemins que les boutons (`StartMachineAsync`, instantané

@@ -32,9 +32,12 @@
   </Resources>
 
   <Applications>
+    <!-- SupportsMultipleInstances for the winqemu alias below: Windows refuses a console alias without it (0x80080204).
+         It does not make WinQEMU run twice: Program.Main hands a second start over to the running one (AppInstance). -->
     <Application Id="App"
       Executable="$targetnametoken$.exe"
-      EntryPoint="$targetentrypoint$">
+      EntryPoint="$targetentrypoint$"
+      desktop4:SupportsMultipleInstances="true">
       <uap:VisualElements
         DisplayName="WinQEMU"
         Description="WinQEMU"
@@ -53,25 +56,14 @@
           EntryPoint="Windows.FullTrustApplication">
           <uap5:StartupTask TaskId="WinQEMUStartup" Enabled="false" DisplayName="WinQEMU" />
         </uap5:Extension>
-      </Extensions>
-    </Application>
-    <!-- The winqemu command in any terminal (WinQEMU.Cli, a console program that drives the running WinQEMU), an
-         application of its own: a console alias needs SupportsMultipleInstances (each terminal runs its own copy),
-         which WinQEMU itself must not have. Not in the Start menu. -->
-    <Application Id="Cli"
-      Executable="WinQEMU.Cli.exe"
-      EntryPoint="Windows.FullTrustApplication"
-      desktop4:SupportsMultipleInstances="true">
-      <uap:VisualElements
-        DisplayName="WinQEMU (command line)"
-        Description="winqemu"
-        BackgroundColor="#0B0D12"
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png"
-        AppListEntry="none" />
-      <Extensions>
-        <!-- A console subsystem, or the terminal would not wait for it nor show what it prints. -->
-        <uap5:Extension Category="windows.appExecutionAlias">
+        <!-- The winqemu command in any terminal: WinQEMU.Cli, a console program that drives the running WinQEMU. Its own
+             executable on WinQEMU's application rather than an application of its own hidden from the Start menu: the
+             Microsoft Store refuses such a "headless" application. A console subsystem, or
+             the terminal would not wait for it nor show what it prints. -->
+        <uap5:Extension
+          Category="windows.appExecutionAlias"
+          Executable="WinQEMU.Cli.exe"
+          EntryPoint="Windows.FullTrustApplication">
           <uap5:AppExecutionAlias desktop4:Subsystem="console">
             <uap5:ExecutionAlias Alias="winqemu.exe" />
           </uap5:AppExecutionAlias>

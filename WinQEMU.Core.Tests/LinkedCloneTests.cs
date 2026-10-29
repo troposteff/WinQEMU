@@ -119,7 +119,7 @@ public class LinkedCloneGuardTests
 
         var reason = LinkedCloneGuard.WhyFilesCannotBeDeleted(original, deps)!;
 
-        Assert.Contains("les clones liés", reason);
+        Assert.Contains("aux clones liés", reason);
         Assert.Contains("« A »", reason);
         Assert.Contains("« B »", reason);
     }
@@ -313,6 +313,63 @@ public class LinkedCloneTests : IAsyncLifetime
             original.Disks[0].ChainFromTop);
         Assert.Equal(@"..\Debian\disk0-Base de Copie.qcow2", second.Disks[0].LinkedBaseFileName);
         Assert.True(await Holds(Top(second), "0x11", "0"));
+    }
+
+    [Fact]
+    public async Task A_template_freezes_once_and_every_clone_reads_the_same_image()
+    {
+        if (!Available) return;
+        var template = await OriginalAsync();
+        _manager.SetTemplate(template, true);
+
+        var first = await _manager.CreateLinkedCloneAsync(template, "Web 1");
+        var second = await _manager.CreateLinkedCloneAsync(template, "Web 2");
+
+        // One level for all clones, named for the template rather than for the first clone.
+        Assert.Equal(new[] { "disk0-Modele.qcow2", "disk0.qcow2" }, template.Disks[0].ChainFromTop);
+        Assert.Equal(@"..\Debian\disk0.qcow2", first.Disks[0].LinkedBaseFileName);
+        Assert.Equal(@"..\Debian\disk0.qcow2", second.Disks[0].LinkedBaseFileName);
+        Assert.True(await Holds(Top(second), "0x11", "0"));
+        Assert.False(first.IsTemplate);
+        Assert.False(second.IsTemplate);
+        Assert.Empty(second.Disks[0].TemplateOverlayFileName);
+
+        // The descriptor keeps it across a reload.
+        _manager.ReloadLibrary();
+        var reloaded = _manager.VirtualMachines.Single(m => m.Id == template.Id);
+        Assert.True(reloaded.IsTemplate);
+        Assert.True(reloaded.Disks[0].TemplateOverlayIsTop);
+    }
+
+    [Fact]
+    public async Task A_template_made_a_machine_again_freezes_anew_for_the_next_clone()
+    {
+        if (!Available) return;
+        var template = await OriginalAsync();
+        _manager.SetTemplate(template, true);
+        await _manager.CreateLinkedCloneAsync(template, "Web 1");
+
+        // As a machine it may write to the level the clones left: a clone made afterwards must see that.
+        _manager.SetTemplate(template, false);
+        await Io(Top(template), "write -P 0x44 0 64k");
+        _manager.SetTemplate(template, true);
+        var later = await _manager.CreateLinkedCloneAsync(template, "Web 2");
+
+        Assert.Equal(new[] { "disk0-Modele 2.qcow2", "disk0-Modele.qcow2", "disk0.qcow2" }, template.Disks[0].ChainFromTop);
+        Assert.Equal(@"..\Debian\disk0-Modele.qcow2", later.Disks[0].LinkedBaseFileName);
+        Assert.True(await Holds(Top(later), "0x44", "0"));
+    }
+
+    [Fact]
+    public async Task A_full_copy_of_a_template_is_a_machine()
+    {
+        if (!Available) return;
+        var template = await OriginalAsync();
+        _manager.SetTemplate(template, true);
+
+        var copy = await _manager.CloneVirtualMachineAsync(template, "Copie");
+
+        Assert.False(copy.IsTemplate);
     }
 
     [Fact]

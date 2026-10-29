@@ -102,6 +102,10 @@ namespace WinQEMU.Core.Qemu
                 if (State != VmState.Stopped)
                     throw new InvalidOperationException(PlatformText.SessionAlreadyStarted);
 
+                // Its clones read the image under its top overlay on the strength of it never having run.
+                if (Config.IsTemplate)
+                    throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, CoreText.ManagerTemplateCannotStart, Config.Name));
+
                 // Before anything is launched: a machine whose password is missing simply does not start.
                 if (Config.DisksEncrypted && DiskKey is null)
                     throw new DiskPasswordException(EncryptionText.ImageLocked, isWrongPassword: false);
@@ -766,6 +770,42 @@ namespace WinQEMU.Core.Qemu
                 catch (IOException)
                 {
                     // A leftover temp file is not worth failing the query over.
+                }
+            }
+        }
+
+        /// <summary>
+        /// Saves the guest's screen as a PNG at <paramref name="destination"/>, at the guest's own resolution whatever
+        /// the console's scaling. Never overwrites a file.
+        /// </summary>
+        /// <remarks>
+        /// QEMU writes into a temporary file first: qemu-system opens paths through the ANSI API, and the
+        /// destination (Images, under a profile with an accented name, say) may have no 8.3 name yet, as it does not
+        /// exist (see QemuArgumentBuilder.QemuReadablePath).
+        /// </remarks>
+        public async Task CaptureScreenAsync(string destination, CancellationToken cancellationToken = default)
+        {
+            var qmp = RequireQmp();
+            var path = Path.Combine(Path.GetTempPath(), $"winqemu-capture-{Guid.NewGuid():N}.png");
+
+            try
+            {
+                await qmp.ExecuteAsync(
+                    "screendump",
+                    new JsonObject { ["filename"] = QemuArgumentBuilder.QemuReadablePath(path), ["format"] = "png" },
+                    cancellationToken).ConfigureAwait(false);
+                File.Move(path, destination, overwrite: false);
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(path))
+                        File.Delete(path);
+                }
+                catch (IOException)
+                {
+                    // A leftover temp file is not worth hiding why the capture failed.
                 }
             }
         }

@@ -44,4 +44,5 @@
   <data name="DragMoveToRoot" xml:space="preserve"><value>Déplacer à la racine de la bibliothèque</value></data>
   <data name="FolderSummaryHint" xml:space="preserve"><value>Sélectionnez une machine pour voir ses détails et sa console. Pour ranger une machine ou un dossier ailleurs, faites un clic droit dessus ou faites-le glisser.</value></data>
   <data name="FolderLabel" xml:space="preserve"><value>Dossier</value></data>
+  <data name="TemplateState" xml:space="preserve"><value>Modèle</value></data>
 </root>

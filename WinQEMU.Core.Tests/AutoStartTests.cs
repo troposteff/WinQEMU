@@ -23,6 +23,15 @@ public class AutoStartTests
     }
 
     [Fact]
+    public void A_template_never_starts_with_winqemu()
+    {
+        var template = Machine("Modèle", true, 0);
+        template.IsTemplate = true;
+
+        Assert.Equal(new[] { "Serveur" }, AutoStartPlan.For(new[] { template, Machine("Serveur", true, 5) }).Select(e => e.Machine.Name));
+    }
+
+    [Fact]
     public void Equal_delays_keep_the_library_order()
     {
         var plan = AutoStartPlan.For(new[] { Machine("B", true, 5), Machine("A", true, 5) });

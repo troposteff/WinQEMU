@@ -485,10 +485,12 @@ namespace WinQEMU.Core.Services
             if (WhyNoLinkedClone(source) is { } refusal)
                 throw new InvalidOperationException(refusal);
 
+            // A template disk still on the overlay a previous clone pushed reads, like that clone, the image under
+            // it: the overlay is empty, the template never having run since. Any other disk is frozen as usual.
             var bases = new List<(string Path, long Size)>();
             foreach (var disk in source.Disks)
             {
-                var path = source.ResolvePath(disk.FileName);
+                var path = source.ResolvePath(ReusesTemplateBase(source, disk) ? disk.BackingFileName : disk.FileName);
                 if (!File.Exists(path))
                     throw new FileNotFoundException(string.Format(CultureInfo.CurrentCulture, CoreText.LibraryDiskNotFound, disk.Id, path), path);
 
@@ -497,7 +499,8 @@ namespace WinQEMU.Core.Services
             }
 
             var clone = CopyDescriptor(source, name);
-            var snapshotName = UniqueLinkedSnapshotName(source, clone.Name);
+            // A template's frozen state serves every clone to come, so it is not named after the first one.
+            var snapshotName = UniqueLinkedSnapshotName(source, source.IsTemplate ? null : clone.Name);
             var folder = AllocateFolder(clone.Name);
             Directory.CreateDirectory(folder);
             clone.FolderPath = folder;
@@ -521,6 +524,8 @@ namespace WinQEMU.Core.Services
                     disk.LinkedBaseFileName = linkedBase;
 
                     var sourceDisk = source.Disks[index];
+                    if (ReusesTemplateBase(source, sourceDisk))
+                        continue;
                     var overlayFileName = $"{sourceDisk.Id}-{snapshotName}.qcow2";
                     await imgService.CreateAsync(
                         Path.Combine(source.FolderPath, overlayFileName),
@@ -562,6 +567,8 @@ namespace WinQEMU.Core.Services
             TryDeleteFolder(plan.CloneConfig.FolderPath);
         }
 
+        private static bool ReusesTemplateBase(VmConfig source, DiskConfig disk) => source.IsTemplate && disk.TemplateOverlayIsTop;
+
         /// <summary>Why the machine cannot be linked-cloned, or null when it can.</summary>
         public static string? WhyNoLinkedClone(VmConfig source)
         {
@@ -578,15 +585,17 @@ namespace WinQEMU.Core.Services
         /// reads the name back. ASCII only, as every snapshot name (see
         /// <see cref="QemuImgService.ValidateSnapshotName"/>), and unused by any level of the source's chains.
         /// </summary>
-        private static string UniqueLinkedSnapshotName(VmConfig source, string cloneName)
+        private static string UniqueLinkedSnapshotName(VmConfig source, string? cloneName)
         {
-            var folded = new string(cloneName.Normalize(System.Text.NormalizationForm.FormD)
+            var folded = new string((cloneName ?? string.Empty).Normalize(System.Text.NormalizationForm.FormD)
                     .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
                     .Select(c => c is < ' ' or > '~' || Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)
                     .ToArray())
                 .Trim();
 
-            var stem = string.Format(CultureInfo.InvariantCulture, CoreText.LibraryLinkedCloneSnapshotName, folded.Length == 0 ? "clone" : folded);
+            var stem = cloneName is null
+                ? CoreText.LibraryTemplateSnapshotName
+                : string.Format(CultureInfo.InvariantCulture, CoreText.LibraryLinkedCloneSnapshotName, folded.Length == 0 ? "clone" : folded);
             var candidate = stem;
             for (var index = 2; Taken(candidate); index++)
                 candidate = $"{stem} {index.ToString(CultureInfo.InvariantCulture)}";
@@ -611,6 +620,9 @@ namespace WinQEMU.Core.Services
             clone.Name = name.Trim();
             clone.CreatedUtc = DateTime.UtcNow;
             clone.LastStartedUtc = null;
+            clone.IsTemplate = false;
+            foreach (var disk in clone.Disks)
+                disk.TemplateOverlayFileName = string.Empty;
 
             // Two guests with one MAC on the same segment fight over it. An empty MAC stays empty: QEMU
             // assigns one at launch, exactly as it did for the original.

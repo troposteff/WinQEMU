@@ -34,7 +34,6 @@ namespace WinQEMU.Dialogs
             InitializeComponent();
             _clone = clone;
 
-            TitleText.Text = string.Format(CultureInfo.CurrentCulture, DialogText.CloneTitle, source.Name);
             NameBox.Text = suggestedName;
             NameBox.SelectAll();
 
@@ -53,6 +52,15 @@ namespace WinQEMU.Dialogs
                 LinkedUnavailableText.Text = reason;
                 LinkedUnavailableText.Visibility = Visibility.Visible;
             }
+            else if (source.IsTemplate)
+            {
+                // What a template is for: machines in seconds that share its disks.
+                LinkedOption.IsChecked = true;
+            }
+            // Set here rather than bound in XAML: x:Bind runs at Loading and would put the clone's wording back.
+            TitleText.Text = string.Format(CultureInfo.CurrentCulture, source.IsTemplate ? DialogText.DeployTitle : DialogText.CloneTitle, source.Name);
+            LinkedHintText.Text = source.IsTemplate ? DialogText.DeployLinkedHint : DialogText.CloneLinkedHint;
+            CloneButton.Content = source.IsTemplate ? DialogText.DeployButton : DialogText.CloneButton;
 
             UpdateSizeText();
         }

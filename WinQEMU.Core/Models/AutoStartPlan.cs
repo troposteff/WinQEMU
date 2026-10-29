@@ -15,7 +15,7 @@ namespace WinQEMU.Core.Models
         public static IReadOnlyList<AutoStartEntry> For(IEnumerable<VmConfig> library) =>
             library
                 .Select((machine, index) => (machine, index))
-                .Where(m => m.machine.AutoStart)
+                .Where(m => m.machine.AutoStart && !m.machine.IsTemplate)
                 .OrderBy(m => m.machine.AutoStartDelaySeconds)
                 .ThenBy(m => m.index)
                 .Select(m => new AutoStartEntry(m.machine, TimeSpan.FromSeconds(m.machine.AutoStartDelaySeconds)))

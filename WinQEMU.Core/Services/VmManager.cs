@@ -239,6 +239,8 @@ namespace WinQEMU.Core.Services
                 {
                     disk.PushOverlay(overlay);
                     pushed.Add(disk);
+                    if (source.IsTemplate)
+                        disk.TemplateOverlayFileName = overlay;
                 }
 
                 library.Save(source);
@@ -248,7 +250,10 @@ namespace WinQEMU.Core.Services
             {
                 // Popped in reverse so each disk's chain is exactly what it was.
                 for (var index = pushed.Count - 1; index >= 0; index--)
+                {
                     pushed[index].PopOverlay();
+                    pushed[index].TemplateOverlayFileName = string.Empty;
+                }
                 if (pushed.Count > 0)
                     TrySave(library, source);
 
@@ -259,6 +264,28 @@ namespace WinQEMU.Core.Services
             ShareDiskKey(source, plan.CloneConfig);
             VirtualMachines.Add(plan.CloneConfig);
             return plan.CloneConfig;
+        }
+
+        /// <summary>
+        /// Makes the machine a template, or a machine again. A template never starts and is meant to be cloned: its
+        /// first linked clone freezes its disks as for any machine, and the following ones reuse that frozen state
+        /// (<see cref="DiskConfig.TemplateOverlayFileName"/>). Nothing on disk changes here.
+        /// </summary>
+        /// <remarks>
+        /// Back to a machine, the overlays the clones left are forgotten as reusable: the machine is going to write to
+        /// them, and a clone made after it is a template again must start from what it then contains.
+        /// </remarks>
+        public void SetTemplate(VmConfig machine, bool isTemplate)
+        {
+            if (machine.IsTemplate == isTemplate)
+                return;
+            if (FindSession(machine) is { } session && session.State != VmState.Stopped)
+                throw new InvalidOperationException(CoreText.ManagerStopBeforeTemplate);
+
+            machine.IsTemplate = isTemplate;
+            foreach (var disk in machine.Disks)
+                disk.TemplateOverlayFileName = string.Empty;
+            Save(machine);
         }
 
         private static void TrySave(VmLibrary library, VmConfig config)

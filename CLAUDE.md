@@ -303,6 +303,27 @@ une propriété des machines** : `AppSettings.Library` (`Models.LibraryTree`), j
 - Accessibilité : motif développer/réduire et niveau sur chaque ligne (`LibraryListViewItemPeer`), nom « Dossier
   Travail, 3 machines ».
 
+### Modèles (`VmConfig.IsTemplate`)
+
+Comme les modèles de VMware et Hyper-V : bouton **Modèle** du résumé (machine arrêtée, confirmation), puis **Déployer** à
+la place de Démarrer, qui ouvre le dialogue de clonage sur un clone lié. Un modèle **ne démarre jamais** (`VmSession.StartAsync`
+et `MainViewModel.StartMachineAsync`, avant l'instantané automatique ; démarrage automatique ignoré) et ses instantanés
+sont figés (section et commande `winqemu snapshot`). « Reconvertir en machine virtuelle » le rend normal ; les machines
+déployées continuent de marcher.
+
+- **Une seule couche pour tous les clones**, pas une par clone : le premier clone lié fige le modèle comme toute machine
+  (superposition nommée `Modele` / `Template`, pas d'après le clone), notée dans `DiskConfig.TemplateOverlayFileName` ; tant
+  que le disque écrit encore dans cette superposition (`TemplateOverlayIsTop`), les clones suivants lisent l'image du
+  dessous sans rien empiler (`VmLibrary.ReusesTemplateBase`). Sans cela, le Nᵉ clone lirait N niveaux.
+- **Repasser en machine efface ce repère** (`VmManager.SetTemplate`) : la machine va écrire dans cette superposition, et un
+  clone fait après qu'elle est redevenue modèle doit partir de ce qu'elle contient (nouvelle couche `Modele 2`). Testé
+  contre le vrai qemu-img (`LinkedCloneTests`).
+- Une copie ou un clone n'est jamais un modèle (`CopyDescriptor`). Les protections des clones liés s'appliquent telles
+  quelles (fichiers du modèle non supprimables tant qu'un clone existe).
+- Vérifié dans l'app sur une copie jetable de Debian : deux déploiements sur la même image, clone démarré jusqu'à
+  l'invite de connexion, refus de `winqemu start` et `winqemu snapshot create` sur le modèle, suppression refusée puis
+  permise une fois les clones supprimés.
+
 ## Import (VMware, VirtualBox, Hyper-V, OVF)
 
 `WinQEMU.Core/Import` : un fichier choisi devient un `ImportPlan` (montré, puis confirmé), puis
@@ -497,6 +518,16 @@ refusé en le nommant, sans moitié de texte tapée. Confirmation au-delà de 30
 - Vérifié sur la console texte d'une copie jetable de Debian 13 (relu par `/dev/vcsu1` via l'agent) et dans Exécuter
   d'un Windows 11. Le presse-papiers n'était pas accessible depuis l'environnement de test : bouton vérifié seulement
   jusqu'à « Rien à taper ».
+
+## Capture de la console
+
+Bouton appareil photo de la barre de la console et du plein écran (machine en marche ou en pause) : `screendump` de QMP
+au format PNG, **à la résolution de l'invité** quelle que soit la mise à l'échelle (`VmSession.CaptureScreenAsync`),
+dans `Images\WinQEMU\<machine> aaaa-MM-jj HH.mm.ss.png`, copiée dans le presse-papiers (image et fichier) ; un menu
+volant le dit, avec « Afficher dans l'Explorateur ». QEMU écrit d'abord dans le dossier temporaire puis le fichier est
+déplacé : qemu-system ouvre ses chemins par l'API ANSI, et la destination n'existe pas encore, donc n'a pas de nom 8.3.
+Vérifié sur un clone de Debian (PNG 1364 × 786). **La copie dans le presse-papiers n'a pas pu être vérifiée** : il n'est
+pas accessible depuis l'environnement de test.
 
 ## Démarrage automatique et arrière-plan
 

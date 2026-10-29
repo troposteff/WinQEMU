@@ -94,7 +94,8 @@ namespace WinQEMU.Core.Services
         public bool IsProtected(string path) => _readers.ContainsKey(Normalize(path));
 
         /// <summary>
-        /// "le clone lié « A »" or "les clones liés « A », « B »" for the clones reading any of the paths;
+        /// "au clone lié « A »" or "aux clones liés « A », « B »" for the clones reading any of the paths, preposition
+        /// included as French contracts it ("à le" is not French); "the linked clone "A"" in English.
         /// null when none does.
         /// </summary>
         public string? DescribeReaders(IEnumerable<string> paths)

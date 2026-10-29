@@ -47,11 +47,11 @@
   <data name="LanAccessHttps" xml:space="preserve"><value>Web sécurisé (HTTPS)</value></data>
   <data name="LanAccessNoFreePort" xml:space="preserve"><value>Aucun port libre sur ce PC.</value></data>
   <data name="LanAccessSshUsage" xml:space="preserve"><value>ssh -p {0} utilisateur@{1}</value></data>
-  <data name="LinkedCloneOneReader" xml:space="preserve"><value>le clone lié {0}</value></data>
-  <data name="LinkedCloneManyReaders" xml:space="preserve"><value>les clones liés {0}</value></data>
-  <data name="LinkedCloneMergeRefused" xml:space="preserve"><value>Le disque « {0} » sert de base à {1} : supprimer ou fusionner ce niveau écrirait dans une image que le clone lit, et corromprait ses données. Restaurer reste possible : les images dont le clone a besoin sont alors conservées.</value></data>
-  <data name="LinkedCloneFilesRefused" xml:space="preserve"><value>Les fichiers de cette machine servent de base à {0}. Les supprimer détruirait le clone. Supprimez d'abord le clone, ou rendez ses disques indépendants avec « Convertir… ».</value></data>
-  <data name="LinkedCloneAttachRefused" xml:space="preserve"><value>Cette image sert de base à {0} : une machine qui écrirait dedans corromprait le clone.</value></data>
+  <data name="LinkedCloneOneReader" xml:space="preserve"><value>au clone lié {0}</value></data>
+  <data name="LinkedCloneManyReaders" xml:space="preserve"><value>aux clones liés {0}</value></data>
+  <data name="LinkedCloneMergeRefused" xml:space="preserve"><value>Le disque « {0} » sert de base {1} : supprimer ou fusionner ce niveau écrirait dans une image que le clone lit, et corromprait ses données. Restaurer reste possible : les images dont le clone a besoin sont alors conservées.</value></data>
+  <data name="LinkedCloneFilesRefused" xml:space="preserve"><value>Les fichiers de cette machine servent de base {0}. Les supprimer détruirait le clone. Supprimez d'abord le clone, ou rendez ses disques indépendants avec « Convertir… ».</value></data>
+  <data name="LinkedCloneAttachRefused" xml:space="preserve"><value>Cette image sert de base {0} : une machine qui écrirait dedans corromprait le clone.</value></data>
   <data name="LibraryUbuntuIsoWithoutInstaller" xml:space="preserve"><value>Cette image ISO n'a pas le noyau d'installation d'Ubuntu (casper) : l'installation automatique est impossible.</value></data>
   <data name="LibraryDiskNotFound" xml:space="preserve"><value>Le disque « {0} » est introuvable : {1}</value></data>
   <data name="LibraryImportedDescription" xml:space="preserve"><value>Importée {0} le {1} : {2}</value></data>
@@ -133,4 +133,7 @@
   <data name="FilePullGuestBadPath" xml:space="preserve"><value>{0} : chemin invalide</value></data>
   <data name="FilePullGuestNotFound" xml:space="preserve"><value>{0} : introuvable</value></data>
   <data name="FilePullGuestChanged" xml:space="preserve"><value>{0} a changé pendant la copie</value></data>
+  <data name="LibraryTemplateSnapshotName" xml:space="preserve"><value>Modele</value></data>
+  <data name="ManagerStopBeforeTemplate" xml:space="preserve"><value>Arrêtez la machine virtuelle avant d'en faire un modèle.</value></data>
+  <data name="ManagerTemplateCannotStart" xml:space="preserve"><value>{0} est un modèle : on ne le démarre pas, on le clone. Déployez-le, ou reconvertissez-le en machine virtuelle.</value></data>
 </root>

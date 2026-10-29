@@ -202,6 +202,14 @@ namespace WinQEMU.Core.Models
         /// <summary>Windows guests expect the RTC in local time; most Linux guests expect UTC.</summary>
         public bool RtcLocalTime { get => _rtcLocalTime; set => SetProperty(ref _rtcLocalTime, value); }
 
+        private bool _isTemplate;
+        /// <summary>
+        /// A template, as in VMware and Hyper-V: never started, only cloned. Its disks sit on one overlay of their own,
+        /// pushed when it became a template, and its linked clones read the image under it (see
+        /// Services.VmManager.MakeTemplateAsync). Copies and clones are never templates themselves.
+        /// </summary>
+        public bool IsTemplate { get => _isTemplate; set => SetProperty(ref _isTemplate, value); }
+
         // ---- Escape hatch ----
 
         private string _extraArguments = string.Empty;

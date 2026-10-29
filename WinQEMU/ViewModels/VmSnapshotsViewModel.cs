@@ -179,7 +179,25 @@ namespace WinQEMU.ViewModels
             }
         }
 
-        public bool CanManage => IsMachineOff && !IsBusy && _config is not null && SnapshotableDisks.Count > 0;
+        private bool _isTemplate;
+        /// <summary>
+        /// Set by the shell for a template. Its snapshots are left alone: the next clone reads the image under the
+        /// template's top overlay as it is (DiskConfig.TemplateOverlayFileName), so what is taken or restored there
+        /// would not reach it.
+        /// </summary>
+        public bool IsTemplate
+        {
+            get => _isTemplate;
+            set
+            {
+                if (SetProperty(ref _isTemplate, value))
+                    RaiseAll();
+            }
+        }
+
+        public bool IsLockedByTemplate => IsTemplate;
+
+        public bool CanManage => IsMachineOff && !IsTemplate && !IsBusy && _config is not null && SnapshotableDisks.Count > 0;
 
         /// <summary>
         /// Whether a name can be typed at all. Not the same as CanManage: the two live forms are taken
@@ -187,10 +205,10 @@ namespace WinQEMU.ViewModels
         /// they apply.
         /// </summary>
         public bool CanEnterName =>
-            !IsBusy && _config is not null && (IsMachineOff || Session?.IsRunning == true);
+            !IsBusy && !IsTemplate && _config is not null && (IsMachineOff || Session?.IsRunning == true);
 
         /// <summary>True while a live machine holds its images open, which is why nothing can be done.</summary>
-        public bool IsLockedByRunningMachine => !IsMachineOff;
+        public bool IsLockedByRunningMachine => !IsMachineOff && !IsTemplate;
 
         /// <summary>Whether the selected snapshot can actually be acted on. Bound by Restaurer and
         /// Supprimer: with HasSelection alone they stayed clickable on a running machine and did nothing.</summary>
@@ -692,6 +710,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(MemorySnapshotUnavailableReason));
             RaisePropertyChanged(nameof(HasMemorySnapshotCaveat));
             RaisePropertyChanged(nameof(IsLockedByRunningMachine));
+            RaisePropertyChanged(nameof(IsLockedByTemplate));
             RaisePropertyChanged(nameof(SelectedLockReason));
             RaisePropertyChanged(nameof(IsSelectionLocked));
         }

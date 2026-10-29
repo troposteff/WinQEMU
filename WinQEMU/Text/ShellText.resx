@@ -251,4 +251,15 @@ Still running: {0}
   <data name="ThemeWindows" xml:space="preserve"><value>Windows theme</value></data>
   <data name="ThemeLight" xml:space="preserve"><value>Light</value></data>
   <data name="ThemeDark" xml:space="preserve"><value>Dark</value></data>
+  <data name="TemplateSnapshotsLocked" xml:space="preserve"><value>{0} is a template: its snapshots stay as they are. Convert it back to a virtual machine to manage them.</value></data>
+  <data name="TemplateMakeTitle" xml:space="preserve"><value>Turn {0} into a template?</value></data>
+  <data name="TemplateMakeBody" xml:space="preserve"><value>A template is not started: it is deployed. Each deployment creates a new machine in seconds, a linked clone that shares the template's disks and only stores what it changes.
+
+The template's snapshots are frozen as well. You can convert it back to a virtual machine at any time; the machines already deployed keep working.</value></data>
+  <data name="TemplateMakeButton" xml:space="preserve"><value>Make a template</value></data>
+  <data name="CaptureFailed" xml:space="preserve"><value>The screen could not be captured: {0}</value></data>
+  <data name="CaptureFailedTitle" xml:space="preserve"><value>Capture</value></data>
+  <data name="CaptureSaved" xml:space="preserve"><value>Saved as {0} in Pictures\WinQEMU.</value></data>
+  <data name="CaptureSavedCopied" xml:space="preserve"><value>Saved as {0} in Pictures\WinQEMU, and copied to the clipboard.</value></data>
+  <data name="CaptureOpenFolder" xml:space="preserve"><value>Show in Explorer</value></data>
 </root>

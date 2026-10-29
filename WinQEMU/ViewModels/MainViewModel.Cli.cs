@@ -273,6 +273,8 @@ namespace WinQEMU.ViewModels
             }
 
             var name = Argument(args, 2, CliText.ArgumentSnapshotName);
+            if (config.IsTemplate)
+                throw new CommandException(string.Format(CultureInfo.CurrentCulture, ShellText.TemplateSnapshotsLocked, config.Name));
             string done;
             switch (action)
             {

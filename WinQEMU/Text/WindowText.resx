@@ -188,4 +188,15 @@
   <data name="FullScreenExit" xml:space="preserve"><value>Exit full screen</value></data>
   <data name="SummaryDescription" xml:space="preserve"><value>Description (optional)</value></data>
   <data name="ResourcesWhenOff" xml:space="preserve"><value>Processor, memory, disk and network show here while the machine runs.</value></data>
+  <data name="ToolbarDeploy" xml:space="preserve"><value>Deploy</value></data>
+  <data name="ToolbarDeployTip" xml:space="preserve"><value>Create a new machine from this template, as a linked clone.</value></data>
+  <data name="SummaryMakeTemplate" xml:space="preserve"><value>Turn into a template</value></data>
+  <data name="SummaryMakeTemplateButton" xml:space="preserve"><value>Template</value></data>
+  <data name="SummaryMakeTemplateTip" xml:space="preserve"><value>Turn into a template: it is no longer started, only deployed as new machines.</value></data>
+  <data name="TemplateBannerTitle" xml:space="preserve"><value>Template</value></data>
+  <data name="TemplateBanner" xml:space="preserve"><value>This machine is not started: deploy it to create a machine that shares its disks.</value></data>
+  <data name="TemplateConvertBack" xml:space="preserve"><value>Convert to a virtual machine</value></data>
+  <data name="SnapshotsTemplateHint" xml:space="preserve"><value>A template's snapshots are frozen: convert it back to a virtual machine to take, restore or delete one.</value></data>
+  <data name="ConsoleCapture" xml:space="preserve"><value>Capture the screen</value></data>
+  <data name="ConsoleCaptureTip" xml:space="preserve"><value>Saves the guest's screen as an image in Pictures\WinQEMU, at its own resolution, and copies it to the clipboard.</value></data>
 </root>

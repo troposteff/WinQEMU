@@ -44,4 +44,5 @@
   <data name="DragMoveToRoot" xml:space="preserve"><value>Move to the library root</value></data>
   <data name="FolderSummaryHint" xml:space="preserve"><value>Select a machine to see its details and its console. To file a machine or a folder elsewhere, right-click it or drag it.</value></data>
   <data name="FolderLabel" xml:space="preserve"><value>Folder</value></data>
+  <data name="TemplateState" xml:space="preserve"><value>Template</value></data>
 </root>

@@ -346,8 +346,19 @@
                         AllowFocusOnInteraction="True"
                         Command="{Binding StartCommand}"
                         AutomationProperties.Name="{x:Bind ct:CommonText.Start}"
-                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarStartTip}">
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarStartTip}"
+                        Visibility="{Binding IsSelectedNotTemplate, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                         <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE768;" />
+                    </Button>
+                    <!-- In Démarrer's place for a template, which is never started (MainViewModel.Templates). -->
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
+                        Click="OnDeployClick"
+                        IsEnabled="{Binding CanDeploy, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarDeploy}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarDeployTip}"
+                        Visibility="{Binding IsSelectedTemplate, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE7B8;" />
                     </Button>
                     <Button
                         Style="{StaticResource ToolbarIconButton}"
@@ -574,7 +585,22 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
+                                        <!-- Next to Renommer, as both change what the machine is rather than its hardware. -->
+                                        <Button
+                                            Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.Name="{x:Bind t:WindowText.SummaryMakeTemplate}"
+                                            Click="OnMakeTemplateClick"
+                                            IsEnabled="{Binding DataContext.CanToggleTemplate, ElementName=RootGrid, Mode=OneWay}"
+                                            ToolTipService.ToolTip="{x:Bind t:WindowText.SummaryMakeTemplateTip}"
+                                            Visibility="{Binding DataContext.IsSelectedNotTemplate, ElementName=RootGrid, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon FontSize="14" Glyph="&#xE8A5;" />
+                                                <TextBlock Text="{x:Bind t:WindowText.SummaryMakeTemplateButton}" />
+                                            </StackPanel>
+                                        </Button>
                                         <TextBlock
                                             Grid.Column="0"
                                             VerticalAlignment="Center"
@@ -606,6 +632,22 @@
                                         Style="{StaticResource Hint}"
                                         Text="{Binding DataContext.NameError, ElementName=RootGrid, Mode=OneWay}"
                                         Visibility="{Binding DataContext.HasNameError, ElementName=RootGrid, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                    <!-- Visibility bound as well as IsOpen: a closed InfoBar still takes the panel's spacing. -->
+                                    <muxc:InfoBar
+                                        Margin="0,8,0,0"
+                                        IsClosable="False"
+                                        IsOpen="{Binding DataContext.IsSelectedTemplate, ElementName=RootGrid, Mode=OneWay}"
+                                        Message="{x:Bind t:WindowText.TemplateBanner}"
+                                        Severity="Informational"
+                                        Title="{x:Bind t:WindowText.TemplateBannerTitle}"
+                                        Visibility="{Binding DataContext.IsSelectedTemplate, ElementName=RootGrid, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                        <muxc:InfoBar.ActionButton>
+                                            <Button
+                                                Click="OnConvertToMachineClick"
+                                                Content="{x:Bind t:WindowText.TemplateConvertBack}"
+                                                IsEnabled="{Binding DataContext.CanToggleTemplate, ElementName=RootGrid, Mode=OneWay}" />
+                                        </muxc:InfoBar.ActionButton>
+                                    </muxc:InfoBar>
                                     <!-- One line until something is written: the empty 60-pixel box was the biggest thing in the summary. -->
                                     <TextBox
                                         MinHeight="32"
@@ -1715,6 +1757,10 @@
                                             Style="{StaticResource Hint}"
                                             Text="{x:Bind t:WindowText.SnapshotsLockedHint}"
                                             Visibility="{Binding Snapshots.IsLockedByRunningMachine, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                                        <TextBlock
+                                            Style="{StaticResource Hint}"
+                                            Text="{x:Bind t:WindowText.SnapshotsTemplateHint}"
+                                            Visibility="{Binding Snapshots.IsLockedByTemplate, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                                     </StackPanel>
                                 </muxc:Expander>
 
@@ -1891,6 +1937,13 @@
                                 <FontIcon FontSize="16" Glyph="&#xE77F;" />
                             </Button>
                             <Button
+                                Click="OnCaptureClick"
+                                IsEnabled="{Binding CanCapture, Mode=OneWay}"
+                                AutomationProperties.Name="{x:Bind t:WindowText.ConsoleCapture}"
+                                ToolTipService.ToolTip="{x:Bind t:WindowText.ConsoleCaptureTip}">
+                                <FontIcon FontSize="16" Glyph="&#xE722;" />
+                            </Button>
+                            <Button
                                 x:Name="FullScreenButton"
                                 Click="OnToggleFullScreenClick"
                                 Content="{x:Bind t:WindowText.ConsoleFullScreen}"
@@ -2026,6 +2079,10 @@
                 <Button Style="{StaticResource FullScreenIconButton}" Click="OnTypeClipboardClick" IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}"
                         AutomationProperties.Name="{x:Bind t:WindowText.ConsoleTypeClipboard}">
                     <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE77F;" />
+                </Button>
+                <Button Style="{StaticResource FullScreenIconButton}" Click="OnCaptureClick" IsEnabled="{Binding CanCapture, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ConsoleCapture}" ToolTipService.ToolTip="{x:Bind t:WindowText.ConsoleCaptureTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE722;" />
                 </Button>
                 <!-- The way out, the same size as the others; the accent colour tells it apart. -->
                 <Button Width="40" Height="34" Padding="0" Click="OnToggleFullScreenClick" Style="{StaticResource AccentButtonStyle}"

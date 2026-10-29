@@ -251,4 +251,15 @@ Encore en marche : {0}
   <data name="ThemeWindows" xml:space="preserve"><value>Thème de Windows</value></data>
   <data name="ThemeLight" xml:space="preserve"><value>Clair</value></data>
   <data name="ThemeDark" xml:space="preserve"><value>Sombre</value></data>
+  <data name="TemplateSnapshotsLocked" xml:space="preserve"><value>{0} est un modèle : ses instantanés restent tels quels. Reconvertissez-le en machine virtuelle pour les gérer.</value></data>
+  <data name="TemplateMakeTitle" xml:space="preserve"><value>Convertir {0} en modèle ?</value></data>
+  <data name="TemplateMakeBody" xml:space="preserve"><value>Un modèle ne se démarre pas : on le déploie. Chaque déploiement crée en quelques secondes une nouvelle machine, un clone lié qui partage les disques du modèle et ne stocke que ce qu'il modifie.
+
+Les instantanés du modèle sont figés eux aussi. Vous pourrez le reconvertir en machine virtuelle à tout moment ; les machines déjà déployées continuent de fonctionner.</value></data>
+  <data name="TemplateMakeButton" xml:space="preserve"><value>En faire un modèle</value></data>
+  <data name="CaptureFailed" xml:space="preserve"><value>L'écran n'a pas pu être capturé : {0}</value></data>
+  <data name="CaptureFailedTitle" xml:space="preserve"><value>Capture</value></data>
+  <data name="CaptureSaved" xml:space="preserve"><value>Enregistrée sous {0} dans Images\WinQEMU.</value></data>
+  <data name="CaptureSavedCopied" xml:space="preserve"><value>Enregistrée sous {0} dans Images\WinQEMU, et copiée dans le presse-papiers.</value></data>
+  <data name="CaptureOpenFolder" xml:space="preserve"><value>Afficher dans l'Explorateur</value></data>
 </root>

@@ -176,6 +176,20 @@ namespace WinQEMU.Core.Models
         public bool IsLinkedClone => !string.IsNullOrWhiteSpace(LinkedBaseFileName);
 
         /// <summary>
+        /// For a template: the overlay pushed by its first linked clone, still empty since a template never runs. As
+        /// long as the disk writes to it (<see cref="FileName"/>), further clones read the image under it rather than
+        /// each pushing an overlay of their own, which would stack one level per clone. Cleared when the machine
+        /// stops being a template: it may then write to that overlay.
+        /// </summary>
+        public string TemplateOverlayFileName { get; set; } = string.Empty;
+
+        /// <summary>Whether a linked clone of this template disk reads the image under its top (see <see cref="TemplateOverlayFileName"/>).</summary>
+        [JsonIgnore]
+        public bool TemplateOverlayIsTop =>
+            IsOverlay && !string.IsNullOrEmpty(TemplateOverlayFileName)
+            && string.Equals(TemplateOverlayFileName, FileName, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
         /// Images that left this disk's chain — the machine went back to an earlier snapshot — but stay on
         /// disk because a linked clone still reads them. Each records the image it reads from, since it is
         /// no longer in a chain that would say so. Deleted once no listed clone needs them.

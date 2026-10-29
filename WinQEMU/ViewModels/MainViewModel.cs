@@ -289,6 +289,7 @@ namespace WinQEMU.ViewModels
             ? ShellText.StateNoSelection
             : SelectedState switch
             {
+                VmState.Stopped when SelectedVm.IsTemplate => LibraryText.TemplateState,
                 VmState.Stopped => ShellText.StateStopped,
                 VmState.Starting => ShellText.StateStarting,
                 VmState.Running => ShellText.StateRunning,
@@ -330,7 +331,7 @@ namespace WinQEMU.ViewModels
         /// <summary>Raised whenever <see cref="ConsoleProcessId"/> may have changed. Always on the UI thread.</summary>
         public event EventHandler? ConsoleTargetChanged;
 
-        public bool CanStart => SelectedVm is not null && Manager.IsQemuAvailable && SelectedState == VmState.Stopped;
+        public bool CanStart => SelectedVm is { IsTemplate: false } && Manager.IsQemuAvailable && SelectedState == VmState.Stopped;
 
         public bool CanPauseOrResume => SelectedState is VmState.Running or VmState.Paused;
 
@@ -717,6 +718,9 @@ namespace WinQEMU.ViewModels
         private async Task StartMachineAsync(VmSession session)
         {
             var config = session.Config;
+            // Before the automatic snapshot, which would otherwise be taken for a start that is then refused.
+            if (config.IsTemplate)
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, CoreText.ManagerTemplateCannotStart, config.Name));
             // The password first: the automatic snapshot opens the disks too.
             await PrepareDiskKeyAsync(session);
             await TakeAutoSnapshotAsync(config);
@@ -924,6 +928,7 @@ namespace WinQEMU.ViewModels
             RaiseSoundProperties();
             RaiseGuestToolsProperties();
             RaisePropertyChanged(nameof(CanTypeIntoGuest));
+            RaisePropertyChanged(nameof(CanCapture));
 
             // Boot order, disks and adapters are only read when QEMU starts, so they stay locked for
             // as long as a process exists — including while it is stopping.
@@ -932,6 +937,8 @@ namespace WinQEMU.ViewModels
             // qemu-img cannot touch an image a running QEMU holds open, so snapshots wait for the
             // machine to be fully down, not merely stopping.
             Snapshots.IsMachineOff = SelectedVm is not null && !IsSelectedAlive;
+            Snapshots.IsTemplate = SelectedVm?.IsTemplate == true;
+            RaiseTemplateProperties();
             // Memory and live snapshots go through the running QEMU, so the section needs the session.
             Snapshots.Session = SelectedSession;
 

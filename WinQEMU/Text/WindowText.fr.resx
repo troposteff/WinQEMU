@@ -188,4 +188,15 @@
   <data name="FullScreenExit" xml:space="preserve"><value>Quitter le plein écran</value></data>
   <data name="SummaryDescription" xml:space="preserve"><value>Description (facultatif)</value></data>
   <data name="ResourcesWhenOff" xml:space="preserve"><value>Processeur, mémoire, disque et réseau s'affichent ici pendant que la machine tourne.</value></data>
+  <data name="ToolbarDeploy" xml:space="preserve"><value>Déployer</value></data>
+  <data name="ToolbarDeployTip" xml:space="preserve"><value>Crée une nouvelle machine à partir de ce modèle, en clone lié.</value></data>
+  <data name="SummaryMakeTemplate" xml:space="preserve"><value>Convertir en modèle</value></data>
+  <data name="SummaryMakeTemplateButton" xml:space="preserve"><value>Modèle</value></data>
+  <data name="SummaryMakeTemplateTip" xml:space="preserve"><value>Convertir en modèle : il ne se démarre plus, il se déploie en nouvelles machines.</value></data>
+  <data name="TemplateBannerTitle" xml:space="preserve"><value>Modèle</value></data>
+  <data name="TemplateBanner" xml:space="preserve"><value>Cette machine ne se démarre pas : déployez-la pour créer une machine qui partage ses disques.</value></data>
+  <data name="TemplateConvertBack" xml:space="preserve"><value>Reconvertir en machine virtuelle</value></data>
+  <data name="SnapshotsTemplateHint" xml:space="preserve"><value>Les instantanés d'un modèle sont figés : reconvertissez-le en machine virtuelle pour en prendre, en restaurer ou en supprimer.</value></data>
+  <data name="ConsoleCapture" xml:space="preserve"><value>Capturer l'écran</value></data>
+  <data name="ConsoleCaptureTip" xml:space="preserve"><value>Enregistre l'écran de l'invité en image dans Images\WinQEMU, à sa propre résolution, et la copie dans le presse-papiers.</value></data>
 </root>

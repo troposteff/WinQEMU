@@ -292,4 +292,7 @@ Taken on {2}</value></data>
   <data name="HardwareNoQemuImg" xml:space="preserve"><value>qemu-img is not available: QEMU was not detected.</value></data>
   <data name="HardwareDiskFileMissing" xml:space="preserve"><value>The disk file cannot be found.</value></data>
   <data name="SettingsTheme" xml:space="preserve"><value>Theme</value></data>
+  <data name="DeployTitle" xml:space="preserve"><value>Deploy {0}</value></data>
+  <data name="DeployButton" xml:space="preserve"><value>Deploy</value></data>
+  <data name="DeployLinkedHint" xml:space="preserve"><value>Instant and almost free in space: the new machine only records what it writes, and reads the rest from the template's disks, which stay as they are for every machine deployed from it. The template's files cannot be deleted while one of them exists. Always move the template and its machines together.</value></data>
 </root>

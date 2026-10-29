@@ -292,4 +292,7 @@ Pris le {2}</value></data>
   <data name="HardwareNoQemuImg" xml:space="preserve"><value>qemu-img n'est pas disponible : QEMU n'a pas été détecté.</value></data>
   <data name="HardwareDiskFileMissing" xml:space="preserve"><value>Le fichier du disque est introuvable.</value></data>
   <data name="SettingsTheme" xml:space="preserve"><value>Thème</value></data>
+  <data name="DeployTitle" xml:space="preserve"><value>Déployer {0}</value></data>
+  <data name="DeployButton" xml:space="preserve"><value>Déployer</value></data>
+  <data name="DeployLinkedHint" xml:space="preserve"><value>Instantané et presque gratuit en place : la nouvelle machine n'enregistre que ce qu'elle écrit, et lit le reste dans les disques du modèle, figés pour toutes les machines qui en sont déployées. Les fichiers du modèle ne peuvent pas être supprimés tant que l'une d'elles existe. Déplacez toujours le modèle et ses machines ensemble.</value></data>
 </root>

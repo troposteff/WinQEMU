@@ -50,9 +50,9 @@
                     Content="{x:Bind t:DialogText.CloneLinked}"
                     GroupName="CloneKind" />
                 <TextBlock
+                    x:Name="LinkedHintText"
                     Margin="28,0,0,0"
-                    Style="{StaticResource Hint}"
-                    Text="{x:Bind t:DialogText.CloneLinkedHint}" />
+                    Style="{StaticResource Hint}" />
                 <TextBlock
                     x:Name="LinkedUnavailableText"
                     Margin="28,0,0,0"
@@ -94,7 +94,6 @@
                     Grid.Column="1"
                     HorizontalAlignment="Stretch"
                     Click="OnCloneClick"
-                    Content="{x:Bind t:DialogText.CloneButton}"
                     Style="{StaticResource AccentButtonStyle}" />
             </Grid>
         </StackPanel>

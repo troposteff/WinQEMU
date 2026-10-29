@@ -43,8 +43,10 @@ namespace WinQEMU.ViewModels
 
         public VmState State => _session?.State ?? VmState.Stopped;
 
+        /// <summary>A template is never started, so its line says what it is instead of « Arrêtée ».</summary>
         public string StateText => State switch
         {
+            VmState.Stopped when Config.IsTemplate => LibraryText.TemplateState,
             VmState.Stopped => DialogText.StateStopped,
             VmState.Starting => DialogText.StateStarting,
             VmState.Running => DialogText.StateRunning,
@@ -111,6 +113,7 @@ namespace WinQEMU.ViewModels
         {
             RaisePropertyChanged(nameof(Name));
             RaisePropertyChanged(nameof(Description));
+            RaisePropertyChanged(nameof(StateText));
             RaisePropertyChanged(nameof(AutomationName));
         }
 

@@ -68,3 +68,13 @@ Elles viennent de l'hyperviseur, pas de QEMU ni de WinQEMU :
 
 Les choix d'architecture et les pièges de plateforme rencontrés sont détaillés dans
 [`CLAUDE.md`](CLAUDE.md).
+
+## Licence
+
+Copyright © 2026 troposteff.
+
+WinQEMU est un logiciel libre, distribué sous la [licence publique générale GNU, version 3](LICENSE) (GPL-3.0) :
+vous pouvez le redistribuer et le modifier selon ses termes. Il est fourni sans aucune garantie.
+
+Le pilote TAP-Windows embarqué ([`WinQEMU/Assets/Drivers`](WinQEMU/Assets/Drivers/README.txt)) est l'œuvre d'OpenVPN Inc.
+et reste sous sa propre licence, la GPL version 2.

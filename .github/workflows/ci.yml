@@ -1,9 +1,26 @@
 name: CI
 
+# Not run for a change that cannot touch what is built or tested: documentation, screenshots, issue forms, licence,
+# and the release tooling (packaging/, tools/), which this workflow does not run. A push mixing those with code still
+# runs it. Run it by hand (workflow_dispatch) when in doubt.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'LICENSE'
+      - 'packaging/**'
+      - 'tools/**'
   pull_request:
+    paths-ignore:   # the same list
+      - '**.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'LICENSE'
+      - 'packaging/**'
+      - 'tools/**'
   workflow_dispatch:
 
 concurrency:

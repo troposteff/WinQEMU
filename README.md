@@ -1,80 +1,193 @@
+**English** · [Français](README.fr.md)
+
 # WinQEMU
 
-Interface graphique Windows (WinUI 3) au-dessus de [QEMU](https://www.qemu.org/), qui vise le confort de
-VMware ou d'Hyper-V : on crée, lance et pilote ses machines virtuelles sans écrire de ligne de commande.
+A Windows interface (WinUI 3) over [QEMU](https://www.qemu.org/), aiming at the comfort of VMware Workstation or
+Hyper-V. You create, run and manage virtual machines without typing a command line, with hardware acceleration
+through the Windows Hypervisor Platform (WHPX).
 
-> WinQEMU est une interface indépendante et non officielle : il n'est ni affilié au projet QEMU, ni approuvé par
-> lui. QEMU est une marque de Fabrice Bellard. Ce projet n'a pas non plus de lien avec l'ancien portage de QEMU
-> vers Visual C++ également nommé WinQEMU (SourceForge, 2009), abandonné depuis.
+> WinQEMU is an independent, unofficial interface: it is neither affiliated with nor endorsed by the QEMU project.
+> QEMU is a trademark of Fabrice Bellard. This project is unrelated to the old port of QEMU to Visual C++ also named
+> WinQEMU (SourceForge, 2009), abandoned since.
 
-- **Bibliothèque de VM** : chaque machine est un dossier autonome (descripteur `.wqvm`, disques, NVRAM
-  UEFI), déplaçable tel quel.
-- **Assistant de création** : système invité, mémoire, processeurs, disques, ISO, firmware BIOS ou UEFI.
-- **Console intégrée** dans la fenêtre de l'application ; le clavier est transmis en scancodes, AltGr
-  compris, et suit donc la disposition choisie dans l'invité.
-- **Presse-papiers partagé** (texte) avec les invités équipés de `spice-vdagent`.
-- **Instantanés** : hors ligne, à chaud (disques) et, sous TCG, avec la mémoire.
-- **Accélération WHPX** (Windows Hypervisor Platform), avec repli sur l'émulation TCG.
+## Features
 
-## Prérequis
+### Virtual machines
 
-- Windows 10 1809 ou plus récent, Windows 11 recommandé.
-- **QEMU**, installé séparément : WinQEMU ne l'embarque ni ne le télécharge. Il retrouve seul les
-  installations courantes (installateur de [qemu.weilnetz.de](https://qemu.weilnetz.de/w64/), Chocolatey,
-  Scoop, MSYS2, `PATH`) ; sinon, on lui désigne le dossier. Développé avec QEMU 11.1.
-- Pour l'accélération : la fonctionnalité Windows **Plateforme de l'hyperviseur Windows**
-  (`HypervisorPlatform`), activée en administrateur puis redémarrage :
+- **Library**:
+  - each machine is a self-contained folder (`.wqvm` descriptor, disks, UEFI NVRAM) that can be moved as is;
+  - the machines are arranged in nested folders, sorted, and searched.
+- **Creation wizard**:
+  - guest system profiles;
+  - memory, processors, disks, ISO, BIOS or UEFI firmware.
+- **Unattended installation** of Windows 10/11 and Ubuntu:
+  - user account, language, keyboard and time zone taken from this PC;
+  - guest tools installed automatically.
+- **Windows 11 guests**: the TPM and Secure Boot checks, impossible under WHPX, are lifted at installation.
+- **Import** from VMware (`.vmx`), VirtualBox (`.vbox`), Hyper-V (`.vhdx`/`.vhd`) and OVF/OVA:
+  - the disks are converted to qcow2;
+  - the source machine is only read.
+- **Export** to OVA, readable by VMware and VirtualBox.
+- **Clones**, as full copies or as linked clones that share the original's disks.
+- **Templates**: a machine kept to be deployed as new linked clones in seconds.
+- **Automatic start** with WinQEMU, at Windows logon if you want, each machine after its own delay.
+- **Running in the background**:
+  - closing the window leaves the machines running, behind an icon in the notification area;
+  - Windows shutdown or sign-out waits for the guests to shut down.
+
+### Console
+
+- **Integrated console**, or full screen with a floating bar.
+- **Display scaling**: fit to the window or actual size. The guest's resolution follows the window, Windows guests included.
+- **Keyboard** sent as scancodes, AltGr included: the guest uses its own keyboard layout.
+- **Pointer**: accurate even when the image is scaled.
+- **Shared clipboard** (text) with guests that run `spice-vdagent`.
+- **Type the clipboard** into guests without a shared clipboard: a text console, an installer, a firmware screen.
+- **Screen capture** to PNG, at the guest's resolution, also copied to the clipboard.
+- **Files**:
+  - files and folders dropped on the console are copied to the guest's desktop;
+  - files are copied back from the guest through a browser of its folders.
+- **Sound**:
+  - per-machine volume and mute;
+  - optional microphone;
+  - a choice of output device.
+- Ctrl+Alt+Del, and swapping the ISO while the machine runs.
+
+### Snapshots
+
+- **Three kinds**, offered only when the machine's state allows them:
+  - offline (machine stopped);
+  - live on the disks (machine running);
+  - live with memory (under TCG emulation only).
+- **Snapshot tree**, as in VMware, with deployed linked clones.
+- **Automatic snapshots** at start, at an interval, keeping only the latest ones.
+
+### Disks
+
+- **Disk operations**: create, attach, grow and convert disks; set the boot order.
+- **Compaction** gives back the space of files deleted in the guest, after a TRIM sent through the guest agent.
+- **Encryption** (LUKS, AES-256):
+  - the password is asked at each start, or remembered in the Windows Credential Manager;
+  - it is never passed on a command line.
+
+### Network and devices
+
+- **NAT**, with port forwarding.
+- **Virtual networks**, as in VMware and Hyper-V:
+  - **private** (machines only);
+  - **internal** (machines and this PC, through a TAP-Windows adapter);
+  - **external** (the physical network, through Npcap, Wi-Fi included).
+- **Access from the network**: SSH, Remote Desktop, HTTP… opened in one click, with the address to type from another device.
+- **Network cable** plugged in or out while the machine runs.
+- **Shared folders**:
+  - served by WinQEMU itself, added and removed while the machine runs;
+  - mounted in `~/Shares` in a Linux guest (9P) and as a drive in a Windows guest (WebDAV).
+- **USB devices** of this PC connected to a guest, now or at each start, for devices on the WinUSB driver.
+- **Guest tools** (QEMU guest agent, spice-vdagent, virtio-win drivers) checked at each start, and installed from WinQEMU.
+- **Resource charts**: processor, memory, disk and network over the last two minutes.
+
+### Command line
+
+The `winqemu` command drives the running WinQEMU, starting it in the notification area if needed: a machine started
+from a terminal is the one the window shows.
+
+```text
+winqemu list [--folder <folder>] [--json]
+winqemu status <machine>
+winqemu start <machine> [--wait] [--password-stdin]
+winqemu stop <machine> [--wait] [--timeout <seconds>]
+winqemu poweroff <machine>
+winqemu pause <machine> | resume <machine>
+winqemu snapshot list|create|restore|delete <machine> [<name>]
+winqemu show [<machine>]
+```
+
+### Interface
+
+- **Language**: English or French, Windows' language by default, switched at once.
+- **Theme**: light, dark, or Windows' own.
+- **Layout**: adapts down to an 800-pixel-wide window.
+
+## Requirements
+
+- Windows 10 1809 or later (Windows 11 recommended), x64.
+- **QEMU for Windows**, installed separately: WinQEMU neither bundles nor downloads it.
+  - It finds the usual installations by itself: the [qemu.weilnetz.de](https://qemu.weilnetz.de/w64/) installer, `winget install SoftwareFreedomConservancy.QEMU`, Chocolatey, Scoop, MSYS2, `PATH`.
+  - Otherwise, you point it at the folder.
+  - Developed with QEMU 11.1.
+- For acceleration, the **Windows Hypervisor Platform** feature, enabled as administrator (then restart):
 
   ```powershell
   Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform
   ```
 
-## Compiler et lancer
+- Optional, depending on what you use:
+  - [Npcap](https://npcap.com/) for external virtual networks;
+  - the WinUSB driver (for example through [Zadig](https://zadig.akeo.ie/)) for USB devices;
+  - the [virtio-win](https://github.com/virtio-win/virtio-win-pkg-scripts) ISO for Windows guests' drivers.
 
-Il faut le SDK .NET 8.
+## Installation
+
+Download the latest version from the [releases](https://github.com/troposteff/WinQEMU/releases):
+`WinQEMU_<version>_x64.msix`, `WinQEMU.cer` and `Install-WinQEMU.ps1`, into one folder. Then, in PowerShell **as
+administrator**, from that folder:
+
+```powershell
+Unblock-File .\Install-WinQEMU.ps1
+.\Install-WinQEMU.ps1
+```
+
+The script trusts the signing certificate on this PC, then installs WinQEMU. The package is signed by its author, not
+by a public authority. WinQEMU then appears in the Start menu, and `winqemu` works in a terminal.
+
+The 2026.0.x versions are **betas**, published as pre-releases: install each one from its `.msix`. Automatic updates
+start with version 2026.1.0.
+
+## Building from source
+
+You need the .NET 8 SDK.
 
 ```powershell
 dotnet test WinQEMU.Core.Tests
 dotnet build WinQEMU\WinQEMU.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 ```
 
-L'application est empaquetée en MSIX : `WinQEMU.exe` lancé directement ne démarre pas. On enregistre le
-paquet sur le dossier de compilation (une seule fois, les compilations suivantes sont prises en compte
-sans réenregistrement), puis on le lance depuis le menu Démarrer :
+The application is an MSIX package: `WinQEMU.exe` run directly does not start. Register the package on the build folder
+once (later builds are picked up without registering again), then start it from the Start menu:
 
 ```powershell
 Add-AppxPackage -Register WinQEMU\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\AppxManifest.xml
 ```
 
-L'application ouverte verrouille ses fichiers : la fermer avant de recompiler.
+A running WinQEMU locks its files: close it before building again. `tools/Build-Package.ps1` builds the signed,
+installable package.
 
-## Limites connues sous WHPX
+## Known limits under WHPX
 
-Elles viennent de l'hyperviseur, pas de QEMU ni de WinQEMU :
+They come from the hypervisor, not from QEMU or WinQEMU:
 
-- **Pas d'instantané mémoire** d'une machine accélérée : seuls les disques sont capturés. Les instantanés
-  avec mémoire exigent l'émulation TCG.
-- **Pas de Secure Boot ni de TPM** : les invités Windows 11 demandent de contourner le contrôle matériel
-  à l'installation.
-- Un redémarrage de l'invité sous UEFI relance QEMU à froid (redémarrage à chaud impossible).
+- **No memory snapshot** of an accelerated machine: only the disks are captured. Memory snapshots need TCG emulation.
+- **No Secure Boot, no TPM**: Windows 11 guests are installed with the hardware check lifted.
+- A guest reboot under UEFI restarts QEMU from cold (no warm reset).
 
-## Structure
+## Project layout
 
-| Projet | Rôle |
+| Project | Role |
 |---|---|
-| `WinQEMU.Core` | Modèles, ligne de commande QEMU, cycle de vie des VM, QMP, `qemu-img`, détection de QEMU. |
-| `WinQEMU` | Application WinUI 3 : fenêtre principale, dialogues, console intégrée. |
-| `WinQEMU.Core.Tests` | Tests xUnit du cœur ; ceux qui appellent le vrai `qemu-img` sont ignorés sans QEMU installé. |
+| `WinQEMU.Core` | Models, QEMU command line, VM lifecycle, QMP, `qemu-img`, QEMU detection, import and export, networks, sharing. |
+| `WinQEMU` | The WinUI 3 application: main window, dialogs, integrated console. |
+| `WinQEMU.Cli` | The `winqemu` command. |
+| `WinQEMU.Core.Tests` | xUnit tests of the core. Those that call the real `qemu-img` are skipped when QEMU is not installed. |
 
-Les choix d'architecture et les pièges de plateforme rencontrés sont détaillés dans
+Architecture decisions and the platform pitfalls met along the way are described, in French, in
 [`CLAUDE.md`](CLAUDE.md).
 
-## Licence
+## License
 
 Copyright © 2026 troposteff.
 
-WinQEMU est un logiciel libre, distribué sous la [licence publique générale GNU, version 3](LICENSE) (GPL-3.0) :
-vous pouvez le redistribuer et le modifier selon ses termes. Il est fourni sans aucune garantie.
+WinQEMU is free software, distributed under the [GNU General Public License, version 3](LICENSE) (GPL-3.0). You may
+redistribute it and modify it under its terms. It comes with no warranty.
 
-Le pilote TAP-Windows embarqué ([`WinQEMU/Assets/Drivers`](WinQEMU/Assets/Drivers/README.txt)) est l'œuvre d'OpenVPN Inc.
-et reste sous sa propre licence, la GPL version 2.
+The bundled TAP-Windows driver ([`WinQEMU/Assets/Drivers`](WinQEMU/Assets/Drivers/README.txt)) is the work of
+OpenVPN Inc. and stays under its own license, the GPL version 2.

@@ -84,6 +84,11 @@ Installer ne met à jour que vers plus haut.
   - Signature reconnue plus tard : toute option (Store, SignPath Foundation, certificat OV) change le `Publisher`, donc
     l'identité : une migration, comme le passage à `CN=troposteff` (1.1). Azure Artifact Signing exclut les particuliers hors
     États-Unis et Canada.
+- **Installation sur un PC neuf** (essai de l'utilisateur sur une autre machine) : Windows refuse les scripts par défaut et
+  `Unblock-File` n'y change rien ; les README donnent `Set-ExecutionPolicy Bypass -Scope Process`. **Smart App Control
+  activé : le paquet s'installe mais WinQEMU ne démarre pas** (certificat auto-signé, hors du programme de racines de
+  Microsoft). Seule issue de notre côté : une signature reconnue (Store, SignPath, OV). QEMU de weilnetz risque le même
+  sort (`.exe` signés par un certificat expiré en 2023, DLL non signées), pas encore vérifié.
 - **`systemAIModels` retirée** (2026.0.3) : reste du modèle de projet, jamais utilisée, et qu'il aurait fallu justifier au Store.
 
 ## Préparer ce PC (`Dialogs.ReadinessDialog`)

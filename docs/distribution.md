@@ -75,6 +75,18 @@ administrator:
 Administrator rights are needed for step 2 only. The private key never leaves the author's PC and is in no repository and
 no CI secret.
 
+### Smart App Control
+
+On a PC where Smart App Control is on (enforcement mode), the package installs but **WinQEMU does not start**: seen on a
+test PC. Smart App Control runs only code that Microsoft's cloud service knows, or that is signed by a certificate
+authority of Microsoft's Trusted Root Program; a self-signed certificate in Trusted People does not count. Nothing on
+WinQEMU's side can change that short of a trusted signature (below); the user's only other way is to turn Smart App
+Control off, their decision.
+
+QEMU may be refused there too, whatever WinQEMU's signature: the qemu.weilnetz.de build checked here (11.1) has its `.exe`
+files signed by a certificate that expired in December 2023, without a valid timestamp, and its DLLs unsigned. Not
+verified on a Smart App Control PC yet.
+
 ### GitHub secrets
 
 None are needed today. If signing is ever moved into GitHub Actions (with a CI-friendly signing service, below, or a
@@ -89,7 +101,8 @@ These are repository settings: the author's to make.
 
 ## Towards a trusted signature
 
-A signature from a public authority removes the certificate import entirely. Options, as of October 2026:
+A signature from a public authority removes the certificate import entirely, and lets WinQEMU start under Smart App
+Control. Options, as of October 2026:
 
 | Option | Cost | Notes |
 |---|---|---|

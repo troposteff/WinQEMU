@@ -142,13 +142,20 @@ winqemu show [<machine>]
 ## Installation
 
 Téléchargez la dernière version dans les [releases](https://github.com/troposteff/WinQEMU/releases) :
-`WinQEMU_<version>_x64.msix`, `WinQEMU.cer` et `Install-WinQEMU.ps1`, dans un même dossier. Puis, dans PowerShell
-**en administrateur**, depuis ce dossier :
+`WinQEMU_<version>_x64.msix`, `WinQEMU.cer`, `Install-WinQEMU.ps1` et `SHA256SUMS.txt`, dans un même dossier. Puis, dans
+PowerShell **en administrateur**, depuis ce dossier :
 
 ```powershell
-Unblock-File .\Install-WinQEMU.ps1
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 .\Install-WinQEMU.ps1
 ```
+
+La première ligne autorise les scripts dans cette fenêtre PowerShell seulement (Windows les refuse par défaut) ; elle ne
+change rien au réglage de ce PC.
+
+> **Contrôle intelligent des applications** (Smart App Control) : sur un PC où il est activé, WinQEMU s'installe mais ne
+> démarre pas. Il ne laisse passer que les applications connues de Microsoft ou signées par une autorité publique, et
+> WinQEMU est signé par son auteur. Voir [`docs/distribution.md`](docs/distribution.md#smart-app-control) (en anglais).
 
 Le script vérifie le paquet par rapport à `SHA256SUMS.txt` et sa signature par rapport à `WinQEMU.cer`, ajoute le
 certificat aux Personnes autorisées de ce PC (pas comme autorité racine), puis installe WinQEMU. Le paquet est signé par

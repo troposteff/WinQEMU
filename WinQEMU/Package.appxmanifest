@@ -13,7 +13,7 @@
   <Identity
     Name="cfde84db-a7f2-4241-ae31-4fd9bc34967b"
     Publisher="CN=troposteff"
-    Version="2026.0.1.0" />
+    Version="2026.0.2.0" />
 
   <mp:PhoneIdentity PhoneProductId="cfde84db-a7f2-4241-ae31-4fd9bc34967b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

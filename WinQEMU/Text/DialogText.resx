@@ -5,7 +5,7 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
   <data name="SettingsLanguage" xml:space="preserve"><value>Language</value></data>
-  <data name="SettingsLanguageHint" xml:space="preserve"><value>Takes effect the next time WinQEMU starts. Folders and drives WinQEMU creates in a guest from then on are named in this language too (~/Shares, ~/Partages).</value></data>
+  <data name="SettingsLanguageHint" xml:space="preserve"><value>Applied at once. Folders and drives WinQEMU creates in a guest from then on are named in this language too (~/Shares, ~/Partages); a guest already set up keeps its names.</value></data>
   <data name="CloneName" xml:space="preserve"><value>Clone name</value></data>
   <data name="CloneFullCopy" xml:space="preserve"><value>Full clone</value></data>
   <data name="CloneFullCopyHint" xml:space="preserve"><value>Each disk is copied as it is now into a standalone image. Snapshots are not carried over. The clone depends on nothing afterwards.</value></data>

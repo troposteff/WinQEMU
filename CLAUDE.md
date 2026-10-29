@@ -92,10 +92,28 @@ Prises avec l'utilisateur ; ne pas les remettre en cause sans raison nouvelle.
 ## Langues
 
 Anglais et français (choix de l'utilisateur), **langue de Windows par défaut**, liste « Langue » dans les Paramètres
-(`AppSettings.Language` : vide, `en`, `fr`), prise en compte au démarrage suivant : `Program.ApplyLanguage` pose
-`CultureInfo.DefaultThreadCurrentUICulture` (`Text.UiLanguage`) avant toute fenêtre, et
-`ApplicationLanguages.PrimaryLanguageOverride` pour les quelques mots de WinUI. Toute autre langue de Windows → anglais.
-Le format des nombres et des dates reste celui de Windows.
+(`AppSettings.Language` : vide, `en`, `fr`). `Program.ApplyLanguage` pose `CultureInfo.DefaultThreadCurrentUICulture`
+(`Text.UiLanguage`) avant toute fenêtre, et `ApplicationLanguages.PrimaryLanguageOverride` pour les quelques mots de
+WinUI. Toute autre langue de Windows → anglais. Le format des nombres et des dates reste celui de Windows.
+
+**Changement à chaud, comme le thème** (demande de l'utilisateur) : `MainViewModel.SelectedLanguage` applique la langue,
+relit ses textes (`RefreshText` : `PropertyChanged` pour toutes les propriétés, lignes de la bibliothèque, matériel,
+instantanés, statut de QEMU, ordre de démarrage), puis `MainWindow.ApplyLanguage` : `Bindings.Update()` (tous les
+`{x:Bind t:…}` sont à usage unique), info-bulles, liste de mise à l'échelle, texte d'attente de la console, arbre et
+graphiques redessinés, et **modèles d'éléments retirés puis remis** (`RefreshItemTemplates`) : les textes d'un disque ou
+d'une carte sont liés par élément, hors de portée de `Bindings.Update`. La liste de la bibliothèque n'est pas reconstruite
+(elle perdrait la sélection, donc la console). Les Paramètres ouverts suivent aussi. Pièges :
+
+- **Jamais `CultureInfo.CurrentUICulture = …`**, seulement la valeur par défaut des fils : la première est une valeur
+  async-local, et ce qui tournait déjà (une boucle qui attend son prochain tour) gardait l'ancienne langue.
+- **Langue de Windows lue dans un constructeur statique explicite** (`UiLanguage`) : un simple initialiseur de champ n'est
+  exécuté qu'à la première lecture du champ, soit après qu'« English » a été posé, et « Langue de Windows » ramenait l'anglais.
+- **Nom accessible d'une section** (`Expander`) calculé une fois : reposé à la main, sinon Narrateur lisait « Disques »
+  sous « Disks ».
+- Les textes gardés dans des objets (étiquettes de connexion réseau, intervalles des instantanés automatiques) sont
+  calculés à chaque lecture : remplacer la liste viderait la sélection, donc le réglage lié en deux sens.
+- Vérifié dans l'app : FR → EN → FR et retour à la langue de Windows, Paramètres ouverts, toutes les sections du résumé,
+  la console ; aucun descripteur de machine réécrit.
 
 - **Textes en `.resx`** : anglais dans `Text\X.resx` (langue neutre, `NeutralLanguage` en), français dans
   `Text\X.fr.resx` (assembly satellite `fr\`, présent dans le paquet). Cœur : `CommonText` (public : OK, Annuler,
@@ -877,6 +895,12 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
 - **`x:DataType` obligatoire sur un DataTemplate qui lie ses textes par `{x:Bind t:…}`** : sans lui, la liaison
   compile mais ne s'exécute jamais — boutons et cases des disques sans texte. `LanServiceItem` n'est plus imbriqué
   dans `MainViewModel` pour cela (XAML ne nomme pas un type imbriqué).
+- **ComboBox éditable dont la liste arrive après la valeur** (type de machine, modèle de processeur : la liste vient de
+  QEMU) : remplacer ses éléments vide son texte, sans rien écrire dans la liaison. Une valeur absente de la liste (le
+  modèle par défaut, `qemu64,+sse4.1,…`) s'affichait donc vide, la machine la gardant. Liées par `VmHardwareViewModel`
+  (`MachineType`, `CpuModel`), qui redonne le texte une fois la liste là et ignore ce que la boîte écrit pendant le
+  remplacement. **Ne jamais basculer `IsEditable`** d'une boîte liée en deux sens : elle a écrit des valeurs vides dans
+  la machine, qui ont été enregistrées (vu sur Debian pendant un essai, valeurs remises à la main).
 - **Visibilité réelle** : tester la visibilité de tous les ancêtres, pas seulement de l'élément (la vue
   Résumé masque la console en repliant son conteneur).
 - **Boutons de `CommandBar`** : ils ne prennent pas le focus par défaut, donc une `NumberBox` en cours de

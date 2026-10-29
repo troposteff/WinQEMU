@@ -53,10 +53,10 @@ namespace WinQEMU
         }
 
         /// <summary>
-        /// The interface's language, before any window or text is made. WinUI's own text (a NumberBox's buttons,
-        /// a CommandBar's "More") follows the same override.
+        /// The interface's language: before any window or text is made, and again when it is changed in the settings.
+        /// WinUI's own text (a NumberBox's buttons, a CommandBar's "More") follows the same override.
         /// </summary>
-        private static void ApplyLanguage(string code)
+        internal static void ApplyLanguage(string code)
         {
             Core.Text.UiLanguage.Apply(code);
             try

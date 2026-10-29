@@ -43,6 +43,9 @@ namespace WinQEMU.ViewModels
         }
 
         public bool HasLocation => Location.Length > 0;
+
+        /// <summary>The language changed: every text of the line is read again.</summary>
+        public void RefreshText() => RaisePropertyChanged(string.Empty);
     }
 
     /// <summary>A folder of the library, as its line in the list shows it.</summary>

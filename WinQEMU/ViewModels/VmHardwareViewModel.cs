@@ -80,6 +80,7 @@ namespace WinQEMU.ViewModels
             RebuildBootEntries();
             RefreshPlatformDiagnostics();
             _ = EnsureCapabilitiesAsync();
+            RaisePlatformTexts();
             RaisePropertyChanged(nameof(Disks));
             RaisePropertyChanged(nameof(Adapters));
             RaisePropertyChanged(nameof(HasDisks));
@@ -542,14 +543,59 @@ namespace WinQEMU.ViewModels
                 if (!ReferenceEquals(_config, config) || _config.Architecture != architecture)
                     return;
 
-                Replace(MachineTypeOptions, capabilities.MachineTypes);
-                Replace(CpuModelOptions, capabilities.CpuModels);
+                _replacingOptions = true;
+                try
+                {
+                    Replace(MachineTypeOptions, capabilities.MachineTypes);
+                    Replace(CpuModelOptions, capabilities.CpuModels);
+                }
+                finally
+                {
+                    _replacingOptions = false;
+                }
+                RaisePlatformTexts();
             }
             catch (Exception ex)
             {
                 // A failed probe leaves the dropdowns empty; they are editable, so the field still works.
                 _reportError(ex);
             }
+        }
+
+        private bool _replacingOptions;
+
+        /// <summary>
+        /// The machine type and CPU model as their editable lists show them, rather than the lists bound to the descriptor
+        /// directly. An editable ComboBox empties its text when its items are replaced, and QEMU's list arrives after the
+        /// machine's value: the field stayed blank for any value that is no entry of the list (the default CPU model,
+        /// <c>qemu64,+sse4.1,…</c>, is none), though the machine kept it. Here the text is given again once the list is
+        /// in, and what the box writes while its items change is ignored.
+        /// </summary>
+        public string MachineType
+        {
+            get => _config?.MachineType ?? string.Empty;
+            set
+            {
+                if (!_replacingOptions && _config is not null && value is not null)
+                    _config.MachineType = value;
+            }
+        }
+
+        /// <inheritdoc cref="MachineType"/>
+        public string CpuModel
+        {
+            get => _config?.CpuModel ?? string.Empty;
+            set
+            {
+                if (!_replacingOptions && _config is not null && value is not null)
+                    _config.CpuModel = value;
+            }
+        }
+
+        private void RaisePlatformTexts()
+        {
+            RaisePropertyChanged(nameof(MachineType));
+            RaisePropertyChanged(nameof(CpuModel));
         }
 
         private static void Replace(ObservableCollection<string> target, IReadOnlyList<string> values)
@@ -583,6 +629,17 @@ namespace WinQEMU.ViewModels
         /// hatch actually does, and the fastest way to see the effect of a platform change.
         /// </summary>
         public string CommandPreview { get => _commandPreview; private set => SetProperty(ref _commandPreview, value); }
+
+        /// <summary>The language changed: the problems are stated anew, and every text is read again.</summary>
+        public void RefreshText()
+        {
+            foreach (var choice in ConnectionOptions)
+                choice.RefreshText();
+            // Their labels (« Disque disk0 ») are made with the entries; the order is read from the machine, unchanged.
+            RebuildBootEntries();
+            RefreshPlatformDiagnostics();
+            RaisePropertyChanged(string.Empty);
+        }
 
         private void RefreshPlatformDiagnostics()
         {
@@ -788,6 +845,8 @@ namespace WinQEMU.ViewModels
             // A different emulator offers different machines and CPUs.
             if (e.PropertyName == nameof(VmConfig.Architecture))
                 _ = EnsureCapabilitiesAsync();
+            if (e.PropertyName is nameof(VmConfig.MachineType) or nameof(VmConfig.CpuModel))
+                RaisePropertyChanged(e.PropertyName);
 
             // Any platform field can turn the configuration into one QEMU would refuse, so both the
             // verdict and the preview are recomputed on every edit.

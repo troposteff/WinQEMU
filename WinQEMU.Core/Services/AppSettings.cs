@@ -49,8 +49,7 @@ namespace WinQEMU.Core.Services
 
         private string _language = string.Empty;
         /// <summary>
-        /// The interface's language: "en", "fr", or empty for Windows' own (see Text.UiLanguage). Read once at
-        /// start: a change takes effect the next time WinQEMU starts.
+        /// The interface's language: "en", "fr", or empty for Windows' own (see Text.UiLanguage). Applied at once.
         /// </summary>
         public string Language { get => _language; set => SetProperty(ref _language, value ?? string.Empty); }
 

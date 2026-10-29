@@ -16,12 +16,9 @@ namespace WinQEMU.ViewModels
     /// </summary>
     public sealed class NetworkChoice : ObservableBase
     {
-        private readonly string _label;
-
-        private NetworkChoice(string key, string label, VirtualNetwork? network)
+        private NetworkChoice(string key, VirtualNetwork? network)
         {
             Key = key;
-            _label = label;
             Network = network;
             // A network renamed in the editor is renamed in the list at once.
             if (network is not null)
@@ -36,16 +33,22 @@ namespace WinQEMU.ViewModels
 
         public VirtualNetwork? Network { get; }
 
-        public string Label => Network is { } network ? string.Format(CultureInfo.CurrentCulture, DialogText.NetworkChoiceLabel, network.Name, network.TypeText) : _label;
+        /// <summary>Read each time, in the language in force: the list keeps its items when the language changes.</summary>
+        public string Label => Network is { } network
+            ? string.Format(CultureInfo.CurrentCulture, DialogText.NetworkChoiceLabel, network.Name, network.TypeText)
+            : Key == NetworkAdapterConfig.NoConnection ? DialogText.NetworkChoiceNone : DialogText.NetworkChoiceNat;
+
+        /// <summary>The language changed: the label is read again.</summary>
+        public void RefreshText() => RaisePropertyChanged(nameof(Label));
 
         public static NetworkChoice Nat() =>
-            new(NetworkAdapterConfig.NatConnection, DialogText.NetworkChoiceNat, null);
+            new(NetworkAdapterConfig.NatConnection, null);
 
         public static NetworkChoice None() =>
-            new(NetworkAdapterConfig.NoConnection, DialogText.NetworkChoiceNone, null);
+            new(NetworkAdapterConfig.NoConnection, null);
 
         public static NetworkChoice For(VirtualNetwork network) =>
-            new(NetworkAdapterConfig.NetworkConnection(network.Id), string.Empty, network);
+            new(NetworkAdapterConfig.NetworkConnection(network.Id), network);
 
         /// <summary>
         /// NAT then every network, kept in step with the networks: items are added and removed in place,

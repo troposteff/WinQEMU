@@ -193,11 +193,17 @@ namespace WinQEMU.Controls
         /// </summary>
         public Action<string>? Log { get; set; }
 
-        public string PlaceholderText
+        /// <summary>What the console says while no guest is shown, read anew when the language changes (<see cref="RefreshText"/>).</summary>
+        private Func<string> _placeholderSource = () => IdlePlaceholder;
+
+        private void ShowPlaceholder(Func<string> text)
         {
-            get => _placeholder.Text;
-            set => _placeholder.Text = value;
+            _placeholderSource = text;
+            _placeholder.Text = text();
         }
+
+        /// <summary>The language changed: the placeholder is said in the new one.</summary>
+        public void RefreshText() => _placeholder.Text = _placeholderSource();
 
         private readonly Dictionary<int, Task> _adoptions = new();
 
@@ -255,7 +261,7 @@ namespace WinQEMU.Controls
             _attachCancellation = new CancellationTokenSource();
             var token = _attachCancellation.Token;
 
-            PlaceholderText = DialogText.ConsoleConnecting;
+            ShowPlaceholder(() => DialogText.ConsoleConnecting);
 
             // Being taken in the background: wait for it, it will then be among the parked ones.
             if (_adoptions.TryGetValue(processId, out var adoption))
@@ -294,7 +300,7 @@ namespace WinQEMU.Controls
 
             if (console is null)
             {
-                PlaceholderText = DialogText.ConsoleWindowNotFound;
+                ShowPlaceholder(() => DialogText.ConsoleWindowNotFound);
                 return false;
             }
 
@@ -309,7 +315,7 @@ namespace WinQEMU.Controls
             if (!embedded)
             {
                 Log?.Invoke($"Console: SetParent failed for window 0x{console.Handle.ToInt64():X}.");
-                PlaceholderText = DialogText.ConsoleEmbedFailed;
+                ShowPlaceholder(() => DialogText.ConsoleEmbedFailed);
                 return false;
             }
 
@@ -399,7 +405,7 @@ namespace WinQEMU.Controls
             _guestSize = (0, 0);
             GuestSizeChanged?.Invoke(this, EventArgs.Empty);
 
-            PlaceholderText = IdlePlaceholder;
+            ShowPlaceholder(() => IdlePlaceholder);
             _placeholder.Visibility = Visibility.Visible;
 
             if (console is not null && console.IsAlive)
@@ -411,7 +417,7 @@ namespace WinQEMU.Controls
                 var parkingWindow = _parkingWindow;
                 var parkTask = Task.Run(() => parkingWindow != IntPtr.Zero && console.Park(parkingWindow));
                 if (!parkTask.Wait(TimeSpan.FromSeconds(2)))
-                    PlaceholderText = DialogText.ConsoleReleaseTimeout;
+                    ShowPlaceholder(() => DialogText.ConsoleReleaseTimeout);
                 else if (parkTask.Result)
                     _parked[processId] = console;
                 else

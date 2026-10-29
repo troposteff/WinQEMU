@@ -111,7 +111,7 @@ namespace WinQEMU.Dialogs
 
         private void OnThemeChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ThemeBox.SelectedValue is string code)
+            if (!_refilling && ThemeBox.SelectedValue is string code)
             {
                 _viewModel.SelectedTheme = code;
                 // This dialog is already shown: it follows at once too.
@@ -126,13 +126,41 @@ namespace WinQEMU.Dialogs
 
         private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (LanguageBox.SelectedValue is string code)
-                _viewModel.SelectedLanguage = code;
+            if (_refilling || LanguageBox.SelectedValue is not string code || code == _viewModel.SelectedLanguage)
+                return;
+            _viewModel.SelectedLanguage = code;
+            // This dialog is already shown: it follows at once too. Queued, as the list being refilled is the one whose
+            // selection is changing.
+            DispatcherQueue.TryEnqueue(ApplyLanguage);
+        }
+
+        private bool _refilling;
+
+        /// <summary>Its own text read again (x:Bind, and the lists' words), the selections kept.</summary>
+        private void ApplyLanguage()
+        {
+            _refilling = true;
+            try
+            {
+                Bindings.Update();
+                LanguageBox.ItemsSource = _viewModel.LanguageChoices;
+                LanguageBox.SelectedValue = _viewModel.SelectedLanguage;
+                ThemeBox.ItemsSource = _viewModel.ThemeChoices;
+                ThemeBox.SelectedValue = _viewModel.SelectedTheme;
+                AudioOutputBox.ItemsSource = _viewModel.AudioOutputChoices;
+                AudioOutputBox.SelectedValue = _viewModel.SelectedAudioOutputId;
+            }
+            finally
+            {
+                _refilling = false;
+            }
+            StartAtLogonHint.Text = DialogText.SettingsStartAtLogonHint;
+            _ = ReadStartAtLogonAsync();
         }
 
         private void OnAudioOutputChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (AudioOutputBox.SelectedValue is string id)
+            if (!_refilling && AudioOutputBox.SelectedValue is string id)
                 _viewModel.SelectedAudioOutputId = id;
         }
 

@@ -116,6 +116,7 @@ namespace WinQEMU
 
             ApplyTheme();
             _viewModel.ThemeChanged += ApplyTheme;
+            _viewModel.LanguageChanged += ApplyLanguage;
 
             AppWindow.Closing += OnAppWindowClosing;
         }
@@ -274,6 +275,9 @@ namespace WinQEMU
 
         private void OnScaleModeChanged(object sender, SelectionChangedEventArgs e)
         {
+            // The list refilled in the new language passes through no selection: nothing to apply, nor focus to move.
+            if (_applyingLanguage)
+                return;
             ApplyScaleMode();
             // The box would otherwise keep the keyboard, and the keys meant for the guest change its mode.
             ConsoleHost?.FocusGuest();

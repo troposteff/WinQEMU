@@ -820,10 +820,12 @@
                                                 IsEditable="True"
                                                 ItemsSource="{Binding DataContext.Hardware.MachineTypeOptions, ElementName=RootGrid}"
                                                 PlaceholderText="q35"
-                                                Text="{Binding MachineType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                Text="{Binding DataContext.Hardware.MachineType, ElementName=RootGrid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                                             <!-- Editable too: a CPU model is a name plus feature flags,
-                                                 and the shipped default carries six of them. -->
+                                                 and the shipped default carries six of them. Both bound through
+                                                 Hardware, which gives the text back once QEMU's list is in (an
+                                                 editable box empties it when its items change). -->
                                             <ComboBox
                                                 Grid.Row="2" Grid.Column="0"
                                                 HorizontalAlignment="Stretch"
@@ -831,7 +833,7 @@
                                                 Header="{x:Bind t:WindowText.PlatformCpuModel}"
                                                 IsEditable="True"
                                                 ItemsSource="{Binding DataContext.Hardware.CpuModelOptions, ElementName=RootGrid}"
-                                                Text="{Binding CpuModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                Text="{Binding DataContext.Hardware.CpuModel, ElementName=RootGrid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                                             <muxc:NumberBox
                                                 Grid.Row="2" Grid.Column="1"
@@ -1544,7 +1546,7 @@
                                     <StackPanel Spacing="8">
                                         <TextBlock
                                             Style="{StaticResource Hint}"
-                                            Text="{Binding SharedFolderHint, Mode=OneTime}"
+                                            Text="{Binding SharedFolderHint, Mode=OneWay}"
                                             TextWrapping="Wrap" />
                                         <TextBlock
                                             IsTextSelectionEnabled="True"

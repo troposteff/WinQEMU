@@ -486,6 +486,32 @@ namespace WinQEMU.ViewModels
             await Manager.InitializeAsync();
             _hasProbedQemu = true;
             RepairLibraryFolders();
+            DescribeQemu();
+
+            RaisePropertyChanged(nameof(IsQemuAvailable));
+            RaisePropertyChanged(nameof(IsQemuMissing));
+            RaisePropertyChanged(nameof(CanClone));
+            RaiseSettingsProperties();
+
+            // Sessions only become available once QEMU is found, so the rows are built after detection
+            // rather than relying on the collection-changed hook alone.
+            RebuildItems();
+
+            if (!_autoStarted && Manager.IsQemuAvailable)
+            {
+                _autoStarted = true;
+                _ = StartWithWinQemuAsync();
+            }
+        }
+
+        /// <summary>The status line under the library: where QEMU is and with what acceleration, or why it is not found.</summary>
+        private void DescribeQemu()
+        {
+            if (!_hasProbedQemu)
+            {
+                QemuStatusText = ShellText.QemuDetecting;
+                return;
+            }
 
             var installation = Manager.Installation;
             if (installation is null)
@@ -503,21 +529,6 @@ namespace WinQEMU.ViewModels
 
                 QemuStatusText = $"QEMU {installation.Version ?? "?"} — {installation.InstallDirectory} ({accelerator}).";
                 QemuStatusDetail = string.Join(Environment.NewLine, Manager.Warnings);
-            }
-
-            RaisePropertyChanged(nameof(IsQemuAvailable));
-            RaisePropertyChanged(nameof(IsQemuMissing));
-            RaisePropertyChanged(nameof(CanClone));
-            RaiseSettingsProperties();
-
-            // Sessions only become available once QEMU is found, so the rows are built after detection
-            // rather than relying on the collection-changed hook alone.
-            RebuildItems();
-
-            if (!_autoStarted && Manager.IsQemuAvailable)
-            {
-                _autoStarted = true;
-                _ = StartWithWinQemuAsync();
             }
         }
 
@@ -709,10 +720,17 @@ namespace WinQEMU.ViewModels
             await StartMachineAsync(SelectedSession);
         }
 
-        public sealed record AutoSnapshotInterval(int Hours, string Label);
+        /// <summary>
+        /// The label is read each time rather than kept: the same items stay in the list when the language changes
+        /// (a new list would clear the selection, and with it the machine's interval through the two-way binding).
+        /// </summary>
+        public sealed record AutoSnapshotInterval(int Hours)
+        {
+            public string Label => AutoSnapshots.IntervalLabel(Hours);
+        }
 
         public IReadOnlyList<AutoSnapshotInterval> AutoSnapshotIntervals { get; } =
-            AutoSnapshots.Intervals.Select(h => new AutoSnapshotInterval(h, AutoSnapshots.IntervalLabel(h))).ToList();
+            AutoSnapshots.Intervals.Select(h => new AutoSnapshotInterval(h)).ToList();
 
         /// <summary>Starts a machine, selected or not: the Démarrer button and the start with WinQEMU.</summary>
         private async Task StartMachineAsync(VmSession session)
@@ -2129,14 +2147,15 @@ namespace WinQEMU.ViewModels
             public override string ToString() => Name;
         }
 
-        public IReadOnlyList<LanguageChoice> LanguageChoices { get; } = new[]
+        // Made on each read, in the language in force: the settings refill their lists when it changes.
+        public IReadOnlyList<LanguageChoice> LanguageChoices => new[]
         {
             new LanguageChoice(string.Empty, ShellText.LanguageWindows),
             new LanguageChoice("en", "English"),
             new LanguageChoice("fr", "Français")
         };
 
-        public IReadOnlyList<LanguageChoice> ThemeChoices { get; } = new[]
+        public IReadOnlyList<LanguageChoice> ThemeChoices => new[]
         {
             new LanguageChoice(string.Empty, ShellText.ThemeWindows),
             new LanguageChoice("light", ShellText.ThemeLight),
@@ -2160,7 +2179,10 @@ namespace WinQEMU.ViewModels
             }
         }
 
-        /// <summary>Saved at once, applied at the next start (Program.ApplyLanguage): the text is read as windows are made.</summary>
+        /// <summary>Raised once the language has changed: the window takes it at once (MainWindow.ApplyLanguage).</summary>
+        public event Action? LanguageChanged;
+
+        /// <summary>Saved and applied at once (Program.ApplyLanguage), as the theme is.</summary>
         public string SelectedLanguage
         {
             get => Settings.Language;
@@ -2170,8 +2192,30 @@ namespace WinQEMU.ViewModels
                     return;
                 Settings.Language = value ?? string.Empty;
                 Settings.Save();
-                RaisePropertyChanged();
+                Program.ApplyLanguage(Settings.Language);
+                RefreshText();
+                LanguageChanged?.Invoke();
             }
+        }
+
+        /// <summary>
+        /// Everything the view-models say, read again in the language now in force: the computed text through a
+        /// PropertyChanged for all properties, the text kept in fields (QEMU's status, the snapshots' details…)
+        /// computed anew.
+        /// </summary>
+        private void RefreshText()
+        {
+            DescribeQemu();
+            if (SelectedSession?.IsRunning != true)
+                ResetMetrics();
+            foreach (var row in Rows)
+                row.RefreshText();
+            foreach (var item in _allItems)
+                item.RefreshText();
+            RefreshLanServices(checkFirewall: false);
+            Hardware.RefreshText();
+            _ = Snapshots.RefreshAsync();
+            RaisePropertyChanged(string.Empty);
         }
 
         // ---- Files sent to the guest ----

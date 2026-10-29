@@ -1,7 +1,16 @@
 # Notes for certification
 
-Partner Center, Submission, Submission options, Notes for certification. Paste the block below; it stays under the
-field's limit.
+## Restricted capabilities: runFullTrust
+
+Partner Center, Submission, Submission options, Restricted capabilities. The field is short: paste this alone.
+
+```text
+WinQEMU is a WinUI 3 desktop app that manages QEMU virtual machines. It needs full trust to start and stop QEMU processes, talk to them over local named pipes and sockets, and embed their windows. It never runs elevated itself; admin actions are user-initiated through UAC. Source: github.com/troposteff/WinQEMU
+```
+
+## Notes for certification
+
+Partner Center, Submission, Submission options, Notes for certification. Paste the block below.
 
 ---
 

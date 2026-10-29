@@ -35,8 +35,8 @@ What WinQEMU needs on the Store, prepared but not submitted. The background is i
    - Packages: the `.msix`.
    - Store listings: English (United States) and French (France), from the two listing files. Screenshots at least
      1366 x 768: `docs/images/summary-*.png` and `console-*.png` (1920 x 1150); the snapshot tree (850 x 830) is too small.
-   - Submission options, Notes for certification: `certification-notes.md`; restricted capability `runFullTrust`: the
-     same text's paragraph on it.
+   - Submission options: restricted capability `runFullTrust`, the short block at the top of `certification-notes.md`
+     (the field is short: the long notes did not fit); Notes for certification, the rest of that file.
 6. Submit. Certification takes a few days; a refusal comes with the policy and the reason.
 
 ## After publication

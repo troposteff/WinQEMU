@@ -52,11 +52,8 @@ namespace WinQEMU.Controls
             Height = (nodes.Max(n => n.Row) + 1) * (BoxHeight + RowGap);
         }
 
-        /// <summary>A brush of the current theme; grey should a name ever be missing, rather than a crash.</summary>
-        private static Brush Themed(string key) =>
-            Application.Current.Resources.TryGetValue(key, out var value) && value is Brush brush
-                ? brush
-                : new SolidColorBrush(Microsoft.UI.Colors.Gray);
+        /// <summary>A brush of this element's theme (ThemeBrushes); grey should a name ever be missing, rather than a crash.</summary>
+        private Brush Themed(string key) => ThemeBrushes.Get(this, key) ?? new SolidColorBrush(Microsoft.UI.Colors.Gray);
 
         private static double Left(SnapshotTreeNode node) => node.Column * (BoxWidth + ColumnGap);
 

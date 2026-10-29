@@ -2129,6 +2129,30 @@ namespace WinQEMU.ViewModels
             new LanguageChoice("fr", "Français")
         };
 
+        public IReadOnlyList<LanguageChoice> ThemeChoices { get; } = new[]
+        {
+            new LanguageChoice(string.Empty, ShellText.ThemeWindows),
+            new LanguageChoice("light", ShellText.ThemeLight),
+            new LanguageChoice("dark", ShellText.ThemeDark)
+        };
+
+        /// <summary>Raised when the theme changes: the window applies it at once (MainWindow.ApplyTheme).</summary>
+        public event Action? ThemeChanged;
+
+        public string SelectedTheme
+        {
+            get => Settings.Theme;
+            set
+            {
+                if ((value ?? string.Empty) == Settings.Theme)
+                    return;
+                Settings.Theme = value ?? string.Empty;
+                Settings.Save();
+                RaisePropertyChanged();
+                ThemeChanged?.Invoke();
+            }
+        }
+
         /// <summary>Saved at once, applied at the next start (Program.ApplyLanguage): the text is read as windows are made.</summary>
         public string SelectedLanguage
         {

@@ -39,6 +39,8 @@ namespace WinQEMU.Dialogs
             AudioOutputBox.SelectedValue = viewModel.SelectedAudioOutputId;
             LanguageBox.ItemsSource = viewModel.LanguageChoices;
             LanguageBox.SelectedValue = viewModel.SelectedLanguage;
+            ThemeBox.ItemsSource = viewModel.ThemeChoices;
+            ThemeBox.SelectedValue = viewModel.SelectedTheme;
             StartAtLogonHint.Text = DialogText.SettingsStartAtLogonHint;
 
             _ = ReadStartAtLogonAsync();
@@ -106,6 +108,21 @@ namespace WinQEMU.Dialogs
         }
 
         // ---- Sound ----
+
+        private void OnThemeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ThemeBox.SelectedValue is string code)
+            {
+                _viewModel.SelectedTheme = code;
+                // This dialog is already shown: it follows at once too.
+                RequestedTheme = code switch
+                {
+                    "light" => Microsoft.UI.Xaml.ElementTheme.Light,
+                    "dark" => Microsoft.UI.Xaml.ElementTheme.Dark,
+                    _ => Microsoft.UI.Xaml.ElementTheme.Default
+                };
+            }
+        }
 
         private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
         {

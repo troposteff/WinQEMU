@@ -4,6 +4,7 @@ obj/
 [Dd]ebug/
 [Rr]elease/
 AppPackages/
+artifacts/
 BundleArtifacts/
 *.msix
 *.msixbundle

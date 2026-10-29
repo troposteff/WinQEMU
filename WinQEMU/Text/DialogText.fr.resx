@@ -291,4 +291,5 @@ Pris le {2}</value></data>
   <data name="HardwareMustBeStopped" xml:space="preserve"><value>La machine doit être arrêtée.</value></data>
   <data name="HardwareNoQemuImg" xml:space="preserve"><value>qemu-img n'est pas disponible : QEMU n'a pas été détecté.</value></data>
   <data name="HardwareDiskFileMissing" xml:space="preserve"><value>Le fichier du disque est introuvable.</value></data>
+  <data name="SettingsTheme" xml:space="preserve"><value>Thème</value></data>
 </root>

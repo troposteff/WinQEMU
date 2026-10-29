@@ -114,7 +114,8 @@ namespace WinQEMU
             // title bar, Alt+Tab and the taskbar show the application's own icon.
             AppWindow.SetIcon("Assets/WinQEMU.ico");
 
-            ApplyTitleBarTheme();
+            ApplyTheme();
+            _viewModel.ThemeChanged += ApplyTheme;
 
             AppWindow.Closing += OnAppWindowClosing;
         }
@@ -136,10 +137,33 @@ namespace WinQEMU
 
         // The title bar is drawn by DWM, not by XAML, and a standard one stays light until it is
         // told otherwise: the window came up with a light title bar above dark content while
-        // Windows itself was in dark mode. Following the app mode the user picked fixes it.
+        // Windows itself was in dark mode. It follows the theme chosen in the settings, Windows' by default.
         private void ApplyTitleBarTheme()
         {
-            AppWindow.TitleBar.PreferredTheme = TitleBarTheme.UseDefaultAppMode;
+            AppWindow.TitleBar.PreferredTheme = _viewModel.SelectedTheme switch
+            {
+                "light" => TitleBarTheme.Light,
+                "dark" => TitleBarTheme.Dark,
+                _ => TitleBarTheme.UseDefaultAppMode
+            };
+        }
+
+        /// <summary>The theme chosen in the settings (Paramètres), at once: the content, the title bar and the dialogs shown from now on.</summary>
+        private void ApplyTheme()
+        {
+            RootGrid.RequestedTheme = _viewModel.SelectedTheme switch
+            {
+                "light" => ElementTheme.Light,
+                "dark" => ElementTheme.Dark,
+                _ => ElementTheme.Default
+            };
+            ApplyTitleBarTheme();
+            // What is drawn from code takes its colours once (ThemeBrushes): drawn again in the new theme.
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                DrawSnapshotTree();
+                DrawMetrics();
+            });
         }
 
         // ---- Console embedding ----
@@ -416,6 +440,8 @@ namespace WinQEMU
         private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
         {
             ConsoleHost.Suspend();
+            // A dialog is shown in a popup, outside the window's tree: it takes the window's theme only if told.
+            dialog.RequestedTheme = RootGrid.RequestedTheme;
             try
             {
                 return await dialog.ShowAsync();

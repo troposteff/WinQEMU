@@ -291,4 +291,5 @@ Taken on {2}</value></data>
   <data name="HardwareMustBeStopped" xml:space="preserve"><value>The machine must be shut down.</value></data>
   <data name="HardwareNoQemuImg" xml:space="preserve"><value>qemu-img is not available: QEMU was not detected.</value></data>
   <data name="HardwareDiskFileMissing" xml:space="preserve"><value>The disk file cannot be found.</value></data>
+  <data name="SettingsTheme" xml:space="preserve"><value>Theme</value></data>
 </root>

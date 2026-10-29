@@ -29,7 +29,9 @@ dotnet build WinQEMU\WinQEMU.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifie
   en place sur le dossier de compilation (`WinQEMU\bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64`),
   donc **une recompilation est prise en compte sans réenregistrement**. Premier enregistrement :
   `Add-AppxPackage -Register <dossier>\AppxManifest.xml`, puis lancement par
-  `shell:AppsFolder\cfde84db-a7f2-4241-ae31-4fd9bc34967b_xxm26tvjas0jr!App`.
+  `shell:AppsFolder\cfde84db-a7f2-4241-ae31-4fd9bc34967b_6swaqgnpzyjaw!App` (éditeur `CN=troposteff` depuis la
+  version 1.1 ; l'ancienne identité `…_xxm26tvjas0jr`, d'un autre éditeur, était une autre application, avec son
+  propre stockage local).
 - **WinQEMU ouvert verrouille ses fichiers** : la compilation échoue. Fermer l'app avant de déployer ;
   pour seulement vérifier que ça compile, ajouter `-p:OutDir=<dossier temporaire>\`.
 - **Ne jamais faire `Remove-AppxPackage`** pour forcer un rafraîchissement : cela efface le stockage
@@ -41,6 +43,24 @@ dotnet build WinQEMU\WinQEMU.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifie
   réenregistrer la même version en mode développeur (0x80073CFB). Incrémenter `Version` dans `Package.appxmanifest`,
   compiler, puis `Add-AppxPackage -Register` : c'est une mise à jour en place, le stockage local est gardé.
 - Après un déploiement, vérifier que la DLL installée contient bien le changement plutôt que de supposer.
+
+## Paquet installable (`tools/Build-Package.ps1`)
+
+`pwsh ./tools/Build-Package.ps1` écrit `artifacts\v<version>\` : le MSIX signé, `WinQEMU.appinstaller`, `WinQEMU.cer` et
+`Install-WinQEMU.ps1` (à lancer en administrateur sur le PC cible : approuve le certificat dans `TrustedPeople`, puis
+installe). **Monter `Version` du manifeste à chaque version publiée** : App Installer ne met à jour que vers plus haut.
+
+- **Signé par un certificat auto-signé `CN=troposteff`** (magasin personnel de l'utilisateur, 5 ans ; partie publique
+  dans `packaging\WinQEMU.cer`), choix de l'utilisateur. L'éditeur du manifeste doit être exactement ce sujet.
+- **Windows App SDK embarqué** (`WindowsAppSDKSelfContained`) : aucun runtime à installer, seulement QEMU (98 Mo).
+- **Jamais de réduction (`PublishTrimmed`)** en Release : `{Binding}`, les réglages et les descripteurs JSON passent par
+  la réflexion.
+- **Mises à jour par les releases GitHub** (choix de l'utilisateur, le dépôt deviendra public) : `.appinstaller` à
+  l'adresse fixe `releases/latest/download/WinQEMU.appinstaller`, qui nomme le MSIX de sa release ; vérifié à chaque
+  lancement, mise à jour en arrière-plan. Tant que le dépôt est privé, App Installer ne peut pas le lire (pas
+  d'authentification) : installation par le `.msix` local.
+- **Vérifié dans Windows Sandbox** (Windows vierge, sans QEMU) : certificat approuvé, `Add-AppxPackage`, WinQEMU démarre,
+  `winqemu help` répond.
 
 ## Décisions d'architecture
 
@@ -814,6 +834,12 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   présentateur par défaut revient neuf). Dialogues larges (assistant, Paramètres, réseaux) : `DialogWidth.Fit`
   (l'assistant de 700 px débordait à 800). Rangées de boutons qui peuvent manquer de place : `Controls.WrapPanel`
   (WinUI n'en a pas), et seules les actions applicables (Chiffrement).
+- **Thème** (Paramètres : Windows, clair, sombre ; `AppSettings.Theme`, appliqué aussitôt par `MainWindow.ApplyTheme` :
+  `RootGrid.RequestedTheme`, barre de titre, et chaque dialogue au moment de l'afficher — un popup est hors de l'arbre de
+  la fenêtre). **`Application.Current.Resources` répond dans le thème de Windows, pas dans celui de la fenêtre** : en
+  clair sur un Windows sombre, l'arbre des instantanés écrivait « État d'origine » blanc sur blanc. Ce qui est dessiné
+  en code prend ses pinceaux par `Controls.ThemeBrushes.Get(élément, clé)` (dictionnaires de thème de l'élément) et est
+  redessiné au changement de thème. Vérifié en clair : résumé, sections, arbre, Paramètres, menu Son, graphiques.
 - **Une InfoBar fermée compte encore dans l'espacement d'un StackPanel** (hauteur nulle, mais `Spacing` de part et
   d'autre) : les sections du résumé n'étaient pas également espacées, et le panneau des notifications laissait une bande
   vide sous la barre de titre. Toute InfoBar liée par `IsOpen` l'est aussi par `Visibility`.

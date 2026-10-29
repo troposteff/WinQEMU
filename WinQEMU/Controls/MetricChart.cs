@@ -106,10 +106,9 @@ namespace WinQEMU.Controls
 
         private Color SeriesColor(int index) => (ActualTheme == ElementTheme.Dark ? Dark : Light)[index % 2];
 
+        /// <summary>A brush of this chart's theme (ThemeBrushes): the application's would be Windows' theme.</summary>
         private Brush Ink(string key, byte fallback) =>
-            Application.Current.Resources.TryGetValue(key, out var value) && value is Brush brush
-                ? brush
-                : new SolidColorBrush(Color.FromArgb(255, fallback, fallback, fallback));
+            ThemeBrushes.Get(this, key) ?? new SolidColorBrush(Color.FromArgb(255, fallback, fallback, fallback));
 
         private void Redraw()
         {

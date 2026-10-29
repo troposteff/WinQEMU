@@ -13,6 +13,9 @@
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
+    <!-- The Windows App SDK inside the package rather than a framework package to install first: a PC needs nothing
+         but QEMU (tools/Build-Package.ps1). -->
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <!-- Program.Main instead: one WinQEMU at a time. -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
@@ -78,7 +81,7 @@
   <PropertyGroup>
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <!-- Never trimmed: {Binding}, the settings' JSON and the descriptors are read by reflection, which trimming breaks. -->
+    <PublishTrimmed>False</PublishTrimmed>
   </PropertyGroup>
 </Project>

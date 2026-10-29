@@ -150,6 +150,18 @@
                             TextWrapping="Wrap" />
                     </StackPanel>
 
+                    <!-- Theme -->
+                    <StackPanel Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind t:DialogText.SettingsTheme}" />
+                        <ComboBox
+                            x:Name="ThemeBox"
+                            MinWidth="320"
+                            AutomationProperties.Name="{x:Bind t:DialogText.SettingsTheme}"
+                            DisplayMemberPath="Name"
+                            SelectedValuePath="Code"
+                            SelectionChanged="OnThemeChanged" />
+                    </StackPanel>
+
                     <!-- Language -->
                     <StackPanel Spacing="8">
                         <TextBlock FontWeight="SemiBold" Text="{x:Bind t:DialogText.SettingsLanguage}" />

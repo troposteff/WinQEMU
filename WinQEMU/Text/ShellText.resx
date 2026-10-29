@@ -248,4 +248,7 @@ Still running: {0}
   <data name="SendCancelled" xml:space="preserve"><value>Copy cancelled: nothing was left in the guest.</value></data>
   <data name="PulledTo" xml:space="preserve"><value>Copied to {0}: {1}</value></data>
   <data name="PullCancelled" xml:space="preserve"><value>Copy cancelled: nothing was left on this PC.</value></data>
+  <data name="ThemeWindows" xml:space="preserve"><value>Windows theme</value></data>
+  <data name="ThemeLight" xml:space="preserve"><value>Light</value></data>
+  <data name="ThemeDark" xml:space="preserve"><value>Dark</value></data>
 </root>

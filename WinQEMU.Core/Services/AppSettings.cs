@@ -43,6 +43,10 @@ namespace WinQEMU.Core.Services
         /// <summary>virtio-win's ISO, once chosen to install a Windows guest's tools (see GuestTools.FindVirtioWinIso).</summary>
         public string VirtioWinIsoPath { get => _virtioWinIsoPath; set => SetProperty(ref _virtioWinIsoPath, value ?? string.Empty); }
 
+        private string _theme = string.Empty;
+        /// <summary>The window's theme: "light", "dark", or empty to follow Windows. Applied at once.</summary>
+        public string Theme { get => _theme; set => SetProperty(ref _theme, value ?? string.Empty); }
+
         private string _language = string.Empty;
         /// <summary>
         /// The interface's language: "en", "fr", or empty for Windows' own (see Text.UiLanguage). Read once at

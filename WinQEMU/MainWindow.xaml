@@ -831,21 +831,19 @@
                                                 PlaceholderText="q35"
                                                 Text="{Binding DataContext.Hardware.MachineType, ElementName=RootGrid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                                            <!-- Editable too: a CPU model is a name plus feature flags,
-                                                 and the shipped default carries six of them. Both bound through
-                                                 Hardware, which gives the text back once QEMU's list is in (an
-                                                 editable box empties it when its items change). -->
+                                            <!-- A model from QEMU's list only (the user's choice): the options are
+                                                 apart, below (CpuModelSpec). Bound through Hardware, which selects it
+                                                 again once QEMU's list is in (replacing the items clears the selection). -->
                                             <ComboBox
-                                                Grid.Row="2" Grid.Column="0"
+                                                Grid.Row="2" Grid.Column="0" VerticalAlignment="Bottom"
                                                 HorizontalAlignment="Stretch"
                                                 AutomationProperties.Name="{x:Bind t:WindowText.PlatformCpuModel}"
                                                 Header="{x:Bind t:WindowText.PlatformCpuModel}"
-                                                IsEditable="True"
                                                 ItemsSource="{Binding DataContext.Hardware.CpuModelOptions, ElementName=RootGrid}"
-                                                Text="{Binding DataContext.Hardware.CpuModel, ElementName=RootGrid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                SelectedItem="{Binding DataContext.Hardware.CpuModel, ElementName=RootGrid, Mode=TwoWay}" />
 
                                             <muxc:NumberBox
-                                                Grid.Row="2" Grid.Column="1"
+                                                Grid.Row="2" Grid.Column="1" VerticalAlignment="Bottom"
                                                 Maximum="64" Minimum="1"
                                                 AutomationProperties.Name="{x:Bind t:WindowText.PlatformCoresPerSocket}"
                                                 Header="{x:Bind t:WindowText.PlatformCoresPerSocketHeader}"

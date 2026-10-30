@@ -378,6 +378,14 @@
                     </Button>
                     <Button
                         Style="{StaticResource ToolbarIconButton}"
+                        Click="OnResetClick"
+                        IsEnabled="{Binding IsSelectedAlive}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarReset}"
+                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarResetTip}">
+                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE72C;" />
+                    </Button>
+                    <Button
+                        Style="{StaticResource ToolbarIconButton}"
                         Command="{Binding ShutdownCommand}"
                         AutomationProperties.Name="{x:Bind ct:CommonText.Stop}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarShutDownTip}">
@@ -389,14 +397,6 @@
                         AutomationProperties.Name="{x:Bind ct:CommonText.PowerOff}"
                         ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPowerOffTip}">
                         <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE711;" />
-                    </Button>
-                    <Button
-                        Style="{StaticResource ToolbarIconButton}"
-                        Click="OnResetClick"
-                        IsEnabled="{Binding IsSelectedAlive}"
-                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarReset}"
-                        ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarResetTip}">
-                        <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE72C;" />
                     </Button>
                     <muxc:AppBarSeparator />
                     <Button

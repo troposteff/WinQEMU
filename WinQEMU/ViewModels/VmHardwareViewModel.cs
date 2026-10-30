@@ -581,21 +581,46 @@ namespace WinQEMU.ViewModels
             }
         }
 
-        /// <inheritdoc cref="MachineType"/>
+        /// <summary>
+        /// The CPU model alone, its options kept apart (<see cref="CpuModelSpec"/>): choosing a model from QEMU's list
+        /// replaced the whole value, and the default options Windows 11 needs (+sse4.2, +popcnt…) were lost. Text given
+        /// back once the list is in, as <see cref="MachineType"/>.
+        /// </summary>
         public string CpuModel
         {
-            get => _config?.CpuModel ?? string.Empty;
+            get => _config is null ? string.Empty : CpuModelSpec.Model(_config.CpuModel);
             set
             {
-                if (!_replacingOptions && _config is not null && value is not null)
-                    _config.CpuModel = value;
+                if (!_replacingOptions && _config is not null && !string.IsNullOrWhiteSpace(value)
+                    && value != CpuModelSpec.Model(_config.CpuModel))
+                    _config.CpuModel = CpuModelSpec.WithModel(_config.CpuModel, value);
             }
+        }
+
+        /// <summary>The CPU's options as QEMU reads them (+flag, -flag, key=value), set in the advanced settings.</summary>
+        public string CpuOptionsText =>
+            _config is null ? string.Empty
+            : CpuModelSpec.Options(_config.CpuModel) is { Count: > 0 } options ? string.Join(" ", options)
+            : Text.DialogText.CpuNoOptions;
+
+        /// <summary>The CPUID flags this machine's QEMU recognizes; empty until it has answered.</summary>
+        public IReadOnlyList<string> CpuFlagOptions =>
+            _config is not null && _capabilities.TryGetValue(_config.Architecture, out var c) ? c.CpuFlags : Array.Empty<string>();
+
+        public IReadOnlyList<string> EnabledCpuFlags =>
+            _config is null ? Array.Empty<string>() : CpuModelSpec.EnabledFlags(_config.CpuModel);
+
+        public void SetCpuFlags(IEnumerable<string> enabled)
+        {
+            if (_config is not null)
+                _config.CpuModel = CpuModelSpec.WithFlags(_config.CpuModel, enabled);
         }
 
         private void RaisePlatformTexts()
         {
             RaisePropertyChanged(nameof(MachineType));
             RaisePropertyChanged(nameof(CpuModel));
+            RaisePropertyChanged(nameof(CpuOptionsText));
         }
 
         private static void Replace(ObservableCollection<string> target, IReadOnlyList<string> values)
@@ -847,6 +872,8 @@ namespace WinQEMU.ViewModels
                 _ = EnsureCapabilitiesAsync();
             if (e.PropertyName is nameof(VmConfig.MachineType) or nameof(VmConfig.CpuModel))
                 RaisePropertyChanged(e.PropertyName);
+            if (e.PropertyName == nameof(VmConfig.CpuModel))
+                RaisePropertyChanged(nameof(CpuOptionsText));
 
             // Any platform field can turn the configuration into one QEMU would refuse, so both the
             // verdict and the preview are recomputed on every edit.

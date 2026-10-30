@@ -36,7 +36,7 @@ Une interface Windows au-dessus de QEMU : créez, lancez et gérez des machines 
 
 ## Nouveautés de cette version
 
-Première version sur le Microsoft Store. À son premier démarrage, WinQEMU reprend les réglages de WinQEMU installé depuis GitHub, s'il y en a un : désinstallez ce dernier ensuite.
+Choisir un autre modèle de processeur n'efface plus ses options (+sse4.2…, exigées par Windows 11). Nouveau : des réglages avancés du processeur, une case par fonction que QEMU reconnaît. Le logo n'est plus posé sur une vignette sombre.
 
 ## Fonctionnalités du produit
 

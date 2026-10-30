@@ -320,4 +320,9 @@ Pris le {2}</value></data>
   <data name="SettingsCheckPc" xml:space="preserve"><value>Vérifier ce PC…</value></data>
   <data name="NetworksTapHint" xml:space="preserve"><value>Un réseau interne passe par TAP-Windows, le pilote gratuit d'OpenVPN. Installez-le (Windows demande l'autorisation d'administrateur, et peut demander s'il faut faire confiance à OpenVPN), puis cliquez à nouveau sur « Ajouter un réseau interne ».</value></data>
   <data name="NetworksTapDownload" xml:space="preserve"><value>Télécharger TAP-Windows sur openvpn.net</value></data>
+  <data name="CpuNoOptions" xml:space="preserve"><value>Aucune : les fonctions du modèle seul</value></data>
+  <data name="CpuFlagsTitle" xml:space="preserve"><value>Fonctions du processeur</value></data>
+  <data name="CpuFlagsHint" xml:space="preserve"><value>Les fonctions cochées sont ajoutées au modèle de processeur (+fonction). Sous WHPX, l'invité n'obtient que celles que le processeur de ce PC possède. Les réglages par défaut ajoutent ce qu'exige Windows 11.</value></data>
+  <data name="CpuFlagsSearch" xml:space="preserve"><value>Rechercher une fonction</value></data>
+  <data name="CpuFlagsDefaults" xml:space="preserve"><value>Réglages par défaut</value></data>
 </root>

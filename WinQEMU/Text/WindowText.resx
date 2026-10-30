@@ -202,4 +202,6 @@
   <data name="NotifyQemuSetup" xml:space="preserve"><value>How to install it…</value></data>
   <data name="NotifySettingsImported" xml:space="preserve"><value>Settings taken over</value></data>
   <data name="NotifySettingsImportedDetail" xml:space="preserve"><value>WinQEMU took over the settings of the version installed from GitHub: library, folders, virtual networks. Uninstall that version (Settings, Apps) so that only one WinQEMU drives your machines; they stay where they are.</value></data>
+  <data name="PlatformCpuOptions" xml:space="preserve"><value>Processor options</value></data>
+  <data name="PlatformCpuAdvanced" xml:space="preserve"><value>Advanced settings…</value></data>
 </root>

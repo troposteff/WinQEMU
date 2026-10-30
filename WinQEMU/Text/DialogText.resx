@@ -320,4 +320,9 @@ Taken on {2}</value></data>
   <data name="SettingsCheckPc" xml:space="preserve"><value>Check this PC…</value></data>
   <data name="NetworksTapHint" xml:space="preserve"><value>An internal network goes through OpenVPN's free TAP-Windows driver. Install it (Windows asks for administrator permission, and may ask whether to trust OpenVPN), then click “Add an internal network” again.</value></data>
   <data name="NetworksTapDownload" xml:space="preserve"><value>Download TAP-Windows from openvpn.net</value></data>
+  <data name="CpuNoOptions" xml:space="preserve"><value>None: the model's own features</value></data>
+  <data name="CpuFlagsTitle" xml:space="preserve"><value>Processor features</value></data>
+  <data name="CpuFlagsHint" xml:space="preserve"><value>Ticked features are added to the processor model (+feature). Under WHPX the guest only gets those this PC's processor has. The defaults add what Windows 11 needs.</value></data>
+  <data name="CpuFlagsSearch" xml:space="preserve"><value>Search a feature</value></data>
+  <data name="CpuFlagsDefaults" xml:space="preserve"><value>Restore defaults</value></data>
 </root>

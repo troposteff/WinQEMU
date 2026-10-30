@@ -19,6 +19,9 @@ namespace WinQEMU.Core.Qemu
 
         public required IReadOnlyList<string> CpuModels { get; init; }
 
+        /// <summary>The CPUID feature flags QEMU recognizes, for the CPU's advanced settings.</summary>
+        public IReadOnlyList<string> CpuFlags { get; init; } = Array.Empty<string>();
+
         public static async Task<QemuCapabilities> ProbeAsync(
             QemuInstallation installation,
             GuestArchitecture architecture,
@@ -33,7 +36,8 @@ namespace WinQEMU.Core.Qemu
             {
                 Architecture = architecture,
                 MachineTypes = ParseMachineTypes(machines),
-                CpuModels = ParseCpuModels(cpus)
+                CpuModels = ParseCpuModels(cpus),
+                CpuFlags = ParseCpuFlags(cpus)
             };
         }
 
@@ -93,6 +97,24 @@ namespace WinQEMU.Core.Qemu
             }
 
             return names;
+        }
+
+        /// <summary>The flag names of <c>-cpu help</c>'s last section, several to a line, sorted and without duplicates.</summary>
+        public static IReadOnlyList<string> ParseCpuFlags(string helpOutput)
+        {
+            var flags = new SortedSet<string>(StringComparer.Ordinal);
+            var inFlags = false;
+            foreach (var line in SplitLines(helpOutput))
+            {
+                if (line.StartsWith("Recognized CPUID flags", StringComparison.OrdinalIgnoreCase))
+                {
+                    inFlags = true;
+                    continue;
+                }
+                if (inFlags)
+                    flags.UnionWith(line.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            }
+            return flags.ToList();
         }
 
         private static IEnumerable<string> SplitLines(string text) =>

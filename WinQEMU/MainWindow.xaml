@@ -853,6 +853,27 @@
                                                 Value="{Binding CoresPerSocket, Mode=TwoWay}" />
                                         </Grid>
 
+                                        <!-- The CPU's options, kept apart from its model (CpuModelSpec), set in a dialog
+                                             listing every flag QEMU recognizes. -->
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind t:WindowText.PlatformCpuOptions}" />
+                                                <TextBlock
+                                                    IsTextSelectionEnabled="True"
+                                                    Text="{Binding DataContext.Hardware.CpuOptionsText, ElementName=RootGrid}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <Button
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                Click="OnCpuAdvancedClick"
+                                                Content="{x:Bind t:WindowText.PlatformCpuAdvanced}" />
+                                        </Grid>
+
                                         <Grid ColumnSpacing="12">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />

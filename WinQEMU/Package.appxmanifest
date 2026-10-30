@@ -12,7 +12,7 @@
   <Identity
     Name="cfde84db-a7f2-4241-ae31-4fd9bc34967b"
     Publisher="CN=troposteff"
-    Version="2026.1.0.0" />
+    Version="2026.1.1.0" />
 
   <mp:PhoneIdentity PhoneProductId="cfde84db-a7f2-4241-ae31-4fd9bc34967b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -46,7 +46,7 @@
       <uap:VisualElements
         DisplayName="WinQEMU"
         Description="WinQEMU"
-        BackgroundColor="#0B0D12"
+        BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />

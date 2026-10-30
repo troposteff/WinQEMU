@@ -36,7 +36,7 @@ A Windows interface over QEMU: create, run and manage virtual machines with hard
 
 ## What's new in this version
 
-First version on the Microsoft Store. At its first start, WinQEMU takes over the settings of WinQEMU installed from GitHub, if there is one: uninstall that one afterwards.
+Choosing another processor model no longer drops its options (+sse4.2…, needed by Windows 11). New: Advanced settings for the processor, a box per feature QEMU recognizes. The logo no longer sits on a dark tile.
 
 ## Product features
 

@@ -497,6 +497,13 @@ namespace WinQEMU.Controls
         /// </summary>
         public Func<IReadOnlyList<PointerEvent>, Task>? PointerForwarder { get; set; }
 
+        /// <summary>
+        /// Whether the shown machine has an absolute pointer (its USB tablet). Without one QEMU refuses absolute events
+        /// ("Input handler not found for event type abs", seen on a pfSense machine without the tablet): the overlay then
+        /// stays away and QEMU keeps its relative mouse, scaled image or not.
+        /// </summary>
+        public Func<bool>? HasAbsolutePointer { get; set; }
+
         private readonly List<PointerEvent> _pointerQueue = new();
         private bool _pointerSending;
         // Traced once each per overlay showing, to see in the journal where the chain stops.
@@ -996,7 +1003,7 @@ namespace WinQEMU.Controls
             // mouse, and QEMU's window is kept just under it.
             var guest = GuestSize;
             var scaled = guest.Width > 0 && guest.Height > 0 && (width, height) != guest;
-            if (scaled && _pointerOverlay is not null)
+            if (scaled && _pointerOverlay is not null && HasAbsolutePointer?.Invoke() != false)
             {
                 if (!_pointerOverlay.IsVisible)
                 {

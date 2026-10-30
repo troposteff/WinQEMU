@@ -204,4 +204,6 @@
   <data name="NotifySettingsImportedDetail" xml:space="preserve"><value>WinQEMU a repris les réglages de la version installée depuis GitHub : bibliothèque, dossiers, réseaux virtuels. Désinstallez cette version (Paramètres, Applications) pour qu'un seul WinQEMU pilote vos machines ; elles restent où elles sont.</value></data>
   <data name="PlatformCpuOptions" xml:space="preserve"><value>Options du processeur</value></data>
   <data name="PlatformCpuAdvanced" xml:space="preserve"><value>Réglages avancés…</value></data>
+  <data name="ToolbarReset" xml:space="preserve"><value>Redémarrer</value></data>
+  <data name="ToolbarResetTip" xml:space="preserve"><value>Redémarre la machine immédiatement, comme le bouton reset d'un PC : ce que l'invité n'a pas enregistré est perdu.</value></data>
 </root>

@@ -44,6 +44,7 @@ namespace WinQEMU
             // embedded console window cannot receive them.
             ConsoleHost.KeyForwarder = _viewModel.ForwardKeysAsync;
             ConsoleHost.PointerForwarder = _viewModel.ForwardPointerAsync;
+            ConsoleHost.HasAbsolutePointer = () => _viewModel.SelectedVm?.EnableUsbTablet ?? true;
             ConsoleHost.PreferredSizeChanged += _viewModel.RequestGuestResolution;
 
             // Keep the newest QEMU output in view without stealing focus.
@@ -603,6 +604,30 @@ namespace WinQEMU
         }
 
         private void OnDismissErrorClick(InfoBar sender, object args) => _viewModel.ClearError();
+
+        /// <summary>Restart now, as a PC's reset button: asked first, since what the guest has not saved is lost.</summary>
+        private async void OnResetClick(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = ShellText.ResetConfirmTitle,
+                Content = new TextBlock { Text = ShellText.ResetConfirmText, TextWrapping = TextWrapping.Wrap },
+                PrimaryButtonText = WindowText.ToolbarReset,
+                CloseButtonText = CommonText.Cancel,
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = Content.XamlRoot
+            };
+            if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary)
+                return;
+            try
+            {
+                await _viewModel.ResetAsync();
+            }
+            catch (Exception ex)
+            {
+                _viewModel.ReportError(ex);
+            }
+        }
 
         private void OnDismissSettingsImportedClick(InfoBar sender, object args) => _viewModel.DismissSettingsImported();
 

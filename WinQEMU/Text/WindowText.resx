@@ -204,4 +204,6 @@
   <data name="NotifySettingsImportedDetail" xml:space="preserve"><value>WinQEMU took over the settings of the version installed from GitHub: library, folders, virtual networks. Uninstall that version (Settings, Apps) so that only one WinQEMU drives your machines; they stay where they are.</value></data>
   <data name="PlatformCpuOptions" xml:space="preserve"><value>Processor options</value></data>
   <data name="PlatformCpuAdvanced" xml:space="preserve"><value>Advanced settings…</value></data>
+  <data name="ToolbarReset" xml:space="preserve"><value>Restart</value></data>
+  <data name="ToolbarResetTip" xml:space="preserve"><value>Restarts the machine at once, like a PC's reset button: what the guest has not saved is lost.</value></data>
 </root>

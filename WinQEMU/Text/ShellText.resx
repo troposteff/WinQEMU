@@ -266,4 +266,6 @@ The template's snapshots are frozen as well. You can convert it back to a virtua
   <data name="FolderStartWaiting" xml:space="preserve"><value>{0} starts at {1:T}.</value></data>
   <data name="FolderStartProgress" xml:space="preserve"><value>Starting {0} ({1} of {2})…</value></data>
   <data name="FolderStartFailed" xml:space="preserve"><value>“{0}” could not start: {1}</value></data>
+  <data name="ResetConfirmTitle" xml:space="preserve"><value>Restart the machine now?</value></data>
+  <data name="ResetConfirmText" xml:space="preserve"><value>The machine restarts at once, as with a PC's reset button, without the guest shutting down first: what it has not saved is lost. To restart cleanly, restart from within the guest.</value></data>
 </root>

@@ -854,9 +854,21 @@
                                                 Grid.Row="2" Grid.Column="1" VerticalAlignment="Bottom"
                                                 Maximum="64" Minimum="1"
                                                 AutomationProperties.Name="{x:Bind t:WindowText.PlatformCoresPerSocket}"
-                                                Header="{x:Bind t:WindowText.PlatformCoresPerSocketHeader}"
+                                                AutomationProperties.HelpText="{x:Bind t:WindowText.PlatformCoresPerSocketTip}"
                                                 SpinButtonPlacementMode="Compact"
-                                                Value="{Binding CoresPerSocket, Mode=TwoWay}" />
+                                                Value="{Binding CoresPerSocket, Mode=TwoWay}">
+                                                <!-- One line, as its neighbours: what 1 means is in the "i" tooltip. -->
+                                                <muxc:NumberBox.Header>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="{x:Bind t:WindowText.PlatformCoresPerSocket}" />
+                                                        <FontIcon
+                                                            VerticalAlignment="Center"
+                                                            FontSize="14"
+                                                            Glyph="&#xE946;"
+                                                            ToolTipService.ToolTip="{x:Bind t:WindowText.PlatformCoresPerSocketTip}" />
+                                                    </StackPanel>
+                                                </muxc:NumberBox.Header>
+                                            </muxc:NumberBox>
                                         </Grid>
 
                                         <!-- The CPU's options, kept apart from its model (CpuModelSpec), set in a dialog

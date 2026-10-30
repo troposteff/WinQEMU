@@ -809,11 +809,6 @@ namespace WinQEMU.ViewModels
 
         private Task PowerOffAsync() => SelectedSession?.PowerOffAsync() ?? Task.CompletedTask;
 
-        /// <summary>
-        /// The reset button of a PC (QMP system_reset): the guest restarts at once, unsaved work lost. Under UEFI the session
-        /// restarts QEMU cold instead (WHPX cannot reset that firmware in place: host-qmp-system-reset).
-        /// </summary>
-        public Task ResetAsync() => SelectedSession?.ResetAsync() ?? Task.CompletedTask;
 
         private async Task DeleteAsync(bool deleteFiles)
         {

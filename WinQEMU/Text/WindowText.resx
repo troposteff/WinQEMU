@@ -58,7 +58,7 @@
   <data name="PlatformMachineType" xml:space="preserve"><value>Machine type</value></data>
   <data name="PlatformCpuModel" xml:space="preserve"><value>Processor model</value></data>
   <data name="PlatformCoresPerSocket" xml:space="preserve"><value>Cores per socket</value></data>
-  <data name="PlatformCoresPerSocketHeader" xml:space="preserve"><value>Cores per socket (1 = let QEMU decide)</value></data>
+  <data name="PlatformCoresPerSocketTip" xml:space="preserve"><value>1 = let QEMU decide how to spread the processors over sockets and cores.</value></data>
   <data name="PlatformGraphics" xml:space="preserve"><value>Graphics card</value></data>
   <data name="PlatformVideoMemory" xml:space="preserve"><value>Video memory</value></data>
   <data name="PlatformVideoMemoryHeader" xml:space="preserve"><value>Video memory (MB)</value></data>
@@ -205,5 +205,5 @@
   <data name="PlatformCpuOptions" xml:space="preserve"><value>Processor options</value></data>
   <data name="PlatformCpuAdvanced" xml:space="preserve"><value>Advanced settings…</value></data>
   <data name="ToolbarReset" xml:space="preserve"><value>Restart</value></data>
-  <data name="ToolbarResetTip" xml:space="preserve"><value>Restarts the machine at once, like a PC's reset button: what the guest has not saved is lost.</value></data>
+  <data name="ToolbarResetTip" xml:space="preserve"><value>Restarts the guest cleanly, as its own Restart: through the guest agent, or else the power button, then a start once it is off.</value></data>
 </root>

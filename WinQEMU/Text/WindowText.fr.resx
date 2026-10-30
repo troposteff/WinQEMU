@@ -58,7 +58,7 @@
   <data name="PlatformMachineType" xml:space="preserve"><value>Type de machine</value></data>
   <data name="PlatformCpuModel" xml:space="preserve"><value>Modèle de processeur</value></data>
   <data name="PlatformCoresPerSocket" xml:space="preserve"><value>Cœurs par socket</value></data>
-  <data name="PlatformCoresPerSocketHeader" xml:space="preserve"><value>Cœurs par socket (1 = laisser QEMU décider)</value></data>
+  <data name="PlatformCoresPerSocketTip" xml:space="preserve"><value>1 = laisser QEMU répartir les processeurs entre sockets et cœurs.</value></data>
   <data name="PlatformGraphics" xml:space="preserve"><value>Carte graphique</value></data>
   <data name="PlatformVideoMemory" xml:space="preserve"><value>Mémoire vidéo</value></data>
   <data name="PlatformVideoMemoryHeader" xml:space="preserve"><value>Mémoire vidéo (Mo)</value></data>
@@ -205,5 +205,5 @@
   <data name="PlatformCpuOptions" xml:space="preserve"><value>Options du processeur</value></data>
   <data name="PlatformCpuAdvanced" xml:space="preserve"><value>Réglages avancés…</value></data>
   <data name="ToolbarReset" xml:space="preserve"><value>Redémarrer</value></data>
-  <data name="ToolbarResetTip" xml:space="preserve"><value>Redémarre la machine immédiatement, comme le bouton reset d'un PC : ce que l'invité n'a pas enregistré est perdu.</value></data>
+  <data name="ToolbarResetTip" xml:space="preserve"><value>Redémarre l'invité proprement, comme son propre Redémarrer : par l'agent invité, sinon par le bouton d'alimentation puis un démarrage une fois éteint.</value></data>
 </root>

@@ -605,23 +605,13 @@ namespace WinQEMU
 
         private void OnDismissErrorClick(InfoBar sender, object args) => _viewModel.ClearError();
 
-        /// <summary>Restart now, as a PC's reset button: asked first, since what the guest has not saved is lost.</summary>
+        /// <summary>A clean restart of the guest (MainViewModel.RestartAsync): nothing to confirm, the guest saves its work.</summary>
         private async void OnResetClick(object sender, RoutedEventArgs e)
         {
-            var dialog = new ContentDialog
-            {
-                Title = ShellText.ResetConfirmTitle,
-                Content = new TextBlock { Text = ShellText.ResetConfirmText, TextWrapping = TextWrapping.Wrap },
-                PrimaryButtonText = WindowText.ToolbarReset,
-                CloseButtonText = CommonText.Cancel,
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = Content.XamlRoot
-            };
-            if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary)
-                return;
             try
             {
-                await _viewModel.ResetAsync();
+                if (await _viewModel.RestartAsync() is { } problem)
+                    _viewModel.ReportError(new InvalidOperationException(problem));
             }
             catch (Exception ex)
             {

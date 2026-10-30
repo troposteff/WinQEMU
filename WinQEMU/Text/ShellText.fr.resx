@@ -266,6 +266,5 @@ Les instantanés du modèle sont figés eux aussi. Vous pourrez le reconvertir e
   <data name="FolderStartWaiting" xml:space="preserve"><value>{0} démarre à {1:T}.</value></data>
   <data name="FolderStartProgress" xml:space="preserve"><value>Démarrage de {0} ({1} sur {2})…</value></data>
   <data name="FolderStartFailed" xml:space="preserve"><value>« {0} » n'a pas pu démarrer : {1}</value></data>
-  <data name="ResetConfirmTitle" xml:space="preserve"><value>Redémarrer la machine maintenant ?</value></data>
-  <data name="ResetConfirmText" xml:space="preserve"><value>La machine redémarre immédiatement, comme avec le bouton reset d'un PC, sans que l'invité s'arrête d'abord : ce qu'il n'a pas enregistré est perdu. Pour un redémarrage propre, redémarrez depuis l'invité.</value></data>
+  <data name="RestartNoShutdown" xml:space="preserve"><value>L'invité ne s'est pas arrêté dans les 3 minutes après le bouton d'alimentation : il n'a donc pas été redémarré. Redémarrez-le depuis l'invité, ou utilisez Éteindre.</value></data>
 </root>

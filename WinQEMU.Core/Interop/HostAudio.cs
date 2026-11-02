@@ -19,6 +19,32 @@ namespace WinQEMU.Core.Interop
     /// </remarks>
     public static class HostAudio
     {
+        private static readonly Lazy<bool> _canCapture = new(ProbeCapture);
+
+        /// <summary>
+        /// Whether DirectSound capture opens for this process, as QEMU's DirectSound backend will try at its start (QEMU
+        /// runs within this package, under the same microphone permission). Probed once per run of WinQEMU.
+        /// </summary>
+        public static bool CanCapture => _canCapture.Value;
+
+        private static bool ProbeCapture()
+        {
+            try
+            {
+                if (DirectSoundCaptureCreate(IntPtr.Zero, out var capture, IntPtr.Zero) < 0 || capture == IntPtr.Zero)
+                    return false;
+                Marshal.Release(capture);
+                return true;
+            }
+            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+            {
+                return false;
+            }
+        }
+
+        [DllImport("dsound.dll")]
+        private static extern int DirectSoundCaptureCreate(IntPtr device, out IntPtr capture, IntPtr outer);
+
         private const int RenderFlow = 0;          // eRender
         private const int ActiveState = 0x1;       // DEVICE_STATE_ACTIVE
         private const int ClsctxAll = 23;

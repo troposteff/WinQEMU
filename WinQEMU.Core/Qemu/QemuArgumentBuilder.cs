@@ -652,8 +652,11 @@ namespace WinQEMU.Core.Qemu
             {
                 // DirectSound: this build's other output on Windows, SDL, opens an audio session as QEMU starts
                 // and keeps it active, guest silent or not; DirectSound opens one when the guest first plays.
+                // QEMU 11's DirectSound backend also opens capture as it starts, and exits when Windows refuses it
+                // ("Could not initialize DirectSoundCapture", code 1): a PC without a microphone, or microphone access
+                // denied to WinQEMU's package. SDL then, which opens no capture for an output-only card.
                 args.Add("-audiodev");
-                args.Add("dsound,id=snd0");
+                args.Add(HostCanCapture() ? "dsound,id=snd0" : "sdl,id=snd0");
                 args.Add("-device");
                 args.Add("intel-hda");
                 // Output only unless the microphone is asked for: hda-duplex gives the guest a line-in fed by
@@ -662,6 +665,9 @@ namespace WinQEMU.Core.Qemu
                 args.Add(config.EnableMicrophone ? "hda-duplex,audiodev=snd0" : "hda-output,audiodev=snd0");
             }
         }
+
+        /// <summary>Whether Windows lets this package capture sound (HostAudio.CanCapture); replaced by the tests.</summary>
+        public static Func<bool> HostCanCapture { get; set; } = () => Interop.HostAudio.CanCapture;
 
         /// <summary>The xHCI controller host USB devices plug into, at start or while the machine runs.</summary>
         public const string UsbPassthroughControllerId = "wq-usb";

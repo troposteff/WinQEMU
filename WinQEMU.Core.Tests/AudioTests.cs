@@ -1,4 +1,5 @@
 using WinQEMU.Core.Interop;
+using WinQEMU.Core.Qemu;
 
 namespace WinQEMU.Core.Tests;
 
@@ -16,7 +17,28 @@ public class AudioTests
         Assert.Contains("intel-hda", devices);
         Assert.Contains("hda-output,audiodev=snd0", devices);
         Assert.DoesNotContain(devices, d => d.StartsWith("hda-duplex", StringComparison.Ordinal));
-        Assert.Equal("dsound,id=snd0", Fixtures.Value(Fixtures.Build(config), "-audiodev"));
+        Assert.StartsWith(QemuArgumentBuilder.HostCanCapture() ? "dsound," : "sdl,", Fixtures.Value(Fixtures.Build(config), "-audiodev"));
+    }
+
+    [Fact]
+    public void Sdl_plays_the_sound_when_windows_refuses_capture()
+    {
+        // QEMU's DirectSound backend opens capture at start and exits when it is refused (a PC without a microphone,
+        // or microphone access denied to the package): "Could not initialize DirectSoundCapture".
+        var config = Fixtures.Vm();
+        config.EnableAudio = true;
+        var probe = QemuArgumentBuilder.HostCanCapture;
+        try
+        {
+            QemuArgumentBuilder.HostCanCapture = () => false;
+            Assert.Equal("sdl,id=snd0", Fixtures.Value(Fixtures.Build(config), "-audiodev"));
+            QemuArgumentBuilder.HostCanCapture = () => true;
+            Assert.Equal("dsound,id=snd0", Fixtures.Value(Fixtures.Build(config), "-audiodev"));
+        }
+        finally
+        {
+            QemuArgumentBuilder.HostCanCapture = probe;
+        }
     }
 
     [Fact]

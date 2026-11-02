@@ -36,7 +36,7 @@ A Windows interface over QEMU: create, run and manage virtual machines with hard
 
 ## What's new in this version
 
-Choosing another processor model no longer drops its options (+sse4.2…, needed by Windows 11). New: Advanced settings for the processor, a box per feature QEMU recognizes. The logo no longer sits on a dark tile.
+New: a Restart button, which restarts the guest cleanly (through its agent, or the power button). Processor: choosing another model no longer drops its options (+sse4.2…, needed by Windows 11); the model is picked from QEMU's list, and Advanced settings offer a box per feature. On a machine without the USB tablet, the mouse no longer stops answering when the image is scaled. The logo no longer sits on a dark tile.
 
 ## Product features
 

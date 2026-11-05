@@ -130,7 +130,7 @@ public class PlatformTests
     public void Machine_type_is_q35_on_x86_and_virt_on_arm()
     {
         var x86 = Fixtures.Vm();
-        Assert.Equal("q35", Fixtures.Value(Fixtures.Build(x86), "-machine"));
+        Assert.Equal("q35,vmport=off", Fixtures.Value(Fixtures.Build(x86), "-machine"));
 
         var arm = Fixtures.Vm();
         arm.Architecture = GuestArchitecture.Aarch64;
@@ -145,7 +145,26 @@ public class PlatformTests
         vm.Firmware = FirmwareType.UefiSecureBoot;
         vm.Accelerator = AcceleratorType.Tcg;
 
-        Assert.Equal("q35,smm=on", Fixtures.Value(Fixtures.Build(vm), "-machine"));
+        Assert.Equal("q35,smm=on,vmport=off", Fixtures.Value(Fixtures.Build(vm), "-machine"));
+    }
+
+    [Theory]
+    [InlineData("q35", "q35,vmport=off")]
+    [InlineData("pc", "pc,vmport=off")]
+    [InlineData("pc-q35-9.0", "pc-q35-9.0,vmport=off")]
+    [InlineData("pc-i440fx-9.0", "pc-i440fx-9.0,vmport=off")]
+    [InlineData("isapc", "isapc,vmport=off")]
+    // Only PC machines have the property: QEMU refuses an unknown one.
+    [InlineData("microvm", "microvm")]
+    // A choice already written into the machine type is the user's.
+    [InlineData("q35,vmport=on", "q35,vmport=on")]
+    public void Pc_machines_have_no_vmport(string machineType, string expected)
+    {
+        // vmmouse, behind vmport, froze QEMU's SDL window under a USB tablet: see QemuArgumentBuilder.
+        var vm = Fixtures.Vm();
+        vm.MachineType = machineType;
+
+        Assert.Equal(expected, Fixtures.Value(Fixtures.Build(vm), "-machine"));
     }
 
     [Fact]

@@ -941,24 +941,28 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   « Téléchargements », machine plus ancienne) devient son nom court 8.3, ASCII, vérifié ; un volume sans noms courts
   le laisse tel quel. La sortie de QEMU est lue en UTF-8 (`VmSession.StartProcess`).
 - « failed to get xsave state » sur la sortie d'erreur : deux par vCPU secondaire au démarrage, sans effet.
-- **AMD (Ryzen 9 5900XT, Zen 3) : openSUSE Tumbleweed installé fige avec un pointeur absolu** (enquête ouverte, 02/11/2026,
-  machine de test de l'utilisateur, WinQEMU du Store 2026.1.2). L'installation depuis l'ISO passe ; le système installé fige
-  sur l'écran de démarrage (logo TianoCore + roue + « Tumbleweed »), QEMU cesse de répondre et WinQEMU, dont la fenêtre
-  contient la sienne, fige avec lui (WER `MoAppHangXProc`, P8 `qemu-system-x86_64.exe`). Essais de QEMU seul, disque en
-  `-snapshot` :
-  - passent : sans les options CET (`+xsavec,+xsaves,+cet-ss,+cet-ibt`) ; avec `kernel-irqchip=off` ; ligne de WinQEMU
-    réduite (2 vCPU, 4 ou 8 Go, disque virtio, sans USB) ; ligne complète **sans aucun périphérique de pointage absolu** ;
-    contrôleur `qemu-xhci` seul, sans tablette.
-  - figent : ligne complète de WinQEMU ; sans le canal presse-papiers (`qemu-vdagent`) ; tablette sur `qemu-xhci`, avec ou
-    sans `msix=off` ; tablette sur les contrôleurs de `-usb` ; tablette sur `nec-usb-xhci` ; **`virtio-tablet-pci` sans
-    USB** ; tablette USB avec `-vga std` au lieu de virtio.
-  - Conclusion provisoire : **tout pointeur absolu**, quel que soit le bus ou la carte graphique. 1 vCPU fige aussi (dans
-    WinQEMU). `cet-ibt` est refusé par l'hôte (« host doesn't support requested feature ») et QEMU dit « Ignoring request for
-    interrupt vector 0 » : sans lien établi. Pas encore vérifié : d'autres distributions sur AMD, openSUSE sur Intel.
-  - **Contournement** : décocher « Tablette USB » (souris relative ; WinQEMU ne pointe plus à la place de QEMU sans tablette).
-  - Pistes : `-display none` + VNC (l'invité tourne-t-il ? est-ce l'affichage SDL ?), vidage du processus QEMU figé
-    (pile du fil principal), journal du noyau de l'invité par `-serial file:`, combinaisons CET et `kernel-irqchip`
-    avec la tablette, autre version de QEMU.
+- **QEMU figé par SDL quand vmmouse s'active : `vmport=off`** sur les machines PC (`QemuArgumentBuilder.DisablesVmport`).
+  Vu sur le Ryzen 9 5900XT de l'utilisateur (02-05/11/2026) : openSUSE Tumbleweed installé figeait à l'ouverture de la
+  session graphique, QEMU ne répondait plus et WinQEMU, dont la fenêtre contient la sienne, figeait avec lui (WER
+  `MoAppHangXProc`). **L'invité n'y est pour rien** : avec `-display none`, il atteint le bureau KDE. Piles du processus figé
+  (`StackWalk64` de dbghelp, noms exportés seulement) : un fil vCPU, qui tient le verrou global de QEMU pendant un accès
+  d'E/S, appelle `SetWindowTextW` → `SendMessageW` vers la fenêtre SDL ; le fil principal, qui la possède, attend ce verrou.
+  - Chemin : le pilote vmmouse de l'invité (port VMware de `vmport`) fait enregistrer à QEMU une souris **relative** et
+    l'activer. Tablette USB déjà active, le mode passe d'absolu à relatif : `sdl_mouse_mode_change` → `sdl_grab_end` →
+    titre de la fenêtre, **sans condition de focus** (une console intégrée sans focus y passe aussi). Dans QEMU 11, l'avis de
+    mode part à chaque activation d'une souris, même sans changement. Sans tablette, pas d'état absolu à quitter : rien.
+  - Mesuré sur une copie `-snapshot`, ligne de WinQEMU (tablette USB, SDL) : 3 blocages sur 3 vers 58 s ; `vmport=off` :
+    2 passages sur 2 jusqu'au bureau. Les effets attribués plus tôt aux options CET ou à `kernel-irqchip` n'en sont pas :
+    ce sont des variations de chronologie. **Probablement pas propre à AMD** (dépend du pilote vmmouse de l'invité) ; non
+    vérifié sur Intel.
+  - **Autre chemin, non couvert** (WinQEMU n'utilise pas ce périphérique) : `virtio-tablet-pci` activée par l'invité fait
+    passer en absolu depuis le vCPU, et `absolute_mouse_grab` change le titre **si la fenêtre SDL a le focus** et que le
+    pointeur y est (QEMU seul, fenêtre de premier plan : bloqué à 50 s).
+  - Écarté : rendre la tablette active dès le démarrage par `mouse_set` (moniteur) : l'avis de vmmouse figeait quand même,
+    et un invité sans pilote de tablette perdrait sa souris jusqu'à son chargement.
+  - Pour diagnostiquer un autre blocage de QEMU : `query-mice` toutes les 100 ms (quelle souris est active, et quand), et
+    les piles de ses fils. Ce PC de test n'a ni Python ni SDK .NET : QMP en PowerShell, outil de piles compilé par le
+    `csc.exe` du .NET Framework (C# 5).
 
 ## Pièges WinUI 3
 

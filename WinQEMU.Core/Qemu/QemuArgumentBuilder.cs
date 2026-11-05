@@ -181,6 +181,17 @@ namespace WinQEMU.Core.Qemu
                 machine.Append(",smm=on");
             }
 
+            if (DisablesVmport(machine.ToString()))
+            {
+                // No VMware backdoor port, hence no vmmouse. A guest driver enabling vmmouse makes QEMU register it as
+                // the current mouse, relative at first, from the vCPU thread that holds QEMU's global lock. With a USB
+                // tablet already active, SDL leaves absolute mode there and retitles its window: SendMessage to the
+                // main thread, which is itself waiting for that lock. QEMU froze for good, and WinQEMU with it, its
+                // window containing QEMU's (openSUSE Tumbleweed reaching its desktop, on a Ryzen 9 5900XT; thread
+                // stacks of the frozen process). Nothing here needs vmmouse: the USB tablet is the absolute pointer.
+                machine.Append(",vmport=off");
+            }
+
             args.Add("-machine");
             args.Add(machine.ToString());
 
@@ -293,6 +304,18 @@ namespace WinQEMU.Core.Qemu
 
             var missing = CetStateFlags.Where(flag => !named.Contains(flag)).Select(flag => "+" + flag);
             return string.Join(',', parts.Concat(missing));
+        }
+
+        /// <summary>
+        /// True for the x86 PC machines, which alone have the vmport property, unless the machine string
+        /// already sets it either way.
+        /// </summary>
+        private static bool DisablesVmport(string machine)
+        {
+            var parts = machine.Split(',', StringSplitOptions.TrimEntries);
+            var name = parts[0];
+            var isPc = name is "q35" or "pc" or "isapc" || name.StartsWith("pc-", StringComparison.Ordinal);
+            return isPc && !parts.Skip(1).Any(part => part.StartsWith("vmport=", StringComparison.Ordinal));
         }
 
         private static string ResolveMachineType(VmConfig config)

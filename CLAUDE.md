@@ -195,6 +195,8 @@ d'une carte sont liés par élément, hors de portée de `Bindings.Update`. La l
   le compilateur XAML passe avant `ResGen`, et une liaison vers une classe pas encore générée faisait sortir
   `XamlCompiler.exe` en erreur **sans message** : cible `GenerateTextBeforeXaml` du csproj. x:Bind est posé au
   `Loading` du dialogue : un texte que le constructeur fixe lui-même n'a pas de liaison XAML (il serait écrasé).
+- **Ajouter des textes** : `python tools/add-text.py WinQEMU/Text/X.resx entrées.json` écrit chaque clé dans `X.resx` et
+  `X.fr.resx` (`[{"key", "en", "fr"}]`, mêmes `{0}` exigés).
 - **Tailles** : `Text.Sizes.Format` (« 2,4 Go » / « 2.4 GB »).
 - **Tests épinglés en français** (`TextTests.PinFrench`) ; `TextTests` vérifie que chaque clé existe dans les deux
   langues avec les mêmes `{0}`.
@@ -939,6 +941,24 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   « Téléchargements », machine plus ancienne) devient son nom court 8.3, ASCII, vérifié ; un volume sans noms courts
   le laisse tel quel. La sortie de QEMU est lue en UTF-8 (`VmSession.StartProcess`).
 - « failed to get xsave state » sur la sortie d'erreur : deux par vCPU secondaire au démarrage, sans effet.
+- **AMD (Ryzen 9 5900XT, Zen 3) : openSUSE Tumbleweed installé fige avec un pointeur absolu** (enquête ouverte, 02/11/2026,
+  machine de test de l'utilisateur, WinQEMU du Store 2026.1.2). L'installation depuis l'ISO passe ; le système installé fige
+  sur l'écran de démarrage (logo TianoCore + roue + « Tumbleweed »), QEMU cesse de répondre et WinQEMU, dont la fenêtre
+  contient la sienne, fige avec lui (WER `MoAppHangXProc`, P8 `qemu-system-x86_64.exe`). Essais de QEMU seul, disque en
+  `-snapshot` :
+  - passent : sans les options CET (`+xsavec,+xsaves,+cet-ss,+cet-ibt`) ; avec `kernel-irqchip=off` ; ligne de WinQEMU
+    réduite (2 vCPU, 4 ou 8 Go, disque virtio, sans USB) ; ligne complète **sans aucun périphérique de pointage absolu** ;
+    contrôleur `qemu-xhci` seul, sans tablette.
+  - figent : ligne complète de WinQEMU ; sans le canal presse-papiers (`qemu-vdagent`) ; tablette sur `qemu-xhci`, avec ou
+    sans `msix=off` ; tablette sur les contrôleurs de `-usb` ; tablette sur `nec-usb-xhci` ; **`virtio-tablet-pci` sans
+    USB** ; tablette USB avec `-vga std` au lieu de virtio.
+  - Conclusion provisoire : **tout pointeur absolu**, quel que soit le bus ou la carte graphique. 1 vCPU fige aussi (dans
+    WinQEMU). `cet-ibt` est refusé par l'hôte (« host doesn't support requested feature ») et QEMU dit « Ignoring request for
+    interrupt vector 0 » : sans lien établi. Pas encore vérifié : d'autres distributions sur AMD, openSUSE sur Intel.
+  - **Contournement** : décocher « Tablette USB » (souris relative ; WinQEMU ne pointe plus à la place de QEMU sans tablette).
+  - Pistes : `-display none` + VNC (l'invité tourne-t-il ? est-ce l'affichage SDL ?), vidage du processus QEMU figé
+    (pile du fil principal), journal du noyau de l'invité par `-serial file:`, combinaisons CET et `kernel-irqchip`
+    avec la tablette, autre version de QEMU.
 
 ## Pièges WinUI 3
 

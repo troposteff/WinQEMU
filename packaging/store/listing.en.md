@@ -36,7 +36,7 @@ A Windows interface over QEMU: create, run and manage virtual machines with hard
 
 ## What's new in this version
 
-New: a Restart button, which restarts the guest cleanly (through its agent, or the power button). Processor: choosing another model no longer drops its options (+sse4.2…, needed by Windows 11); the model is picked from QEMU's list, and Advanced settings offer a box per feature. On a machine without the USB tablet, the mouse no longer stops answering when the image is scaled. The logo no longer sits on a dark tile.
+Fixed: some Linux guests (openSUSE Tumbleweed, for one) froze as their desktop session started when the USB tablet was on, and WinQEMU with them. Since the previous version, a machine also starts with sound on a PC without a microphone or with microphone access denied.
 
 ## Product features
 

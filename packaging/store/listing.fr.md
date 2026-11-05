@@ -36,7 +36,7 @@ Une interface Windows au-dessus de QEMU : créez, lancez et gérez des machines 
 
 ## Nouveautés de cette version
 
-Nouveau : un bouton Redémarrer, qui redémarre l'invité proprement (par son agent, ou par le bouton d'alimentation). Processeur : choisir un autre modèle n'efface plus ses options (+sse4.2…, exigées par Windows 11) ; le modèle se choisit dans la liste de QEMU, et des réglages avancés offrent une case par fonction. Sur une machine sans tablette USB, la souris ne cesse plus de répondre quand l'image est mise à l'échelle. Le logo n'est plus posé sur une vignette sombre.
+Corrigé : certains invités Linux (openSUSE Tumbleweed, par exemple) figeaient à l'ouverture de leur session graphique quand la tablette USB était cochée, et WinQEMU avec eux. Depuis la version précédente, une machine démarre aussi avec le son sur un PC sans micro ou dont l'accès au micro est refusé.
 
 ## Fonctionnalités du produit
 

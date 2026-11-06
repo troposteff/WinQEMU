@@ -112,6 +112,14 @@ Installer ne met à jour que vers plus haut.
   de `certification-notes.md`. Fiches importables : `packaging/store/New-ListingImport.ps1` remplit l'export de Partner
   Center (ses colonnes Field, ID, Type doivent revenir intactes) et écrit le dossier à importer.
 - **`systemAIModels` retirée** (2026.0.3) : reste du modèle de projet, jamais utilisée, et qu'il aurait fallu justifier au Store.
+- **Mises à jour du Store : `tools/Publish-Store.ps1`** (produit `9NTWD738Z396`, publié ; première soumission faite à la main).
+  Par `msstore` (Microsoft Store Developer CLI), connecté comme application Entra « WinQEMU Store CLI » du tenant
+  `troposteff.onmicrosoft.com`, rôle Developer ; **secret gardé par msstore dans le Gestionnaire d'identification de ce PC,
+  jamais dans le dépôt ni dans GitHub** (choix de l'utilisateur, comme la clé de signature). Brouillon (`publish --noCommit`
+  sur le chemin du `.msix` : un dossier ferait reconnaître le projet WinUI), notes de version tirées des fiches, ancien paquet
+  `PendingDelete`, soumission seulement sur « yes » de l'utilisateur. Pièges : `reconfigure` sans arguments demande un compte
+  utilisateur (refuse les comptes Microsoft personnels) ; JSON de soumission modifié en `JsonNode` (ConvertFrom-Json
+  changerait les dates). **Pas encore lancé sur une vraie version.**
 
 ## Préparer ce PC (`Dialogs.ReadinessDialog`)
 

@@ -134,7 +134,7 @@ virtual networks taken over, the GitHub installation's file unchanged.
 
 ## Microsoft Store
 
-Prepared, not submitted: the submission is the author's. The Store signs the package, so WinQEMU then starts under Smart
+Published (product `9NTWD738Z396`); the first submission was made by hand. The Store signs the package, so WinQEMU then starts under Smart
 App Control, needs no certificate on users' PCs, and is updated by the Store. What is ready, in `packaging/store/`:
 
 - **The package**: `pwsh ./tools/Build-StorePackage.ps1` writes an unsigned `.msix` with the Store identity, read from
@@ -158,6 +158,26 @@ markets, price (free), screenshots (`docs/images`), and the submission. Betas ca
 audience) instead of GitHub pre-releases.
 
 Not needed for the Store: `WinQEMU.appinstaller`, `Install-WinQEMU.ps1`, the certificate, `SHA256SUMS.txt`.
+
+### Store updates (`tools/Publish-Store.ps1`)
+
+Published as product `9NTWD738Z396`. Each new version, from the author's PC: raise `Version` in `Package.appxmanifest`,
+write the "What's new" sections of `listing.en.md` and `listing.fr.md`, then `pwsh ./tools/Publish-Store.ps1`. It checks that
+nothing is pending and that the version is higher than the Store's, builds the package, uploads it into a **draft**
+(`msstore publish --noCommit`), sets the release notes, marks the previous package for removal, shows the draft, and sends
+it to certification only on "yes". `-RolloutPercentage` for a gradual rollout, `-Wait` to follow certification.
+
+- **The Microsoft Store Developer CLI** (`winget install "Microsoft Store Developer CLI"`, preview) signs in as an Entra
+  application of the author's tenant, created in Partner Center (Account settings, User management, Microsoft Entra
+  applications), role Developer. Configured once with `msstore reconfigure --tenantId … --sellerId … --clientId …
+  --clientSecret …`, the secret read into a variable rather than typed on the command line: `msstore` keeps it in the
+  Credential Manager. Run without arguments, `reconfigure` asks for a user sign-in instead, which refuses personal
+  Microsoft accounts.
+- **Not in GitHub Actions**, on purpose: the key stays on the author's PC, as the signing key does.
+- The rest of the listing is carried over from the published submission; change it in Partner Center.
+- **Not yet run on a real version**: in particular `msstore publish` given the `.msix` path (so that it does not take the
+  repository for a WinUI project to build) and the role Developer being enough to submit. Check the first draft in
+  Partner Center before answering "yes".
 
 ## WinGet
 

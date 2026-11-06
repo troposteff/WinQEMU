@@ -83,6 +83,17 @@ namespace WinQEMU.Core.Interop
         [DllImport("user32.dll", SetLastError = true)]
         public static extern IntPtr SetParent(IntPtr child, IntPtr newParent);
 
+        [DllImport("user32.dll")]
+        public static extern bool IsHungAppWindow(IntPtr hWnd);
+
+        public const uint WmNull = 0x0000;
+        public const uint SmtoBlock = 0x0001;
+        public const uint SmtoAbortIfHung = 0x0002;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr SendMessageTimeout(
+            IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeoutMs, out IntPtr result);
+
         [DllImport("gdi32.dll")]
         public static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
 

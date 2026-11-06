@@ -45,6 +45,7 @@ namespace WinQEMU
             ConsoleHost.KeyForwarder = _viewModel.ForwardKeysAsync;
             ConsoleHost.PointerForwarder = _viewModel.ForwardPointerAsync;
             ConsoleHost.HasAbsolutePointer = () => _viewModel.SelectedVm?.EnableUsbTablet ?? true;
+            InitializeHangWatch();
             ConsoleHost.PreferredSizeChanged += _viewModel.RequestGuestResolution;
 
             // Keep the newest QEMU output in view without stealing focus.

@@ -270,4 +270,10 @@ The template's snapshots are frozen as well. You can convert it back to a virtua
   <data name="DiagnosticsCopied" xml:space="preserve"><value>Diagnostics copied. Paste them into a new issue on GitHub, with what you were doing when the problem happened.</value></data>
   <data name="DiagnosticsNotCopied" xml:space="preserve"><value>The clipboard is in use by another program. Try again.</value></data>
   <data name="DiagnosticsOpenIssues" xml:space="preserve"><value>Report a problem on GitHub</value></data>
+  <data name="HungConsoleInstruction" xml:space="preserve"><value>"{0}" is not responding</value></data>
+  <data name="HungConsoleContent" xml:space="preserve"><value>QEMU has not responded for {0} seconds, and WinQEMU may be frozen with it.</value></data>
+  <data name="HungConsolePowerOff" xml:space="preserve"><value>Power off the machine
+Anything not saved inside it will be lost, as after a power cut.</value></data>
+  <data name="HungConsoleWait" xml:space="preserve"><value>Wait
+You will be asked again in 1 minute if the machine is still not responding; this closes by itself if it recovers.</value></data>
 </root>

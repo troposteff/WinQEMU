@@ -52,6 +52,25 @@ namespace WinQEMU.Controls
 
         /// <summary>Consoles of VMs still running but not shown, by QEMU process id.</summary>
         private readonly Dictionary<int, QemuConsoleWindow> _parked = new();
+
+        /// <summary>
+        /// Watches every console this host embeds, shown or parked: a stuck QEMU freezes the shell either way, its
+        /// window being a child of ours.
+        /// </summary>
+        public HungConsoleWatch? HangWatch { get; set; }
+
+        /// <summary>
+        /// The machine of a QEMU process (its name, and a way to write to its log from any thread), read on the UI
+        /// thread when its console is embedded.
+        /// </summary>
+        public Func<int, (string Name, Action<string> Log, Action PowerOff)?>? MachineOf { get; set; }
+
+        private void Watch(QemuConsoleWindow console, int processId)
+        {
+            if (HangWatch is null || MachineOf?.Invoke(processId) is not { } machine)
+                return;
+            HangWatch.Track(processId, console.Handle, machine.Name, machine.Log, machine.PowerOff);
+        }
         private bool _suspended;
         private bool _isLoaded;
 
@@ -237,7 +256,10 @@ namespace WinQEMU.Controls
                 var shell = _shellWindow;
                 var parking = _parkingWindow;
                 if (await Task.Run(() => console.Embed(shell) && console.Park(parking)))
+                {
                     _parked[processId] = console;
+                    Watch(console, processId);
+                }
                 else
                     Log?.Invoke($"Console: the window of QEMU process {processId} could not be parked.");
             }
@@ -325,6 +347,7 @@ namespace WinQEMU.Controls
         /// <summary>Common tail of attaching, once the console is a child of the shell window.</summary>
         private bool CompleteAttach(QemuConsoleWindow console, int processId)
         {
+            Watch(console, processId);
             _console = console;
             _consoleProcessId = processId;
             ResetCachedBounds();

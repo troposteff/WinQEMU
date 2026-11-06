@@ -963,6 +963,23 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   - Pour diagnostiquer un autre blocage de QEMU : `query-mice` toutes les 100 ms (quelle souris est active, et quand), et
     les piles de ses fils. Ce PC de test n'a ni Python ni SDK .NET : QMP en PowerShell, outil de piles compilé par le
     `csc.exe` du .NET Framework (C# 5).
+- **Un QEMU figé ne fige plus WinQEMU sans issue** (`Core.Interop.HungConsoleWatch`, créé par `MainWindow.HungConsole`) :
+  un fil à lui envoie `WM_NULL` (`SendMessageTimeout`, `SMTO_ABORTIFHUNG`) à chaque console intégrée, affichée ou garée,
+  chaque seconde. Sans réponse depuis 10 s : **TaskDialog Windows sans propriétaire, sur un fil à elle** (le fil de
+  l'interface est sans doute celui qui est bloqué ; un propriétaire ferait désactiver sa fenêtre, donc un appel vers lui ;
+  un ContentDialog s'afficherait par ce fil-là ; une fenêtre WinUI sur un autre fil lirait les ressources de l'application
+  d'un fil à l'autre, non vérifié quand le principal est bloqué). Liens « Éteindre la machine » / « Attendre », Attendre par
+  défaut et pour Échap, au premier plan (`HWND_TOPMOST`), **fermée d'elle-même quand QEMU repart** (`IsHungAppWindow`
+  chaque seconde), reposée 1 min après « Attendre » (et elle le dit : sans le délai, on croyait qu'elle ne revenait plus).
+  « Éteindre » → `VmSession.ForcePowerOff` : `Kill` sans QMP (ses commandes tournent sur le fil bloqué) ni verrou de
+  transition, et la machine finit **Arrêtée**, pas Erreur. Tuer QEMU libère l'interface. Common Controls 6 déclaré dans
+  `app.manifest` (sans lui, pas de `TaskDialogIndirect`). **Piège** : `TD_WARNING_ICON` vaut `0xFFFF`
+  (`MAKEINTRESOURCE(-1)`), pas `new IntPtr(-1)`, lu comme une chaîne : WinQEMU mourait d'une violation d'accès au premier
+  dessin de l'icône. Vérifié sur une VM jetable sans disque dont le processus QEMU était suspendu (`NtSuspendProcess`) :
+  question au bout de 12 à 15 s, fermeture à la reprise, Éteindre puis redémarrage ; plusieurs VM essayées par l'utilisateur.
+- **Une machine en Erreur redémarre** (QEMU planté, démarrage raté, processus parti) : `VmSession.StartAsync` refusait tout
+  état autre qu'Arrêtée, et répondait « déjà démarrée » jusqu'au redémarrage de WinQEMU, alors que l'interface proposait
+  Démarrer.
 
 ## Pièges WinUI 3
 

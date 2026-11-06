@@ -99,8 +99,12 @@ namespace WinQEMU.Core.Qemu
             await _transitionLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                if (State != VmState.Stopped)
+                // Error with QEMU gone (it crashed, or its start failed) is as good as stopped. Refused before: the
+                // shell offered Start, and a machine whose QEMU had died answered "already started" until WinQEMU
+                // was restarted.
+                if (State != VmState.Stopped && !(State == VmState.Error && _process is null or { HasExited: true }))
                     throw new InvalidOperationException(PlatformText.SessionAlreadyStarted);
+                _forcedPowerOff = false;
 
                 // Its clones read the image under its top overlay on the strength of it never having run.
                 if (Config.IsTemplate)
@@ -244,6 +248,27 @@ namespace WinQEMU.Core.Qemu
         {
             AppendLog("Hard reset requested.");
             return RequireQmp().ExecuteAsync("system_reset", null, cancellationToken);
+        }
+
+        private volatile bool _forcedPowerOff;
+
+        /// <summary>
+        /// Kills QEMU at once, from any thread, without the transition lock or QMP: for a QEMU that no longer answers
+        /// (Interop.HungConsoleWatch), whose QMP runs on the stuck thread and whose lock a stuck call may hold.
+        /// </summary>
+        public void ForcePowerOff()
+        {
+            _forcedPowerOff = true;
+            AppendLog("QEMU is not responding: powered off at the user's request.");
+            try
+            {
+                if (_process is { HasExited: false } process)
+                    process.Kill(entireProcessTree: true);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                // Gone meanwhile.
+            }
         }
 
         /// <summary>Cuts power immediately. Used for "Power off" and as the fallback when a graceful shutdown stalls.</summary>
@@ -1230,7 +1255,8 @@ namespace WinQEMU.Core.Qemu
             _restartAfterExit = false;
 
             // A non-zero exit during startup means QEMU rejected the configuration; the log holds why.
-            if (exitCode != 0 && State is VmState.Starting or VmState.Running)
+            // Not when the user cut the power of a QEMU that had stopped answering: that is a stop.
+            if (exitCode != 0 && State is VmState.Starting or VmState.Running && !_forcedPowerOff)
             {
                 LastError = string.Format(CultureInfo.CurrentCulture, PlatformText.SessionQemuExited, exitCode.ToString(CultureInfo.InvariantCulture));
                 State = VmState.Error;
@@ -1403,7 +1429,8 @@ namespace WinQEMU.Core.Qemu
             }
         }
 
-        private void AppendLog(string line)
+        /// <summary>Adds a line to this machine's log, from any thread (the shell's hung console watch).</summary>
+        public void AppendLog(string line)
         {
             var stamped = $"[{DateTime.Now:HH:mm:ss}] {line}";
             lock (_log)

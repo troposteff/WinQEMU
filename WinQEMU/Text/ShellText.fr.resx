@@ -270,4 +270,10 @@ Les instantanés du modèle sont figés eux aussi. Vous pourrez le reconvertir e
   <data name="DiagnosticsCopied" xml:space="preserve"><value>Diagnostic copié. Collez-le dans un nouveau rapport sur GitHub, avec ce que vous faisiez quand le problème est survenu.</value></data>
   <data name="DiagnosticsNotCopied" xml:space="preserve"><value>Le presse-papiers est occupé par un autre programme. Réessayez.</value></data>
   <data name="DiagnosticsOpenIssues" xml:space="preserve"><value>Signaler un problème sur GitHub</value></data>
+  <data name="HungConsoleInstruction" xml:space="preserve"><value>« {0} » ne répond plus</value></data>
+  <data name="HungConsoleContent" xml:space="preserve"><value>QEMU ne répond plus depuis {0} secondes, et WinQEMU risque d'être figé avec lui.</value></data>
+  <data name="HungConsolePowerOff" xml:space="preserve"><value>Éteindre la machine
+Ce qui n'y a pas été enregistré sera perdu, comme après une coupure de courant.</value></data>
+  <data name="HungConsoleWait" xml:space="preserve"><value>Attendre
+Cette question reviendra dans 1 minute si la machine ne répond toujours pas, et se fermera d'elle-même si la machine repart.</value></data>
 </root>

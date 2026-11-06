@@ -1830,7 +1830,23 @@
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" FontWeight="SemiBold" Text="{x:Bind t:WindowText.LogHeader}" />
+                                    <Grid Grid.Row="0" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind t:WindowText.LogHeader}" />
+                                        <!-- What a bug report needs, so nobody has to ask which processor or which QEMU. -->
+                                        <Button
+                                            Grid.Column="1"
+                                            Click="OnCopyDiagnosticsClick"
+                                            ToolTipService.ToolTip="{x:Bind t:WindowText.LogCopyDiagnosticsTip}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <FontIcon FontSize="14" Glyph="&#xEBE8;" />
+                                                <TextBlock Text="{x:Bind t:WindowText.LogCopyDiagnostics}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
                                     <!--
                                         A single text block, not a ListView: thousands of list items
                                         blow up the accessibility tree and stall the UI thread when

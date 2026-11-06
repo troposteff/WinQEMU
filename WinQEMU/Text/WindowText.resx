@@ -206,4 +206,6 @@
   <data name="PlatformCpuAdvanced" xml:space="preserve"><value>Advanced settings…</value></data>
   <data name="ToolbarReset" xml:space="preserve"><value>Restart</value></data>
   <data name="ToolbarResetTip" xml:space="preserve"><value>Restarts the guest cleanly, as its own Restart: through the guest agent, or else the power button, then a start once it is off.</value></data>
+  <data name="LogCopyDiagnostics" xml:space="preserve"><value>Copy diagnostics</value></data>
+  <data name="LogCopyDiagnosticsTip" xml:space="preserve"><value>Copies versions, this PC's processor, QEMU, hardware acceleration and this machine's log, ready to paste into a bug report. Your user and PC names are removed.</value></data>
 </root>

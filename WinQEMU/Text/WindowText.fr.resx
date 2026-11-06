@@ -206,4 +206,6 @@
   <data name="PlatformCpuAdvanced" xml:space="preserve"><value>Réglages avancés…</value></data>
   <data name="ToolbarReset" xml:space="preserve"><value>Redémarrer</value></data>
   <data name="ToolbarResetTip" xml:space="preserve"><value>Redémarre l'invité proprement, comme son propre Redémarrer : par l'agent invité, sinon par le bouton d'alimentation puis un démarrage une fois éteint.</value></data>
+  <data name="LogCopyDiagnostics" xml:space="preserve"><value>Copier le diagnostic</value></data>
+  <data name="LogCopyDiagnosticsTip" xml:space="preserve"><value>Copie les versions, le processeur de ce PC, QEMU, l'accélération matérielle et le journal de cette machine, prêts à coller dans un rapport de bug. Vos noms d'utilisateur et de PC sont retirés.</value></data>
 </root>

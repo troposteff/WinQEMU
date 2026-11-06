@@ -267,4 +267,7 @@ Les instantanés du modèle sont figés eux aussi. Vous pourrez le reconvertir e
   <data name="FolderStartProgress" xml:space="preserve"><value>Démarrage de {0} ({1} sur {2})…</value></data>
   <data name="FolderStartFailed" xml:space="preserve"><value>« {0} » n'a pas pu démarrer : {1}</value></data>
   <data name="RestartNoShutdown" xml:space="preserve"><value>L'invité ne s'est pas arrêté dans les 3 minutes après le bouton d'alimentation : il n'a donc pas été redémarré. Redémarrez-le depuis l'invité, ou utilisez Éteindre.</value></data>
+  <data name="DiagnosticsCopied" xml:space="preserve"><value>Diagnostic copié. Collez-le dans un nouveau rapport sur GitHub, avec ce que vous faisiez quand le problème est survenu.</value></data>
+  <data name="DiagnosticsNotCopied" xml:space="preserve"><value>Le presse-papiers est occupé par un autre programme. Réessayez.</value></data>
+  <data name="DiagnosticsOpenIssues" xml:space="preserve"><value>Signaler un problème sur GitHub</value></data>
 </root>

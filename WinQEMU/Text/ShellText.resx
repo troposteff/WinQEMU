@@ -267,4 +267,7 @@ The template's snapshots are frozen as well. You can convert it back to a virtua
   <data name="FolderStartProgress" xml:space="preserve"><value>Starting {0} ({1} of {2})…</value></data>
   <data name="FolderStartFailed" xml:space="preserve"><value>“{0}” could not start: {1}</value></data>
   <data name="RestartNoShutdown" xml:space="preserve"><value>The guest did not shut down within 3 minutes after the power button, so it was not restarted. Restart it from within the guest, or use Power off.</value></data>
+  <data name="DiagnosticsCopied" xml:space="preserve"><value>Diagnostics copied. Paste them into a new issue on GitHub, with what you were doing when the problem happened.</value></data>
+  <data name="DiagnosticsNotCopied" xml:space="preserve"><value>The clipboard is in use by another program. Try again.</value></data>
+  <data name="DiagnosticsOpenIssues" xml:space="preserve"><value>Report a problem on GitHub</value></data>
 </root>

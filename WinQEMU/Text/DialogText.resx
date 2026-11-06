@@ -95,7 +95,6 @@
   <data name="NewVmUnattended" xml:space="preserve"><value>Unattended installation</value></data>
   <data name="UserName" xml:space="preserve"><value>User name</value></data>
   <data name="Password" xml:space="preserve"><value>Password</value></data>
-  <data name="NewVmComputerName" xml:space="preserve"><value>Computer name:</value></data>
   <data name="NewVmSecondaryIso" xml:space="preserve"><value>Second drive (virtio drivers, optional)</value></data>
   <data name="Network" xml:space="preserve"><value>Network</value></data>
   <data name="NetworkConnection" xml:space="preserve"><value>Network connection</value></data>
@@ -128,13 +127,13 @@
   <data name="NewVmSparseAdvisory" xml:space="preserve"><value>The disk declares {0} while only {1} is free. The qcow2 format is sparse: it only takes the space actually written, but the guest will run out of space before reaching its stated size.</value></data>
   <data name="NewVmNoSpace" xml:space="preserve"><value>The {0} format reserves all the space at once, but only {1} is left on the volume.</value></data>
   <data name="NewVmIsoNotFound" xml:space="preserve"><value>ISO image not found: {0}</value></data>
-  <data name="NewVmUbuntuPassword" xml:space="preserve"><value>Ubuntu needs a password to sign in: enter one.</value></data>
+  <data name="NewVmLinuxPassword" xml:space="preserve"><value>{0} needs a password to sign in: enter one.</value></data>
   <data name="NewVmSecondIsoNotFound" xml:space="preserve"><value>Second ISO not found: {0}</value></data>
   <data name="NewVmNoIsoAdvisory" xml:space="preserve"><value>Without installation media, the VM will start on an empty disk and stop at the firmware. You can add an ISO later.</value></data>
   <data name="NewVmNoVirtioUnattended" xml:space="preserve"><value>Without the virtio-win ISO in the second drive, Windows will install without its virtio drivers or the guest agent: no shared folders, and no resolution that follows the window.</value></data>
   <data name="NewVmVirtioSuggested" xml:space="preserve"><value>For this system, the virtio-win ISO in the second drive lets you use virtio devices (faster network and disk). Optional here, since the disk is set up on a bus recognized natively.</value></data>
   <data name="NewVmHostSummary" xml:space="preserve"><value>Host: {0} logical processors, {1} of memory.</value></data>
-  <data name="NewVmUnattendedUbuntu" xml:space="preserve"><value>Ubuntu installs without asking anything: the whole disk, this account (administrator through sudo), this PC's language, keyboard and time zone, the guest agent and the clipboard agent (shared folders and copy and paste from the start). A NAT card is needed: the packages come from the Internet.</value></data>
+  <data name="NewVmUnattendedUbuntu" xml:space="preserve"><value>{0} installs without asking anything: the whole disk, this account (administrator through sudo), this PC's language, keyboard and time zone, the guest agent and the clipboard agent (shared folders and copy and paste from the start). A NAT card is needed: the packages come from the Internet.</value></data>
   <data name="NewVmUnattendedWindows" xml:space="preserve"><value>Windows installs without asking anything: the Pro edition, the whole disk, this account (administrator, signed in automatically the first time), this PC's language, keyboard and time zone. Then the virtio drivers and the guest agent, if the virtio-win ISO is in the second drive.</value></data>
   <data name="NewVmSummaryName" xml:space="preserve"><value>Name: {0}</value></data>
   <data name="NewVmSummaryLocation" xml:space="preserve"><value>Location: {0}</value></data>
@@ -328,4 +327,6 @@ Taken on {2}</value></data>
   <data name="NewVmIsoDownload" xml:space="preserve"><value>No ISO yet? Download it from {0}</value></data>
   <data name="NewVmFamily" xml:space="preserve"><value>Family</value></data>
   <data name="NewVmFamilyOther" xml:space="preserve"><value>Other</value></data>
+  <data name="NewVmInstallDesktop" xml:space="preserve"><value>Install a graphical desktop (otherwise a console with SSH)</value></data>
+  <data name="NewVmComputerNameHeader" xml:space="preserve"><value>Computer name</value></data>
 </root>

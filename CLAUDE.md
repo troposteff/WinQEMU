@@ -648,6 +648,11 @@ pas accessible depuis l'environnement de test.
   toutes, progression, « Éteindre maintenant » pour celles qui ne répondent pas), « Annuler ». En arrière-plan la
   fenêtre est seulement cachée (`AppWindow.Hide`) : les consoles restent ses enfants, rien à retrouver au retour.
   Icône de zone de notification Win32 (`TrayIcon`, WinUI n'en a pas ; remise à « TaskbarCreated »).
+- **La fenêtre rouvre où elle a été fermée** (`MainWindow.Placement`, `AppSettings.Window`) : même écran, position, taille,
+  agrandie ou non. `GetWindowPlacement` à la fermeture (rectangle restauré, juste même agrandie, réduite ou cachée), à
+  l'entrée du plein écran (dont le rectangle est celui de l'écran) ; `SetWindowPlacement` avant le premier affichage,
+  **deux fois** (posée sur un écran d'une autre échelle, la fenêtre est redimensionnée par le changement de DPI), puis
+  agrandie à l'affichage. Écran disparu : Windows la place. Vérifié entre l'écran 1920 x 1200 et le second de l'utilisateur.
 - **Une seule instance** (`Program.Main`, `DISABLE_XAML_GENERATED_MAIN`) : relancé, WinQEMU passe l'activation à
   celui qui tourne (`AppInstance.RedirectActivationToAsync`), qui réaffiche sa fenêtre. Deux instances listeraient les
   mêmes machines sans se voir.
@@ -668,7 +673,7 @@ pas accessible depuis l'environnement de test.
 
 ## Ligne de commande (`winqemu`)
 
-Comme `vmrun` de VMware : `winqemu list | status | start | stop | poweroff | pause | resume | snapshot … | show | help`
+Comme `vmrun` de VMware : `winqemu list | status | start | stop | poweroff | pause | resume | snapshot … | show | capture | help`
 (aide complète dans `CliText.Usage`). **La commande pilote WinQEMU, pas QEMU** (choix de l'utilisateur) : une machine
 démarrée d'un terminal est celle que montre la fenêtre, avec sa console, et rien ne tourne deux fois.
 
@@ -927,6 +932,28 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   (`BootFromIso` faux). Avec `-kernel`, l'index de démarrage 0 est pris : les périphériques partent de 1 (sinon
   « The bootindex 0 has already been used »). Vérifié de bout en bout sur l'ISO Ubuntu 26.04 bureau : 24 min, agent
   qui répond, écran de connexion.
+- **Installation automatique de Debian, Fedora et openSUSE** (`LinuxUnattendedSetup`, même principe qu'Ubuntu : premier
+  démarrage sur le noyau et l'initrd de l'ISO par `-kernel`, ligne du noyau gardée dans `winqemu-setup\cmdline`, puis le
+  disque) ; case « Installer un bureau graphique » (sinon console avec SSH) dans l'assistant. Fichiers de réponses
+  supprimés quand l'agent répond, comme pour Ubuntu (ils portent l'empreinte du mot de passe).
+  **Nom de l'ordinateur modifiable** dans l'assistant (toutes les installations automatiques, Windows compris) : tiré du nom
+  de la machine et le suivant tant qu'on ne le change pas ; règle NetBIOS pour Windows (15 caractères, pas que des chiffres),
+  une étiquette DNS pour Linux (`WhyComputerNameIsRefused`, `WhyHostnameIsRefused`).
+  - **Debian** (debian-installer) : `preseed.cfg` **ajouté à l'initrd**, second cpio newc gzip à la suite de celui de l'ISO
+    (le noyau les déballe l'un après l'autre ; méthode documentée par Debian), lu par d-i avant sa première question.
+    Ligne `priority=critical --- quiet`, pas de clé. GNOME ou `standard, ssh-server`.
+  - **Fedora** (Anaconda) : `ks.cfg` sur une clé vvfat **OEMDRV**, `inst.ks=hd:LABEL=OEMDRV:/ks.cfg`, et
+    `inst.stage2=hd:LABEL=…` **lu dans le grub.cfg de l'ISO** (étiquette de volume complète ; Windows la montre tronquée, `Fedora-E-dvd-x86`).
+    **ISO d'installation seulement** (Everything, Server : `images/install.img`) : une ISO Live s'installe en se copiant,
+    sans kickstart ; elle a pourtant `images/pxeboot`, d'où le test (`IsoFileReader.Contains`, sans lire le gigaoctet).
+  - **openSUSE** (linuxrc, YaST) : `autoinst.xml` sur la clé OEMDRV, `autoyast=label://OEMDRV/autoinst.xml`. L'ISO NET de
+    Tumbleweed utilise encore YaST (pas Agama). **Produit exigé** (`<products>`) : un même support en propose plusieurs
+    (openSUSE, MicroOS, Aeon, Kalpa), sinon « None or wrong base product » ; lu dans `media.1/products`. **Disques de moins de 4 Gio exclus** (`skip_list`) :
+    sans disque nommé, AutoYaST prenait la clé OEMDRV (`sda`, avant `vda`) et s'arrêtait sur « Impossible de suggérer un
+    partitionnement ». Reconnue par
+    `media.1/media` : l'arbre ISO 9660 primaire ne sait pas nommer `.treeinfo` (point initial). SLE refusé (enregistrement).
+  - Suivi des essais par `winqemu capture <machine> [fichier]` (nouveau, comme `captureScreen` de vmrun : `screendump` de
+    la session, sans dépendre de l'écran).
 - **`-accel whpx` sans `kernel-irqchip`** : par défaut QEMU prend l'APIC de l'hyperviseur s'il en a un, sinon le
   sien. Forcé à `off` (l'ancienne règle, de l'époque où le défaut refusait de démarrer), **un invité Windows à plus
   d'un vCPU se figeait sur la roue de démarrage**, installation de Windows 11 comprise ; 1 vCPU démarrait, et tout

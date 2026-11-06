@@ -52,7 +52,7 @@
   <data name="LinkedCloneMergeRefused" xml:space="preserve"><value>Disk "{0}" is the base of {1}: deleting or merging this level would write to an image the clone reads, and corrupt its data. Restoring is still possible: the images the clone needs are then kept.</value></data>
   <data name="LinkedCloneFilesRefused" xml:space="preserve"><value>This machine's files are the base of {0}. Deleting them would destroy the clone. Delete the clone first, or make its disks independent with "Convert…".</value></data>
   <data name="LinkedCloneAttachRefused" xml:space="preserve"><value>This image is the base of {0}: a machine writing to it would corrupt the clone.</value></data>
-  <data name="LibraryUbuntuIsoWithoutInstaller" xml:space="preserve"><value>This ISO image does not have Ubuntu's installer kernel (casper): unattended installation is impossible.</value></data>
+  <data name="LibraryUbuntuIsoWithoutInstaller" xml:space="preserve"><value>This ISO image has no installer WinQEMU knows how to drive: unattended installation is impossible.</value></data>
   <data name="LibraryDiskNotFound" xml:space="preserve"><value>Disk "{0}" was not found: {1}</value></data>
   <data name="LibraryImportedDescription" xml:space="preserve"><value>Imported {0} on {1}: {2}</value></data>
   <data name="LibraryImportedFromVmware" xml:space="preserve"><value>from VMware</value></data>
@@ -137,4 +137,6 @@
   <data name="ManagerStopBeforeTemplate" xml:space="preserve"><value>Shut down the virtual machine before turning it into a template.</value></data>
   <data name="ManagerTemplateCannotStart" xml:space="preserve"><value>{0} is a template: it is not started, it is cloned. Deploy it, or convert it back to a virtual machine.</value></data>
   <data name="GuestOsFirewallCaveat" xml:space="preserve"><value>A firewall needs two network cards, WAN and LAN: add the second one in Hardware once the machine is created, for example on a virtual network for the machines it protects.</value></data>
+  <data name="UnattendedLinuxHostnameRule" xml:space="preserve"><value>A computer name contains only letters, digits and hyphens, does not start or end with a hyphen, and has 63 characters at most.</value></data>
+  <data name="UnattendedWindowsComputerNameRule" xml:space="preserve"><value>A Windows computer name contains only letters, digits and hyphens, not only digits, does not start or end with a hyphen, and has 15 characters at most.</value></data>
 </root>

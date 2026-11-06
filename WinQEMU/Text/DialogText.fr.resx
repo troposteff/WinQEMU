@@ -95,7 +95,6 @@
   <data name="NewVmUnattended" xml:space="preserve"><value>Installation automatique</value></data>
   <data name="UserName" xml:space="preserve"><value>Nom d'utilisateur</value></data>
   <data name="Password" xml:space="preserve"><value>Mot de passe</value></data>
-  <data name="NewVmComputerName" xml:space="preserve"><value>Nom de l'ordinateur :</value></data>
   <data name="NewVmSecondaryIso" xml:space="preserve"><value>Second lecteur (pilotes virtio, facultatif)</value></data>
   <data name="Network" xml:space="preserve"><value>Réseau</value></data>
   <data name="NetworkConnection" xml:space="preserve"><value>Connexion réseau</value></data>
@@ -128,13 +127,13 @@
   <data name="NewVmSparseAdvisory" xml:space="preserve"><value>Le disque déclare {0} alors qu'il reste {1} de libre. Le format qcow2 est creux : il n'occupera que l'espace réellement écrit, mais l'invité tombera en panne d'espace avant sa taille annoncée.</value></data>
   <data name="NewVmNoSpace" xml:space="preserve"><value>Le format {0} réserve immédiatement tout l'espace, or il ne reste que {1} sur le volume.</value></data>
   <data name="NewVmIsoNotFound" xml:space="preserve"><value>Image ISO introuvable : {0}</value></data>
-  <data name="NewVmUbuntuPassword" xml:space="preserve"><value>Ubuntu demande un mot de passe pour ouvrir une session : indiquez-en un.</value></data>
+  <data name="NewVmLinuxPassword" xml:space="preserve"><value>{0} demande un mot de passe pour ouvrir une session : indiquez-en un.</value></data>
   <data name="NewVmSecondIsoNotFound" xml:space="preserve"><value>Second ISO introuvable : {0}</value></data>
   <data name="NewVmNoIsoAdvisory" xml:space="preserve"><value>Sans support d'installation, la VM démarrera sur un disque vide et s'arrêtera au microprogramme. Vous pourrez ajouter un ISO plus tard.</value></data>
   <data name="NewVmNoVirtioUnattended" xml:space="preserve"><value>Sans l'ISO virtio-win en second lecteur, Windows s'installera sans ses pilotes virtio ni l'agent invité : pas de dossiers partagés, ni de résolution qui suit la fenêtre.</value></data>
   <data name="NewVmVirtioSuggested" xml:space="preserve"><value>Pour ce système, l'ISO virtio-win en second lecteur permet d'utiliser les périphériques virtio (réseau et disque plus rapides). Facultatif ici, car le disque est configuré sur un bus reconnu nativement.</value></data>
   <data name="NewVmHostSummary" xml:space="preserve"><value>Hôte : {0} processeurs logiques, {1} de mémoire.</value></data>
-  <data name="NewVmUnattendedUbuntu" xml:space="preserve"><value>Ubuntu s'installe sans rien demander : tout le disque, ce compte (administrateur par sudo), la langue, le clavier et le fuseau horaire de ce PC, l'agent invité et l'agent de presse-papiers (dossiers partagés et copier-coller d'emblée). Il faut une carte en NAT : les paquets viennent d'Internet.</value></data>
+  <data name="NewVmUnattendedUbuntu" xml:space="preserve"><value>{0} s'installe sans rien demander : tout le disque, ce compte (administrateur par sudo), la langue, le clavier et le fuseau horaire de ce PC, l'agent invité et l'agent de presse-papiers (dossiers partagés et copier-coller d'emblée). Il faut une carte en NAT : les paquets viennent d'Internet.</value></data>
   <data name="NewVmUnattendedWindows" xml:space="preserve"><value>Windows s'installe sans rien demander : l'édition Professionnel, tout le disque, ce compte (administrateur, ouvert automatiquement la première fois), la langue, le clavier et le fuseau horaire de ce PC. Puis les pilotes virtio et l'agent invité, si l'ISO virtio-win est en second lecteur.</value></data>
   <data name="NewVmSummaryName" xml:space="preserve"><value>Nom : {0}</value></data>
   <data name="NewVmSummaryLocation" xml:space="preserve"><value>Emplacement : {0}</value></data>
@@ -328,4 +327,6 @@ Pris le {2}</value></data>
   <data name="NewVmIsoDownload" xml:space="preserve"><value>Pas encore d'ISO ? Téléchargez-la sur {0}</value></data>
   <data name="NewVmFamily" xml:space="preserve"><value>Famille</value></data>
   <data name="NewVmFamilyOther" xml:space="preserve"><value>Autre</value></data>
+  <data name="NewVmInstallDesktop" xml:space="preserve"><value>Installer un bureau graphique (sinon une console avec SSH)</value></data>
+  <data name="NewVmComputerNameHeader" xml:space="preserve"><value>Nom de l'ordinateur</value></data>
 </root>

@@ -1,0 +1,138 @@
+using System.IO.Compression;
+using System.Text;
+using System.Xml.Linq;
+using WinQEMU.Core.Models;
+using WinQEMU.Core.Qemu;
+using WinQEMU.Core.Services;
+using Xunit;
+
+namespace WinQEMU.Core.Tests;
+
+public class LinuxUnattendedSetupTests
+{
+    private static UnattendedLinux Settings(bool desktop = true) =>
+        new("stephane", "$6$salt$hash", "debian-test", "fr_FR.UTF-8", "fr", "Europe/Paris", desktop);
+
+    [Fact]
+    public void The_preseed_is_appended_to_the_initrd_as_a_second_archive()
+    {
+        var original = Encoding.ASCII.GetBytes("ORIGINAL-INITRD");
+
+        var initrd = LinuxUnattendedSetup.WithFile(original, "preseed.cfg", "d-i a b\r\n");
+
+        Assert.Equal(original, initrd[..original.Length]);
+        using var gzip = new GZipStream(new MemoryStream(initrd[original.Length..]), CompressionMode.Decompress);
+        using var cpio = new MemoryStream();
+        gzip.CopyTo(cpio);
+        var text = Encoding.ASCII.GetString(cpio.ToArray());
+        // newc: magic, then the name and the data, each padded to four bytes; LF only for the installer.
+        Assert.StartsWith("070701", text);
+        Assert.Contains("preseed.cfg\0", text);
+        Assert.Contains("d-i a b\n", text);
+        Assert.DoesNotContain("\r", text);
+        Assert.Contains("TRAILER!!!", text);
+        Assert.Equal(0, cpio.Length % 4);
+    }
+
+    [Fact]
+    public void Debian_creates_the_account_and_chooses_its_tasks()
+    {
+        var desktop = LinuxUnattendedSetup.DebianPreseed(Settings());
+        var console = LinuxUnattendedSetup.DebianPreseed(Settings(desktop: false));
+
+        Assert.Contains("d-i passwd/user-password-crypted password $6$salt$hash", desktop);
+        Assert.Contains("d-i debian-installer/locale string fr_FR.UTF-8", desktop);
+        Assert.Contains("gnome-desktop", desktop);
+        Assert.Contains("ssh-server", console);
+        Assert.DoesNotContain("gnome-desktop", console);
+        Assert.Contains("pkgsel/include string qemu-guest-agent spice-vdagent", console);
+    }
+
+    [Fact]
+    public void Fedora_kickstart_has_a_wheel_user_and_the_environment()
+    {
+        var kickstart = LinuxUnattendedSetup.FedoraKickstart(Settings());
+
+        Assert.Contains("user --name=stephane --gecos=\"stephane\" --groups=wheel --iscrypted --password=$6$salt$hash", kickstart);
+        Assert.Contains("@^workstation-product-environment", kickstart);
+        Assert.Contains("@^server-product-environment", LinuxUnattendedSetup.FedoraKickstart(Settings(desktop: false)));
+        Assert.Contains("reboot", kickstart);
+    }
+
+    [Fact]
+    public void AutoYast_is_well_formed_and_installs_the_agents()
+    {
+        var profile = XDocument.Parse(LinuxUnattendedSetup.AutoYast(Settings()));
+        XNamespace yast = "http://www.suse.com/1.0/yast2ns";
+
+        Assert.Contains(profile.Descendants(yast + "pattern"), p => p.Value == "kde_plasma");
+        Assert.Contains(profile.Descendants(yast + "package"), p => p.Value == "qemu-guest-agent");
+        Assert.Equal("french", profile.Descendants(yast + "keymap").Single().Value);
+        Assert.Equal(2, profile.Descendants(yast + "user").Count());
+        Assert.Equal("openSUSE", profile.Descendants(yast + "product").Single().Value);
+        // The OEMDRV stick is the first disk: never the one to install on.
+        Assert.Equal("size_k", profile.Descendants(yast + "skip_key").Single().Value);
+        Assert.Equal("false", profile.Descendants(yast + "add_crash_kernel").Single().Value);
+    }
+
+    private static VmConfig Pending(string guestOs, string? commandLine = null)
+    {
+        var config = Fixtures.Vm(guestOs);
+        config.GuestOs = guestOs;
+        config.FolderPath = Path.Combine(Path.GetTempPath(), "wq-linux-" + Guid.NewGuid().ToString("N"));
+        config.IsoPath = @"C:\iso\installer.iso";
+        config.BootFromIso = false;
+        config.UnattendedSetup = UnattendedSetupState.Pending;
+        if (commandLine is not null)
+        {
+            var folder = QemuArgumentBuilder.GetWindowsSetupFolder(config);
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, LinuxUnattendedSetup.CommandLineFile), commandLine);
+        }
+        return config;
+    }
+
+    [Fact]
+    public void Fedora_and_openSUSE_read_their_answers_from_an_OEMDRV_stick()
+    {
+        var config = Pending("fedora", "inst.stage2=hd:LABEL=X inst.ks=hd:LABEL=OEMDRV:/ks.cfg quiet");
+        try
+        {
+            var args = Fixtures.Build(config);
+
+            Assert.Equal("inst.stage2=hd:LABEL=X inst.ks=hd:LABEL=OEMDRV:/ks.cfg quiet", Fixtures.Value(args, "-append"));
+            Assert.Contains(Fixtures.Values(args, "-blockdev"), b => b.Contains("label=OEMDRV", StringComparison.Ordinal));
+            Assert.Contains(Fixtures.Values(args, "-blockdev"), b => b.Contains(@"winqemu-setup\oemdrv", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(config.FolderPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Debian_needs_no_stick()
+    {
+        var config = Pending("debian", "priority=critical --- quiet");
+        try
+        {
+            var args = Fixtures.Build(config);
+
+            Assert.Equal("priority=critical --- quiet", Fixtures.Value(args, "-append"));
+            Assert.DoesNotContain(Fixtures.Values(args, "-blockdev"), b => b.Contains("wq-cidata", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(config.FolderPath, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("ubuntu", true)]
+    [InlineData("debian", true)]
+    [InlineData("fedora", true)]
+    [InlineData("opensuse", true)]
+    [InlineData("arch", false)]
+    public void Supported_systems(string guestOs, bool supported) =>
+        Assert.Equal(supported, LinuxUnattendedSetup.Supports(guestOs));
+}

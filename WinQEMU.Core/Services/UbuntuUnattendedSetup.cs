@@ -6,18 +6,20 @@ using WinQEMU.Core.Text;
 
 namespace WinQEMU.Core.Services
 {
-    /// <summary>What an unattended Ubuntu installation needs to know.</summary>
+    /// <summary>What an unattended Linux installation needs to know (this, and LinuxUnattendedSetup).</summary>
     /// <param name="PasswordHash">SHA-512 crypt of the password: the clear one never goes into the file.</param>
     /// <param name="Locale">"fr_FR.UTF-8", from this PC.</param>
     /// <param name="KeyboardLayout">xkb layout ("fr"), from this PC's keyboard.</param>
     /// <param name="TimeZone">IANA time zone ("Europe/Paris"), from this PC's.</param>
+    /// <param name="Desktop">A graphical desktop, or a console with SSH. Ubuntu's ISO decides for itself.</param>
     public sealed record UnattendedLinux(
         string UserName,
         string PasswordHash,
         string Hostname,
         string Locale,
         string KeyboardLayout,
-        string TimeZone);
+        string TimeZone,
+        bool Desktop = true);
 
     /// <summary>
     /// Ubuntu's own unattended installation (autoinstall), as VMware's "installation simplifiée" does for
@@ -41,12 +43,12 @@ namespace WinQEMU.Core.Services
         /// <summary>"autoinstall" for the installer alone, before "---"; what follows is the ISO's own line.</summary>
         public const string KernelArguments = "autoinstall --- quiet splash";
 
-        public static UnattendedLinux ForHost(string userName, string password, string machineName)
+        public static UnattendedLinux ForHost(string userName, string password, string machineName, bool desktop = true)
         {
             var culture = CultureInfo.CurrentCulture.Name.Replace('-', '_');
             var timeZone = TimeZoneInfo.TryConvertWindowsIdToIanaId(TimeZoneInfo.Local.Id, out var iana) ? iana : "Etc/UTC";
             return new UnattendedLinux(userName.Trim(), Sha512Crypt.Hash(password), HostnameFor(machineName),
-                (culture.Length > 0 ? culture : "en_US") + ".UTF-8", HostKeyboardLayout(), timeZone);
+                (culture.Length > 0 ? culture : "en_US") + ".UTF-8", HostKeyboardLayout(), timeZone, desktop);
         }
 
         /// <summary>A Linux host name from a machine name: lower-case letters, digits and hyphens, at most 63.</summary>
@@ -61,6 +63,13 @@ namespace WinQEMU.Core.Services
                 folded = folded[..63].TrimEnd('-');
             return folded.Length == 0 ? "ubuntu" : folded;
         }
+
+        /// <summary>
+        /// Why a host name typed in the wizard cannot be used, or null: one DNS label (letters, digits, inner hyphens, 63
+        /// at most). Upper case is accepted and lowered by <see cref="HostnameFor"/>.
+        /// </summary>
+        public static string? WhyHostnameIsRefused(string hostname) =>
+            Regex.IsMatch(hostname.Trim(), "^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$") ? null : CoreText.UnattendedLinuxHostnameRule;
 
         /// <summary>Why a user name cannot be used on Linux, or null.</summary>
         public static string? WhyUserNameIsRefused(string userName)

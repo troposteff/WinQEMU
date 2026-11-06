@@ -29,6 +29,7 @@ Usage : winqemu &lt;commande&gt; [arguments]
   snapshot restore &lt;machine&gt; &lt;nom&gt;
   snapshot delete &lt;machine&gt; &lt;nom&gt;       Gère les instantanés d'une machine.
   show [&lt;machine&gt;]                      Affiche la fenêtre de WinQEMU, sur cette machine.
+  capture &lt;machine&gt; [&lt;fichier.png&gt;]      Capture l'écran de l'invité (par défaut dans Images\WinQEMU).
   help                                  Affiche cette aide.
 
 Une machine se désigne par son nom dans la bibliothèque de WinQEMU (sans tenir compte de la casse) ou par son identifiant.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -44,6 +45,7 @@ namespace WinQEMU.ViewModels
                     "resume" => await OnRunningAsync(args, s => s.ResumeAsync(), CliText.Resumed),
                     "snapshot" => await SnapshotFromCommandAsync(args, request.Password),
                     "show" => Show(args),
+                    "capture" => await CaptureFromCommandAsync(args),
                     _ => Misuse(string.Format(CultureInfo.CurrentCulture, CliText.UnknownCommand, request.Command))
                 };
             }
@@ -279,6 +281,30 @@ namespace WinQEMU.ViewModels
             Manager.FindSession(config) is { } session && IsLive(session.State)
                 ? session
                 : throw new CommandException(string.Format(CultureInfo.CurrentCulture, CliText.NotRunning, config.Name));
+
+        /// <summary>
+        /// "winqemu capture Debian [file.png]", as vmrun's captureScreen: the guest's screen as a PNG, by default where the
+        /// console's camera button puts it. Prints the file.
+        /// </summary>
+        private async Task<CliResponse> CaptureFromCommandAsync(string[] args)
+        {
+            var config = FindMachine(Argument(args, 0, CliText.ArgumentMachine));
+            var session = RunningSessionOf(config);
+            // A file named here is replaced, as cp would: a script polling an install writes the same "latest.png"
+            // again and again, and every capture after the first failed with "file already exists".
+            var named = args.Length > 1 && !args[1].StartsWith("--", StringComparison.Ordinal);
+            var path = named ? args[1] : UniqueCapturePath(config.Name, DateTime.Now);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                await session.CaptureScreenAsync(path, overwrite: named);
+            }
+            catch (Exception ex) when (ex is QmpException or IOException or UnauthorizedAccessException)
+            {
+                throw new CommandException(string.Format(CultureInfo.CurrentCulture, ShellText.CaptureFailed, ex.Message));
+            }
+            return Ok(path);
+        }
 
         private async Task<CliResponse> OnRunningAsync(string[] args, Func<VmSession, Task> action, string done)
         {

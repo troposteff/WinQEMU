@@ -29,6 +29,7 @@ Usage: winqemu &lt;command&gt; [arguments]
   snapshot restore &lt;machine&gt; &lt;name&gt;
   snapshot delete &lt;machine&gt; &lt;name&gt;      Manages a machine's snapshots.
   show [&lt;machine&gt;]                      Shows WinQEMU's window, on that machine.
+  capture &lt;machine&gt; [&lt;file.png&gt;]         Captures the guest's screen (by default in Pictures\WinQEMU).
   help                                  Shows this help.
 
 A machine is named as in WinQEMU's library (case does not matter) or by its id. A folder is

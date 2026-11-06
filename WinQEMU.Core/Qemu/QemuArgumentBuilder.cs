@@ -738,12 +738,16 @@ namespace WinQEMU.Core.Qemu
                 args.Add($"usb-storage,id=wq-setup-stick,bus={UsbPassthroughControllerId}.0,drive=wq-setup,removable=on");
             }
 
-            if (NeedsLinuxInstallerBoot(config))
+            if (NeedsLinuxInstallerBoot(config) && config.GuestOs != "debian")
             {
-                // Labelled CIDATA: where cloud-init's NoCloud source, and so Ubuntu's installer, looks.
-                var cidata = Path.Combine(GetWindowsSetupFolder(config), Services.UbuntuUnattendedSetup.CidataFolder);
+                // Labelled CIDATA, where cloud-init's NoCloud source, and so Ubuntu's installer, looks; OEMDRV for
+                // Fedora's kickstart and openSUSE's AutoYaST. Debian's answers are in its initrd: no stick.
+                var oem = Services.LinuxUnattendedSetup.UsesOemDrive(config.GuestOs);
+                var stick = Path.Combine(GetWindowsSetupFolder(config),
+                    oem ? Services.LinuxUnattendedSetup.OemDriveFolder : Services.UbuntuUnattendedSetup.CidataFolder);
+                var label = oem ? Services.LinuxUnattendedSetup.OemDriveLabel : "CIDATA";
                 args.Add("-blockdev");
-                args.Add($"driver=vvfat,node-name=wq-cidata-fat,dir={FileOption(cidata)},label=CIDATA,read-only=on");
+                args.Add($"driver=vvfat,node-name=wq-cidata-fat,dir={FileOption(stick)},label={label},read-only=on");
                 args.Add("-blockdev");
                 args.Add("driver=raw,node-name=wq-cidata,file=wq-cidata-fat,read-only=on");
                 args.Add("-device");
@@ -781,7 +785,7 @@ namespace WinQEMU.Core.Qemu
             args.Add("-initrd");
             args.Add(QemuReadablePath(Path.Combine(folder, Services.UbuntuUnattendedSetup.InitrdFile)));
             args.Add("-append");
-            args.Add(Services.UbuntuUnattendedSetup.KernelArguments);
+            args.Add(Services.LinuxUnattendedSetup.CommandLine(folder));
         }
 
         /// <summary>The machine's folder the setup stick shows.</summary>

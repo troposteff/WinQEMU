@@ -302,6 +302,10 @@
                             Style="{StaticResource Hint}"
                             Text="{Binding UnattendedHint, Mode=OneWay}"
                             TextWrapping="Wrap" />
+                        <CheckBox
+                            Content="{x:Bind t:DialogText.NewVmInstallDesktop}"
+                            IsChecked="{Binding InstallDesktop, Mode=TwoWay}"
+                            Visibility="{Binding OffersDesktopChoice, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                         <Grid
                             ColumnSpacing="8"
                             RowSpacing="6"
@@ -310,6 +314,10 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
                             <TextBox
                                 Grid.Column="0"
                                 Header="{x:Bind t:DialogText.UserName}"
@@ -319,13 +327,12 @@
                                 Grid.Column="1"
                                 Header="{x:Bind t:DialogText.Password}"
                                 PasswordChanged="OnUnattendedPasswordChanged" />
+                            <TextBox
+                                Grid.Row="1"
+                                Grid.Column="0"
+                                Header="{x:Bind t:DialogText.NewVmComputerNameHeader}"
+                                Text="{Binding UnattendedComputerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </Grid>
-                        <TextBlock
-                            Style="{StaticResource Hint}"
-                            Visibility="{Binding UseUnattended, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                            <Run Text="{x:Bind t:DialogText.NewVmComputerName}" />
-                            <Run Text="{Binding UnattendedComputerName, Mode=OneWay}" />
-                        </TextBlock>
                     </StackPanel>
 
                     <TextBlock Margin="0,8,0,0" Style="{StaticResource FieldLabel}" Text="{x:Bind t:DialogText.NewVmSecondaryIso}" />

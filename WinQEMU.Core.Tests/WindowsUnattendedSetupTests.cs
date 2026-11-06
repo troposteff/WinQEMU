@@ -119,6 +119,24 @@ public class WindowsUnattendedSetupTests
     }
 
     [Theory]
+    [InlineData("PC-SALON", true)]
+    [InlineData("pc2", true)]
+    [InlineData("A", true)]
+    [InlineData("2026", false)]
+    [InlineData("-PC", false)]
+    [InlineData("PC-", false)]
+    [InlineData("PC SALON", false)]
+    [InlineData("SALLE-DE-REUNION", false)]
+    [InlineData("", false)]
+    public void A_typed_computer_name_follows_the_NetBIOS_rules(string name, bool accepted)
+    {
+        Assert.Equal(accepted, WindowsUnattendedSetup.WhyComputerNameIsRefused(name) is null);
+        // What is accepted goes through ComputerNameFor unchanged but for case.
+        if (accepted)
+            Assert.Equal(name.ToUpperInvariant(), WindowsUnattendedSetup.ComputerNameFor(name));
+    }
+
+    [Theory]
     [InlineData("Stéphane", true)]
     [InlineData("", false)]
     [InlineData("a/b", false)]

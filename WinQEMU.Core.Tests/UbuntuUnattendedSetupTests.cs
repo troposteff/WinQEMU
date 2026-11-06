@@ -44,6 +44,21 @@ public class UbuntuUnattendedSetupTests
     }
 
     [Theory]
+    [InlineData("serveur-web", true)]
+    [InlineData("Debian13", true)]
+    [InlineData("-web", false)]
+    [InlineData("web-", false)]
+    [InlineData("web.local", false)]
+    [InlineData("poste été", false)]
+    [InlineData("", false)]
+    public void A_typed_host_name_is_one_DNS_label(string name, bool accepted)
+    {
+        Assert.Equal(accepted, UbuntuUnattendedSetup.WhyHostnameIsRefused(name) is null);
+        if (accepted)
+            Assert.Equal(name.ToLowerInvariant(), UbuntuUnattendedSetup.HostnameFor(name));
+    }
+
+    [Theory]
     [InlineData("stephane", true)]
     [InlineData("Stephane", false)]
     [InlineData("2cool", false)]

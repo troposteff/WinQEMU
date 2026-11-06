@@ -47,6 +47,33 @@ namespace WinQEMU.Core.Services
             }
         }
 
+        /// <summary>
+        /// Whether the ISO 9660 tree has a file, however large: an installer's image of a gigabyte is only looked for
+        /// (Fedora's images/install.img tells an installation disc from a live one), never read.
+        /// </summary>
+        public static bool Contains(string isoPath, string path)
+        {
+            try
+            {
+                using var iso = new FileStream(isoPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var descriptor = ReadSectors(iso, 16, 1);
+                if (descriptor[0] != 1 || Encoding.ASCII.GetString(descriptor, 1, 5) != "CD001")
+                    return false;
+                var (extent, length, isDirectory) = Record(descriptor, 156);
+                foreach (var part in path.Split('/', '\\', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (!isDirectory || Find(iso, extent, length, part) is not { } entry)
+                        return false;
+                    (extent, length, isDirectory) = entry;
+                }
+                return !isDirectory;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                return false;
+            }
+        }
+
         // ---- UDF: Microsoft's own ISOs are UDF only; their ISO 9660 tree holds nothing but a README ----
 
         /// <summary>A file read through the image's UDF file system (ECMA-167), or null.</summary>

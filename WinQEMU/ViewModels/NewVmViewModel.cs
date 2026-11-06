@@ -281,8 +281,12 @@ namespace WinQEMU.ViewModels
                     ? UbuntuUnattendedSetup.WhyUserNameIsRefused(UnattendedUser)
                     : WindowsUnattendedSetup.WhyUserNameIsRefused(UnattendedUser)) is { } refused)
                 return (refused, null);
+            if (UseUnattended && (IsLinuxUnattended
+                    ? UbuntuUnattendedSetup.WhyHostnameIsRefused(UnattendedComputerName)
+                    : WindowsUnattendedSetup.WhyComputerNameIsRefused(UnattendedComputerName)) is { } badName)
+                return (badName, null);
             if (UseUnattended && IsLinuxUnattended && UnattendedPassword.Length == 0)
-                return (DialogText.NewVmUbuntuPassword, null);
+                return (string.Format(CultureInfo.CurrentCulture, DialogText.NewVmLinuxPassword, SelectedProfile.DisplayName), null);
 
             if (!string.IsNullOrWhiteSpace(SecondaryIsoPath) && !File.Exists(SecondaryIsoPath))
                 return (string.Format(CultureInfo.CurrentCulture, DialogText.NewVmSecondIsoNotFound, SecondaryIsoPath), null);
@@ -317,6 +321,7 @@ namespace WinQEMU.ViewModels
                 if (SetProperty(ref _name, value))
                 {
                     RaisePropertyChanged(nameof(TargetFolder));
+                    RaisePropertyChanged(nameof(UnattendedComputerName));
                     RevalidateCurrentStep();
                 }
             }
@@ -538,24 +543,35 @@ namespace WinQEMU.ViewModels
             BootFromIso && !string.IsNullOrWhiteSpace(IsoPath)
             && (SelectedProfile.Family == "Windows"
                 ? SelectedProfile.Key != "windows-7" && Firmware == FirmwareType.Uefi
-                : SelectedProfile.Key == "ubuntu" && IsUbuntuInstaller(IsoPath));
+                : LinuxUnattendedSetup.Supports(SelectedProfile.Key) && IsLinuxInstaller(SelectedProfile.Key, IsoPath));
 
         /// <summary>Ubuntu's own unattended installation (UbuntuUnattendedSetup) rather than Windows'.</summary>
         public bool IsLinuxUnattended => SelectedProfile.Family == "Linux";
 
         public string UnattendedHint => IsLinuxUnattended
-            ? DialogText.NewVmUnattendedUbuntu
+            ? string.Format(CultureInfo.CurrentCulture, DialogText.NewVmUnattendedUbuntu, SelectedProfile.DisplayName)
             : DialogText.NewVmUnattendedWindows;
 
-        // Reading the ISO's directory on every keystroke of a path would be wasteful: once per file.
-        private readonly Dictionary<string, bool> _ubuntuInstallers = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Debian, Fedora and openSUSE: a desktop, or a console with SSH (Ubuntu's ISO decides).</summary>
+        public bool OffersDesktopChoice => UseUnattended && LinuxUnattendedSetup.OffersDesktopChoice(SelectedProfile.Key);
 
-        private bool IsUbuntuInstaller(string isoPath)
+        private bool _installDesktop = true;
+        public bool InstallDesktop
+        {
+            get => _installDesktop;
+            set => SetProperty(ref _installDesktop, value);
+        }
+
+        // Reading the ISO's directory on every keystroke of a path would be wasteful: once per file.
+        private readonly Dictionary<string, bool> _linuxInstallers = new(StringComparer.OrdinalIgnoreCase);
+
+        private bool IsLinuxInstaller(string guestOs, string isoPath)
         {
             if (!File.Exists(isoPath))
                 return false;
-            if (!_ubuntuInstallers.TryGetValue(isoPath, out var found))
-                _ubuntuInstallers[isoPath] = found = UbuntuUnattendedSetup.CanInstall(isoPath);
+            var key = guestOs + "|" + isoPath;
+            if (!_linuxInstallers.TryGetValue(key, out var found))
+                _linuxInstallers[key] = found = LinuxUnattendedSetup.CanInstall(guestOs, isoPath);
             return found;
         }
 
@@ -576,9 +592,44 @@ namespace WinQEMU.ViewModels
         }
 
         /// <summary>Kept in memory only: it goes into the answer file, never into the descriptor.</summary>
-        public string UnattendedPassword { get; set; } = string.Empty;
+        /// <summary>
+        /// Revalidated as it changes: otherwise "enter a password" stayed shown, and Next disabled, after one was typed.
+        /// </summary>
+        public string UnattendedPassword
+        {
+            get => _unattendedPassword;
+            set
+            {
+                if (_unattendedPassword == value)
+                    return;
+                _unattendedPassword = value;
+                RevalidateCurrentStep();
+            }
+        }
 
-        public string UnattendedComputerName => IsLinuxUnattended
+        private string _unattendedPassword = string.Empty;
+
+        /// <summary>
+        /// The guest's computer name: derived from the machine's name, and following it, until the user types another.
+        /// Typing the derived name back makes it follow again.
+        /// </summary>
+        public string UnattendedComputerName
+        {
+            get => _computerName ?? DerivedComputerName;
+            set
+            {
+                var typed = value == DerivedComputerName ? null : value;
+                if (typed == _computerName)
+                    return;
+                _computerName = typed;
+                RaisePropertyChanged(nameof(UnattendedComputerName));
+                RevalidateCurrentStep();
+            }
+        }
+
+        private string? _computerName;
+
+        private string DerivedComputerName => IsLinuxUnattended
             ? UbuntuUnattendedSetup.HostnameFor(Name)
             : WindowsUnattendedSetup.ComputerNameFor(Name);
 
@@ -597,6 +648,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(UnattendedComputerName));
             RaisePropertyChanged(nameof(CanInstallUnattended));
             RaisePropertyChanged(nameof(UseUnattended));
+            RaisePropertyChanged(nameof(OffersDesktopChoice));
             RevalidateCurrentStep();
         }
 
@@ -748,10 +800,10 @@ namespace WinQEMU.ViewModels
             NicModel = NicModel,
             RtcLocalTime = RtcLocalTime,
             Unattended = UseUnattended && !IsLinuxUnattended
-                ? WindowsUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, Name.Trim(), IsoPath, SelectedProfile.Key)
+                ? WindowsUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, UnattendedComputerName.Trim(), IsoPath, SelectedProfile.Key)
                 : null,
             UnattendedLinux = UseUnattended && IsLinuxUnattended
-                ? UbuntuUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, Name.Trim())
+                ? UbuntuUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, UnattendedComputerName.Trim(), InstallDesktop)
                 : null,
             DiskKey = UseEncryption ? new DiskKey(DiskPassword) : null,
             RememberDiskPassword = UseEncryption && RememberDiskPassword

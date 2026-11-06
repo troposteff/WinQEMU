@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using WinQEMU.Core.Text;
 
@@ -86,6 +87,18 @@ namespace WinQEMU.Core.Services
             if (folded.Length > 15)
                 folded = folded[..15].TrimEnd('-');
             return folded.Length == 0 || folded.All(char.IsAsciiDigit) ? "WINQEMU-VM" : folded;
+        }
+
+        /// <summary>
+        /// Why a computer name typed in the wizard cannot be used, or null: what <see cref="ComputerNameFor"/> produces,
+        /// letters, digits and inner hyphens, 15 at most (NetBIOS), not only digits.
+        /// </summary>
+        public static string? WhyComputerNameIsRefused(string computerName)
+        {
+            var name = computerName.Trim();
+            return Regex.IsMatch(name, "^[A-Za-z0-9]([A-Za-z0-9-]{0,13}[A-Za-z0-9])?$") && !name.All(char.IsAsciiDigit)
+                ? null
+                : CoreText.UnattendedWindowsComputerNameRule;
         }
 
         /// <summary>Why a user name cannot be used, or null. Windows refuses these characters in account names.</summary>

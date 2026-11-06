@@ -801,14 +801,16 @@ namespace WinQEMU.Core.Qemu
 
         /// <summary>
         /// Saves the guest's screen as a PNG at <paramref name="destination"/>, at the guest's own resolution whatever
-        /// the console's scaling. Never overwrites a file.
+        /// the console's scaling. Overwrites an existing file only when <paramref name="overwrite"/> says so (a file
+        /// named on the command line, which a script captures again and again).
         /// </summary>
         /// <remarks>
         /// QEMU writes into a temporary file first: qemu-system opens paths through the ANSI API, and the
         /// destination (Images, under a profile with an accented name, say) may have no 8.3 name yet, as it does not
         /// exist (see QemuArgumentBuilder.QemuReadablePath).
         /// </remarks>
-        public async Task CaptureScreenAsync(string destination, CancellationToken cancellationToken = default)
+        public async Task CaptureScreenAsync(
+            string destination, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             var qmp = RequireQmp();
             var path = Path.Combine(Path.GetTempPath(), $"winqemu-capture-{Guid.NewGuid():N}.png");
@@ -819,7 +821,7 @@ namespace WinQEMU.Core.Qemu
                     "screendump",
                     new JsonObject { ["filename"] = QemuArgumentBuilder.QemuReadablePath(path), ["format"] = "png" },
                     cancellationToken).ConfigureAwait(false);
-                File.Move(path, destination, overwrite: false);
+                File.Move(path, destination, overwrite);
             }
             finally
             {

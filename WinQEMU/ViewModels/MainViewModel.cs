@@ -1434,10 +1434,15 @@ namespace WinQEMU.ViewModels
             foreach (var file in new[]
                      {
                          WindowsSetupAnswer.FileName, WindowsUnattendedSetup.ScriptFileName, WindowsUnattendedSetup.AccountScriptFileName,
-                         UbuntuUnattendedSetup.KernelFile, UbuntuUnattendedSetup.InitrdFile,
-                         Path.Combine(UbuntuUnattendedSetup.CidataFolder, "user-data"), Path.Combine(UbuntuUnattendedSetup.CidataFolder, "meta-data")
+                         UbuntuUnattendedSetup.KernelFile, UbuntuUnattendedSetup.InitrdFile, LinuxUnattendedSetup.CommandLineFile,
+                         Path.Combine(UbuntuUnattendedSetup.CidataFolder, "user-data"), Path.Combine(UbuntuUnattendedSetup.CidataFolder, "meta-data"),
+                         // Fedora's kickstart and openSUSE's AutoYaST hold the password's hash too.
+                         Path.Combine(LinuxUnattendedSetup.OemDriveFolder, "ks.cfg"), Path.Combine(LinuxUnattendedSetup.OemDriveFolder, "autoinst.xml")
                      })
             {
+                // Each system leaves only its own files: the others, in folders that may not exist, are skipped.
+                if (!File.Exists(Path.Combine(folder, file)))
+                    continue;
                 try
                 {
                     File.Delete(Path.Combine(folder, file));

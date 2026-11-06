@@ -26,6 +26,9 @@ namespace WinQEMU.Cli
             }
 
             var arguments = args.Skip(1).Where(a => a != "--password-stdin").ToArray();
+            // A file named on the command line is the terminal's, not WinQEMU's: its folder is resolved here.
+            if (args[0].Equals("capture", StringComparison.OrdinalIgnoreCase) && arguments.Length > 1)
+                arguments[1] = Path.GetFullPath(arguments[1]);
             var password = args.Contains("--password-stdin") ? Console.In.ReadLine() ?? string.Empty : null;
 
             using var stop = new CancellationTokenSource();

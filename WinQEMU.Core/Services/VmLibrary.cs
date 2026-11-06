@@ -192,7 +192,7 @@ namespace WinQEMU.Core.Services
             else if (request.UnattendedLinux is { } linux && !string.IsNullOrWhiteSpace(request.IsoPath))
             {
                 // Read out of the ISO now, so the first start does not wait on a hundred megabytes.
-                if (!UbuntuUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), linux, request.IsoPath))
+                if (!LinuxUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), linux, config.GuestOs, request.IsoPath))
                     throw new InvalidOperationException(CoreText.LibraryUbuntuIsoWithoutInstaller);
                 config.UnattendedSetup = UnattendedSetupState.Pending;
                 // The installer's own kernel is booted for the first start; every later one is the disk's.

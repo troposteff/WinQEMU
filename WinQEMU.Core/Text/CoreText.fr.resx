@@ -52,7 +52,7 @@
   <data name="LinkedCloneMergeRefused" xml:space="preserve"><value>Le disque « {0} » sert de base {1} : supprimer ou fusionner ce niveau écrirait dans une image que le clone lit, et corromprait ses données. Restaurer reste possible : les images dont le clone a besoin sont alors conservées.</value></data>
   <data name="LinkedCloneFilesRefused" xml:space="preserve"><value>Les fichiers de cette machine servent de base {0}. Les supprimer détruirait le clone. Supprimez d'abord le clone, ou rendez ses disques indépendants avec « Convertir… ».</value></data>
   <data name="LinkedCloneAttachRefused" xml:space="preserve"><value>Cette image sert de base {0} : une machine qui écrirait dedans corromprait le clone.</value></data>
-  <data name="LibraryUbuntuIsoWithoutInstaller" xml:space="preserve"><value>Cette image ISO n'a pas le noyau d'installation d'Ubuntu (casper) : l'installation automatique est impossible.</value></data>
+  <data name="LibraryUbuntuIsoWithoutInstaller" xml:space="preserve"><value>Cette image ISO n'a pas d'installateur que WinQEMU sait piloter : l'installation automatique est impossible.</value></data>
   <data name="LibraryDiskNotFound" xml:space="preserve"><value>Le disque « {0} » est introuvable : {1}</value></data>
   <data name="LibraryImportedDescription" xml:space="preserve"><value>Importée {0} le {1} : {2}</value></data>
   <data name="LibraryImportedFromVmware" xml:space="preserve"><value>de VMware</value></data>
@@ -137,4 +137,6 @@
   <data name="ManagerStopBeforeTemplate" xml:space="preserve"><value>Arrêtez la machine virtuelle avant d'en faire un modèle.</value></data>
   <data name="ManagerTemplateCannotStart" xml:space="preserve"><value>{0} est un modèle : on ne le démarre pas, on le clone. Déployez-le, ou reconvertissez-le en machine virtuelle.</value></data>
   <data name="GuestOsFirewallCaveat" xml:space="preserve"><value>Un pare-feu a besoin de deux cartes réseau, WAN et LAN : ajoutez la seconde dans Matériel une fois la machine créée, par exemple sur un réseau virtuel pour les machines qu'il protège.</value></data>
+  <data name="UnattendedLinuxHostnameRule" xml:space="preserve"><value>Un nom d'ordinateur ne contient que des lettres, des chiffres et des tirets, ne commence ni ne finit par un tiret, et compte 63 caractères au plus.</value></data>
+  <data name="UnattendedWindowsComputerNameRule" xml:space="preserve"><value>Un nom d'ordinateur Windows ne contient que des lettres, des chiffres et des tirets, pas seulement des chiffres, ne commence ni ne finit par un tiret, et compte 15 caractères au plus.</value></data>
 </root>

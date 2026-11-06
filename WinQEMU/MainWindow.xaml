@@ -2133,6 +2133,10 @@
                         AutomationProperties.Name="{Binding PauseResumeLabel, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarPauseTip}">
                     <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE769;" />
                 </Button>
+                <Button Style="{StaticResource FullScreenIconButton}" Click="OnResetClick" IsEnabled="{Binding IsSelectedAlive}"
+                        AutomationProperties.Name="{x:Bind t:WindowText.ToolbarReset}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarResetTip}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE72C;" />
+                </Button>
                 <Button Style="{StaticResource FullScreenIconButton}" Command="{Binding ShutdownCommand}"
                         AutomationProperties.Name="{x:Bind ct:CommonText.Stop}" ToolTipService.ToolTip="{x:Bind t:WindowText.ToolbarShutDownTip}">
                     <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE71A;" />

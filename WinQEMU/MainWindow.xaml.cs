@@ -122,6 +122,7 @@ namespace WinQEMU
             _viewModel.LanguageChanged += ApplyLanguage;
 
             AppWindow.Closing += OnAppWindowClosing;
+            RestorePlacement();
         }
 
         /// <summary>
@@ -408,6 +409,9 @@ namespace WinQEMU
             // Letterbox bars black, as on any full-screen video, rather than the theme's background.
             RootGrid.Background = fullScreen ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black) : null;
 
+            // In full screen the window's rectangle is the screen's: its place is noted on the way in.
+            if (fullScreen)
+                RememberPlacement();
             AppWindow.SetPresenter(fullScreen
                 ? Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen
                 : Microsoft.UI.Windowing.AppWindowPresenterKind.Default);
@@ -1739,6 +1743,7 @@ namespace WinQEMU
             Microsoft.UI.Windowing.AppWindow sender,
             Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
         {
+            SavePlacement();
             if (_closeConfirmed)
                 return;
 
@@ -1890,6 +1895,7 @@ namespace WinQEMU
         public void ShowFromBackground()
         {
             AppWindow.Show();
+            ApplyPendingMaximize();
             Activate();
             _tray?.Hide();
         }

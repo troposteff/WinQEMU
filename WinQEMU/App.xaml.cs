@@ -55,7 +55,7 @@ namespace WinQEMU
                     && launch.Arguments.Split(' ').Contains("--background")))
                 _window.StartInBackground();
             else
-                _window.Activate();
+                _window.Open();
         }
 
         /// <summary>WinQEMU was started again while running: its window comes back. Called on any thread.</summary>

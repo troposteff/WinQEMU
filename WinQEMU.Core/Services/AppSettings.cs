@@ -67,6 +67,12 @@ namespace WinQEMU.Core.Services
         /// </summary>
         public Models.LibraryTree Library { get => _library; set => _library = value ?? new(); }
 
+        /// <summary>
+        /// Where the window was when WinQEMU closed, so that it opens there again, on the same screen. Null until then
+        /// (and in older files): Windows places it.
+        /// </summary>
+        public WindowPlace? Window { get; set; }
+
         [JsonIgnore]
         public string EffectiveLibraryRoot =>
             string.IsNullOrWhiteSpace(LibraryRoot) ? DefaultLibraryRoot : LibraryRoot;
@@ -109,4 +115,10 @@ namespace WinQEMU.Core.Services
             File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, SerializerOptions));
         }
     }
+
+    /// <summary>
+    /// The window's restored rectangle, in Windows' workspace coordinates and physical pixels (GetWindowPlacement's
+    /// rcNormalPosition: the screen is the one that rectangle is on), and whether it was maximized over it.
+    /// </summary>
+    public sealed record WindowPlace(int Left, int Top, int Right, int Bottom, bool Maximized);
 }

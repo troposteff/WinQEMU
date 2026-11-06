@@ -1086,6 +1086,10 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   et la touche arrive **sans scancode**. La console annule les pertes de focus clavier et retrouve le
   scancode par `MapVirtualKey`.
 - **AltGr** arrive comme un Ctrl gauche factice suivi d'Alt droit : `AltGrFilter` supprime le Ctrl.
+- **Touche maintenue : la répétition de Windows est transmise** (`Input.KeyRepeat`), sauf modificateurs et verrous.
+  N'envoyer que l'appui et le relâchement suffisait sous un bureau (le compositeur répète lui-même), pas dans une console
+  texte Linux, dont le pilote PS/2 attend que le clavier renvoie le code : Bas maintenu dans archinstall ne descendait que
+  d'une ligne. Un bureau ne répète pas deux fois : le noyau signale ces codes comme des répétitions, que le compositeur ignore.
 - **Clic dans le vide d'un `ScrollViewer`** : il prend le focus et, s'il ne peut pas le garder, le passe à son
   premier descendant focalisable (la zone du nom de la VM se sélectionnait). `IsTabStop="True"` sur le
   `ScrollViewer` le lui fait garder. Pas `AllowFocusOnInteraction="False"` : il atteint tout le contenu et

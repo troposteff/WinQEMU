@@ -633,8 +633,9 @@ namespace WinQEMU.Controls
             // guest, and letting Escape or Tab reach the shell would act on the wrong machine.
             e.Handled = true;
 
-            // Windows repeats a held key; the guest tracks its own repeat, so only edges are sent.
-            if (!_pressedKeys.Add(number))
+            // A held key: Windows repeats it, and so does the guest's keyboard, which a text console needs
+            // (Core.Input.KeyRepeat). Modifiers only once.
+            if (!_pressedKeys.Add(number) && !KeyRepeat.Repeats(number))
                 return;
 
             ForwardFiltered(number, true);

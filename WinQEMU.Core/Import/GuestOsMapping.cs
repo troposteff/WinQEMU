@@ -66,7 +66,9 @@ namespace WinQEMU.Core.Import
             {
                 93 or 94 => "ubuntu",
                 95 or 96 => "debian",
-                79 or 80 or 106 or 107 => "fedora",
+                79 or 80 or 106 or 107 => "rhel",
+                82 or 83 or 84 or 85 => "opensuse",
+                42 or 78 => "freebsd",
                 36 or 99 or 100 or 101 => "linux",
                 _ => FromLinuxName(text)
             };
@@ -74,14 +76,43 @@ namespace WinQEMU.Core.Import
 
         private static string FromLinuxName(string id)
         {
-            if (id.Contains("ubuntu", StringComparison.Ordinal))
+            bool Has(params string[] names) => names.Any(n => id.Contains(n, StringComparison.Ordinal));
+
+            // Derivatives first: "Linux Mint 22 (Ubuntu based)" is Mint, not Ubuntu.
+            if (Has("pfsense"))
+                return "pfsense";
+            if (Has("opnsense"))
+                return "opnsense";
+            if (Has("freebsd"))
+                return "freebsd";
+            if (Has("mint"))
+                return "linux-mint";
+            if (Has("pop!_os", "pop-os", "popos"))
+                return "pop-os";
+            if (Has("zorin"))
+                return "zorin";
+            if (Has("kali"))
+                return "kali";
+            if (Has("manjaro"))
+                return "manjaro";
+            if (Has("ubuntu"))
                 return "ubuntu";
-            if (id.Contains("debian", StringComparison.Ordinal))
+            if (Has("debian"))
                 return "debian";
-            if (new[] { "fedora", "rhel", "redhat", "centos", "rocky", "alma", "oracle" }.Any(n => id.Contains(n, StringComparison.Ordinal)))
+            if (Has("fedora"))
                 return "fedora";
-            if (new[] { "linux", "suse", "arch", "mint", "gentoo", "mandriva", "turbolinux", "other26", "other3x", "other4x", "other5x", "other6x" }
-                .Any(n => id.Contains(n, StringComparison.Ordinal)))
+            if (Has("rhel", "redhat", "red hat", "centos", "rocky", "alma", "oracle"))
+                return "rhel";
+            if (Has("suse", "sles"))
+                return "opensuse";
+            // Not "arch" alone: it would match "architecture" in a descriptor's text.
+            if (Has("archlinux", "arch linux"))
+                return "arch";
+            if (Has("nixos"))
+                return "nixos";
+            if (Has("alpine"))
+                return "alpine";
+            if (Has("linux", "gentoo", "mandriva", "turbolinux", "other26", "other3x", "other4x", "other5x", "other6x"))
                 return "linux";
 
             return "other";

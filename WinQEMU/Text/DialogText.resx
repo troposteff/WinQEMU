@@ -325,4 +325,7 @@ Taken on {2}</value></data>
   <data name="CpuFlagsHint" xml:space="preserve"><value>Ticked features are added to the processor model (+feature). Under WHPX the guest only gets those this PC's processor has. The defaults add what Windows 11 needs.</value></data>
   <data name="CpuFlagsSearch" xml:space="preserve"><value>Search a feature</value></data>
   <data name="CpuFlagsDefaults" xml:space="preserve"><value>Restore defaults</value></data>
+  <data name="NewVmIsoDownload" xml:space="preserve"><value>No ISO yet? Download it from {0}</value></data>
+  <data name="NewVmFamily" xml:space="preserve"><value>Family</value></data>
+  <data name="NewVmFamilyOther" xml:space="preserve"><value>Other</value></data>
 </root>

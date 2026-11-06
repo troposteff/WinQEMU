@@ -136,4 +136,5 @@
   <data name="LibraryTemplateSnapshotName" xml:space="preserve"><value>Template</value><comment>Snapshot name: must stay ASCII (qemu-img receives it through the ANSI code page).</comment></data>
   <data name="ManagerStopBeforeTemplate" xml:space="preserve"><value>Shut down the virtual machine before turning it into a template.</value></data>
   <data name="ManagerTemplateCannotStart" xml:space="preserve"><value>{0} is a template: it is not started, it is cloned. Deploy it, or convert it back to a virtual machine.</value></data>
+  <data name="GuestOsFirewallCaveat" xml:space="preserve"><value>A firewall needs two network cards, WAN and LAN: add the second one in Hardware once the machine is created, for example on a virtual network for the machines it protects.</value></data>
 </root>

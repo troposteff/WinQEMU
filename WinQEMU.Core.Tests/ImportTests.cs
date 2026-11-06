@@ -134,9 +134,13 @@ public class ImportReaderTests
     [InlineData("windows7-64", "windows-7")]
     [InlineData("ubuntu-64", "ubuntu")]
     [InlineData("debian12-64", "debian")]
-    [InlineData("rhel9-64", "fedora")]
+    [InlineData("rhel9-64", "rhel")]
+    [InlineData("fedora-64", "fedora")]
+    [InlineData("sles15-64", "opensuse")]
+    [InlineData("opensuse-64", "opensuse")]
     [InlineData("other6xlinux-64", "linux")]
-    [InlineData("freebsd-64", "other")]
+    [InlineData("freebsd-64", "freebsd")]
+    [InlineData("solaris11-64", "other")]
     public void Vmware_guest_identifiers_map_to_profiles(string guestOs, string expected) =>
         Assert.Equal(expected, GuestOsMapping.FromVmware(guestOs));
 
@@ -147,8 +151,12 @@ public class ImportReaderTests
     [InlineData("Windows81_64", "windows-7")]
     [InlineData("Ubuntu24_LTS_64", "ubuntu")]
     [InlineData("Debian_64", "debian")]
-    [InlineData("Oracle_64", "fedora")]
-    [InlineData("ArchLinux_64", "linux")]
+    [InlineData("Oracle_64", "rhel")]
+    [InlineData("Fedora_64", "fedora")]
+    [InlineData("FreeBSD_64", "freebsd")]
+    [InlineData("OpenSUSE_Tumbleweed_64", "opensuse")]
+    [InlineData("ArchLinux_64", "arch")]
+    [InlineData("Gentoo_64", "linux")]
     [InlineData("Solaris11_64", "other")]
     public void VirtualBox_os_types_map_to_profiles(string osType, string expected) =>
         Assert.Equal(expected, GuestOsMapping.FromVirtualBox(osType));

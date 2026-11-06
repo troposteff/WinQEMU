@@ -350,9 +350,14 @@ namespace WinQEMU.Core.Export
             "windows-10" => ("windows9_64Guest", "Windows10_64", 1),
             "windows-server" => ("windows2019srv_64Guest", "Windows2019_64", 1),
             "windows-7" => ("windows7_64Guest", "Windows7_64", 105),
-            "ubuntu" => ("ubuntu64Guest", "Ubuntu_64", 94),
-            "debian" => ("debian12_64Guest", "Debian_64", 96),
-            "fedora" => ("rhel9_64Guest", "RedHat_64", 80),
+            // Ubuntu's derivatives as Ubuntu, Debian's as Debian: the closest each hypervisor knows.
+            "ubuntu" or "linux-mint" or "pop-os" or "zorin" => ("ubuntu64Guest", "Ubuntu_64", 94),
+            "debian" or "kali" => ("debian12_64Guest", "Debian_64", 96),
+            "fedora" => ("fedora64Guest", "Fedora_64", 101),
+            "rhel" => ("rhel9_64Guest", "RedHat_64", 80),
+            "opensuse" => ("opensuse64Guest", "OpenSUSE_64", 83),
+            "arch" or "manjaro" => ("otherLinux64Guest", "ArchLinux_64", 101),
+            "freebsd" or "pfsense" or "opnsense" => ("freebsd13_64Guest", "FreeBSD_64", 78),
             "linux" or "linux-arm64" => ("otherLinux64Guest", "Linux_64", 101),
             _ => ("otherGuest64", "Other_64", 102)
         };

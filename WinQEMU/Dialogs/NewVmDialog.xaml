@@ -94,12 +94,27 @@
                 <StackPanel Spacing="10" Visibility="{Binding IsStep2, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                     <TextBlock Style="{StaticResource Hint}"
                                Text="{x:Bind t:DialogText.NewVmOsHint}" />
-                    <TextBlock Style="{StaticResource FieldLabel}" Text="{x:Bind t:DialogText.NewVmOperatingSystem}" />
-                    <ComboBox
-                        HorizontalAlignment="Stretch"
-                        DisplayMemberPath="DisplayName"
-                        ItemsSource="{Binding Profiles}"
-                        SelectedItem="{Binding SelectedProfile, Mode=TwoWay}" />
+                    <!-- Family, then system, as VMware's wizard: two short lists rather than one of two dozen. -->
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox
+                            Grid.Column="0"
+                            HorizontalAlignment="Stretch"
+                            DisplayMemberPath="Label"
+                            Header="{x:Bind t:DialogText.NewVmFamily}"
+                            ItemsSource="{Binding Families}"
+                            SelectedItem="{Binding SelectedFamily, Mode=TwoWay}" />
+                        <ComboBox
+                            Grid.Column="1"
+                            HorizontalAlignment="Stretch"
+                            DisplayMemberPath="DisplayName"
+                            Header="{x:Bind t:DialogText.NewVmOperatingSystem}"
+                            ItemsSource="{Binding Profiles}"
+                            SelectedItem="{Binding SelectedProfile, Mode=TwoWay}" />
+                    </Grid>
 
                     <Border Padding="12" Background="#11000000" CornerRadius="6">
                         <StackPanel Spacing="4">
@@ -262,6 +277,13 @@
                             Text="{Binding IsoPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Grid.Column="1" Click="OnBrowseIsoClick" Content="{x:Bind ct:CommonText.Browse}" />
                     </Grid>
+                    <!-- The publisher's page, opened in the browser: WinQEMU never downloads an ISO itself. -->
+                    <HyperlinkButton
+                        Margin="0,-6,0,0"
+                        Padding="0"
+                        Content="{Binding IsoDownloadText, Mode=OneWay}"
+                        NavigateUri="{Binding IsoDownloadPage, Mode=OneWay}"
+                        Visibility="{Binding HasIsoDownloadPage, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                     <CheckBox Content="{x:Bind t:DialogText.NewVmBootFromIso}" IsChecked="{Binding BootFromIso, Mode=TwoWay}" />
 
                     <!--

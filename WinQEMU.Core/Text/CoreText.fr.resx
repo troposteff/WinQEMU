@@ -136,4 +136,5 @@
   <data name="LibraryTemplateSnapshotName" xml:space="preserve"><value>Modele</value></data>
   <data name="ManagerStopBeforeTemplate" xml:space="preserve"><value>Arrêtez la machine virtuelle avant d'en faire un modèle.</value></data>
   <data name="ManagerTemplateCannotStart" xml:space="preserve"><value>{0} est un modèle : on ne le démarre pas, on le clone. Déployez-le, ou reconvertissez-le en machine virtuelle.</value></data>
+  <data name="GuestOsFirewallCaveat" xml:space="preserve"><value>Un pare-feu a besoin de deux cartes réseau, WAN et LAN : ajoutez la seconde dans Matériel une fois la machine créée, par exemple sur un réseau virtuel pour les machines qu'il protège.</value></data>
 </root>

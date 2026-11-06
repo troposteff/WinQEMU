@@ -325,4 +325,7 @@ Pris le {2}</value></data>
   <data name="CpuFlagsHint" xml:space="preserve"><value>Les fonctions cochées sont ajoutées au modèle de processeur (+fonction). Sous WHPX, l'invité n'obtient que celles que le processeur de ce PC possède. Les réglages par défaut ajoutent ce qu'exige Windows 11.</value></data>
   <data name="CpuFlagsSearch" xml:space="preserve"><value>Rechercher une fonction</value></data>
   <data name="CpuFlagsDefaults" xml:space="preserve"><value>Réglages par défaut</value></data>
+  <data name="NewVmIsoDownload" xml:space="preserve"><value>Pas encore d'ISO ? Téléchargez-la sur {0}</value></data>
+  <data name="NewVmFamily" xml:space="preserve"><value>Famille</value></data>
+  <data name="NewVmFamilyOther" xml:space="preserve"><value>Autre</value></data>
 </root>

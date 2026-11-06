@@ -31,10 +31,11 @@ namespace WinQEMU.ViewModels
                 manager.VirtualMachines.Select(vm => vm.Name),
                 StringComparer.CurrentCultureIgnoreCase);
 
-            foreach (var profile in GuestOsCatalog.Profiles)
-                Profiles.Add(profile);
-
             _selectedProfile = GuestOsCatalog.Default;
+            Families = GuestOsCatalog.Families.Select(key => new GuestOsFamily(key)).ToList();
+            _selectedFamily = Families.First(f => f.Key == _selectedProfile.Family);
+            foreach (var profile in GuestOsCatalog.Profiles.Where(p => p.Family == _selectedFamily.Key))
+                Profiles.Add(profile);
             ApplyProfile(_selectedProfile);
 
             Name = MakeUniqueName(DialogText.NewVmDefaultName);
@@ -348,7 +349,28 @@ namespace WinQEMU.ViewModels
 
         // ---- Step 2: guest OS ----
 
+        /// <summary>The systems of <see cref="SelectedFamily"/> only: two short lists rather than one of two dozen.</summary>
         public ObservableCollection<GuestOsProfile> Profiles { get; } = new();
+
+        public IReadOnlyList<GuestOsFamily> Families { get; }
+
+        private GuestOsFamily _selectedFamily;
+        public GuestOsFamily SelectedFamily
+        {
+            get => _selectedFamily;
+            set
+            {
+                if (value is null || !SetProperty(ref _selectedFamily, value))
+                    return;
+
+                // Emptying the list makes the system box write null into SelectedProfile, which ignores it; the first
+                // system of the family is then chosen, and the box finds it in the list it now holds.
+                Profiles.Clear();
+                foreach (var profile in GuestOsCatalog.Profiles.Where(p => p.Family == value.Key))
+                    Profiles.Add(profile);
+                SelectedProfile = Profiles[0];
+            }
+        }
 
         private GuestOsProfile _selectedProfile;
         public GuestOsProfile SelectedProfile
@@ -361,9 +383,24 @@ namespace WinQEMU.ViewModels
 
                 ApplyProfile(value);
                 RaiseUnattended();
+                RaisePropertyChanged(nameof(IsoDownloadPage));
+                RaisePropertyChanged(nameof(IsoDownloadText));
+                RaisePropertyChanged(nameof(HasIsoDownloadPage));
                 RevalidateCurrentStep();
             }
         }
+
+        /// <summary>The publisher's download page for this system, next to the ISO field; WinQEMU downloads nothing.</summary>
+        public Uri? IsoDownloadPage =>
+            SelectedProfile.DownloadPage is { } page ? new Uri(page) : null;
+
+        public bool HasIsoDownloadPage => IsoDownloadPage is not null;
+
+        /// <summary>"Download the ISO from debian.org": the site named, since one profile can cover several systems.</summary>
+        public string IsoDownloadText => IsoDownloadPage is { } page
+            ? string.Format(System.Globalization.CultureInfo.CurrentCulture, DialogText.NewVmIsoDownload,
+                page.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? page.Host[4..] : page.Host)
+            : string.Empty;
 
         private void ApplyProfile(GuestOsProfile profile)
         {

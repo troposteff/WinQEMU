@@ -146,8 +146,10 @@ winqemu show [<machine>]
 [**Get WinQEMU from the Microsoft Store**](https://apps.microsoft.com/detail/9NTWD738Z396), or in a terminal:
 
 ```powershell
-winget install 9NTWD738Z396 --source msstore
+winget install WinQEMU
 ```
+
+(or, naming the Store's package exactly: `winget install 9NTWD738Z396 --source msstore`)
 
 The Store installs and updates WinQEMU by itself, signed by Microsoft: no certificate to trust, and it starts on PCs where
 Smart App Control is on. A PC that had WinQEMU from GitHub keeps everything: at its first start, the Store version takes

@@ -36,6 +36,28 @@ namespace WinQEMU.Core.Services
         /// <summary>Ubuntu's desktop ISO installs a desktop and its server ISO none; the others are asked.</summary>
         public static bool OffersDesktopChoice(string guestOs) => guestOs is "debian" or "fedora" or "opensuse";
 
+        /// <summary>The desktops offered, in the wizard's order; None (a console with SSH) last.</summary>
+        public static IReadOnlyList<LinuxDesktop> Desktops { get; } =
+        [
+            LinuxDesktop.Gnome, LinuxDesktop.Kde, LinuxDesktop.Xfce, LinuxDesktop.Cinnamon, LinuxDesktop.Mate,
+            LinuxDesktop.Lxqt, LinuxDesktop.None
+        ];
+
+        /// <summary>The distribution's own: what its installer picks when nobody chooses.</summary>
+        public static LinuxDesktop DefaultDesktop(string guestOs) => guestOs == "opensuse" ? LinuxDesktop.Kde : LinuxDesktop.Gnome;
+
+        /// <summary>The environment's own name, the same in every language; null for None.</summary>
+        public static string? DesktopName(LinuxDesktop desktop) => desktop switch
+        {
+            LinuxDesktop.Gnome => "GNOME",
+            LinuxDesktop.Kde => "KDE Plasma",
+            LinuxDesktop.Xfce => "Xfce",
+            LinuxDesktop.Cinnamon => "Cinnamon",
+            LinuxDesktop.Mate => "MATE",
+            LinuxDesktop.Lxqt => "LXQt",
+            _ => null
+        };
+
         /// <summary>Whether the machine's installer reads its answers from a stick labelled OEMDRV.</summary>
         public static bool UsesOemDrive(string guestOs) => guestOs is "fedora" or "opensuse";
 
@@ -96,7 +118,10 @@ namespace WinQEMU.Core.Services
                     break;
                 case "opensuse":
                     WriteOemDrive(folder, "autoinst.xml", AutoYast(settings, OpenSuseProduct(isoPath)));
-                    commandLine = $"splash=silent autoyast=label://{OemDriveLabel}/autoinst.xml";
+                    // kexec=3: Tumbleweed's repository moves on, and an ISO a few days old no longer has the kernel of
+                    // the packages; linuxrc then stopped on "To use the selected repository a matching boot image is
+                    // needed. Download it now and restart?". 3 loads that kernel without asking, and only when needed.
+                    commandLine = $"splash=silent kexec=3 autoyast=label://{OemDriveLabel}/autoinst.xml";
                     break;
                 default:
                     return false;
@@ -135,7 +160,18 @@ namespace WinQEMU.Core.Services
 
         public static string DebianPreseed(UnattendedLinux s)
         {
-            var tasks = s.Desktop ? "standard, desktop, gnome-desktop" : "standard, ssh-server";
+            // tasksel's tasks: "desktop" (X, the common desktop packages) and one per environment.
+            var tasks = s.Desktop switch
+            {
+                LinuxDesktop.None => "standard, ssh-server",
+                LinuxDesktop.Gnome => "standard, desktop, gnome-desktop",
+                LinuxDesktop.Kde => "standard, desktop, kde-desktop",
+                LinuxDesktop.Xfce => "standard, desktop, xfce-desktop",
+                LinuxDesktop.Cinnamon => "standard, desktop, cinnamon-desktop",
+                LinuxDesktop.Mate => "standard, desktop, mate-desktop",
+                LinuxDesktop.Lxqt => "standard, desktop, lxqt-desktop",
+                _ => throw new ArgumentOutOfRangeException(nameof(s))
+            };
             return $"""
                 # Written by WinQEMU for an unattended installation.
                 d-i debian-installer/locale string {s.Locale.Replace(".UTF-8", string.Empty, StringComparison.Ordinal)}.UTF-8
@@ -221,7 +257,24 @@ namespace WinQEMU.Core.Services
 
         public static string FedoraKickstart(UnattendedLinux s)
         {
-            var environment = s.Desktop ? "@^workstation-product-environment" : "@^server-product-environment";
+            // Environments of the comps file (GNOME is Workstation's).
+            var environment = s.Desktop switch
+            {
+                LinuxDesktop.None => "@^server-product-environment",
+                LinuxDesktop.Gnome => "@^workstation-product-environment",
+                LinuxDesktop.Kde => "@^kde-desktop-environment",
+                LinuxDesktop.Xfce => "@^xfce-desktop-environment",
+                LinuxDesktop.Cinnamon => "@^cinnamon-desktop-environment",
+                LinuxDesktop.Mate => "@^mate-desktop-environment",
+                LinuxDesktop.Lxqt => "@^lxqt-desktop-environment",
+                _ => throw new ArgumentOutOfRangeException(nameof(s))
+            };
+            // A text-mode installation leaves the installed system on a text login unless told otherwise: Fedora
+            // Workstation was installed whole and still started on "autotest-fedora login:".
+            var display = s.HasDesktop ? "xconfig --startxonboot" : "skipx";
+            // KDE's first-boot assistant (mandatory in its comps groups), which "firstboot --disable" does not reach: Fedora
+            // KDE started on "Bienvenue sur Plasma Desktop, Commencer la configuration" with the account already made.
+            var excluded = s.Desktop == LinuxDesktop.Kde ? "\n-plasma-setup" : string.Empty;
             return $"""
                 # Written by WinQEMU for an unattended installation.
                 text
@@ -236,16 +289,35 @@ namespace WinQEMU.Core.Services
                 rootpw --lock
                 user --name={s.UserName} --gecos="{s.UserName}" --groups=wheel --iscrypted --password={s.PasswordHash}
                 firstboot --disable
+                {display}
                 reboot
 
                 %packages
                 {environment}
                 qemu-guest-agent
-                spice-vdagent
+                spice-vdagent{excluded}
+                %end
+
+                %post
+                {UnconfinedAgent}
                 %end
 
                 """;
         }
+
+        /// <summary>
+        /// Lets what the guest agent runs reach the user's files: Fedora and openSUSE confine qemu-ga in SELinux's
+        /// virt_qemu_ga_t, and a command it ran could neither list /home ("Permission non accordée") nor load 9pnet_fd,
+        /// so shared folders, file drops and pulls failed. Only the agent's domain is made permissive (denials are still
+        /// logged), not SELinux. The host drives the agent anyway: it is the machine's own hypervisor.
+        /// </summary>
+        internal const string UnconfinedAgent = """
+            if command -v semodule >/dev/null; then
+              printf '(typepermissive virt_qemu_ga_t)\n' > /tmp/winqemu_qemu_ga.cil
+              semodule -i /tmp/winqemu_qemu_ga.cil
+              rm -f /tmp/winqemu_qemu_ga.cil
+            fi
+            """;
 
         // ---- openSUSE ----
 
@@ -260,9 +332,18 @@ namespace WinQEMU.Core.Services
         /// </remarks>
         public static string AutoYast(UnattendedLinux s, string product = "openSUSE")
         {
-            var patterns = s.Desktop
-                ? new[] { "base", "minimal_base", "enhanced_base", "x11", "kde", "kde_plasma", "fonts", "yast2_basis", "sw_management" }
-                : new[] { "base", "minimal_base", "enhanced_base", "yast2_basis", "sw_management" };
+            string[] desktop = s.Desktop switch
+            {
+                LinuxDesktop.None => [],
+                LinuxDesktop.Gnome => ["x11", "gnome", "fonts"],
+                LinuxDesktop.Kde => ["x11", "kde", "kde_plasma", "fonts"],
+                LinuxDesktop.Xfce => ["x11", "xfce", "fonts"],
+                LinuxDesktop.Cinnamon => ["x11", "cinnamon", "fonts"],
+                LinuxDesktop.Mate => ["x11", "mate", "fonts"],
+                LinuxDesktop.Lxqt => ["x11", "lxqt", "fonts"],
+                _ => throw new ArgumentOutOfRangeException(nameof(s))
+            };
+            string[] patterns = ["base", "minimal_base", "enhanced_base", .. desktop, "yast2_basis", "sw_management"];
             string X(string value) => SecurityElement.Escape(value);
             return $"""
                 <?xml version="1.0"?>
@@ -320,7 +401,7 @@ namespace WinQEMU.Core.Services
                     </packages>
                   </software>
                   <services-manager>
-                    <default_target>{(s.Desktop ? "graphical" : "multi-user")}</default_target>
+                    <default_target>{(s.HasDesktop ? "graphical" : "multi-user")}</default_target>
                     <services>
                       <enable config:type="list">
                         <service>sshd</service>
@@ -340,10 +421,51 @@ namespace WinQEMU.Core.Services
                       <encrypted config:type="boolean">true</encrypted>
                     </user>
                   </users>
-                </profile>
+                  <scripts>
+                    <chroot-scripts config:type="list">
+                      <script>
+                        <chrooted config:type="boolean">true</chrooted>
+                        <filename>winqemu-agent.sh</filename>
+                        <source><![CDATA[{UnconfinedAgent}
+                {OpenSuseAgentCommands}]]></source>
+                      </script>
+                    </chroot-scripts>
+                  </scripts>
+                {(s.HasDesktop ? X11Keyboard(s.KeyboardLayout) : string.Empty)}</profile>
 
                 """;
         }
+
+        /// <summary>
+        /// openSUSE starts qemu-ga with "--block-rpcs=guest-exec,guest-exec-status", which WinQEMU needs for shared
+        /// folders, file drops and pulls ("Command guest-exec has been disabled"). The same command line without it.
+        /// </summary>
+        internal const string OpenSuseAgentCommands = """
+            mkdir -p /etc/systemd/system/qemu-guest-agent.service.d
+            printf '[Service]\nExecStart=\nExecStart=/usr/bin/qemu-ga -p /dev/virtio-ports/org.qemu.guest_agent.0\n' > /etc/systemd/system/qemu-guest-agent.service.d/winqemu.conf
+            """;
+
+        /// <summary>
+        /// The graphical keyboard layout, which &lt;keymap&gt; does not set: openSUSE with Xfce and LXQt showed "us" on the login
+        /// screen (LightDM, SDDM) with "french" as the keymap. The file localectl writes, read by X, the login screens and
+        /// Wayland compositors (through systemd-localed).
+        /// </summary>
+        private static string X11Keyboard(string xkb) => $"""
+              <files config:type="list">
+                <file>
+                  <file_path>/etc/X11/xorg.conf.d/00-keyboard.conf</file_path>
+                  <file_contents><![CDATA[Section "InputClass"
+                    Identifier "system-keyboard"
+                    MatchIsKeyboard "on"
+                    Option "XkbLayout" "{xkb}"
+                EndSection
+                ]]></file_contents>
+                  <file_owner>root.root</file_owner>
+                  <file_permissions>644</file_permissions>
+                </file>
+              </files>
+
+            """;
 
         /// <summary>
         /// The medium's own product, from media.1/products ("/ openSUSE 20261102-0": Tumbleweed's; Leap names "Leap"),

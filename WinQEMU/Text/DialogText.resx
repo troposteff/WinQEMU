@@ -327,6 +327,7 @@ Taken on {2}</value></data>
   <data name="NewVmIsoDownload" xml:space="preserve"><value>No ISO yet? Download it from {0}</value></data>
   <data name="NewVmFamily" xml:space="preserve"><value>Family</value></data>
   <data name="NewVmFamilyOther" xml:space="preserve"><value>Other</value></data>
-  <data name="NewVmInstallDesktop" xml:space="preserve"><value>Install a graphical desktop (otherwise a console with SSH)</value></data>
+  <data name="NewVmDesktopHeader" xml:space="preserve"><value>Desktop environment</value></data>
+  <data name="NewVmDesktopNone" xml:space="preserve"><value>None: a console with SSH</value></data>
   <data name="NewVmComputerNameHeader" xml:space="preserve"><value>Computer name</value></data>
 </root>

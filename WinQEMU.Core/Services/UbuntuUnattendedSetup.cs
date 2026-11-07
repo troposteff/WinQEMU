@@ -11,7 +11,9 @@ namespace WinQEMU.Core.Services
     /// <param name="Locale">"fr_FR.UTF-8", from this PC.</param>
     /// <param name="KeyboardLayout">xkb layout ("fr"), from this PC's keyboard.</param>
     /// <param name="TimeZone">IANA time zone ("Europe/Paris"), from this PC's.</param>
-    /// <param name="Desktop">A graphical desktop, or a console with SSH. Ubuntu's ISO decides for itself.</param>
+    /// <param name="Desktop">
+    /// The desktop environment, or none (a console with SSH): Debian, Fedora and openSUSE. Ubuntu's ISO decides for itself.
+    /// </param>
     public sealed record UnattendedLinux(
         string UserName,
         string PasswordHash,
@@ -19,7 +21,25 @@ namespace WinQEMU.Core.Services
         string Locale,
         string KeyboardLayout,
         string TimeZone,
-        bool Desktop = true);
+        LinuxDesktop Desktop = LinuxDesktop.Gnome)
+    {
+        public bool HasDesktop => Desktop != LinuxDesktop.None;
+    }
+
+    /// <summary>
+    /// The desktop environments an unattended installation offers: those Debian (tasksel), Fedora (comps environments) and
+    /// openSUSE (patterns) all have, under the names each one gives them (LinuxUnattendedSetup).
+    /// </summary>
+    public enum LinuxDesktop
+    {
+        None,
+        Gnome,
+        Kde,
+        Xfce,
+        Cinnamon,
+        Mate,
+        Lxqt
+    }
 
     /// <summary>
     /// Ubuntu's own unattended installation (autoinstall), as VMware's "installation simplifiée" does for
@@ -43,7 +63,8 @@ namespace WinQEMU.Core.Services
         /// <summary>"autoinstall" for the installer alone, before "---"; what follows is the ISO's own line.</summary>
         public const string KernelArguments = "autoinstall --- quiet splash";
 
-        public static UnattendedLinux ForHost(string userName, string password, string machineName, bool desktop = true)
+        public static UnattendedLinux ForHost(string userName, string password, string machineName,
+            LinuxDesktop desktop = LinuxDesktop.Gnome)
         {
             var culture = CultureInfo.CurrentCulture.Name.Replace('-', '_');
             var timeZone = TimeZoneInfo.TryConvertWindowsIdToIanaId(TimeZoneInfo.Local.Id, out var iana) ? iana : "Etc/UTC";

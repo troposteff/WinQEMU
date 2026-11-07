@@ -26,8 +26,10 @@ l'accélération matérielle de la plateforme d'hyperviseur Windows (WHPX).
 - **Assistant de création** :
   - profils de systèmes invités ;
   - mémoire, processeurs, disques, ISO, micrologiciel BIOS ou UEFI.
-- **Installation automatique** de Windows 10/11 et d'Ubuntu :
-  - compte utilisateur, langue, clavier et fuseau horaire repris de ce PC ;
+- **Installation automatique** de Windows 10/11, d'Ubuntu, de Debian, de Fedora et d'openSUSE :
+  - compte utilisateur, langue, clavier et fuseau horaire repris de ce PC, nom de l'ordinateur au choix ;
+  - Debian, Fedora et openSUSE avec le bureau de votre choix (GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt), ou en
+    console avec SSH ;
   - outils invités installés d'office.
 - **Invités Windows 11** : les contrôles du TPM et du Secure Boot, impossibles sous WHPX, sont levés à l'installation.
 - **Import** depuis VMware (`.vmx`), VirtualBox (`.vbox`), Hyper-V (`.vhdx`/`.vhd`) et OVF/OVA :

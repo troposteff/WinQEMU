@@ -14,7 +14,7 @@ WinQEMU est une interface Windows au-dessus de QEMU, qui vise le confort de VMwa
 
 Au premier démarrage, WinQEMU vérifie que ce PC est prêt : QEMU trouvé, accélération matérielle activée, et quoi faire sinon.
 
-Machines virtuelles : une bibliothèque en dossiers imbriqués, un assistant de création, l'installation automatique de Windows 10/11 et d'Ubuntu, l'import depuis VMware, VirtualBox, Hyper-V et OVA, l'export en OVA, les clones complets et liés, les modèles, le démarrage automatique, les machines laissées en arrière-plan.
+Machines virtuelles : une bibliothèque en dossiers imbriqués, un assistant de création, l'installation automatique de Windows 10/11, d'Ubuntu, de Debian, de Fedora et d'openSUSE, l'import depuis VMware, VirtualBox, Hyper-V et OVA, l'export en OVA, les clones complets et liés, les modèles, le démarrage automatique, les machines laissées en arrière-plan.
 
 Console : intégrée ou en plein écran, la résolution de l'invité suivant la fenêtre, un presse-papiers partagé, la saisie du presse-papiers dans l'invité, la capture d'écran, des fichiers déposés sur le Bureau de l'invité ou récupérés depuis lui, le son avec un volume par machine.
 
@@ -36,12 +36,12 @@ Une interface Windows au-dessus de QEMU : créez, lancez et gérez des machines 
 
 ## Nouveautés de cette version
 
-Corrigé : certains invités Linux (openSUSE Tumbleweed, par exemple) figeaient à l'ouverture de leur session graphique quand la tablette USB était cochée, et WinQEMU avec eux. Depuis la version précédente, une machine démarre aussi avec le son sur un PC sans micro ou dont l'accès au micro est refusé.
+Installation automatique de Debian, Fedora et openSUSE, avec le bureau de votre choix (GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt) ou en console avec SSH, et nom de l'ordinateur au choix pour toute installation automatique. Plus de systèmes invités dans l'assistant, rangés par famille, avec où télécharger chacun. La fenêtre rouvre là où elle a été fermée, sur le même écran. Une touche maintenue se répète dans l'invité, consoles texte comprises. Quand QEMU ne répond plus, WinQEMU propose d'éteindre la machine au lieu de se figer avec elle. Le journal de la machine copie ce qu'il faut pour signaler un bug. Redémarrer depuis la barre du plein écran, et la commande winqemu capture.
 
 ## Fonctionnalités du produit
 
 - Bibliothèque de machines virtuelles en dossiers imbriqués
-- Assistant de création, avec installation automatique de Windows 10/11 et d'Ubuntu
+- Assistant de création, avec installation automatique de Windows 10/11, d'Ubuntu, de Debian, de Fedora et d'openSUSE
 - Accélération matérielle par la plateforme d'hyperviseur Windows
 - Import depuis VMware, VirtualBox, Hyper-V et OVA ; export en OVA
 - Clones complets et liés, modèles

@@ -387,6 +387,8 @@ namespace WinQEMU.ViewModels
                     return;
 
                 ApplyProfile(value);
+                _selectedDesktop = null;
+                RaisePropertyChanged(nameof(SelectedDesktop));
                 RaiseUnattended();
                 RaisePropertyChanged(nameof(IsoDownloadPage));
                 RaisePropertyChanged(nameof(IsoDownloadText));
@@ -552,14 +554,28 @@ namespace WinQEMU.ViewModels
             ? string.Format(CultureInfo.CurrentCulture, DialogText.NewVmUnattendedUbuntu, SelectedProfile.DisplayName)
             : DialogText.NewVmUnattendedWindows;
 
-        /// <summary>Debian, Fedora and openSUSE: a desktop, or a console with SSH (Ubuntu's ISO decides).</summary>
+        /// <summary>Debian, Fedora and openSUSE: a desktop environment, or a console with SSH (Ubuntu's ISO decides).</summary>
         public bool OffersDesktopChoice => UseUnattended && LinuxUnattendedSetup.OffersDesktopChoice(SelectedProfile.Key);
 
-        private bool _installDesktop = true;
-        public bool InstallDesktop
+        /// <summary>Beside the desktop list when there is one, otherwise in its place.</summary>
+        public int ComputerNameColumn => OffersDesktopChoice ? 1 : 0;
+
+        public IReadOnlyList<DesktopChoice> Desktops { get; } =
+            LinuxUnattendedSetup.Desktops.Select(d => new DesktopChoice(d)).ToList();
+
+        private DesktopChoice? _selectedDesktop;
+        /// <summary>The distribution's own until chosen, and again when another system is picked.</summary>
+        public DesktopChoice SelectedDesktop
         {
-            get => _installDesktop;
-            set => SetProperty(ref _installDesktop, value);
+            get => _selectedDesktop ?? Desktops.First(d => d.Value == LinuxUnattendedSetup.DefaultDesktop(SelectedProfile.Key));
+            set
+            {
+                // A list that replaces its items sets null for a moment.
+                if (value is null || value == SelectedDesktop)
+                    return;
+                _selectedDesktop = value;
+                RaisePropertyChanged(nameof(SelectedDesktop));
+            }
         }
 
         // Reading the ISO's directory on every keystroke of a path would be wasteful: once per file.
@@ -649,6 +665,7 @@ namespace WinQEMU.ViewModels
             RaisePropertyChanged(nameof(CanInstallUnattended));
             RaisePropertyChanged(nameof(UseUnattended));
             RaisePropertyChanged(nameof(OffersDesktopChoice));
+            RaisePropertyChanged(nameof(ComputerNameColumn));
             RevalidateCurrentStep();
         }
 
@@ -803,7 +820,7 @@ namespace WinQEMU.ViewModels
                 ? WindowsUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, UnattendedComputerName.Trim(), IsoPath, SelectedProfile.Key)
                 : null,
             UnattendedLinux = UseUnattended && IsLinuxUnattended
-                ? UbuntuUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, UnattendedComputerName.Trim(), InstallDesktop)
+                ? UbuntuUnattendedSetup.ForHost(UnattendedUser, UnattendedPassword, UnattendedComputerName.Trim(), SelectedDesktop.Value)
                 : null,
             DiskKey = UseEncryption ? new DiskKey(DiskPassword) : null,
             RememberDiskPassword = UseEncryption && RememberDiskPassword

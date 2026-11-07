@@ -26,8 +26,10 @@ through the Windows Hypervisor Platform (WHPX).
 - **Creation wizard**:
   - guest system profiles;
   - memory, processors, disks, ISO, BIOS or UEFI firmware.
-- **Unattended installation** of Windows 10/11 and Ubuntu:
-  - user account, language, keyboard and time zone taken from this PC;
+- **Unattended installation** of Windows 10/11, Ubuntu, Debian, Fedora and openSUSE:
+  - user account, language, keyboard and time zone taken from this PC, computer name of your choice;
+  - Debian, Fedora and openSUSE with the desktop of your choice (GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt), or as a
+    console with SSH;
   - guest tools installed automatically.
 - **Windows 11 guests**: the TPM and Secure Boot checks, impossible under WHPX, are lifted at installation.
 - **Import** from VMware (`.vmx`), VirtualBox (`.vbox`), Hyper-V (`.vhdx`/`.vhd`) and OVF/OVA:

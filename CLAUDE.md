@@ -116,7 +116,7 @@ Installer ne met à jour que vers plus haut.
   Par `msstore` (Microsoft Store Developer CLI), connecté comme application Entra « WinQEMU Store CLI » du tenant
   `troposteff.onmicrosoft.com`, rôle Developer ; **secret gardé par msstore dans le Gestionnaire d'identification de ce PC,
   jamais dans le dépôt ni dans GitHub** (choix de l'utilisateur, comme la clé de signature). Brouillon (`publish --noCommit`
-  sur le chemin du `.msix` : un dossier ferait reconnaître le projet WinUI), notes de version tirées des fiches, ancien paquet
+  sur le chemin du `.msix` : un dossier ferait reconnaître le projet WinUI), notes de version, description et fonctionnalités tirées des fiches, ancien paquet
   `PendingDelete`, soumission seulement sur « yes » de l'utilisateur. Pièges : `reconfigure` sans arguments demande un compte
   utilisateur (refuse les comptes Microsoft personnels) ; JSON de soumission modifié en `JsonNode` (ConvertFrom-Json
   changerait les dates). **Pas encore lancé sur une vraie version.**
@@ -942,8 +942,20 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   qui répond, écran de connexion.
 - **Installation automatique de Debian, Fedora et openSUSE** (`LinuxUnattendedSetup`, même principe qu'Ubuntu : premier
   démarrage sur le noyau et l'initrd de l'ISO par `-kernel`, ligne du noyau gardée dans `winqemu-setup\cmdline`, puis le
-  disque) ; case « Installer un bureau graphique » (sinon console avec SSH) dans l'assistant. Fichiers de réponses
-  supprimés quand l'agent répond, comme pour Ubuntu (ils portent l'empreinte du mot de passe).
+  disque). Fichiers de réponses supprimés quand l'agent répond, comme pour Ubuntu (ils portent l'empreinte du mot de passe).
+  **Environnement de bureau au choix** dans l'assistant (demande de l'utilisateur ; `LinuxDesktop`, liste
+  `DesktopChoice`) : GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt, ou aucun (console avec SSH), ceux que les trois
+  distributions ont toutes ; celui de la distribution par défaut (KDE pour openSUSE, GNOME sinon), repris à chaque
+  changement de système. Nommés comme chaque installateur les connaît : tâche tasksel (`xfce-desktop`), environnement
+  comps (`@^kde-desktop-environment`, GNOME = `workstation-product-environment`), pattern (`gnome`), vérifiés dans les
+  dépôts (Tumbleweed, comps de Fedora 41) ; un nom inconnu arrêterait l'installation. Dans l'assistant, la liste et le nom de
+  l'ordinateur sur une ligne, compte et mot de passe sur la suivante (demande de l'utilisateur). Les six bureaux vérifiés
+  jusqu'à l'écran de connexion sur Fedora 45 et Tumbleweed, GNOME et Xfce sur Debian.
+  **Agent invité hors de SELinux** (Fedora, openSUSE) : qemu-ga y tourne dans `virt_qemu_ga_t`, et ce qu'il lance ne
+  voyait pas `/home` ni ne chargeait `9pnet_fd` (dossiers partagés, dépôt et récupération en échec). Seul ce domaine est
+  rendu permissif (`typepermissive`, module CIL chargé par `semodule` après l'installation, `UnconfinedAgent`) ; SELinux
+  reste appliqué au reste. **openSUSE bloque en plus `guest-exec`** (`--block-rpcs` dans son unité) : surchargé par
+  `/etc/systemd/system/qemu-guest-agent.service.d/winqemu.conf`. Un invité installé à la main garde ces deux limites.
   **Nom de l'ordinateur modifiable** dans l'assistant (toutes les installations automatiques, Windows compris) : tiré du nom
   de la machine et le suivant tant qu'on ne le change pas ; règle NetBIOS pour Windows (15 caractères, pas que des chiffres),
   une étiquette DNS pour Linux (`WhyComputerNameIsRefused`, `WhyHostnameIsRefused`).
@@ -954,12 +966,19 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
     `inst.stage2=hd:LABEL=…` **lu dans le grub.cfg de l'ISO** (étiquette de volume complète ; Windows la montre tronquée, `Fedora-E-dvd-x86`).
     **ISO d'installation seulement** (Everything, Server : `images/install.img`) : une ISO Live s'installe en se copiant,
     sans kickstart ; elle a pourtant `images/pxeboot`, d'où le test (`IsoFileReader.Contains`, sans lire le gigaoctet).
+    **`xconfig --startxonboot`** avec bureau (`skipx` sinon) : installé en mode `text`, Workstation démarrait sur une
+    connexion texte. **`-plasma-setup`** pour KDE : l'assistant de premier démarrage de Plasma (obligatoire dans ses groupes
+    comps, hors de portée de `firstboot --disable`) proposait de créer un compte qui existait déjà.
   - **openSUSE** (linuxrc, YaST) : `autoinst.xml` sur la clé OEMDRV, `autoyast=label://OEMDRV/autoinst.xml`. L'ISO NET de
     Tumbleweed utilise encore YaST (pas Agama). **Produit exigé** (`<products>`) : un même support en propose plusieurs
     (openSUSE, MicroOS, Aeon, Kalpa), sinon « None or wrong base product » ; lu dans `media.1/products`. **Disques de moins de 4 Gio exclus** (`skip_list`) :
     sans disque nommé, AutoYaST prenait la clé OEMDRV (`sda`, avant `vda`) et s'arrêtait sur « Impossible de suggérer un
     partitionnement ». Reconnue par
     `media.1/media` : l'arbre ISO 9660 primaire ne sait pas nommer `.treeinfo` (point initial). SLE refusé (enregistrement).
+    **`kexec=3`** : le dépôt de Tumbleweed avance, et une ISO de quelques jours n'a plus le noyau de ses paquets ; linuxrc
+    s'arrêtait sur « To use the selected repository a matching boot image is needed. Download it now and restart? ». 3 le
+    charge sans demander, seulement si nécessaire (source de linuxrc, `install.c`). **Disposition graphique** : `<keymap>` ne règle
+    que la console ; Xfce (LightDM) montrait « us » à la connexion. SDDM (LXQt) affiche encore « us » : c'est le clavier virtuel de X, qui ne prend celui du vrai clavier (« fr », vérifié par `xkbcomp -i`) qu'à la première touche. `/etc/X11/xorg.conf.d/00-keyboard.conf` écrit par `<files>`.
   - Suivi des essais par `winqemu capture <machine> [fichier]` (nouveau, comme `captureScreen` de vmrun : `screendump` de
     la session, sans dépendre de l'écran).
 - **`-accel whpx` sans `kernel-irqchip`** : par défaut QEMU prend l'APIC de l'hyperviseur s'il en a un, sinon le

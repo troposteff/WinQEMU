@@ -164,8 +164,8 @@ Not needed for the Store: `WinQEMU.appinstaller`, `Install-WinQEMU.ps1`, the cer
 Published as product `9NTWD738Z396`. Each new version, from the author's PC: raise `Version` in `Package.appxmanifest`,
 write the "What's new" sections of `listing.en.md` and `listing.fr.md`, then `pwsh ./tools/Publish-Store.ps1`. It checks that
 nothing is pending and that the version is higher than the Store's, builds the package, uploads it into a **draft**
-(`msstore publish --noCommit`), sets the release notes, marks the previous package for removal, shows the draft, and sends
-it to certification only on "yes". `-RolloutPercentage` for a gradual rollout, `-Wait` to follow certification.
+(`msstore publish --noCommit`), sets the release notes, description and features from the listings, marks the previous
+package for removal, shows the draft, and sends it to certification only on "yes". `-RolloutPercentage` for a gradual rollout, `-Wait` to follow certification.
 
 - **The Microsoft Store Developer CLI** (`winget install "Microsoft Store Developer CLI"`, preview) signs in as an Entra
   application of the author's tenant, created in Partner Center (Account settings, User management, Microsoft Entra
@@ -174,7 +174,8 @@ it to certification only on "yes". `-RolloutPercentage` for a gradual rollout, `
   Credential Manager. Run without arguments, `reconfigure` asks for a user sign-in instead, which refuses personal
   Microsoft accounts.
 - **Not in GitHub Actions**, on purpose: the key stays on the author's PC, as the signing key does.
-- The rest of the listing is carried over from the published submission; change it in Partner Center.
+- The rest of the listing (short description, search terms, screenshots) is carried over from the published submission;
+  change it in Partner Center.
 - **Not yet run on a real version**: in particular `msstore publish` given the `.msix` path (so that it does not take the
   repository for a WinUI project to build) and the role Developer being enough to submit. Check the first draft in
   Partner Center before answering "yes".

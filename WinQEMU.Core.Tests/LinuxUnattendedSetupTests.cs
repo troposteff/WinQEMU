@@ -10,7 +10,7 @@ namespace WinQEMU.Core.Tests;
 
 public class LinuxUnattendedSetupTests
 {
-    private static UnattendedLinux Settings(bool desktop = true) =>
+    private static UnattendedLinux Settings(LinuxDesktop desktop = LinuxDesktop.Gnome) =>
         new("stephane", "$6$salt$hash", "debian-test", "fr_FR.UTF-8", "fr", "Europe/Paris", desktop);
 
     [Fact]
@@ -38,7 +38,7 @@ public class LinuxUnattendedSetupTests
     public void Debian_creates_the_account_and_chooses_its_tasks()
     {
         var desktop = LinuxUnattendedSetup.DebianPreseed(Settings());
-        var console = LinuxUnattendedSetup.DebianPreseed(Settings(desktop: false));
+        var console = LinuxUnattendedSetup.DebianPreseed(Settings(LinuxDesktop.None));
 
         Assert.Contains("d-i passwd/user-password-crypted password $6$salt$hash", desktop);
         Assert.Contains("d-i debian-installer/locale string fr_FR.UTF-8", desktop);
@@ -55,14 +55,24 @@ public class LinuxUnattendedSetupTests
 
         Assert.Contains("user --name=stephane --gecos=\"stephane\" --groups=wheel --iscrypted --password=$6$salt$hash", kickstart);
         Assert.Contains("@^workstation-product-environment", kickstart);
-        Assert.Contains("@^server-product-environment", LinuxUnattendedSetup.FedoraKickstart(Settings(desktop: false)));
+        var console = LinuxUnattendedSetup.FedoraKickstart(Settings(LinuxDesktop.None));
+        Assert.Contains("@^server-product-environment", console);
         Assert.Contains("reboot", kickstart);
+        // A text-mode installation otherwise leaves Workstation on a text login.
+        Assert.Contains("\nxconfig --startxonboot\n", kickstart.ReplaceLineEndings("\n"));
+        Assert.Contains("\nskipx\n", console.ReplaceLineEndings("\n"));
+        // KDE's own first-boot assistant would otherwise ask to set up an account that exists.
+        Assert.Contains("\n-plasma-setup\n%end", LinuxUnattendedSetup.FedoraKickstart(Settings(LinuxDesktop.Kde)).ReplaceLineEndings("\n"));
+        Assert.DoesNotContain("plasma-setup", kickstart);
+        // SELinux confines the agent: what it ran could not reach /home.
+        Assert.Contains("%post\nif command -v semodule", kickstart.ReplaceLineEndings("\n"));
+        Assert.Contains("(typepermissive virt_qemu_ga_t)", kickstart);
     }
 
     [Fact]
     public void AutoYast_is_well_formed_and_installs_the_agents()
     {
-        var profile = XDocument.Parse(LinuxUnattendedSetup.AutoYast(Settings()));
+        var profile = XDocument.Parse(LinuxUnattendedSetup.AutoYast(Settings(LinuxDesktop.Kde)));
         XNamespace yast = "http://www.suse.com/1.0/yast2ns";
 
         Assert.Contains(profile.Descendants(yast + "pattern"), p => p.Value == "kde_plasma");
@@ -73,6 +83,53 @@ public class LinuxUnattendedSetupTests
         // The OEMDRV stick is the first disk: never the one to install on.
         Assert.Equal("size_k", profile.Descendants(yast + "skip_key").Single().Value);
         Assert.Equal("false", profile.Descendants(yast + "add_crash_kernel").Single().Value);
+        // The graphical layout, which <keymap> leaves at "us" on the login screen.
+        var keyboard = profile.Descendants(yast + "file").Single();
+        Assert.Equal("/etc/X11/xorg.conf.d/00-keyboard.conf", keyboard.Element(yast + "file_path")!.Value);
+        Assert.Contains("Option \"XkbLayout\" \"fr\"", keyboard.Element(yast + "file_contents")!.Value);
+        Assert.StartsWith("Section \"InputClass\"", keyboard.Element(yast + "file_contents")!.Value);
+        // The agent may run commands, out of SELinux's confinement.
+        var script = profile.Descendants(yast + "chroot-scripts").Single().Descendants(yast + "source").Single().Value;
+        Assert.Contains("(typepermissive virt_qemu_ga_t)", script);
+        Assert.Contains("ExecStart=/usr/bin/qemu-ga -p /dev/virtio-ports/org.qemu.guest_agent.0\\n", script);
+        Assert.DoesNotContain("block-rpcs", script);
+    }
+
+    // The names each installer knows the environment by: tasksel's task, the comps environment, the pattern.
+    [Theory]
+    [InlineData(LinuxDesktop.Gnome, "gnome-desktop", "@^workstation-product-environment", "gnome")]
+    [InlineData(LinuxDesktop.Kde, "kde-desktop", "@^kde-desktop-environment", "kde_plasma")]
+    [InlineData(LinuxDesktop.Xfce, "xfce-desktop", "@^xfce-desktop-environment", "xfce")]
+    [InlineData(LinuxDesktop.Cinnamon, "cinnamon-desktop", "@^cinnamon-desktop-environment", "cinnamon")]
+    [InlineData(LinuxDesktop.Mate, "mate-desktop", "@^mate-desktop-environment", "mate")]
+    [InlineData(LinuxDesktop.Lxqt, "lxqt-desktop", "@^lxqt-desktop-environment", "lxqt")]
+    public void Each_desktop_is_named_as_each_installer_knows_it(LinuxDesktop desktop, string task, string environment, string pattern)
+    {
+        var settings = Settings(desktop);
+        var profile = XDocument.Parse(LinuxUnattendedSetup.AutoYast(settings));
+        XNamespace yast = "http://www.suse.com/1.0/yast2ns";
+
+        Assert.Contains($"standard, desktop, {task}", LinuxUnattendedSetup.DebianPreseed(settings));
+        Assert.Contains($"\n{environment}\n", LinuxUnattendedSetup.FedoraKickstart(settings).ReplaceLineEndings("\n"));
+        var patterns = profile.Descendants(yast + "pattern").Select(p => p.Value).ToList();
+        Assert.Contains(pattern, patterns);
+        Assert.Contains("x11", patterns);
+        Assert.Equal("graphical", profile.Descendants(yast + "default_target").Single().Value);
+        Assert.Contains(desktop, LinuxUnattendedSetup.Desktops);
+        Assert.NotNull(LinuxUnattendedSetup.DesktopName(desktop));
+    }
+
+    [Fact]
+    public void No_desktop_is_a_console_with_ssh()
+    {
+        var profile = XDocument.Parse(LinuxUnattendedSetup.AutoYast(Settings(LinuxDesktop.None)));
+        XNamespace yast = "http://www.suse.com/1.0/yast2ns";
+
+        Assert.DoesNotContain(profile.Descendants(yast + "pattern"), p => p.Value == "x11");
+        Assert.Empty(profile.Descendants(yast + "file"));
+        Assert.Equal("multi-user", profile.Descendants(yast + "default_target").Single().Value);
+        Assert.Equal(LinuxDesktop.Kde, LinuxUnattendedSetup.DefaultDesktop("opensuse"));
+        Assert.Equal(LinuxDesktop.Gnome, LinuxUnattendedSetup.DefaultDesktop("debian"));
     }
 
     private static VmConfig Pending(string guestOs, string? commandLine = null)

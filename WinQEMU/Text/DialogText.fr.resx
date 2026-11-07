@@ -327,6 +327,7 @@ Pris le {2}</value></data>
   <data name="NewVmIsoDownload" xml:space="preserve"><value>Pas encore d'ISO ? Téléchargez-la sur {0}</value></data>
   <data name="NewVmFamily" xml:space="preserve"><value>Famille</value></data>
   <data name="NewVmFamilyOther" xml:space="preserve"><value>Autre</value></data>
-  <data name="NewVmInstallDesktop" xml:space="preserve"><value>Installer un bureau graphique (sinon une console avec SSH)</value></data>
+  <data name="NewVmDesktopHeader" xml:space="preserve"><value>Environnement de bureau</value></data>
+  <data name="NewVmDesktopNone" xml:space="preserve"><value>Aucun : une console avec SSH</value></data>
   <data name="NewVmComputerNameHeader" xml:space="preserve"><value>Nom de l'ordinateur</value></data>
 </root>

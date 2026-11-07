@@ -12,13 +12,13 @@
       1. Checks that no submission is pending and that the manifest's version is higher than the Store's.
       2. Builds the package (tools/Build-StorePackage.ps1), unless -SkipBuild.
       3. msstore publish --noCommit: a draft with the new package. Nothing is submitted yet.
-      4. Release notes ("What's new in this version" of listing.en.md and listing.fr.md) set on the draft, and the
-         previous packages marked for removal.
+      4. Release notes ("What's new in this version"), description and features of listing.en.md and listing.fr.md
+         set on the draft, and the previous packages marked for removal.
       5. Shows the draft and asks; only "yes" sends it to certification (msstore submission publish). Otherwise the draft
          stays in Partner Center, to finish there or delete (msstore submission delete 9NTWD738Z396).
 
-    The rest of the listing (description, features, screenshots) is the published one, carried over by the draft: change
-    it in Partner Center, or import it with packaging/store/New-ListingImport.ps1.
+    The rest of the listing (short description, search terms, screenshots) is the published one, carried over by the
+    draft: change it in Partner Center, or import it with packaging/store/New-ListingImport.ps1.
 
 .EXAMPLE
     pwsh ./tools/Publish-Store.ps1
@@ -58,8 +58,8 @@ function Get-Submission {
     [System.Text.Json.Nodes.JsonNode]::Parse((Invoke-Msstore submission get $productId) -join "`n")
 }
 
-# "## What's new in this version" / "## Nouveautés de cette version" of a listing file: the text up to the next heading.
-function Read-ReleaseNotes([string]$file, [string]$heading) {
+# A "## Heading" section of a listing file: the text up to the next heading.
+function Read-Section([string]$file, [string]$heading, [int]$max) {
     $lines = Get-Content (Join-Path $root "packaging\store\$file") -Encoding utf8
     $start = [array]::IndexOf($lines, "## $heading")
     if ($start -lt 0) { throw "$file has no '## $heading' section." }
@@ -69,13 +69,28 @@ function Read-ReleaseNotes([string]$file, [string]$heading) {
         }) -join "`n"
     $text = $text.Trim()
     if (-not $text) { throw "The '## $heading' section of $file is empty." }
-    if ($text.Length -gt 1500) { throw "The '## $heading' section of $file has $($text.Length) characters; the Store takes 1500." }
+    if ($text.Length -gt $max) { throw "The '## $heading' section of $file has $($text.Length) characters; the Store takes $max." }
     $text
 }
 
-$notes = [ordered]@{
-    'en-us' = Read-ReleaseNotes 'listing.en.md' "What's new in this version"
-    'fr-fr' = Read-ReleaseNotes 'listing.fr.md' 'Nouveautés de cette version'
+# What the draft takes from the listing files: the release notes, and the description and features, which change with
+# what WinQEMU does (the rest of the listing is carried over from the published submission).
+function Read-Listing([string]$file, [string]$notesHeading, [string]$featuresHeading) {
+    $features = @((Read-Section $file $featuresHeading 4000) -split "`n" | Where-Object { $_.StartsWith('- ') } |
+            ForEach-Object { $_.Substring(2).Trim() })
+    if ($features.Count -gt 20 -or ($features | Where-Object Length -gt 200)) {
+        throw "The features of ${file}: at most 20, of 200 characters each."
+    }
+    @{
+        ReleaseNotes = Read-Section $file $notesHeading 1500
+        Description = Read-Section $file 'Description' 10000
+        Features = $features
+    }
+}
+
+$listings = [ordered]@{
+    'en-us' = Read-Listing 'listing.en.md' "What's new in this version" 'Product features'
+    'fr-fr' = Read-Listing 'listing.fr.md' 'Nouveautés de cette version' 'Fonctionnalités du produit'
 }
 
 # 1. Nothing pending, and a version the Store will take.
@@ -89,9 +104,9 @@ $published = @($current['ApplicationPackages'].AsArray() | ForEach-Object { [ver
 if ($published -and [version]$info.Package -le $published) {
     throw "The manifest's version ($($info.Package)) is not higher than the Store's ($published): raise Version in WinQEMU\Package.appxmanifest."
 }
-foreach ($lang in $notes.Keys) {
+foreach ($lang in $listings.Keys) {
     $old = [string]$current['Listings']?[$lang]?['BaseListing']?['ReleaseNotes']
-    if ($old.Trim() -eq $notes[$lang]) {
+    if ($old.Trim() -eq $listings[$lang].ReleaseNotes) {
         Write-Warning "The $lang release notes are the published version's: update packaging\store\listing.*.md first?"
         if ((Read-Host 'Continue anyway? (yes/no)') -ne 'yes') { return }
     }
@@ -112,15 +127,19 @@ if ($RolloutPercentage) { $publishArgs += '--packageRolloutPercentage', $Rollout
 if ($PriceId) { $publishArgs += '--priceId', $PriceId }
 Invoke-Msstore @publishArgs | Out-Host
 
-# 4. Release notes, and only the new package left in the draft.
+# 4. Listings, and only the new package left in the draft.
 $draft = Get-Submission
 if ([string]$draft['Status'] -ne 'PendingCommit') {
     throw "The draft was expected, msstore left a submission in state $($draft['Status'])."
 }
-foreach ($lang in $notes.Keys) {
+foreach ($lang in $listings.Keys) {
     $listing = $draft['Listings']?[$lang]?['BaseListing']
     if ($null -eq $listing) { throw "The draft has no $lang listing." }
-    $listing['ReleaseNotes'] = $notes[$lang]
+    $listing['ReleaseNotes'] = $listings[$lang].ReleaseNotes
+    $listing['Description'] = $listings[$lang].Description
+    $features = [System.Text.Json.Nodes.JsonArray]::new()
+    foreach ($feature in $listings[$lang].Features) { $features.Add([System.Text.Json.Nodes.JsonValue]::Create([string]$feature)) }
+    $listing['Features'] = $features
 }
 foreach ($package in $draft['ApplicationPackages'].AsArray()) {
     if ([version][string]$package['Version'] -ne [version]$info.Package) { $package['FileStatus'] = 'PendingDelete' }
@@ -143,10 +162,12 @@ foreach ($package in $draft['ApplicationPackages'].AsArray()) {
 }
 $rollout = $draft['PackageDeliveryOptions']?['PackageRollout']
 if ($rollout -and $rollout['IsPackageRollout'].GetValue[bool]()) { "Rollout: $($rollout['PackageRolloutPercentage']) %" }
-foreach ($lang in $notes.Keys) {
+foreach ($lang in $listings.Keys) {
+    $listing = $draft['Listings'][$lang]['BaseListing']
     ''
     "Release notes ($lang):"
-    "  $($draft['Listings'][$lang]['BaseListing']['ReleaseNotes'])"
+    "  $($listing['ReleaseNotes'])"
+    "Features ($lang): $($listing['Features'].AsArray().Count), description: $(([string]$listing['Description']).Length) characters"
 }
 ''
 if ((Read-Host 'Send this submission to certification? (yes/no)') -ne 'yes') {

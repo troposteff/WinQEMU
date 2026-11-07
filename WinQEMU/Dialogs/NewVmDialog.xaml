@@ -302,10 +302,10 @@
                             Style="{StaticResource Hint}"
                             Text="{Binding UnattendedHint, Mode=OneWay}"
                             TextWrapping="Wrap" />
-                        <CheckBox
-                            Content="{x:Bind t:DialogText.NewVmInstallDesktop}"
-                            IsChecked="{Binding InstallDesktop, Mode=TwoWay}"
-                            Visibility="{Binding OffersDesktopChoice, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                        <!--
+                            The machine itself on the first row (desktop, then its name), the account on the second.
+                            Without a desktop choice (Windows, Ubuntu), the name takes the first column.
+                        -->
                         <Grid
                             ColumnSpacing="8"
                             RowSpacing="6"
@@ -318,20 +318,29 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
+                            <ComboBox
+                                Grid.Column="0"
+                                HorizontalAlignment="Stretch"
+                                DisplayMemberPath="Label"
+                                Header="{x:Bind t:DialogText.NewVmDesktopHeader}"
+                                ItemsSource="{Binding Desktops}"
+                                SelectedItem="{Binding SelectedDesktop, Mode=TwoWay}"
+                                Visibility="{Binding OffersDesktopChoice, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
                             <TextBox
+                                Grid.Column="{Binding ComputerNameColumn, Mode=OneWay}"
+                                Header="{x:Bind t:DialogText.NewVmComputerNameHeader}"
+                                Text="{Binding UnattendedComputerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox
+                                Grid.Row="1"
                                 Grid.Column="0"
                                 Header="{x:Bind t:DialogText.UserName}"
                                 Text="{Binding UnattendedUser, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <PasswordBox
                                 x:Name="UnattendedPasswordBox"
+                                Grid.Row="1"
                                 Grid.Column="1"
                                 Header="{x:Bind t:DialogText.Password}"
                                 PasswordChanged="OnUnattendedPasswordChanged" />
-                            <TextBox
-                                Grid.Row="1"
-                                Grid.Column="0"
-                                Header="{x:Bind t:DialogText.NewVmComputerNameHeader}"
-                                Text="{Binding UnattendedComputerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </Grid>
                     </StackPanel>
 

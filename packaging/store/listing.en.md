@@ -14,7 +14,7 @@ WinQEMU is a Windows interface over QEMU, aiming at the comfort of VMware Workst
 
 At first start, WinQEMU checks that this PC is ready: QEMU found, hardware acceleration enabled, and what to do if not.
 
-Virtual machines: a library in nested folders, a creation wizard, unattended installation of Windows 10/11 and Ubuntu, import from VMware, VirtualBox, Hyper-V and OVA, export to OVA, full and linked clones, templates, automatic start, machines left running in the background.
+Virtual machines: a library in nested folders, a creation wizard, unattended installation of Windows 10/11, Ubuntu, Debian, Fedora and openSUSE, import from VMware, VirtualBox, Hyper-V and OVA, export to OVA, full and linked clones, templates, automatic start, machines left running in the background.
 
 Console: integrated or full screen, the guest's resolution following the window, a shared clipboard, typing the clipboard into the guest, screen capture, files dropped onto the guest's desktop or copied back from it, sound with per-machine volume.
 
@@ -36,12 +36,12 @@ A Windows interface over QEMU: create, run and manage virtual machines with hard
 
 ## What's new in this version
 
-Fixed: some Linux guests (openSUSE Tumbleweed, for one) froze as their desktop session started when the USB tablet was on, and WinQEMU with them. Since the previous version, a machine also starts with sound on a PC without a microphone or with microphone access denied.
+Unattended installation of Debian, Fedora and openSUSE, with the desktop of your choice (GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt) or as a console with SSH, and a computer name of your choice for every unattended installation. More guest systems in the wizard, grouped by family, with where to download each one. The window reopens where it was closed, on the same screen. A key held down repeats in the guest, text consoles included. When QEMU stops responding, WinQEMU offers to power the machine off instead of freezing with it. The machine's log copies the details a bug report needs. Restart in the full-screen bar, and the winqemu capture command.
 
 ## Product features
 
 - Virtual machine library in nested folders
-- Creation wizard, with unattended installation of Windows 10/11 and Ubuntu
+- Creation wizard, with unattended installation of Windows 10/11, Ubuntu, Debian, Fedora and openSUSE
 - Hardware acceleration through the Windows Hypervisor Platform
 - Import from VMware, VirtualBox, Hyper-V and OVA; export to OVA
 - Full and linked clones, templates

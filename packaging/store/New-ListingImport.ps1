@@ -55,13 +55,13 @@ function Read-Listing([string]$path) {
 $languages = [ordered]@{
     'en-us' = @{
         Listing = Read-Listing (Join-Path $here 'listing.en.md')
-        Shots = @('summary-en.png', 'console-en.png')
-        Captions = @("A machine's summary, with its resource charts", 'The integrated console')
+        Shots = @('summary-en.png', 'console-en.png', 'wizard-en.png')
+        Captions = @("A machine's summary, with its resource charts", 'The integrated console', 'An unattended installation, with the choice of desktop')
     }
     'fr-fr' = @{
         Listing = Read-Listing (Join-Path $here 'listing.fr.md')
-        Shots = @('summary-fr.png', 'console-fr.png')
-        Captions = @("Le résumé d'une machine, avec ses graphiques de ressources", 'La console intégrée')
+        Shots = @('summary-fr.png', 'console-fr.png', 'wizard-fr.png')
+        Captions = @("Le résumé d'une machine, avec ses graphiques de ressources", 'La console intégrée', 'Une installation automatique, avec le choix du bureau')
     }
 }
 

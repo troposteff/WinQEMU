@@ -74,4 +74,4 @@ Licence publique générale GNU, version 3 : https://www.gnu.org/licenses/gpl-3.
 
 ## Captures d'écran
 
-`docs/images/summary-fr.png`, `docs/images/console-fr.png`, `docs/images/snapshots-fr.png`.
+`docs/images/summary-fr.png`, `docs/images/console-fr.png`, `docs/images/wizard-fr.png`, `docs/images/snapshots-fr.png`.

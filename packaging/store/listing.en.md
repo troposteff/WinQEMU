@@ -74,7 +74,7 @@ GNU General Public License, version 3: https://www.gnu.org/licenses/gpl-3.0.html
 
 ## Screenshots
 
-`docs/images/summary-en.png`, `docs/images/console-en.png`, `docs/images/snapshots-en.png`.
+`docs/images/summary-en.png`, `docs/images/console-en.png`, `docs/images/wizard-en.png`, `docs/images/snapshots-en.png`.
 
 ## Category
 

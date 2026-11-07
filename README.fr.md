@@ -31,6 +31,8 @@ l'accélération matérielle de la plateforme d'hyperviseur Windows (WHPX).
   - Debian, Fedora et openSUSE avec le bureau de votre choix (GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt), ou en
     console avec SSH ;
   - outils invités installés d'office.
+
+  ![L'assistant de création : une installation automatique, avec le choix du bureau](docs/images/wizard-fr.png)
 - **Invités Windows 11** : les contrôles du TPM et du Secure Boot, impossibles sous WHPX, sont levés à l'installation.
 - **Import** depuis VMware (`.vmx`), VirtualBox (`.vbox`), Hyper-V (`.vhdx`/`.vhd`) et OVF/OVA :
   - les disques sont convertis en qcow2 ;

@@ -31,6 +31,8 @@ through the Windows Hypervisor Platform (WHPX).
   - Debian, Fedora and openSUSE with the desktop of your choice (GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt), or as a
     console with SSH;
   - guest tools installed automatically.
+
+  ![The creation wizard: an unattended installation, with the choice of desktop](docs/images/wizard-en.png)
 - **Windows 11 guests**: the TPM and Secure Boot checks, impossible under WHPX, are lifted at installation.
 - **Import** from VMware (`.vmx`), VirtualBox (`.vbox`), Hyper-V (`.vhdx`/`.vhd`) and OVF/OVA:
   - the disks are converted to qcow2;

@@ -55,7 +55,9 @@ function Invoke-Msstore {
 function Get-Submission {
     # The pending submission if there is one, otherwise the last published one. Edited as a JSON tree rather than
     # through ConvertFrom-Json, which turns dates into DateTime and would write them back differently.
-    [System.Text.Json.Nodes.JsonNode]::Parse((Invoke-Msstore submission get $productId) -join "`n")
+    # The comma keeps the object whole: a JsonObject is enumerable, and a function's output would be unrolled into its
+    # key/value pairs (Status then read as empty: "A submission is already pending ()").
+    , [System.Text.Json.Nodes.JsonNode]::Parse((Invoke-Msstore submission get $productId) -join "`n")
 }
 
 # A "## Heading" section of a listing file: the text up to the next heading.

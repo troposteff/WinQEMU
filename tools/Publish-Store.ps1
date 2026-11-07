@@ -95,18 +95,27 @@ $listings = [ordered]@{
     'fr-fr' = Read-Listing 'listing.fr.md' 'Nouveautés de cette version' 'Fonctionnalités du produit'
 }
 
-# 1. Nothing pending, and a version the Store will take.
+# 1. Nothing pending, and a version the Store will take. A draft that already holds this version's package (a previous run
+# stopped after the upload) is taken up where it was left: steps 2 and 3 are skipped.
+$packageDir = Join-Path $root "artifacts\store\v$($info.Display)"
+$msixName = "WinQEMU_$($info.Display)_x64.msix"
+$msix = Join-Path $packageDir $msixName
 $current = Get-Submission
 $status = [string]$current['Status']
-if ($status -ne 'Published') {
+$resume = $status -eq 'PendingCommit' -and
+    @($current['ApplicationPackages'].AsArray() | Where-Object { [string]$_['FileName'] -eq $msixName }).Count -gt 0
+if ($resume) {
+    "A draft already holds ${msixName}: taking it up (no new upload)."
+} elseif ($status -ne 'Published') {
     throw "A submission is already pending ($status). Finish it in Partner Center, or delete a draft: msstore submission delete $productId"
 }
-$published = @($current['ApplicationPackages'].AsArray() | ForEach-Object { [version][string]$_['Version'] }) |
+# A package the Store has not processed yet has no version.
+$published = @($current['ApplicationPackages'].AsArray() | Where-Object { $_['Version'] } | ForEach-Object { [version][string]$_['Version'] }) |
     Sort-Object -Descending | Select-Object -First 1
-if ($published -and [version]$info.Package -le $published) {
+if (-not $resume -and $published -and [version]$info.Package -le $published) {
     throw "The manifest's version ($($info.Package)) is not higher than the Store's ($published): raise Version in WinQEMU\Package.appxmanifest."
 }
-foreach ($lang in $listings.Keys) {
+foreach ($lang in $(if ($resume) { @() } else { $listings.Keys })) {
     $old = [string]$current['Listings']?[$lang]?['BaseListing']?['ReleaseNotes']
     if ($old.Trim() -eq $listings[$lang].ReleaseNotes) {
         Write-Warning "The $lang release notes are the published version's: update packaging\store\listing.*.md first?"
@@ -114,20 +123,20 @@ foreach ($lang in $listings.Keys) {
     }
 }
 
-# 2. The package.
-$packageDir = Join-Path $root "artifacts\store\v$($info.Display)"
-$msix = Join-Path $packageDir "WinQEMU_$($info.Display)_x64.msix"
-if (-not $SkipBuild) {
-    & (Join-Path $PSScriptRoot 'Build-StorePackage.ps1')
-}
-if (-not (Test-Path $msix)) { throw "$msix not found: build it (without -SkipBuild)." }
+if (-not $resume) {
+    # 2. The package.
+    if (-not $SkipBuild) {
+        & (Join-Path $PSScriptRoot 'Build-StorePackage.ps1')
+    }
+    if (-not (Test-Path $msix)) { throw "$msix not found: build it (without -SkipBuild)." }
 
-# 3. The draft. The .msix itself is given: msstore then takes the file as it is, rather than looking at the repository
-# for a project to build (it recognises WinQEMU.csproj as a WinUI project).
-$publishArgs = @('publish', $msix, '--appId', $productId, '--noCommit')
-if ($RolloutPercentage) { $publishArgs += '--packageRolloutPercentage', $RolloutPercentage }
-if ($PriceId) { $publishArgs += '--priceId', $PriceId }
-Invoke-Msstore @publishArgs | Out-Host
+    # 3. The draft. The .msix itself is given: msstore then takes the file as it is, rather than looking at the repository
+    # for a project to build (it recognises WinQEMU.csproj as a WinUI project).
+    $publishArgs = @('publish', $msix, '--appId', $productId, '--noCommit')
+    if ($RolloutPercentage) { $publishArgs += '--packageRolloutPercentage', $RolloutPercentage }
+    if ($PriceId) { $publishArgs += '--priceId', $PriceId }
+    Invoke-Msstore @publishArgs | Out-Host
+}
 
 # 4. Listings, and only the new package left in the draft.
 $draft = Get-Submission
@@ -143,8 +152,9 @@ foreach ($lang in $listings.Keys) {
     foreach ($feature in $listings[$lang].Features) { $features.Add([System.Text.Json.Nodes.JsonValue]::Create([string]$feature)) }
     $listing['Features'] = $features
 }
+# By file name: the package just uploaded is "PendingUpload", without a version until the Store has processed it.
 foreach ($package in $draft['ApplicationPackages'].AsArray()) {
-    if ([version][string]$package['Version'] -ne [version]$info.Package) { $package['FileStatus'] = 'PendingDelete' }
+    if ([string]$package['FileName'] -ne $msixName) { $package['FileStatus'] = 'PendingDelete' }
 }
 $payload = Join-Path ([System.IO.Path]::GetTempPath()) "winqemu-store-$([guid]::NewGuid().ToString('n')).json"
 try {

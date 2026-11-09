@@ -884,10 +884,10 @@ invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmCon
   150 ms plus tard, par un minuteur hors interface. Pas de message à SDL qui ne l'attend pas : un mouvement marqué « tenu »
   lui ferait croire à un appui, un clic sur le bord de l'invité.
 - **Bouton droit : l'Explorateur répond avant la réponse à son menu** (« Copier ici », « Annuler »), sans effet ; on se
-  fie à ce que la cible acceptait au survol, et les fichiers restent. **Ouvert** : « Copier ici » ne copie rien (vérifié
-  deux fois, souris et Entrée) ; piste non vérifiée, l'Explorateur voudrait `CFSTR_SHELLIDLIST`, que l'objet ne fournit
-  pas (toujours vrai avec l'objet dans le MTA). Une première détection au bouton droit a aussi échoué une fois (sur
-  deux), sans explication.
+  fie à ce que la cible acceptait au survol, et les fichiers restent (le dossier temporaire est vidé au bout d'une heure).
+  **Vérifié à la main par l'utilisateur** : le menu copie, « Annuler » annule. Choisi par un clic simulé ou une touche
+  Entrée envoyés depuis un autre processus, « Copier ici » ne copiait rien : sans doute l'essai, pas WinQEMU. Une détection au
+  bouton droit a échoué une fois (sur deux) pendant ces essais automatiques, sans explication.
 - Vérifié sur une copie du Windows 11 de l'utilisateur (Ryzen, 09/11/2026), glisser simulé (`SetCursorPos`,
   `mouse_event`, processus *per-monitor aware*), empreintes SHA-256 comparées par l'agent : 3 Mo, 400 Mo, 3 Go relâché
   pendant la copie, sur les deux chemins (image à l'échelle : `PointerOverlay` ; image au pixel : SDL) ; **relâché sur

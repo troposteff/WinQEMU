@@ -161,15 +161,25 @@ réseaux virtuels) et propose de désinstaller la version GitHub.
 Au premier démarrage, WinQEMU indique si ce PC est prêt à faire tourner des machines (QEMU, accélération matérielle) et
 quoi faire sinon. Cette vérification reste accessible dans les paramètres (**Vérifier ce PC…**).
 
-### Sans le Store
+### Depuis GitHub
 
-WinQEMU n'est plus publié en paquet sur GitHub : les bêtas 2026.0.x qui y étaient publiées ont été retirées. Sans le
-Store, compilez-le depuis les sources (voir [Compiler depuis les sources](#compiler-depuis-les-sources)).
+Chaque [release GitHub](https://github.com/troposteff/WinQEMU/releases) contient le paquet du Store lui-même, signé par
+le Microsoft Store, et sa licence hors ligne : `WinQEMU_<version>_x64.msix` et `WinQEMU_<version>_License.xml`, avec leur
+empreinte SHA-256 dans `SHA256SUMS.txt`. Dans PowerShell **en administrateur**, depuis le dossier où ils se trouvent :
+
+```powershell
+Add-AppxProvisionedPackage -Online -PackagePath .\WinQEMU_<version>_x64.msix -LicensePath .\WinQEMU_<version>_License.xml
+```
+
+C'est la même application que celle du Store (aucun certificat à approuver, elle démarre avec le Contrôle intelligent des
+applications), installée pour tous les comptes de ce PC. Pour vérifier un téléchargement :
+`Get-FileHash .\WinQEMU_<version>_x64.msix`, dont la valeur doit être celle de `SHA256SUMS.txt`.
 
 ### Mettre à jour
 
-Rien à faire : le Store met WinQEMU à jour tout seul, sur place. Les paramètres, la bibliothèque et les machines
-virtuelles sont conservés.
+Depuis le Store : rien à faire, le Store met WinQEMU à jour tout seul. Depuis GitHub : relancez la même commande avec les
+fichiers de la release plus récente. Dans les deux cas, la mise à jour se fait sur place : les paramètres, la
+bibliothèque et les machines virtuelles sont conservés.
 
 ### Désinstaller
 
@@ -178,6 +188,13 @@ version du Store, `Get-AppxPackage *cfde84db* | Remove-AppxPackage` pour une bê
 ses paramètres ; **les machines virtuelles restent** dans leur dossier (`Documents\WinQEMU VMs` par défaut, ou celui choisi
 dans les paramètres), et une nouvelle installation les retrouve une fois ce dossier indiqué. Le certificat d'une bêta
 GitHub se retire dans `certlm.msc`, Personnes autorisées.
+
+Installé depuis une release GitHub, WinQEMU est aussi prévu pour les futurs comptes du PC ; pour le retirer aussi, en
+administrateur :
+
+```powershell
+Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq troposteff.WinQEMU | Remove-AppxProvisionedPackage -Online
+```
 
 ## Compiler depuis les sources
 

@@ -5,13 +5,15 @@ WinGet would take. For users, the README covers installing, updating and uninsta
 
 ## Channels
 
-- **Microsoft Store** (product `9NTWD738Z396`): the only channel. See [Microsoft Store](#microsoft-store).
-- **GitHub releases: none since 2026-11-07.** The three betas published there (`2026.0.1_beta` to `2026.0.3_beta`) were
-  deleted as obsolete, and their Git tags with them. Without the Store, WinQEMU is built from source (README).
-
-  The GitHub channel's tooling is kept, unused, in case it is ever reopened: `tools/Build-Package.ps1`,
-  `Install-WinQEMU.ps1`, the `.appinstaller` and the Release check workflow. The sections below that describe it
-  (Releasing on GitHub, Signing today) say how it worked.
+- **Microsoft Store** (product `9NTWD738Z396`): where WinQEMU is built for, signed and updated. See
+  [Microsoft Store](#microsoft-store).
+- **GitHub releases of the Store's package** (from 2026.1.4): the `.msix` the Store signed and its offline licence,
+  as [NanaZip](https://github.com/M2Team/NanaZip/releases) does. See
+  [GitHub releases of the Store package](#github-releases-of-the-store-package).
+- **The self-signed GitHub channel is retired.** The three betas published there (`2026.0.1_beta` to `2026.0.3_beta`)
+  were deleted on 2026-11-07, and their Git tags with them. Its tooling is kept, unused: `tools/Build-Package.ps1`,
+  `Install-WinQEMU.ps1`, the `.appinstaller`. The sections that describe it (Self-signed releases, Signing outside the
+  Store) say how it worked.
 
 ## Packaging
 
@@ -38,9 +40,31 @@ and nothing else, so the manifest says `2026.0.1.0`; the suffix exists only in w
 Raise `Version` in `WinQEMU/Package.appxmanifest` for each release: Windows only updates to a higher version, and refuses to
 register a changed manifest under the same one.
 
-## Releasing on GitHub (not used)
+## GitHub releases of the Store package
 
-No GitHub release is published any more (see Channels). If one ever is:
+For each version the Store has published, once certified:
+
+1. `pwsh ./tools/New-GitHubRelease.ps1` downloads the package and its licence from the Store (`winget download`), checks
+   that the Store serves the manifest's version and that the package is signed by the Store, and writes
+   `artifacts\github\v<version>\`: `WinQEMU_<version>_x64.msix`, `WinQEMU_<version>_License.xml`, `SHA256SUMS.txt`
+   and `notes.md` (the "What's new" of `listing.en.md`, how to install, the hashes).
+2. It publishes nothing: it prints the `gh release create` command, tag on the current commit (pushed first), marked
+   latest. Pushing the tag runs Release check.
+
+- **Offline licensing** must be on in Partner Center (Pricing and availability), and the licence needs an Entra account
+  that is Global, User or License Administrator of the author's tenant: winget asks for the sign-in if needed.
+- **The licence is what makes the package start without the Store.** Checked in Windows Sandbox (which has no Store):
+  `Add-AppxPackage` of the package alone installs it, but WinQEMU does not start ("This app can't open", `0x87E10BC6`);
+  `Add-AppxProvisionedPackage -PackagePath … -LicensePath …` (administrator) installs it and WinQEMU starts.
+  NanaZip says a double-clicked package gets its licence from the Store at first start when online; not checked here.
+- **Same identity as the Store's**: one application, whichever way it came; its settings are shared.
+- The licence carries the requesting tenant's identifier (`RequestorID`). NanaZip publishes its own the same way.
+- The App Developer Agreement (8.11) is non-exclusive and leaves the customer licence to the developer (GPL-3.0 here);
+  it says nothing about republishing the Store's package or its offline licence.
+
+## Self-signed releases (retired)
+
+The channel used for the 2026.0.x betas, kept for reference:
 
 1. Raise the version in the manifest; commit it on `main`.
 2. `pwsh ./tools/Build-Package.ps1`: builds and signs the package with the certificate in the author's store, and writes
@@ -74,7 +98,7 @@ Never reuse a version number for different contents.
 
 ## Signing outside the Store, and the trust it asks for
 
-The Store signs its own package. The GitHub package (none published today) is signed by a self-signed certificate, `CN=troposteff` (5 years, in the author's personal store; public part in
+The Store signs its own package, the one GitHub releases now carry. The retired self-signed package was signed by a self-signed certificate, `CN=troposteff` (5 years, in the author's personal store; public part in
 `packaging/WinQEMU.cer`). Windows installs it only once the certificate is trusted, so `Install-WinQEMU.ps1`, run as
 administrator:
 

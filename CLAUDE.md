@@ -59,10 +59,16 @@ Installer ne met à jour que vers plus haut.
 - **Bêtas publiées en pré-versions GitHub** (choix de l'utilisateur) : `releases/latest` ne pointe jamais vers une
   pré-version, donc pas de mise à jour automatique ni de `.appinstaller` avant `2026.1.0` ; chaque bêta s'installe par son
   `.msix`. Le script affiche la commande `gh release create` (`--prerelease` pour une bêta).
-- **Plus aucune release GitHub depuis le 07/11/2026** (choix de l'utilisateur) : les trois bêtas `2026.0.x` supprimées,
-  leurs étiquettes aussi (09/11) ; les README envoient vers le Store, ou vers la compilation depuis les sources. Les outils
-  de publication GitHub (`Build-Package.ps1`, `.appinstaller`, `Install-WinQEMU.ps1`) restent, inutilisés. Ce qui suit sur
-  les bêtas et l'`.appinstaller` décrit ce canal tel qu'il marchait.
+- **Canal auto-signé abandonné le 07/11/2026** (choix de l'utilisateur) : les trois bêtas `2026.0.x` supprimées, leurs
+  étiquettes aussi (09/11). Ses outils (`Build-Package.ps1`, `.appinstaller`, `Install-WinQEMU.ps1`) restent, inutilisés ;
+  ce qui suit sur les bêtas et l'`.appinstaller` décrit ce canal tel qu'il marchait.
+- **Releases GitHub = le paquet du Store et sa licence hors ligne, comme NanaZip** (choix de l'utilisateur, 09/11/2026, à
+  partir de 2026.1.4) : `tools/New-GitHubRelease.ps1`, une fois la version publiée par le Store, télécharge `.msix` et
+  licence (`winget download`, compte Entra administrateur), vérifie version et signature du Store, écrit
+  `artifacts\github\v<version>\` (fichiers, `SHA256SUMS.txt`, `notes.md`) et **affiche** la commande `gh release create`,
+  lancée seulement avec l'accord de l'utilisateur. Installation : `Add-AppxProvisionedPackage -Online -PackagePath …
+  -LicensePath …` en administrateur (README). Précédents tiers : NanaZip (paquet + licence), Notepads, Ambie, Energy Star X
+  (paquet seul).
 
 - **Signé par un certificat auto-signé `CN=troposteff`** (magasin personnel de l'utilisateur, 5 ans ; partie publique
   dans `packaging\WinQEMU.cer`), choix de l'utilisateur. L'éditeur du manifeste doit être exactement ce sujet.
@@ -100,10 +106,9 @@ Installer ne met à jour que vers plus haut.
     `OnlineAndOffline`) : `winget download --id 9NTWD738Z396 -s msstore` donne le `.msix` signé par le Store (éditeur
     `CN=EA8415CD-…`) et, avec un compte Entra administrateur, `9NTWD738Z396_License.xml`. Vérifié dans Windows Sandbox :
     **sans licence, le paquet s'installe mais ne démarre pas** (« Impossible d'ouvrir cette application », `0x87E10BC6`) ;
-    avec `Add-AppxProvisionedPackage -LicensePath`, WinQEMU démarre. **Pas republié sur GitHub** : l'App Developer
-    Agreement (8.11) n'en dit rien, la licence est délivrée à l'organisation de l'utilisateur (elle porte un `RequestorID`),
-    et l'option est présentée comme une distribution pour les organisations. winget-cli publie bien sa licence, mais
-    Microsoft est l'éditeur d'App Installer. À demander au support de Partner Center avant toute release de ce genre.
+    avec `Add-AppxProvisionedPackage -LicensePath`, WinQEMU démarre (le sandbox n'a pas le Store : un PC qui l'a obtiendrait
+    peut-être la licence en ligne, comme le dit NanaZip ; non vérifié). L'App Developer Agreement (8.11) ne dit rien de la
+    republication ; la licence porte le `RequestorID` du tenant. Republiés sur GitHub (voir plus haut).
   - `tools/Build-StorePackage.ps1` : `.msix` **non signé** (le Store signe) avec l'identité de Partner Center, donnée au
     build par une copie du manifeste (`WinQemuStoreManifest` du csproj ; sans `AppxManifest` déclaré, les outils MSIX
     ajoutent eux-mêmes `Package.appxmanifest`). `.msix` plutôt que `.msixupload` : la tâche du Windows App SDK qui écrit ce

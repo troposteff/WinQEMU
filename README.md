@@ -162,14 +162,24 @@ takes over the settings (library, folders, virtual networks) and asks for the Gi
 At first start, WinQEMU says whether this PC is ready to run machines (QEMU, hardware acceleration) and what to do if not.
 That check stays available in the settings (**Check this PC…**).
 
-### Without the Store
+### From GitHub
 
-WinQEMU is no longer published as a package on GitHub: the 2026.0.x betas published there have been withdrawn. Without
-the Store, build it from source (see [Building from source](#building-from-source)).
+Each [GitHub release](https://github.com/troposteff/WinQEMU/releases) holds the Store's own package, signed by the
+Microsoft Store, and its offline licence: `WinQEMU_<version>_x64.msix` and `WinQEMU_<version>_License.xml`, with their
+SHA-256 in `SHA256SUMS.txt`. In PowerShell **as administrator**, from the folder where they are:
+
+```powershell
+Add-AppxProvisionedPackage -Online -PackagePath .\WinQEMU_<version>_x64.msix -LicensePath .\WinQEMU_<version>_License.xml
+```
+
+It is the same application as the Store's (no certificate to trust, it starts under Smart App Control), installed for every
+account of this PC. To check a download: `Get-FileHash .\WinQEMU_<version>_x64.msix`, whose value must be the one in
+`SHA256SUMS.txt`.
 
 ### Updating
 
-Nothing to do: the Store updates WinQEMU by itself, in place. The settings, the library and the virtual machines are kept.
+From the Store: nothing to do, the Store updates WinQEMU by itself. From GitHub: run the same command with the newer
+release's files. Either way the update is in place: the settings, the library and the virtual machines are kept.
 
 ### Uninstalling
 
@@ -178,6 +188,13 @@ Uninstall WinQEMU from Settings, Apps (or `Get-AppxPackage troposteff.WinQEMU | 
 **the virtual machines stay** in their folder (`Documents\WinQEMU VMs` by default, or the one chosen in the settings), and
 a new installation finds them once that folder is given again. A GitHub beta's certificate can be removed from
 `certlm.msc`, Trusted People.
+
+Installed from a GitHub release, WinQEMU is also provisioned for the PC's future accounts; to remove that too, as
+administrator:
+
+```powershell
+Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq troposteff.WinQEMU | Remove-AppxProvisionedPackage -Online
+```
 
 ## Building from source
 

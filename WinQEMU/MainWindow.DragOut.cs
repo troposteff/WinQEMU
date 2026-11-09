@@ -53,10 +53,11 @@ namespace WinQEMU
                 try
                 {
                     dropped = GuestDragSource.Run(WinRT.Interop.WindowNative.GetWindowHandle(this), paths,
-                        inner ?? copy, _viewModel.AppendDiagnostic);
+                        inner ?? copy, _viewModel.AppendDiagnostic, () => ConsoleHost.ReleaseGuestButton(button));
                 }
                 finally
                 {
+                    // Again for a drag that ended without a release (Escape); a second release does no harm.
                     ConsoleHost.ReleaseGuestButton(button);
                 }
 

@@ -810,13 +810,91 @@ s'ouvre sur le résultat. `Sharing.GuestFilePull`, même état par machine que l
   `winqemu-drop` **ou** `winqemu-pull` resté bloqué.
 - **Émetteur lancé par l'agent** : Perl sous Linux (`$0 = 'winqemu-pull'`), C# compilé une fois sous Windows
   (`WinQemuPull-<empreinte>.dll`). Lit en root / SYSTEM : tout fichier de l'invité est lisible.
-- **Protocole** invité → hôte : `T` total, `D` dossier, `F` nom + taille + date puis morceaux d'1 Mio, `E` fin, `X`
-  erreur. 20 s sans rien reçu : `guest-exec-status` dit si l'émetteur est mort.
+- **Protocole** invité → hôte : d'abord le **marqueur de la copie** (`WQPULL` + GUID, `NewMarker`, passé à l'émetteur),
+  puis `T` total, `D` dossier, `F` nom + taille + date puis morceaux d'1 Mio, `E` fin, `X` erreur. Le récepteur saute ce
+  qui précède le marqueur (64 Mio au plus) : des octets d'une copie arrêtée avant, lus comme des enregistrements, donnaient
+  « Morceau invalide ». 20 s sans rien reçu : `guest-exec-status` dit si l'émetteur est mort.
+- **Ne jamais raccrocher pendant que l'émetteur écrit** (`StopSenderWhileDrainingAsync`) : la connexion fermée au milieu
+  d'une écriture de l'invité, QEMU garde cette écriture en attente et ne la reprend pas pour la connexion suivante ;
+  l'émetteur ne peut ni la finir ni mourir (tué, il est resté des minutes avec un seul fil), garde le port, et toute copie
+  suivante échouait (« le canal de copie est absent ») jusqu'au redémarrage de la machine. Vu après un glisser hors de
+  l'invité annulé par Échap ; le bouton Récupérer annulé en avait autant. Annulé ou échoué, l'hôte lit et jette le port
+  pendant que l'agent tue l'émetteur (`taskkill /F`, `kill -9`), jusqu'à sa fin. L'émetteur réessaie aussi d'ouvrir le
+  port 10 s (un port n'a qu'un ouvreur), sauf s'il n'existe pas.
+- **QEMU ne ferme pas une connexion qui se termine quand le port est fermé côté invité** : chaque copie en laisse une en
+  `CLOSE_WAIT` (mesuré par `netstat`, déjà avant ce qui précède), sans gêner les suivantes. Une fois, juste après deux copies
+  arrêtées de suite, les connexions suivantes ont été **refusées** jusqu'au redémarrage de la machine ; jamais revu avec la
+  même séquence. La connexion est réessayée 3 s (`ConnectAsync`) avant de dire « démarrée sans le canal de copie ».
 - **Noms** : un nom de premier niveau déjà pris est numéroté ; les caractères interdits par Windows (`:`, `?`…) et
   points ou espaces finaux sont remplacés (`WindowsName`). Lien symbolique vers un fichier : son contenu est copié ;
   vers un dossier : ignoré (boucles). Annulé ou échoué : ce que la copie a créé est supprimé.
 - Vérifié sur des copies jetables : Ubuntu (`/usr/share/doc/bash`, empreintes identiques) et Windows 11 (5/5) ;
   dialogue ouvert dans l'app sur Debian. Émetteur Windows testé sur l'hôte avec un tube nommé (`GuestFilePullTests`).
+
+## Glisser des fichiers de l'invité vers ce PC
+
+Comme VMware, **invité Windows seulement** pour l'instant (Linux : Wayland le rend difficile) : des fichiers glissés hors
+de la console sont déposés sur ce PC (Explorateur ou toute cible qui prend des fichiers). `Sharing.GuestDragOut` (côté
+invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmConsoleHost.GuestDragLeft`.
+
+- **Un glisser dans l'invité appartient à son Explorateur** ; QEMU ne transporte que la souris. Ce qui est glissé ne se
+  sait que dans l'invité, par une fenêtre que le glisser survole : un petit programme (`WinQemuDragOut-<empreinte>.exe`,
+  WinForms, compilé par l'agent avec le .NET Framework de Windows, tâche `WinQEMU-DragOut` du groupe Users à l'ouverture
+  de session) pose, tant qu'un bouton est tenu et que le pointeur est **sur le bord de l'écran**, une fenêtre presque
+  invisible (16 × 16, opacité 0,01, `AllowDrop`) sous le pointeur ; au `DragEnter` il écrit la liste dans
+  `C:\ProgramData\WinQEMU\dragout.txt` (droits des Users par `icacls`), lue par l'agent (`guest-file-read`, aucun
+  processus lancé). Le dépôt sur cette fenêtre ne fait rien : les fichiers restent.
+- **La fenêtre suit le pointeur le long du bord**, et un `SetCursorPos` sur place fait regarder OLE sous le pointeur :
+  entre la sortie de la console et la reprise du glisser par ce PC (≈ 1,5 s), le pointeur de l'invité suit celui du PC,
+  ramené au bord ; laissée là où elle était apparue, l'invité finissait son glisser sur son bureau, **qui y déplaçait
+  l'icône**, et les glissers suivants appuyaient sur du vide.
+- **Côté PC** : un bouton appuyé dans la console et tenu hors d'elle (`WatchForDrag`, 100 ms) lève `GuestDragLeft` ; le
+  pointeur de l'invité est épinglé au bord (`PinGuestPointerToEdgeAsync`, plus un pixel et retour : OLE agit sur les
+  mouvements), la liste est attendue 1,5 s, la copie commence aussitôt dans `TempState\DragOut\<guid>` du paquet (un vrai
+  chemin que l'Explorateur sait lire ; un chemin sous AppData serait la vue virtualisée du paquet ; dossiers de plus
+  d'une heure supprimés), puis `SHDoDragDrop` avec un `IDataObject` maison (`CF_HDROP`, et ce que l'Explorateur y range
+  pour l'image du glisser).
+- **Déposé tout de suite, là où on relâche ; c'est la cible qui attend la copie.** Une première version faisait attendre
+  le relâchement (`QueryContinueDrag` répondant « continuer » jusqu'à la fin de la copie, comme 7-Zip) : OLE suivait alors
+  la souris, et **les fichiers atterrissaient là où était le pointeur à la fin de la copie** (signalé par l'utilisateur).
+  Désormais, une fois le bouton relâché, l'objet de données ne donne `CF_HDROP` qu'une fois la copie finie, et une copie
+  échouée rend une erreur à la cible. Cette attente ne doit pas bloquer l'interface : l'objet **refuse `IMarshal`**
+  (`ICustomQueryInterface`, sinon un CCW .NET est agile) et OLE en reçoit un **mandataire marshalé depuis le MTA**
+  (`CoMarshalInterThreadInterfaceInStream` sur un fil du pool) ; tous ses appels, ceux d'OLE comme ceux de l'Explorateur
+  depuis son processus, arrivent sur des fils de COM. Avec `IDataObjectAsyncCapability`, l'Explorateur copie sur son
+  propre fil ; il demande pourtant les chemins **pendant** son dépôt, avant de passer en asynchrone : `SHDoDragDrop` ne
+  rend la main qu'à la fin de la copie depuis l'invité (9 s pour 3 Go ici), souris libre, interface vivante. **OLE ne
+  redemande qu'à un mouvement de souris ou une touche** : un `WM_MOUSEMOVE` sur place est posté toutes les 100 ms à la
+  fenêtre qui tient la souris (sans lui, un relâchement venu avant le début du glisser attendait 36 s ; un message vide à
+  la fenêtre principale ne le réveillait pas). Relâché où rien ne prend de fichiers (effet 0) : fini aussitôt, copie
+  abandonnée. L'effet est lu sans `DROPEFFECT_SCROLL` (0x80000000, ajouté par l'Explorateur au-dessus d'une liste).
+- **Pas de progression dans la barre de la console pour un glisser** (`FileTransfer.Shown`, demande de l'utilisateur) : la
+  cible montre sa propre copie, et la barre « Copie depuis l'invité… » n'avançait pas et son Annuler ne répondait pas (le fil
+  de l'interface est tenu par le glisser jusqu'à la fin de la copie). La copie compte toujours comme en cours (un seul
+  transfert par machine, un port n'a qu'un ouvreur) ; Échap annule pendant le glisser ; le résultat s'affiche ensuite.
+- **Relâchement rendu à l'invité dès le relâchement du PC** (rappel de `QueryContinueDrag`, pas à la fin du dépôt, qui peut
+  durer toute la copie : un pointeur ramené sur la console entre-temps emportait le glisser de l'invité, bouton encore tenu,
+  qui déplaçait l'icône). Par QMP (le glisser du PC a pris la souris), **et à SDL** quand c'est lui qui a eu l'appui
+  (couche du pointeur cachée, `_sdlHasPress`, une fois par appui) : SDL avait vu l'appui, pas le relâchement, et croyait le
+  bouton tenu ; il ignorait l'appui suivant et, image au pixel, **tous les glissers suivants ne prenaient rien**, le
+  pointeur de l'invité resté au bord (corrigé à la main en postant `WM_LBUTTONUP`, puis dans le code). SDL relâche là où il
+  a vu le pointeur en dernier, et QEMU envoie cette position avec le relâchement, d'un coup : si le pointeur de l'invité
+  était ailleurs sur le bord (épinglé par QMP, dont la file attend le fil de l'interface), la fenêtre de l'invité n'avait
+  pas le temps de suivre et l'icône était déplacée. D'où un `WM_MOUSEMOVE` posté au point du bord, puis le relâchement
+  150 ms plus tard, par un minuteur hors interface. Pas de message à SDL qui ne l'attend pas : un mouvement marqué « tenu »
+  lui ferait croire à un appui, un clic sur le bord de l'invité.
+- **Bouton droit : l'Explorateur répond avant la réponse à son menu** (« Copier ici », « Annuler »), sans effet ; on se
+  fie à ce que la cible acceptait au survol, et les fichiers restent. **Ouvert** : « Copier ici » ne copie rien (vérifié
+  deux fois, souris et Entrée) ; piste non vérifiée, l'Explorateur voudrait `CFSTR_SHELLIDLIST`, que l'objet ne fournit
+  pas (toujours vrai avec l'objet dans le MTA). Une première détection au bouton droit a aussi échoué une fois (sur
+  deux), sans explication.
+- Vérifié sur une copie du Windows 11 de l'utilisateur (Ryzen, 09/11/2026), glisser simulé (`SetCursorPos`,
+  `mouse_event`, processus *per-monitor aware*), empreintes SHA-256 comparées par l'agent : 3 Mo, 400 Mo, 3 Go relâché
+  pendant la copie, sur les deux chemins (image à l'échelle : `PointerOverlay` ; image au pixel : SDL) ; **relâché sur
+  l'Explorateur pendant la copie puis pointeur ramené sur la console : fichier au bon endroit, icône de l'invité en place**,
+  sur les deux chemins ; Échap (copie annulée, dossier supprimé, rien dans la destination, aucun émetteur resté dans
+  l'invité) ; relâché hors cible ; glissers de suite après un Échap ; icônes restées en place. Dépôt sur un élément du
+  volet de navigation de l'Explorateur : correct.
 
 ## Réseaux virtuels
 

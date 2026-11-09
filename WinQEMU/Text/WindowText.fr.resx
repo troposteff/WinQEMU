@@ -175,7 +175,7 @@
   <data name="ResourcesCpu" xml:space="preserve"><value>Processeur</value></data>
   <data name="ResourcesMemory" xml:space="preserve"><value>Mémoire</value></data>
   <data name="ResourcesDisk" xml:space="preserve"><value>Disque</value></data>
-  <data name="ConsoleHint" xml:space="preserve"><value>Cliquez dans la console pour envoyer clavier et souris à l'invité. Ctrl+Alt+G libère la capture de la souris. Glissez des fichiers sur la console pour les copier sur le Bureau de l'invité.</value></data>
+  <data name="ConsoleHint" xml:space="preserve"><value>Cliquez dans la console pour lui donner le clavier. Glissez des fichiers dessus pour les copier dans l'invité, ou hors d'un invité Windows pour les copier sur ce PC.</value></data>
   <data name="ConsoleScaling" xml:space="preserve"><value>Mise à l'échelle de la console</value></data>
   <data name="ConsoleTypeClipboard" xml:space="preserve"><value>Taper le presse-papiers</value></data>
   <data name="ConsoleTypeClipboardTip" xml:space="preserve"><value>Tape le texte du presse-papiers de ce PC au clavier de l'invité, pour un invité sans presse-papiers partagé (console texte d'un serveur, écran de connexion)</value></data>

@@ -56,6 +56,7 @@ namespace WinQEMU.Core.Sharing
             {
                 [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
                 [DllImport("user32.dll")] static extern bool GetCursorPos(out Point point);
+                [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
 
                 static readonly string State = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"WinQEMU\dragout.txt");
@@ -122,6 +123,14 @@ namespace WinQEMU.Core.Sharing
                                 {
                                     window.Location = new Point(point.X - 8, point.Y - 8);
                                     window.Show();
+                                }
+                                else if (!window.Bounds.Contains(point))
+                                {
+                                    // The pointer slid along the edge (the host's moved on outside the console): the
+                                    // window follows, and a move on the spot makes OLE look under the pointer again.
+                                    // Left behind, the drag ended on the desktop, which moved the dragged icon there.
+                                    window.Location = new Point(point.X - 8, point.Y - 8);
+                                    SetCursorPos(point.X, point.Y);
                                 }
                             }
                             else

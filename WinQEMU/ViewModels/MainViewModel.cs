@@ -2335,6 +2335,12 @@ namespace WinQEMU.ViewModels
             public long Total;
             /// <summary>What the console bar says of it: "Copie vers le Bureau de l'invité", "Copie depuis l'invité".</summary>
             public string Label = ShellText.TransferToGuest;
+            /// <summary>
+            /// Whether the console bar shows it, with its progress and its Cancel button. Not for a drag out of the guest:
+            /// the drop target shows its own copy, and the bar's progress and Cancel did not work there (the UI thread is
+            /// held by the drag until the copy has ended).
+            /// </summary>
+            public bool Shown = true;
         }
 
         private readonly Dictionary<VmConfig, FileTransfer> _transfers = new();
@@ -2345,10 +2351,10 @@ namespace WinQEMU.ViewModels
         /// <summary>Files can be dropped on, or sent to, the selection: it runs, and is not already receiving some.</summary>
         public bool CanSendFiles => SelectedVm is { } vm && IsSelectedRunning && !_transfers.ContainsKey(vm);
 
-        public bool IsSendingFiles => SelectedVm is { } vm && _transfers.ContainsKey(vm);
+        public bool IsSendingFiles => SelectedVm is { } vm && _transfers.TryGetValue(vm, out var transfer) && transfer.Shown;
 
         public double SendFilesPercent =>
-            SelectedVm is { } vm && _transfers.TryGetValue(vm, out var transfer) && transfer.Total > 0
+            SelectedVm is { } vm && _transfers.TryGetValue(vm, out var transfer) && transfer.Shown && transfer.Total > 0
                 ? 100.0 * transfer.Sent / transfer.Total
                 : 0;
 
@@ -2359,7 +2365,7 @@ namespace WinQEMU.ViewModels
             {
                 if (SelectedVm is not { } vm)
                     return null;
-                if (_transfers.TryGetValue(vm, out var transfer))
+                if (_transfers.TryGetValue(vm, out var transfer) && transfer.Shown)
                 {
                     return transfer.Total == 0
                         ? $"{transfer.Label}…"
@@ -2460,7 +2466,7 @@ namespace WinQEMU.ViewModels
             if (_transfers.ContainsKey(target))
                 throw new InvalidOperationException(ShellText.PullAlreadyBusy);
 
-            var transfer = new FileTransfer { Label = ShellText.TransferFromGuest };
+            var transfer = new FileTransfer { Label = ShellText.TransferFromGuest, Shown = !forDrag };
             _transfers[target] = transfer;
             _transferOutcomes.Remove(target);
             RaiseFileTransferProperties();

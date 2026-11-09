@@ -24,6 +24,9 @@ namespace WinQEMU.Controls
         private string? _pressButton;
         private bool _pressEndedOutside;
 
+        /// <summary>The press held now went to QEMU's window (the pointer overlay was not over it), which has not seen its release.</summary>
+        private bool _sdlHasPress;
+
         /// <summary>
         /// A button pressed in the guest is held outside the console: perhaps files dragged out of it. Says which button
         /// ("left", "right"). Once per press.
@@ -60,7 +63,39 @@ namespace WinQEMU.Controls
         /// Lets go of the guest's button after a drag carried on outside it: the host's drag took the mouse, so QEMU
         /// never saw the release, and the guest's drag would otherwise stay under way.
         /// </summary>
-        public void ReleaseGuestButton(string button) => QueuePointer(PointerEvent.Press(button, false));
+        /// <remarks>
+        /// QEMU's window is told too: SDL saw the press, not the release, and believed the button still held. It then
+        /// ignored the next press, and with the image unscaled, where it has the mouse, every later drag out of the guest
+        /// took nothing, the guest's pointer left on the edge.
+        ///
+        /// SDL releases where it last saw the pointer, and QEMU sends that position with the release, in one go. The
+        /// guest's pointer may be elsewhere on the edge (pinned since over QMP, whose queue waits for the UI thread, busy
+        /// in the drag), and the window the guest's tools lay under it then had no time to follow: the guest dropped on
+        /// its desktop, which moved the dragged icon. So SDL first gets a move to the edge point nearest the host's
+        /// pointer, and the release 150 ms later, from a timer of its own (the UI thread may be held by the drop for as
+        /// long as the copy lasts). The QMP release does no harm in any order: the guest's window is where its pointer is.
+        /// A release SDL did not expect is ignored by it.
+        /// </remarks>
+        public void ReleaseGuestButton(string button)
+        {
+            QueuePointer(PointerEvent.Press(button, false));
+            // Once per press, and only if SDL had it: a move marked "held" would otherwise read as a press to SDL, a
+            // click on the guest's edge.
+            if (!_sdlHasPress)
+                return;
+            _sdlHasPress = false;
+            if (_console is not { IsEmbedded: true } console || !NativeMethods.GetCursorPos(out var cursor)
+                || !GetWindowRect(console.Handle, out var bounds))
+                return;
+            var x = Math.Clamp(cursor.X - bounds.Left, 0, Math.Max(0, bounds.Right - bounds.Left - 1));
+            var y = Math.Clamp(cursor.Y - bounds.Top, 0, Math.Max(0, bounds.Bottom - bounds.Top - 1));
+            var handle = console.Handle;
+            var at = (IntPtr)((y << 16) | (x & 0xFFFF));
+            var right = button == "right";
+            PostMessage(handle, 0x0200, (IntPtr)(right ? 0x0002 : 0x0001), at); // WM_MOUSEMOVE, MK_RBUTTON / MK_LBUTTON still held
+            _ = Task.Delay(150).ContinueWith(_ => PostMessage(handle, right ? 0x0205u : 0x0202u, IntPtr.Zero, at), // WM_RBUTTONUP / WM_LBUTTONUP
+                TaskScheduler.Default);
+        }
 
         /// <summary>
         /// Takes files dropped on the console from now on. Returns what became of it, for the journal.
@@ -111,6 +146,7 @@ namespace WinQEMU.Controls
                     ReleaseGuestButton(button);
                 _pressStartedOnConsole = null;
                 _pressButton = null;
+                _sdlHasPress = false;
                 _guestDragLeftRaised = false;
                 catcher.Hide();
                 return;
@@ -124,6 +160,8 @@ namespace WinQEMU.Controls
             }
 
             var over = cursor.X >= bounds.Left && cursor.X < bounds.Right && cursor.Y >= bounds.Top && cursor.Y < bounds.Bottom;
+            if (_pressStartedOnConsole is null && over)
+                _sdlHasPress = _pointerOverlay is not { IsVisible: true };
             _pressStartedOnConsole ??= over;
             _pressButton ??= left ? "left" : "right";
             _pressEndedOutside = !over;
@@ -161,5 +199,8 @@ namespace WinQEMU.Controls
 
         [DllImport("user32.dll")]
         private static extern bool ScreenToClient(IntPtr hWnd, ref NativeMethods.Point point);
+
+        [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
     }
 }

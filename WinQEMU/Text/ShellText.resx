@@ -276,4 +276,7 @@ The template's snapshots are frozen as well. You can convert it back to a virtua
 Anything not saved inside it will be lost, as after a power cut.</value></data>
   <data name="HungConsoleWait" xml:space="preserve"><value>Wait
 You will be asked again in 1 minute if the machine is still not responding; this closes by itself if it recovers.</value></data>
+  <data name="DraggedToPc" xml:space="preserve"><value>Dragged onto this PC: {0}</value></data>
+  <data name="DragOutCancelled" xml:space="preserve"><value>Drag cancelled: nothing was left on this PC.</value></data>
+  <data name="DragOutFailed" xml:space="preserve"><value>The files dragged out of the guest could not be copied: {0}</value></data>
 </root>

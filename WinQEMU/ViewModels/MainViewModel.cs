@@ -1393,6 +1393,75 @@ namespace WinQEMU.ViewModels
             }
         }
 
+        /// <summary>Windows guests whose drag-out program runs (Sharing.GuestDragOut), per QEMU process as for the display.</summary>
+        private readonly HashSet<(VmSession Session, int Port)> _dragOutReady = new();
+
+        private async Task PrepareDragOutAsync(GuestAgentClient agent, VmSession session, int port)
+        {
+            try
+            {
+                await GuestDragOut.SetupAsync(agent);
+                _dragOutReady.Add((session, port));
+                AppendDiagnostic("Files: files dragged out of the console are copied to this PC.");
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
+            {
+                AppendDiagnostic($"Files: dragging files out of the console will not work ({ex.Message}).");
+            }
+        }
+
+        /// <summary>Files may be dragged out of the selection's console: a Windows guest with its program running, no copy under way.</summary>
+        public bool CanDragFromGuest =>
+            SelectedVm is { } vm && SelectedSession is { IsRunning: true, GuestAgentPort: { } port } session
+            && _dragOutReady.Contains((session, port)) && !_transfers.ContainsKey(vm);
+
+        /// <summary>
+        /// What the selection's guest is dragging, once the drag has reached the edge of its screen; null if nothing
+        /// arrives within <paramref name="wait"/> (a press that was no drag of files).
+        /// </summary>
+        public async Task<IReadOnlyList<string>?> WaitForGuestDragAsync(TimeSpan wait)
+        {
+            if (SelectedSession is not { IsRunning: true } session)
+                return null;
+            try
+            {
+                await using var agent = await session.ConnectGuestAgentAsync();
+                if (!await agent.SynchronizeAsync(TimeSpan.FromSeconds(1)))
+                    return null;
+                var end = DateTime.UtcNow + wait;
+                do
+                {
+                    if (await GuestDragOut.ReadAsync(agent) is { } files)
+                        return files;
+                    await Task.Delay(100);
+                }
+                while (DateTime.UtcNow < end);
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or System.Net.Sockets.SocketException
+                                           or OperationCanceledException or InvalidOperationException)
+            {
+                AppendDiagnostic($"Files: the guest's drag could not be read ({ex.Message}).");
+            }
+            return null;
+        }
+
+        /// <summary>How a drag out of the guest ended, for the console bar and the journal.</summary>
+        public void ReportGuestDrag(bool dropped, IReadOnlyList<string> names, string? failure)
+        {
+            if (SelectedVm is not { } target)
+                return;
+            if (failure is not null)
+                SetTransferOutcome(target, string.Format(CultureInfo.CurrentCulture, ShellText.DragOutFailed, failure));
+            else if (dropped)
+                SetTransferOutcome(target, string.Format(CultureInfo.CurrentCulture, ShellText.DraggedToPc, string.Join(", ", names.Take(3))));
+            else
+                SetTransferOutcome(target, ShellText.DragOutCancelled);
+            AppendDiagnostic($"Files: drag out of the guest {(failure is not null ? "failed: " + failure : dropped ? $"dropped ({names.Count} item(s))" : "cancelled")}.");
+        }
+
+        /// <summary>Stops the copy of a drag that was cancelled.</summary>
+        public void CancelGuestDragCopy() => CancelSendFiles();
+
         private async Task PrepareGuestDisplayAsync(VmSession session, int port)
         {
             // As for the shared folders: the agent answers before Windows can start programs.
@@ -1408,6 +1477,7 @@ namespace WinQEMU.ViewModels
                     _displayReady.Add((session, port));
                     AppendDiagnostic("Display: the guest's resolution now follows the console.");
                     RequestGuestResolution(_consoleSize.Width, _consoleSize.Height);
+                    await PrepareDragOutAsync(agent, session, port);
                     return;
                 }
                 catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
@@ -2373,7 +2443,17 @@ namespace WinQEMU.ViewModels
         /// shown in the console bar as a drop is. Returns where they landed, or null when cancelled; failures are
         /// thrown for the view to show.
         /// </summary>
-        public async Task<DropResult?> PullFilesAsync(IReadOnlyList<string> guestPaths, string destination)
+        public async Task<DropResult?> PullFilesAsync(IReadOnlyList<string> guestPaths, string destination) =>
+            await PullFilesAsync(guestPaths, destination, forDrag: false);
+
+        /// <summary>
+        /// As <see cref="PullFilesAsync(IReadOnlyList{string}, string)"/>; for a drag out of the guest
+        /// (<paramref name="forDrag"/>), the outcome is left to <see cref="ReportGuestDrag"/>: the copy ends before the drop.
+        /// <paramref name="copying"/> receives the copy itself, which runs off the UI thread: a drag waits on it from
+        /// inside OLE's drag loop, where this method's own continuation, on the UI thread, may not run yet.
+        /// </summary>
+        public async Task<DropResult?> PullFilesAsync(IReadOnlyList<string> guestPaths, string destination, bool forDrag,
+            Action<Task>? copying = null)
         {
             if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
                 throw new InvalidOperationException(ShellText.MachineMustRun);
@@ -2396,18 +2476,22 @@ namespace WinQEMU.ViewModels
                         RaisePropertyChanged(nameof(SendFilesStatus));
                     }
                 });
-                var result = await GuestFilePull.PullAsync(session, guestPaths, destination, GuestTools.IsWindows(target), progress,
+                var pulling = GuestFilePull.PullAsync(session, guestPaths, destination, GuestTools.IsWindows(target), progress,
                     transfer.Cancel.Token);
+                copying?.Invoke(pulling);
+                var result = await pulling;
                 var names = result.Names.Count <= 3
                     ? string.Join(", ", result.Names)
                     : string.Format(CultureInfo.CurrentCulture, ShellText.TransferNamesMore, string.Join(", ", result.Names.Take(2)), result.Names.Count - 2);
-                SetTransferOutcome(target, string.Format(CultureInfo.CurrentCulture, ShellText.PulledTo, destination, names));
+                if (!forDrag)
+                    SetTransferOutcome(target, string.Format(CultureInfo.CurrentCulture, ShellText.PulledTo, destination, names));
                 AppendDiagnostic($"Files: {result.Names.Count} item(s) copied from the guest to {destination}.");
                 return result;
             }
             catch (OperationCanceledException) when (transfer.Cancel.IsCancellationRequested)
             {
-                SetTransferOutcome(target, ShellText.PullCancelled);
+                if (!forDrag)
+                    SetTransferOutcome(target, ShellText.PullCancelled);
                 return null;
             }
             finally

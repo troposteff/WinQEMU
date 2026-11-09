@@ -436,7 +436,12 @@ namespace WinQEMU.Core.Sharing
                         {
                             var length = BinaryPrimitives.ReadUInt32BigEndian(await TakeAsync(4).ConfigureAwait(false));
                             if (length == 0 || length > size || length > buffer.Length)
-                                throw new GuestFileDropException(CoreText.FilePullInvalidChunk);
+                            {
+                                // The numbers say whether bytes went missing (a length read from inside data) or the
+                                // sender misbehaved.
+                                throw new GuestFileDropException(string.Create(CultureInfo.InvariantCulture,
+                                    $"{CoreText.FilePullInvalidChunk} ({length:X8}, {size} / {received} bytes, {Path.GetFileName(path)})"));
+                            }
                             await ReadAsync(buffer, (int)length).ConfigureAwait(false);
                             await output.WriteAsync(buffer.AsMemory(0, (int)length), cancellationToken).ConfigureAwait(false);
                             size -= length;

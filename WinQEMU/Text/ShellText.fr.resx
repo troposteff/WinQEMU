@@ -276,4 +276,7 @@ Les instantanés du modèle sont figés eux aussi. Vous pourrez le reconvertir e
 Ce qui n'y a pas été enregistré sera perdu, comme après une coupure de courant.</value></data>
   <data name="HungConsoleWait" xml:space="preserve"><value>Attendre
 Cette question reviendra dans 1 minute si la machine ne répond toujours pas, et se fermera d'elle-même si la machine repart.</value></data>
+  <data name="DraggedToPc" xml:space="preserve"><value>Glissé sur ce PC : {0}</value></data>
+  <data name="DragOutCancelled" xml:space="preserve"><value>Glisser annulé : rien n'a été laissé sur ce PC.</value></data>
+  <data name="DragOutFailed" xml:space="preserve"><value>Les fichiers glissés hors de l'invité n'ont pas pu être copiés : {0}</value></data>
 </root>

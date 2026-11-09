@@ -227,7 +227,43 @@ namespace WinQEMU.Core.Sharing
         }
 
         /// <summary>
-        /// The Linux receiver, run as root by the agent with the port and, for tests, a folder to write to.
+        /// What the Linux programs on the copy port (this receiver, GuestFilePull's sender) do before writing anything,
+        /// with the port open as <c>$p</c>: <c>await_go</c>, the host's go.
+        /// </summary>
+        /// <remarks>
+        /// QEMU (11.1, Windows) does not see a connection to the port closed by the host: it stays QEMU's client, a
+        /// read in the guest blocks as if a host were there, and the next connection waits behind it. Only a write from
+        /// the guest makes QEMU find it closed and take the next one, and that write is lost. So every copy's first
+        /// bytes went to the last copy's connection: a copy's marker (every drag out of an Ubuntu guest after the first
+        /// one failed after 20 s, "the sender stopped (code 0)"), or a drop's READY. Measured with these programs and a
+        /// TCP client in the place of WinQEMU; the agent's channel behaves the same (hence a new connection per try).
+        /// So the program writes nothing of its own before the host's go, which comes only through the connection QEMU
+        /// has taken, and meanwhile writes a newline every half second (without blocking: a write QEMU holds back was
+        /// seen to block the guest for good), each finding one dead connection. A newline that reaches the host is
+        /// skipped by it: bytes before a copy's marker, a blank line before READY.
+        /// </remarks>
+        internal const string LinuxPortHandshake = """
+            use IO::Handle;
+            sub await_go {
+              my $go = shift; my $heard = ''; my $start = time; my $probed = 0;
+              while (index($heard, $go) < 0) {
+                exit 14 if time - $start > 15;
+                my $r = ''; vec($r, fileno $p, 1) = 1;
+                if (select($r, undef, undef, 0.5)) {
+                  my $n = sysread($p, my $buf, 4096);
+                  exit 1 unless defined $n;
+                  $heard = substr($heard . $buf, -2 * length $go) if $n > 0;
+                  next if $n > 0;
+                  select undef, undef, undef, 0.1;
+                }
+                $p->blocking(0); syswrite($p, "\n"); $p->blocking(1);
+              }
+            }
+            """;
+
+        /// <summary>
+        /// The Linux receiver, run as root by the agent with the port, a folder to write to (empty: the desktop) and the
+        /// host's go, which it waits for before writing anything (none for tests).
         /// It writes as root, then gives every item to the guest's user (the first human account, as for
         /// shared folders); the desktop is the one named in the user's user-dirs.dirs (~/Bureau in French).
         /// A receiver left over from an interrupted drop still holds the port, which takes a single opener:
@@ -236,7 +272,7 @@ namespace WinQEMU.Core.Sharing
         public static readonly string LinuxReceiver = """
             use strict; use warnings;
             $0 = 'winqemu-drop';
-            my ($port, $dest) = @ARGV;
+            my ($port, $dest, $go) = @ARGV;
             my $run = '/run/winqemu'; mkdir $run, 0700;
             if (open my $f, '<', "$run/drop.pid") {
               my $old = <$f> // ''; close $f; chomp $old;
@@ -247,6 +283,8 @@ namespace WinQEMU.Core.Sharing
             }
             if (open my $f, '>', "$run/drop.pid") { print $f $$; close $f }
             open(my $p, '+<:raw', $port) or do { print STDERR "$port: $!\n"; exit 13 };
+            {PORT_HANDSHAKE}
+            await_go($go) if defined $go && length $go;
             sub reply { my $m = shift; $m =~ s/[\r\n]+/ /g; syswrite $p, "WQDROP1 $m\n" }
             my ($uid, $gid, $home);
             while (my @pw = getpwent) {
@@ -317,9 +355,11 @@ namespace WinQEMU.Core.Sharing
             unlink $partial if defined $partial;
             system('rm', '-rf', '--', @created) if @created;
             if ($why eq 'ABORT') { reply('ABORTED'); exit 0 }
+            # The host hung up: nobody to tell, and the words would reach the next drop's connection (see LinuxPortHandshake).
+            exit 1 if $why eq 'EOF';
             reply("FAIL $why");
             exit 1;
-            """.ReplaceLineEndings("\n");
+            """.Replace("{PORT_HANDSHAKE}", LinuxPortHandshake, StringComparison.Ordinal).ReplaceLineEndings("\n");
 
         /// <summary>
         /// The Windows receiver, compiled once per version by Windows' own .NET Framework (C# 5: no string
@@ -568,6 +608,9 @@ namespace WinQEMU.Core.Sharing
         {
             var lines = new LineReader(port);
             var ready = await AwaitLineAsync(lines, receiverExited, TimeSpan.FromSeconds(90), cancellationToken).ConfigureAwait(false);
+            // A blank line first is the byte a Linux receiver writes to find a dead connection (LinuxPortHandshake).
+            while (ready is { Length: 0 })
+                ready = await AwaitLineAsync(lines, receiverExited, TimeSpan.FromSeconds(90), cancellationToken).ConfigureAwait(false);
             var destination = Parse(ready, "READY");
 
             var total = entries.Where(e => !e.IsDirectory).Sum(e => e.Length);
@@ -760,14 +803,18 @@ namespace WinQEMU.Core.Sharing
                     }
 
                     var os = await agent.ExecuteAsync("guest-get-osinfo", null, TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
+                    var windows = os?["id"]?.GetValue<string>() == "mswindows";
+                    var go = "WQDROPGO" + Guid.NewGuid().ToString("N");
+                    if (!windows)
+                        await client.GetStream().WriteAsync(Encoding.ASCII.GetBytes(go), cancellationToken).ConfigureAwait(false);
                     try
                     {
-                        pid = os?["id"]?.GetValue<string>() == "mswindows"
+                        pid = windows
                             ? await agent.StartAsync("powershell.exe",
                                 PowerShellArguments(WindowsReceiverScript(WindowsPortPath, string.Empty)), WindowsReceiverInput,
                                 cancellationToken).ConfigureAwait(false)
-                            : await agent.StartAsync("perl", new[] { "-e", LinuxReceiver, LinuxPortPath }, null, cancellationToken)
-                                .ConfigureAwait(false);
+                            : await agent.StartAsync("perl", new[] { "-e", LinuxReceiver, LinuxPortPath, string.Empty, go }, null,
+                                cancellationToken).ConfigureAwait(false);
                     }
                     catch (GuestAgentException ex)
                     {
@@ -784,7 +831,7 @@ namespace WinQEMU.Core.Sharing
                             .ConfigureAwait(false);
                         if (agent is null || await agent.GetExitAsync(pid, token).ConfigureAwait(false) is not { } exit)
                             return null;
-                        return exit.ExitCode == 13
+                        return exit.ExitCode is 13 or 14
                             ? CoreText.FileDropChannelMissing
                             : string.Format(CultureInfo.CurrentCulture, CoreText.FileDropReceiverExited, exit.ExitCode, exit.Error.Trim()).Trim();
                     }

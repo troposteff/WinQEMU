@@ -131,6 +131,8 @@ namespace WinQEMU.Core.Sharing
             my ($p, $opened);
             for my $try (1 .. 100) { last if ($opened = open($p, '+<:raw', $port)); last unless $!{EBUSY}; select undef, undef, undef, 0.1 }
             $opened or do { print STDERR "$port: $!\n"; exit 13 };
+            {PORT_HANDSHAKE}
+            await_go($marker);
             sub put { my $b = shift; my $o = 0; while ($o < length $b) { my $n = syswrite($p, $b, length($b) - $o, $o); exit 1 unless defined $n; $o += $n } }
             put($marker);
             sub fail { my $m = shift; $m =~ s/[\r\n]+/ /g; put('X' . pack('n', length $m) . $m); exit 1 }
@@ -173,7 +175,7 @@ namespace WinQEMU.Core.Sharing
               close $in;
             }
             put('E');
-            """.ReplaceLineEndings("\n");
+            """.Replace("{PORT_HANDSHAKE}", GuestFileDrop.LinuxPortHandshake, StringComparison.Ordinal).ReplaceLineEndings("\n");
 
         /// <summary>The Windows sender, compiled once per version as the drop's receiver is (C# 5).</summary>
         public const string WindowsSenderSource = """
@@ -550,6 +552,8 @@ namespace WinQEMU.Core.Sharing
 
                 long pid;
                 var marker = NewMarker();
+                if (!windowsGuest)
+                    await HostGoesFirstAsync(client, marker, cancellationToken).ConfigureAwait(false);
                 await using (var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(10), cancellationToken)
                                  .ConfigureAwait(false))
                 {
@@ -579,7 +583,7 @@ namespace WinQEMU.Core.Sharing
                             .ConfigureAwait(false);
                         if (agent is null || await agent.GetExitAsync(pid, token).ConfigureAwait(false) is not { } exit)
                             return null;
-                        return exit.ExitCode == 13
+                        return exit.ExitCode is 13 or 14
                             ? CoreText.FileDropChannelMissing
                             : string.Format(CultureInfo.CurrentCulture, CoreText.FilePullSenderExited, exit.ExitCode, exit.Error.Trim()).Trim();
                     }
@@ -627,15 +631,25 @@ namespace WinQEMU.Core.Sharing
         }
 
         /// <summary>
+        /// Sends the Linux sender its go, this copy's marker, which it waits for before writing anything (see
+        /// GuestFileDrop.LinuxPortHandshake). A Windows sender never reads the port: these bytes would be left there
+        /// for the next drop's receiver.
+        /// </summary>
+        private static async Task HostGoesFirstAsync(TcpClient client, string marker, CancellationToken cancellationToken)
+        {
+            var go = Encoding.ASCII.GetBytes(marker);
+            await client.GetStream().WriteAsync(go, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Connects to QEMU's end of the copy port, trying again for a few seconds: a connection refused there is not
         /// always a machine started without the port.
         /// </summary>
         /// <remarks>
         /// Seen once, right after two copies stopped in a row (Escape, then a release over nothing): the next copies
-        /// were refused until the machine was restarted; the same sequence went through every time after. Not
-        /// understood: QEMU accepts one client at a time and keeps few waiting, and it closes no connection that ends
-        /// while the guest's side of the port is closed (each copy leaves one in CLOSE_WAIT, which did not stop later
-        /// copies). Waiting covers a refusal that is only a moment.
+        /// were refused until the machine was restarted. QEMU does not see a connection closed by the host, keeps it as
+        /// its client until the guest writes to it, and lets few connections wait behind it: refused beyond that (made
+        /// to happen with a Linux guest; GuestFileDrop.LinuxPortHandshake). Waiting covers a refusal that is only a moment.
         /// </remarks>
         private static async Task<TcpClient> ConnectAsync(int port, CancellationToken cancellationToken)
         {

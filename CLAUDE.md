@@ -821,10 +821,22 @@ s'ouvre sur le résultat. `Sharing.GuestFilePull`, même état par machine que l
   l'invité annulé par Échap ; le bouton Récupérer annulé en avait autant. Annulé ou échoué, l'hôte lit et jette le port
   pendant que l'agent tue l'émetteur (`taskkill /F`, `kill -9`), jusqu'à sa fin. L'émetteur réessaie aussi d'ouvrir le
   port 10 s (un port n'a qu'un ouvreur), sauf s'il n'existe pas.
-- **QEMU ne ferme pas une connexion qui se termine quand le port est fermé côté invité** : chaque copie en laisse une en
-  `CLOSE_WAIT` (mesuré par `netstat`, déjà avant ce qui précède), sans gêner les suivantes. Une fois, juste après deux copies
-  arrêtées de suite, les connexions suivantes ont été **refusées** jusqu'au redémarrage de la machine ; jamais revu avec la
-  même séquence. La connexion est réessayée 3 s (`ConnectAsync`) avant de dire « démarrée sans le canal de copie ».
+- **QEMU (Windows) ne voit pas qu'une connexion au port a été fermée par l'hôte** : elle reste son client (`CLOSE_WAIT`), une
+  lecture dans l'invité bloque comme si un hôte était là, et la connexion suivante attend derrière elle. **Seule une écriture
+  de l'invité** lui fait découvrir la connexion morte et prendre la suivante, et cette écriture est perdue (ou retenue : le
+  programme invité reste bloqué dans `write`) ; au-delà de quelques connexions en attente, les suivantes sont **refusées**
+  (« refusées jusqu'au redémarrage », vu une fois). Le canal de l'agent se comporte de même (d'où une connexion neuve par
+  essai). Mesuré sur Ubuntu avec les programmes de l'invité et un client TCP à la place de WinQEMU. Conséquence, vue sous
+  Linux : **chaque glisser hors de l'invité après le premier échouait** au bout de 20 s (« l'envoi s'est arrêté (code 0) ») :
+  l'émetteur écrivait aussitôt, et le marqueur de la copie partait vers la connexion de la copie précédente.
+  **D'où `GuestFileDrop.LinuxPortHandshake`**, partagé par l'émetteur et le récepteur Linux : l'hôte envoie un « feu vert »
+  dès sa connexion (le marqueur de la copie, `WQDROPGO…` pour un dépôt), le programme n'écrit rien des siens avant de l'avoir
+  lu (il ne passe que par la connexion que QEMU a prise) et, en attendant, écrit un saut de ligne toutes les 0,5 s, **sans
+  bloquer**, chacun débusquant une connexion morte ; un saut de ligne arrivé jusqu'à l'hôte est ignoré (octets avant le
+  marqueur, ligne vide avant READY). Le récepteur n'écrit plus rien après que l'hôte a raccroché (son `FAIL` arrivait dans la
+  connexion suivante). Vérifié : 8 copies et dépôts mêlés à la suite, en partant d'un port bloqué. Les programmes Windows
+  n'ont pas changé (aucune perte observée). La connexion est réessayée 3 s (`ConnectAsync`) avant de dire « démarrée sans
+  le canal de copie ».
 - **Noms** : un nom de premier niveau déjà pris est numéroté ; les caractères interdits par Windows (`:`, `?`…) et
   points ou espaces finaux sont remplacés (`WindowsName`). Lien symbolique vers un fichier : son contenu est copié ;
   vers un dossier : ignoré (boucles). Annulé ou échoué : ce que la copie a créé est supprimé.

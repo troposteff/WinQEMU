@@ -18,6 +18,8 @@ namespace WinQEMU.Core.Sharing
     /// Framework on Windows). The guest is browsed through the agent (<see cref="ListAsync"/>).
     /// </summary>
     /// <remarks>
+    /// The sender writes this copy's marker first (<see cref="NewMarker"/>), and the receiver skips whatever precedes
+    /// it: bytes a copy stopped before may have left on the way, which read as records gave "invalid chunk".
     /// The sender walks what was chosen, says the total ('T'), then sends the drop's records: 'D' a folder, 'F' a
     /// file with its length and date, then its data in chunks, 'E' the end, or 'X' and a reason (a code, as the
     /// drop's receivers give: <see cref="GuestFileDrop.GuestMessage"/>). It reads as root
@@ -111,11 +113,11 @@ namespace WinQEMU.Core.Sharing
 
         // ---- The senders ----
 
-        /// <summary>Run as root by the agent: the port, then the paths to send.</summary>
+        /// <summary>Run as root by the agent: the port, this copy's marker (<see cref="NewMarker"/>), then the paths to send.</summary>
         public static readonly string LinuxSender = """
             use strict; use warnings;
             $0 = 'winqemu-pull';
-            my ($port, @paths) = @ARGV;
+            my ($port, $marker, @paths) = @ARGV;
             my $run = '/run/winqemu'; mkdir $run, 0700;
             if (open my $f, '<', "$run/drop.pid") {
               my $old = <$f> // ''; close $f; chomp $old;
@@ -125,8 +127,12 @@ namespace WinQEMU.Core.Sharing
               }
             }
             if (open my $f, '>', "$run/drop.pid") { print $f $$; close $f }
-            open(my $p, '+<:raw', $port) or do { print STDERR "$port: $!\n"; exit 13 };
+            # A port has one opener: the copy stopped just before may still hold it for a moment.
+            my ($p, $opened);
+            for my $try (1 .. 100) { last if ($opened = open($p, '+<:raw', $port)); last unless $!{EBUSY}; select undef, undef, undef, 0.1 }
+            $opened or do { print STDERR "$port: $!\n"; exit 13 };
             sub put { my $b = shift; my $o = 0; while ($o < length $b) { my $n = syswrite($p, $b, length($b) - $o, $o); exit 1 unless defined $n; $o += $n } }
+            put($marker);
             sub fail { my $m = shift; $m =~ s/[\r\n]+/ /g; put('X' . pack('n', length $m) . $m); exit 1 }
             my @entries;
             sub walk {
@@ -242,16 +248,27 @@ namespace WinQEMU.Core.Sharing
                     Put(Join(new[] { (byte)'X' }, Number(bytes.Length, 2), bytes));
                 }
 
-                public static int Run(string portPath, string paths)
+                public static int Run(string portPath, string paths, string marker)
                 {
-                    port = CreateFile(portPath, 0xC0000000, 0, IntPtr.Zero, 3, 0, IntPtr.Zero);
+                    // A port has one opener: the copy stopped just before may still hold it for a moment. Only a port
+                    // that does not exist (2) is not waited for.
+                    var error = 0;
+                    for (var attempt = 0; attempt < 100; attempt++)
+                    {
+                        port = CreateFile(portPath, 0xC0000000, 0, IntPtr.Zero, 3, 0, IntPtr.Zero);
+                        if (!port.IsInvalid) break;
+                        error = Marshal.GetLastWin32Error();
+                        if (error == 2) break;
+                        System.Threading.Thread.Sleep(100);
+                    }
                     if (port.IsInvalid)
                     {
-                        Console.Error.WriteLine(portPath + ": " + new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()).Message);
+                        Console.Error.WriteLine(portPath + ": " + new System.ComponentModel.Win32Exception(error).Message);
                         return 13;
                     }
                     try
                     {
+                        Put(Encoding.ASCII.GetBytes(marker));
                         var entries = new List<Entry>();
                         foreach (var raw in paths.Split('\n'))
                         {
@@ -300,7 +317,7 @@ namespace WinQEMU.Core.Sharing
         /// Run as SYSTEM by the agent, as the drop's receiver script: compiles the sender if this version is not
         /// there, stops a copy left over, and sends <paramref name="paths"/>.
         /// </summary>
-        public static string WindowsSenderScript(string portPath, IEnumerable<string> paths, string? workFolder = null) => """
+        public static string WindowsSenderScript(string portPath, IEnumerable<string> paths, string marker, string? workFolder = null) => """
             $ErrorActionPreference = 'Stop'
             $ProgressPreference = 'SilentlyContinue'
             $work = '{WORK}'
@@ -322,8 +339,9 @@ namespace WinQEMU.Core.Sharing
             }
             Add-Type -Path $dll
             $paths = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{PATHS}'))
-            exit ([WinQemuPull]::Run('{PORT}', $paths))
+            exit ([WinQemuPull]::Run('{PORT}', $paths, '{MARKER}'))
             """
+            .Replace("{MARKER}", marker, StringComparison.Ordinal)
             .Replace("{WORK}", GuestFileDrop.Quote(workFolder ?? string.Empty), StringComparison.Ordinal)
             .Replace("{HASH}", SenderHash, StringComparison.Ordinal)
             .Replace("{PATHS}", Convert.ToBase64String(Encoding.UTF8.GetBytes(string.Join("\n", paths))), StringComparison.Ordinal)
@@ -337,12 +355,19 @@ namespace WinQEMU.Core.Sharing
 
         // ---- Receiving here ----
 
+        /// <summary>A copy's marker: what its sender writes first, and what <see cref="ReceiveAsync"/> waits for.</summary>
+        public static string NewMarker() => "WQPULL" + Guid.NewGuid().ToString("N");
+
+        /// <summary>The most a receiver skips while it looks for its copy's marker.</summary>
+        private const int MarkerSearchLimit = 64 << 20;
+
         /// <summary>
         /// Reads a sender's records into <paramref name="destination"/>. <paramref name="senderExited"/> is asked
-        /// when the port stays quiet, so that a sender that died is reported instead of waited for.
+        /// when the port stays quiet, so that a sender that died is reported instead of waited for. With a
+        /// <paramref name="marker"/>, whatever comes before it is skipped: bytes an earlier copy left on the way.
         /// </summary>
         public static async Task<DropResult> ReceiveAsync(Stream port, string destination, IProgress<DropProgress>? progress,
-            Func<CancellationToken, Task<string?>> senderExited, CancellationToken cancellationToken)
+            Func<CancellationToken, Task<string?>> senderExited, CancellationToken cancellationToken, string? marker = null)
         {
             var top = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var names = new List<string>();
@@ -401,6 +426,24 @@ namespace WinQEMU.Core.Sharing
                 return Path.Combine(destination, Path.Combine(parts));
             }
 
+            if (marker is not null)
+            {
+                // One byte at a time, never past the marker: what follows it is this copy's.
+                var expected = Encoding.ASCII.GetBytes(marker);
+                var seen = new byte[expected.Length];
+                var one = new byte[1];
+                for (long count = 0; ; count++)
+                {
+                    if (count > MarkerSearchLimit)
+                        throw new GuestFileDropException(CoreText.FilePullUnexpectedAnswer);
+                    await ReadAsync(one, 1).ConfigureAwait(false);
+                    Buffer.BlockCopy(seen, 1, seen, 0, seen.Length - 1);
+                    seen[^1] = one[0];
+                    if (count + 1 >= expected.Length && seen.AsSpan().SequenceEqual(expected))
+                        break;
+                }
+            }
+
             try
             {
                 while (true)
@@ -436,7 +479,12 @@ namespace WinQEMU.Core.Sharing
                         {
                             var length = BinaryPrimitives.ReadUInt32BigEndian(await TakeAsync(4).ConfigureAwait(false));
                             if (length == 0 || length > size || length > buffer.Length)
-                                throw new GuestFileDropException(CoreText.FilePullInvalidChunk);
+                            {
+                                // The numbers say whether bytes went missing (a length read from inside data) or the
+                                // sender misbehaved.
+                                throw new GuestFileDropException(string.Create(CultureInfo.InvariantCulture,
+                                    $"{CoreText.FilePullInvalidChunk} ({length:X8}, {size} / {received} bytes, {Path.GetFileName(path)})"));
+                            }
                             await ReadAsync(buffer, (int)length).ConfigureAwait(false);
                             await output.WriteAsync(buffer.AsMemory(0, (int)length), cancellationToken).ConfigureAwait(false);
                             size -= length;
@@ -498,17 +546,10 @@ namespace WinQEMU.Core.Sharing
                     throw new GuestFileDropException(CoreText.FileDropNotRunning);
 
                 // Connected first, as for a drop: in Linux, a port with no host behind it ends at once.
-                using var client = new TcpClient { NoDelay = true };
-                try
-                {
-                    await client.ConnectAsync("127.0.0.1", dropPort, cancellationToken).ConfigureAwait(false);
-                }
-                catch (SocketException)
-                {
-                    throw new GuestFileDropException(CoreText.FileDropStartedWithoutChannel);
-                }
+                using var client = await ConnectAsync(dropPort, cancellationToken).ConfigureAwait(false);
 
                 long pid;
+                var marker = NewMarker();
                 await using (var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(10), cancellationToken)
                                  .ConfigureAwait(false))
                 {
@@ -518,9 +559,10 @@ namespace WinQEMU.Core.Sharing
                     {
                         pid = windowsGuest
                             ? await agent.StartAsync("powershell.exe",
-                                GuestFileDrop.PowerShellArguments(WindowsSenderScript(GuestFileDrop.WindowsPortPath, guestPaths)),
+                                GuestFileDrop.PowerShellArguments(WindowsSenderScript(GuestFileDrop.WindowsPortPath, guestPaths, marker)),
                                 WindowsSenderInput, cancellationToken).ConfigureAwait(false)
-                            : await agent.StartAsync("perl", new[] { "-e", LinuxSender, GuestFileDrop.LinuxPortPath }.Concat(guestPaths).ToArray(),
+                            : await agent.StartAsync("perl",
+                                new[] { "-e", LinuxSender, GuestFileDrop.LinuxPortPath, marker }.Concat(guestPaths).ToArray(),
                                 null, cancellationToken).ConfigureAwait(false);
                     }
                     catch (GuestAgentException ex)
@@ -547,13 +589,121 @@ namespace WinQEMU.Core.Sharing
                     }
                 }
 
+                async Task StopAsync()
+                {
+                    await using var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(5), CancellationToken.None)
+                        .ConfigureAwait(false);
+                    if (agent is null)
+                        return;
+                    await (windowsGuest
+                        ? agent.RunAsync("taskkill.exe", new[] { "/F", "/PID", pid.ToString(CultureInfo.InvariantCulture) }, null, TimeSpan.FromSeconds(10))
+                        : agent.RunAsync("/bin/kill", new[] { "-9", pid.ToString(CultureInfo.InvariantCulture) }, null, TimeSpan.FromSeconds(10)))
+                        .ConfigureAwait(false);
+                    for (var end = DateTime.UtcNow.AddSeconds(15); DateTime.UtcNow < end; await Task.Delay(200).ConfigureAwait(false))
+                    {
+                        if (await agent.GetExitAsync(pid).ConfigureAwait(false) is not null)
+                            return;
+                    }
+                }
+
                 Directory.CreateDirectory(destination);
-                return await ReceiveAsync(client.GetStream(), destination, progress, ExitedAsync, cancellationToken).ConfigureAwait(false);
+                var stream = client.GetStream();
+                try
+                {
+                    return await ReceiveAsync(stream, destination, progress, ExitedAsync, cancellationToken, marker).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Cancelled, or the copy failed here: the sender may be in the middle of a write. One that ended by
+                    // itself ('X', or it died) is found ended at once.
+                    await StopSenderWhileDrainingAsync(stream, StopAsync).ConfigureAwait(false);
+                    throw;
+                }
             }
             finally
             {
                 gate.Release();
             }
+        }
+
+        /// <summary>
+        /// Connects to QEMU's end of the copy port, trying again for a few seconds: a connection refused there is not
+        /// always a machine started without the port.
+        /// </summary>
+        /// <remarks>
+        /// Seen once, right after two copies stopped in a row (Escape, then a release over nothing): the next copies
+        /// were refused until the machine was restarted; the same sequence went through every time after. Not
+        /// understood: QEMU accepts one client at a time and keeps few waiting, and it closes no connection that ends
+        /// while the guest's side of the port is closed (each copy leaves one in CLOSE_WAIT, which did not stop later
+        /// copies). Waiting covers a refusal that is only a moment.
+        /// </remarks>
+        private static async Task<TcpClient> ConnectAsync(int port, CancellationToken cancellationToken)
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                var client = new TcpClient { NoDelay = true };
+                try
+                {
+                    await client.ConnectAsync("127.0.0.1", port, cancellationToken).ConfigureAwait(false);
+                    return client;
+                }
+                catch (SocketException)
+                {
+                    client.Dispose();
+                    if (attempt >= 10)
+                        throw new GuestFileDropException(CoreText.FileDropStartedWithoutChannel);
+                }
+                catch
+                {
+                    client.Dispose();
+                    throw;
+                }
+                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Stops a sender that may still be writing, reading the port meanwhile, before the connection is closed.
+        /// </summary>
+        /// <remarks>
+        /// Hanging up in the middle of a guest's write leaves the port stuck: QEMU holds that write back once its side of
+        /// the port is gone, and does not resume it for the next connection, so the sender can neither finish its write
+        /// nor die (killed, it stayed with one thread for minutes), and keeps the port, which takes one opener. Every
+        /// copy after it then failed, "the copy channel is missing", until the machine was restarted. Seen after a drag
+        /// out of a Windows guest cancelled with Escape. Read and discarded, the write ends, and the stop completes.
+        /// </remarks>
+        public static async Task StopSenderWhileDrainingAsync(Stream port, Func<Task> stop)
+        {
+            using var draining = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var lastRead = DateTime.UtcNow;
+            async Task DrainAsync()
+            {
+                var buffer = new byte[1 << 16];
+                try
+                {
+                    while (await port.ReadAsync(buffer, draining.Token).ConfigureAwait(false) > 0)
+                        lastRead = DateTime.UtcNow;
+                }
+                catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException)
+                {
+                }
+            }
+
+            var drain = DrainAsync();
+            try
+            {
+                await stop().ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or SocketException or InvalidOperationException
+                                           or OperationCanceledException)
+            {
+                // Drained anyway for a while: the next copy's sender stops this one, and waits for the port.
+            }
+            // What the sender wrote before it ended is still on the way.
+            while (!drain.IsCompleted && !draining.IsCancellationRequested && DateTime.UtcNow - lastRead < TimeSpan.FromMilliseconds(500))
+                await Task.Delay(100).ConfigureAwait(false);
+            draining.Cancel();
+            await drain.ConfigureAwait(false);
         }
     }
 }

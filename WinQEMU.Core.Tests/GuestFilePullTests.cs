@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Text;
 using WinQEMU.Core.Sharing;
 
 namespace WinQEMU.Core.Tests;
@@ -128,7 +129,8 @@ public sealed class GuestFilePullTests : IAsyncLifetime
     {
         var name = "winqemu-pull-test-" + Guid.NewGuid().ToString("N");
         await using var pipe = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-        var script = GuestFilePull.WindowsSenderScript($@"\\.\pipe\{name}", paths, Path.Combine(_folder, "work"));
+        var marker = GuestFilePull.NewMarker();
+        var script = GuestFilePull.WindowsSenderScript($@"\\.\pipe\{name}", paths, marker, Path.Combine(_folder, "work"));
         var start = new ProcessStartInfo("powershell.exe")
         {
             RedirectStandardInput = true,
@@ -156,15 +158,61 @@ public sealed class GuestFilePullTests : IAsyncLifetime
         try
         {
             return await GuestFilePull.ReceiveAsync(pipe, destination, onProgress is null ? null : new Progress(onProgress),
-                async _ => sender.HasExited ? $"code {sender.ExitCode} {await errors}" : null, cancellationToken);
+                async _ => sender.HasExited ? $"code {sender.ExitCode} {await errors}" : null, cancellationToken, marker);
+        }
+        catch when (!sender.HasExited)
+        {
+            // As PullAsync does: the sender, perhaps in the middle of a write, is stopped while the pipe is read.
+            var stopping = Stopwatch.StartNew();
+            await GuestFilePull.StopSenderWhileDrainingAsync(pipe, () =>
+            {
+                sender.Kill();
+                return sender.WaitForExitAsync();
+            });
+            Assert.True(sender.HasExited);
+            Assert.True(stopping.Elapsed < TimeSpan.FromSeconds(10), $"stopping took {stopping.Elapsed}");
+            throw;
         }
         finally
         {
-            // Cancelled, the sender is left writing to a pipe nobody reads: as in a guest, it is stopped.
             pipe.Dispose();
             if (!sender.WaitForExit(10000))
                 sender.Kill();
         }
+    }
+
+    [Fact]
+    public async Task What_comes_before_the_copys_marker_is_skipped()
+    {
+        // Bytes left on the way by a copy stopped before: a chunk header and data, an older marker, then this copy's.
+        var marker = GuestFilePull.NewMarker();
+        var content = Encoding.UTF8.GetBytes("bonjour");
+        var stream = new MemoryStream();
+        void Write(params byte[][] parts)
+        {
+            foreach (var part in parts)
+                stream.Write(part);
+        }
+        byte[] Number(long value, int size)
+        {
+            var bytes = new byte[size];
+            for (var i = size - 1; i >= 0; i--, value >>= 8)
+                bytes[i] = (byte)value;
+            return bytes;
+        }
+        var name = Encoding.UTF8.GetBytes("note.txt");
+        Write(Number(1 << 20, 4), new byte[300], Encoding.ASCII.GetBytes(GuestFilePull.NewMarker()), "FT"u8.ToArray(),
+            Encoding.ASCII.GetBytes(marker),
+            "T"u8.ToArray(), Number(content.Length, 8),
+            "F"u8.ToArray(), Number(name.Length, 2), name, Number(content.Length, 8), Number(0, 8),
+            Number(content.Length, 4), content, "E"u8.ToArray());
+        stream.Position = 0;
+        var here = Directory.CreateDirectory(Path.Combine(_folder, "here")).FullName;
+
+        var result = await GuestFilePull.ReceiveAsync(stream, here, null, _ => Task.FromResult<string?>(null), CancellationToken.None, marker);
+
+        Assert.Equal(new[] { "note.txt" }, result.Names);
+        Assert.Equal("bonjour", File.ReadAllText(Path.Combine(here, "note.txt")));
     }
 
     private sealed class Progress : IProgress<DropProgress>

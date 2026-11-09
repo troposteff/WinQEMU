@@ -40,6 +40,8 @@ namespace WinQEMU
             // console is shown: the journal belongs to the selected machine and starts empty.
             _dropTargetStatus = ConsoleHost.EnableFileDrop(() => _viewModel.CanSendFiles,
                 files => DispatcherQueue.TryEnqueue(() => _ = SendFilesAsync(files)));
+            // And files dragged out of the console onto this PC (MainWindow.DragOut.cs).
+            InitializeGuestDragOut();
             // Keys captured by the host travel to the guest over the control channel, because an
             // embedded console window cannot receive them.
             ConsoleHost.KeyForwarder = _viewModel.ForwardKeysAsync;

@@ -56,7 +56,8 @@ through the Windows Hypervisor Platform (WHPX).
 - **Screen capture** to PNG, at the guest's resolution, also copied to the clipboard.
 - **Files**:
   - files and folders dropped on the console are copied to the guest's desktop;
-  - files are copied back from the guest through a browser of its folders.
+  - files are copied back from the guest through a browser of its folders;
+  - files dragged out of a Windows guest's console are dropped on this PC, in Explorer or any other window that takes files.
 - **Sound**:
   - per-machine volume and mute;
   - optional microphone;

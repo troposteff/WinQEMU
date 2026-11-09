@@ -114,7 +114,7 @@ namespace WinQEMU.Core.Services
                     if (FedoraStage2(isoPath) is not { } stage2)
                         return false;
                     WriteOemDrive(folder, "ks.cfg", FedoraKickstart(settings));
-                    commandLine = $"{stage2} inst.ks=hd:LABEL={OemDriveLabel}:/ks.cfg quiet";
+                    commandLine = FedoraCommandLine(stage2);
                     break;
                 case "opensuse":
                     WriteOemDrive(folder, "autoinst.xml", AutoYast(settings, OpenSuseProduct(isoPath), OpenSuseOnlineRepository(isoPath)));
@@ -258,6 +258,35 @@ namespace WinQEMU.Core.Services
 
         // ---- Fedora ----
 
+        /// <summary>The installer's kernel line: its image (<see cref="FedoraStage2"/>) and the kickstart.</summary>
+        public static string FedoraCommandLine(string stage2) =>
+            $"{stage2} inst.ks=hd:LABEL={OemDriveLabel}:/ks.cfg quiet";
+
+        /// <summary>
+        /// Run by Anaconda before it sets up its sources: waits until the network is up and Fedora's mirror server answers by
+        /// name, twice, three seconds apart (a minute at most).
+        /// </summary>
+        /// <remarks>
+        /// From the netinst ISO (Fedora 45), Anaconda set up its sources about a second after NetworkManager had brought the
+        /// card up, and the very first lookup failed ("Could not resolve host: mirrors.fedoraproject.org", packaging.log,
+        /// 3 ms after systemd-resolved's "Using degraded feature set UDP instead of UDP+EDNS0 for DNS server 10.0.2.3", 0.4 s
+        /// before NetworkManager handed it the DNS servers): it stopped on "Erreur lors de la configuration des dépôts".
+        /// Name resolution worked a moment later, and from a shell every time. The network brought up from the initramfs
+        /// (ip=dhcp) changed nothing: NetworkManager re-applies it as Anaconda starts.
+        /// </remarks>
+        internal const string FedoraWaitForNetwork = """
+            %pre --log=/tmp/winqemu-pre.log
+            nm-online -s -q -t 60
+            ok=0
+            for i in $(seq 60); do
+              if curl -sSI --max-time 5 -o /dev/null https://mirrors.fedoraproject.org; then ok=$((ok + 1)); else ok=0; fi
+              echo "$(date +%T.%N) try $i ok $ok"
+              [ "$ok" -ge 2 ] && break
+              sleep 3
+            done
+            %end
+            """;
+
         public static string FedoraKickstart(UnattendedLinux s)
         {
             // Environments of the comps file (GNOME is Workstation's).
@@ -278,13 +307,16 @@ namespace WinQEMU.Core.Services
             // KDE's first-boot assistant (mandatory in its comps groups), which "firstboot --disable" does not reach: Fedora
             // KDE started on "Bienvenue sur Plasma Desktop, Commencer la configuration" with the account already made.
             var excluded = s.Desktop == LinuxDesktop.Kde ? "\n-plasma-setup" : string.Empty;
+            // No --activate: NetworkManager has the card up already, and re-activating it cut it off just as Anaconda set up
+            // its sources ("Could not resolve host: mirrors.fedoraproject.org" one second after the re-activation, two
+            // before NetworkManager's "dns-change"). The line still names the installed system. See FedoraWaitForNetwork.
             return $"""
                 # Written by WinQEMU for an unattended installation.
                 text
                 lang {s.Locale}
                 keyboard --xlayouts='{s.KeyboardLayout}'
                 timezone {s.TimeZone} --utc
-                network --bootproto=dhcp --activate --hostname={s.Hostname}
+                network --bootproto=dhcp --hostname={s.Hostname}
                 zerombr
                 clearpart --all --initlabel
                 autopart
@@ -300,6 +332,8 @@ namespace WinQEMU.Core.Services
                 qemu-guest-agent
                 spice-vdagent{excluded}
                 %end
+
+                {FedoraWaitForNetwork}
 
                 %post
                 {UnconfinedAgent}

@@ -58,6 +58,14 @@ public class LinuxUnattendedSetupTests
         var console = LinuxUnattendedSetup.FedoraKickstart(Settings(LinuxDesktop.None));
         Assert.Contains("@^server-product-environment", console);
         Assert.Contains("reboot", kickstart);
+        // Re-activating the card cut it off as Anaconda set up its sources: "Could not resolve host".
+        Assert.Contains("\nnetwork --bootproto=dhcp --hostname=", kickstart.ReplaceLineEndings("\n"));
+        Assert.DoesNotContain("--activate", kickstart);
+        // Anaconda waits for the network and DNS before setting up its sources: its first lookup failed otherwise.
+        Assert.Contains("\n%pre --log=/tmp/winqemu-pre.log\nnm-online", kickstart.ReplaceLineEndings("\n"));
+        Assert.Contains("https://mirrors.fedoraproject.org", kickstart);
+        Assert.Equal("inst.stage2=hd:LABEL=Fedora-E-dvd-x86_64-45 inst.ks=hd:LABEL=OEMDRV:/ks.cfg quiet",
+            LinuxUnattendedSetup.FedoraCommandLine("inst.stage2=hd:LABEL=Fedora-E-dvd-x86_64-45"));
         // A text-mode installation otherwise leaves Workstation on a text login.
         Assert.Contains("\nxconfig --startxonboot\n", kickstart.ReplaceLineEndings("\n"));
         Assert.Contains("\nskipx\n", console.ReplaceLineEndings("\n"));

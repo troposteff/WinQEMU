@@ -1118,7 +1118,16 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
     sans kickstart ; elle a pourtant `images/pxeboot`, d'où le test (`IsoFileReader.Contains`, sans lire le gigaoctet).
     **`xconfig --startxonboot`** avec bureau (`skipx` sinon) : installé en mode `text`, Workstation démarrait sur une
     connexion texte. **`-plasma-setup`** pour KDE : l'assistant de premier démarrage de Plasma (obligatoire dans ses groupes
-    comps, hors de portée de `firstboot --disable`) proposait de créer un compte qui existait déjà.
+    comps, hors de portée de `firstboot --disable`) proposait de créer un compte qui existait déjà. **Un `%pre` attend le
+    réseau et le DNS** (`FedoraWaitForNetwork` : `nm-online`, puis `mirrors.fedoraproject.org` qui répond deux fois) : depuis
+    l'ISO netinst de Fedora 45, Anaconda préparait ses sources une seconde après que NetworkManager avait monté la carte, et
+    sa toute première recherche de nom échouait (« Could not resolve host », 3 ms après « Using degraded feature set UDP
+    instead of UDP+EDNS0 for DNS server 10.0.2.3 » de systemd-resolved) : arrêt sur « Erreur lors de la configuration des
+    dépôts ». Juste après, et depuis un shell, la résolution marchait toujours. **Pas de `--activate`** sur la ligne
+    `network` (la réactivation coupait la carte au même moment) ; `ip=dhcp` sur la ligne du noyau n'y changeait rien.
+    Vérifié de bout en bout (Xfce, 09/11/2026) : 9 min sans fenêtre, sources préparées 7 s après le début du `%pre`.
+    Diagnostic sans agent : un second QMP dans les arguments supplémentaires, touches envoyées par `send-key` dans le
+    shell d'Anaconda (onglet tmux 2 : `Ctrl+B` puis `N`), positions AZERTY, et `screendump`.
   - **openSUSE** (linuxrc, YaST) : `autoinst.xml` sur la clé OEMDRV, `autoyast=label://OEMDRV/autoinst.xml`. L'ISO NET de
     Tumbleweed utilise encore YaST (pas Agama). **Produit exigé** (`<products>`) : un même support en propose plusieurs
     (openSUSE, MicroOS, Aeon, Kalpa), sinon « None or wrong base product » ; lu dans `media.1/products`. **Disques de moins de 4 Gio exclus** (`skip_list`) :

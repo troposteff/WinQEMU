@@ -117,11 +117,14 @@ namespace WinQEMU.Core.Services
                     commandLine = $"{stage2} inst.ks=hd:LABEL={OemDriveLabel}:/ks.cfg quiet";
                     break;
                 case "opensuse":
-                    WriteOemDrive(folder, "autoinst.xml", AutoYast(settings, OpenSuseProduct(isoPath)));
+                    WriteOemDrive(folder, "autoinst.xml", AutoYast(settings, OpenSuseProduct(isoPath), OpenSuseOnlineRepository(isoPath)));
                     // kexec=3: Tumbleweed's repository moves on, and an ISO a few days old no longer has the kernel of
                     // the packages; linuxrc then stopped on "To use the selected repository a matching boot image is
                     // needed. Download it now and restart?". 3 loads that kernel without asking, and only when needed.
-                    commandLine = $"splash=silent kexec=3 autoyast=label://{OemDriveLabel}/autoinst.xml";
+                    // ifcfg=*=dhcp: from a DVD, linuxrc has no need of the network and leaves it down; YaST then stopped
+                    // on "Réseau non fonctionnel" while saving its settings (86 %), and the online repository the DVD
+                    // gets (OpenSuseOnlineRepository) could not be reached. The NET medium brings it up anyway.
+                    commandLine = $"splash=silent kexec=3 ifcfg=*=dhcp autoyast=label://{OemDriveLabel}/autoinst.xml";
                     break;
                 default:
                     return false;
@@ -330,7 +333,11 @@ namespace WinQEMU.Core.Services
         /// "Impossible de suggérer un partitionnement". Disks under 4 GiB are skipped, whatever bus the system disk is on.
         /// kdump is off: on by default, it reserved guest memory and failed at every start ("Failed to start Load kdump").
         /// </remarks>
-        public static string AutoYast(UnattendedLinux s, string product = "openSUSE")
+        /// <param name="onlineRepository">
+        /// A repository added to the installation, for a medium that does not carry every package asked for (see
+        /// <see cref="OpenSuseOnlineRepository"/>); null for none.
+        /// </param>
+        public static string AutoYast(UnattendedLinux s, string product = "openSUSE", string? onlineRepository = null)
         {
             string[] desktop = s.Desktop switch
             {
@@ -345,6 +352,19 @@ namespace WinQEMU.Core.Services
             };
             string[] patterns = ["base", "minimal_base", "enhanced_base", .. desktop, "yast2_basis", "sw_management"];
             string X(string value) => SecurityElement.Escape(value);
+            var addOn = onlineRepository is null ? string.Empty : $"""
+                  <add-on>
+                    <add_on_products config:type="list">
+                      <listentry>
+                        <media_url>{X(onlineRepository)}</media_url>
+                        <product_dir>/</product_dir>
+                        <alias>repo-oss</alias>
+                        <name>Main Repository (OSS)</name>
+                      </listentry>
+                    </add_on_products>
+                  </add-on>
+
+                """;
             return $"""
                 <?xml version="1.0"?>
                 <!DOCTYPE profile>
@@ -355,6 +375,7 @@ namespace WinQEMU.Core.Services
                       <confirm config:type="boolean">false</confirm>
                     </mode>
                   </general>
+                {addOn}
                   <language>
                     <language>{X(s.Locale.Replace(".UTF-8", string.Empty, StringComparison.Ordinal))}</language>
                   </language>
@@ -481,6 +502,27 @@ namespace WinQEMU.Core.Services
             }
             return "openSUSE";
         }
+
+        /// <summary>Tumbleweed's main online repository.</summary>
+        public const string TumbleweedOnlineRepository = "https://download.opensuse.org/tumbleweed/repo/oss/";
+
+        /// <summary>
+        /// The online repository to add to the installation: Tumbleweed's for its DVD (media.1/media names it
+        /// "openSUSE-Tumbleweed-DVD-…"), none otherwise.
+        /// </summary>
+        /// <remarks>
+        /// The DVD carries a selection of packages only, spice-vdagent not among them: AutoYaST stopped on "Ces paquets
+        /// n'ont pas pu être trouvés dans les dépôts de logiciels : spice-vdagent" (Tumbleweed DVD of 30/10/2026). The
+        /// NET medium installs from that repository already. Leap's DVD is left as it is: not tried.
+        /// </remarks>
+        public static string? OpenSuseOnlineRepository(string isoPath) =>
+            IsoFileReader.Read(isoPath, "media.1/media") is { } bytes && IsTumbleweedDvd(Encoding.UTF8.GetString(bytes))
+                ? TumbleweedOnlineRepository
+                : null;
+
+        /// <summary>Whether media.1/media is that of Tumbleweed's DVD.</summary>
+        public static bool IsTumbleweedDvd(string media) =>
+            media.Contains("openSUSE-Tumbleweed-DVD-", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>YaST's keymap names, from the xkb layout this PC's keyboard maps to.</summary>
         private static string YastKeymap(string xkb) => xkb switch

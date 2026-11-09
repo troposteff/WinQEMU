@@ -1078,7 +1078,14 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
     `media.1/media` : l'arbre ISO 9660 primaire ne sait pas nommer `.treeinfo` (point initial). SLE refusé (enregistrement).
     **`kexec=3`** : le dépôt de Tumbleweed avance, et une ISO de quelques jours n'a plus le noyau de ses paquets ; linuxrc
     s'arrêtait sur « To use the selected repository a matching boot image is needed. Download it now and restart? ». 3 le
-    charge sans demander, seulement si nécessaire (source de linuxrc, `install.c`). **Disposition graphique** : `<keymap>` ne règle
+    charge sans demander, seulement si nécessaire (source de linuxrc, `install.c`). **DVD de Tumbleweed** (`media.1/media`
+    le nomme `openSUSE-Tumbleweed-DVD-…`) : il ne porte qu'une sélection de paquets, sans `spice-vdagent`, et AutoYaST
+    s'arrêtait sur « Ces paquets n'ont pas pu être trouvés… : spice-vdagent » (DVD du 30/10/2026) ; le dépôt en ligne
+    `tumbleweed/repo/oss` est ajouté (`<add-on>`, `OpenSuseOnlineRepository`). L'ISO NET installe déjà depuis lui. Et
+    **`ifcfg=*=dhcp`** sur la ligne du noyau : depuis le DVD, linuxrc laissait le réseau éteint, et YaST s'arrêtait à 86 %
+    sur « Réseau non fonctionnel » (le dépôt en ligne aurait été injoignable). **Vérifié de bout en bout** sur le DVD du
+    30/10/2026 avec KDE (09/11/2026) : 12 min sans aucune fenêtre, `spice-vdagent` installé, `repo-oss` à côté du DVD,
+    réseau en place, écran de connexion de Plasma. **Disposition graphique** : `<keymap>` ne règle
     que la console ; Xfce (LightDM) montrait « us » à la connexion. SDDM (LXQt) affiche encore « us » : c'est le clavier virtuel de X, qui ne prend celui du vrai clavier (« fr », vérifié par `xkbcomp -i`) qu'à la première touche. `/etc/X11/xorg.conf.d/00-keyboard.conf` écrit par `<files>`.
   - Suivi des essais par `winqemu capture <machine> [fichier]` (nouveau, comme `captureScreen` de vmrun : `screendump` de
     la session, sans dépendre de l'écran).

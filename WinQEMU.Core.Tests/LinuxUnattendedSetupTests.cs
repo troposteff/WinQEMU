@@ -95,6 +95,23 @@ public class LinuxUnattendedSetupTests
         Assert.DoesNotContain("block-rpcs", script);
     }
 
+    [Fact]
+    public void A_Tumbleweed_DVD_installs_with_the_online_repository_too()
+    {
+        XNamespace yast = "http://www.suse.com/1.0/yast2ns";
+        var dvd = XDocument.Parse(LinuxUnattendedSetup.AutoYast(Settings(LinuxDesktop.Kde), "openSUSE",
+            LinuxUnattendedSetup.TumbleweedOnlineRepository));
+        var other = XDocument.Parse(LinuxUnattendedSetup.AutoYast(Settings(LinuxDesktop.Kde)));
+
+        // spice-vdagent is not on the DVD: AutoYaST stopped on "package not available".
+        Assert.Equal("https://download.opensuse.org/tumbleweed/repo/oss/", dvd.Descendants(yast + "media_url").Single().Value);
+        Assert.Empty(other.Descendants(yast + "add-on"));
+        Assert.True(LinuxUnattendedSetup.IsTumbleweedDvd(
+            "openSUSE - openSUSE-Tumbleweed-DVD-x86_64-Build4888.1-Media\nopenSUSE-Tumbleweed-DVD-x86_64-Build4888.1\n1\n"));
+        Assert.False(LinuxUnattendedSetup.IsTumbleweedDvd("openSUSE - openSUSE-Tumbleweed-NET-x86_64-Build4888.1-Media\n"));
+        Assert.False(LinuxUnattendedSetup.IsTumbleweedDvd("openSUSE - openSUSE-Leap-16.0-DVD-x86_64-Build1.1-Media\n"));
+    }
+
     // The names each installer knows the environment by: tasksel's task, the comps environment, the pattern.
     [Theory]
     [InlineData(LinuxDesktop.Gnome, "gnome-desktop", "@^workstation-product-environment", "gnome")]

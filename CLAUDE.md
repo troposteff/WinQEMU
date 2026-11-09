@@ -59,16 +59,19 @@ Installer ne met à jour que vers plus haut.
 - **Bêtas publiées en pré-versions GitHub** (choix de l'utilisateur) : `releases/latest` ne pointe jamais vers une
   pré-version, donc pas de mise à jour automatique ni de `.appinstaller` avant `2026.1.0` ; chaque bêta s'installe par son
   `.msix`. Le script affiche la commande `gh release create` (`--prerelease` pour une bêta).
+- **Plus aucune release GitHub depuis le 07/11/2026** (choix de l'utilisateur) : les trois bêtas `2026.0.x` supprimées,
+  leurs étiquettes aussi (09/11) ; les README envoient vers le Store, ou vers la compilation depuis les sources. Les outils
+  de publication GitHub (`Build-Package.ps1`, `.appinstaller`, `Install-WinQEMU.ps1`) restent, inutilisés. Ce qui suit sur
+  les bêtas et l'`.appinstaller` décrit ce canal tel qu'il marchait.
 
 - **Signé par un certificat auto-signé `CN=troposteff`** (magasin personnel de l'utilisateur, 5 ans ; partie publique
   dans `packaging\WinQEMU.cer`), choix de l'utilisateur. L'éditeur du manifeste doit être exactement ce sujet.
 - **Windows App SDK embarqué** (`WindowsAppSDKSelfContained`) : aucun runtime à installer, seulement QEMU (98 Mo).
 - **Jamais de réduction (`PublishTrimmed`)** en Release : `{Binding}`, les réglages et les descripteurs JSON passent par
   la réflexion.
-- **Mises à jour par les releases GitHub** (choix de l'utilisateur, le dépôt deviendra public) : `.appinstaller` à
-  l'adresse fixe `releases/latest/download/WinQEMU.appinstaller`, qui nomme le MSIX de sa release ; vérifié à chaque
-  lancement, mise à jour en arrière-plan. Tant que le dépôt est privé, App Installer ne peut pas le lire (pas
-  d'authentification) : installation par le `.msix` local.
+- **Mises à jour par les releases GitHub** (canal abandonné, voir plus haut) : `.appinstaller` à l'adresse fixe
+  `releases/latest/download/WinQEMU.appinstaller`, qui nomme le MSIX de sa release ; vérifié à chaque lancement, mise à
+  jour en arrière-plan.
 - **Vérifié dans Windows Sandbox** (Windows vierge, sans QEMU) : certificat approuvé, `Add-AppxPackage`, WinQEMU démarre,
   `winqemu help` répond.
 - **Distribution** décrite en détail (en anglais, pour le dépôt public) dans `docs/distribution.md` : publication, canaux,
@@ -89,10 +92,18 @@ Installer ne met à jour que vers plus haut.
   activé : le paquet s'installe mais WinQEMU ne démarre pas** (certificat auto-signé, hors du programme de racines de
   Microsoft). Seule issue de notre côté : une signature reconnue (Store, SignPath, OV). QEMU de weilnetz risque le même
   sort (`.exe` signés par un certificat expiré en 2023, DLL non signées), pas encore vérifié.
-- **Microsoft Store préparé, pas soumis** (choix de l'utilisateur, plutôt que SignPath : éditeur affiché troposteff, mises à
-  jour par le Store, rien à réécrire de la publication). `packaging/store/` (fiche FR/EN, notes de certification, étapes),
-  `PRIVACY.md` (exigée par la capacité micro). Compte Partner Center, réservation du nom, `identity.json` et soumission :
-  à l'utilisateur.
+- **Microsoft Store : le seul canal**, produit `9NTWD738Z396`, publié (2026.1.4 au 09/11/2026 ; choix de l'utilisateur,
+  plutôt que SignPath : éditeur affiché troposteff, mises à jour par le Store). `packaging/store/` (fiche FR/EN, notes de
+  certification, étapes), `PRIVACY.md` (exigée par la capacité micro). Captures de la fiche : `docs/images/summary-*`,
+  `console-*`, `wizard-*`, `snapshots-*` (1924 x 1130), mises en ligne par l'utilisateur dans Partner Center.
+  - **Licence hors ligne pour les organisations activée** (Tarification et disponibilité, `EnterpriseLicensing` =
+    `OnlineAndOffline`) : `winget download --id 9NTWD738Z396 -s msstore` donne le `.msix` signé par le Store (éditeur
+    `CN=EA8415CD-…`) et, avec un compte Entra administrateur, `9NTWD738Z396_License.xml`. Vérifié dans Windows Sandbox :
+    **sans licence, le paquet s'installe mais ne démarre pas** (« Impossible d'ouvrir cette application », `0x87E10BC6`) ;
+    avec `Add-AppxProvisionedPackage -LicensePath`, WinQEMU démarre. **Pas republié sur GitHub** : l'App Developer
+    Agreement (8.11) n'en dit rien, la licence est délivrée à l'organisation de l'utilisateur (elle porte un `RequestorID`),
+    et l'option est présentée comme une distribution pour les organisations. winget-cli publie bien sa licence, mais
+    Microsoft est l'éditeur d'App Installer. À demander au support de Partner Center avant toute release de ce genre.
   - `tools/Build-StorePackage.ps1` : `.msix` **non signé** (le Store signe) avec l'identité de Partner Center, donnée au
     build par une copie du manifeste (`WinQemuStoreManifest` du csproj ; sans `AppxManifest` déclaré, les outils MSIX
     ajoutent eux-mêmes `Package.appxmanifest`). `.msix` plutôt que `.msixupload` : la tâche du Windows App SDK qui écrit ce
@@ -119,7 +130,9 @@ Installer ne met à jour que vers plus haut.
   sur le chemin du `.msix` : un dossier ferait reconnaître le projet WinUI), notes de version, description et fonctionnalités tirées des fiches, ancien paquet
   `PendingDelete`, soumission seulement sur « yes » de l'utilisateur. Pièges : `reconfigure` sans arguments demande un compte
   utilisateur (refuse les comptes Microsoft personnels) ; JSON de soumission modifié en `JsonNode` (ConvertFrom-Json
-  changerait les dates). **Pas encore lancé sur une vraie version.**
+  changerait les dates). **Lancé pour 2026.1.4** : le rôle Developer suffit ; le paquet envoyé reste « PendingUpload » sans
+  version tant que le Store ne l'a pas traité, d'où sa reconnaissance par nom de fichier, et un passage interrompu après
+  l'envoi reprend le brouillon sans renvoyer le paquet. Le script est lancé par l'utilisateur, pas par Claude.
 
 ## Préparer ce PC (`Dialogs.ReadinessDialog`)
 

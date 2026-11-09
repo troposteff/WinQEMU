@@ -156,62 +156,27 @@ winget install WinQEMU
 (or, naming the Store's package exactly: `winget install 9NTWD738Z396 --source msstore`)
 
 The Store installs and updates WinQEMU by itself, signed by Microsoft: no certificate to trust, and it starts on PCs where
-Smart App Control is on. A PC that had WinQEMU from GitHub keeps everything: at its first start, the Store version takes
-over the settings (library, folders, virtual networks) and asks for the GitHub version to be uninstalled.
+Smart App Control is on. A PC that had a GitHub beta of WinQEMU keeps everything: at its first start, the Store version
+takes over the settings (library, folders, virtual networks) and asks for the GitHub version to be uninstalled.
 
 At first start, WinQEMU says whether this PC is ready to run machines (QEMU, hardware acceleration) and what to do if not.
 That check stays available in the settings (**Check this PC…**).
 
-### From GitHub
+### Without the Store
 
-The betas, and the way without the Store. Download a version from the
-[releases](https://github.com/troposteff/WinQEMU/releases): `WinQEMU_<version>_x64.msix`, `WinQEMU.cer`,
-`Install-WinQEMU.ps1` and `SHA256SUMS.txt`, into one folder. Then, in PowerShell **as administrator**, from that folder:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
-.\Install-WinQEMU.ps1
-```
-
-The first line allows scripts in this PowerShell window only (Windows refuses them by default); it leaves this PC's
-setting unchanged.
-
-> **Smart App Control**: on a PC where it is on, WinQEMU from GitHub installs but does not start. It only runs
-> applications known to Microsoft or signed by a public authority, and this package is signed by its author: install
-> WinQEMU from the Microsoft Store instead. See [`docs/distribution.md`](docs/distribution.md#smart-app-control).
-
-The script checks the package against `SHA256SUMS.txt` and its signature against `WinQEMU.cer`, adds the certificate to
-this PC's Trusted People (not as a root authority), then installs WinQEMU. WinQEMU then appears in the Start menu, and
-`winqemu` works in a terminal.
-
-### Betas and releases
-
-Releases (2026.1.0 onwards) are published on the Microsoft Store. The 2026.0.x versions are **betas**, published on GitHub
-as pre-releases: install each one from its `.msix`.
+WinQEMU is no longer published as a package on GitHub: the 2026.0.x betas published there have been withdrawn. Without
+the Store, build it from source (see [Building from source](#building-from-source)).
 
 ### Updating
 
-From the Store: nothing to do, the Store updates WinQEMU. From GitHub: install the newer `.msix` (double-click it, or run
-`Install-WinQEMU.ps1` again). Either way the update is in place: the settings, the library and the virtual machines are
-kept.
-
-### Verifying a download
-
-Each GitHub release lists the SHA-256 of its files in `SHA256SUMS.txt`. In PowerShell:
-
-```powershell
-Get-FileHash .\WinQEMU_<version>_x64.msix -Algorithm SHA256
-```
-
-The value must be the one in `SHA256SUMS.txt`. The package's signature can be read in its Properties, Digital Signatures
-tab: `troposteff`.
+Nothing to do: the Store updates WinQEMU by itself, in place. The settings, the library and the virtual machines are kept.
 
 ### Uninstalling
 
 Uninstall WinQEMU from Settings, Apps (or `Get-AppxPackage troposteff.WinQEMU | Remove-AppxPackage` for the Store version,
-`Get-AppxPackage *cfde84db* | Remove-AppxPackage` for the GitHub one). This removes the application and its settings;
+`Get-AppxPackage *cfde84db* | Remove-AppxPackage` for a GitHub beta). This removes the application and its settings;
 **the virtual machines stay** in their folder (`Documents\WinQEMU VMs` by default, or the one chosen in the settings), and
-a new installation finds them once that folder is given again. The GitHub version's certificate can be removed from
+a new installation finds them once that folder is given again. A GitHub beta's certificate can be removed from
 `certlm.msc`, Trusted People.
 
 ## Building from source

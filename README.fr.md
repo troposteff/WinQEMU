@@ -154,65 +154,29 @@ winget install 9NTWD738Z396 --source msstore
 ```
 
 Le Store installe et met à jour WinQEMU tout seul, signé par Microsoft : aucun certificat à approuver, et il démarre sur
-les PC où le Contrôle intelligent des applications (Smart App Control) est activé. Un PC qui avait WinQEMU depuis GitHub
-garde tout : au premier démarrage, la version du Store reprend les réglages (bibliothèque, dossiers, réseaux virtuels) et
-propose de désinstaller la version GitHub.
+les PC où le Contrôle intelligent des applications (Smart App Control) est activé. Un PC qui avait une bêta de WinQEMU
+venue de GitHub garde tout : au premier démarrage, la version du Store reprend les réglages (bibliothèque, dossiers,
+réseaux virtuels) et propose de désinstaller la version GitHub.
 
 Au premier démarrage, WinQEMU indique si ce PC est prêt à faire tourner des machines (QEMU, accélération matérielle) et
 quoi faire sinon. Cette vérification reste accessible dans les paramètres (**Vérifier ce PC…**).
 
-### Depuis GitHub
+### Sans le Store
 
-Les bêtas, et le chemin sans le Store. Téléchargez une version dans les
-[releases](https://github.com/troposteff/WinQEMU/releases) : `WinQEMU_<version>_x64.msix`, `WinQEMU.cer`,
-`Install-WinQEMU.ps1` et `SHA256SUMS.txt`, dans un même dossier. Puis, dans PowerShell **en administrateur**, depuis ce
-dossier :
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
-.\Install-WinQEMU.ps1
-```
-
-La première ligne autorise les scripts dans cette fenêtre PowerShell seulement (Windows les refuse par défaut) ; elle ne
-change rien au réglage de ce PC.
-
-> **Contrôle intelligent des applications** (Smart App Control) : sur un PC où il est activé, WinQEMU depuis GitHub
-> s'installe mais ne démarre pas. Il ne laisse passer que les applications connues de Microsoft ou signées par une
-> autorité publique, et ce paquet est signé par son auteur : installez plutôt WinQEMU depuis le Microsoft Store. Voir
-> [`docs/distribution.md`](docs/distribution.md#smart-app-control) (en anglais).
-
-Le script vérifie le paquet par rapport à `SHA256SUMS.txt` et sa signature par rapport à `WinQEMU.cer`, ajoute le
-certificat aux Personnes autorisées de ce PC (pas comme autorité racine), puis installe WinQEMU. WinQEMU apparaît ensuite
-dans le menu Démarrer, et `winqemu` fonctionne dans un terminal.
-
-### Bêtas et versions finales
-
-Les versions finales (à partir de 2026.1.0) sont publiées sur le Microsoft Store. Les versions 2026.0.x sont des
-**bêtas**, publiées sur GitHub en pré-versions : chacune s'installe par son `.msix`.
+WinQEMU n'est plus publié en paquet sur GitHub : les bêtas 2026.0.x qui y étaient publiées ont été retirées. Sans le
+Store, compilez-le depuis les sources (voir [Compiler depuis les sources](#compiler-depuis-les-sources)).
 
 ### Mettre à jour
 
-Depuis le Store : rien à faire, le Store met WinQEMU à jour. Depuis GitHub : installez le `.msix` plus récent
-(double-clic, ou relancez `Install-WinQEMU.ps1`). Dans les deux cas, la mise à jour se fait sur place : les paramètres, la
-bibliothèque et les machines virtuelles sont conservés.
-
-### Vérifier un téléchargement
-
-Chaque release GitHub liste l'empreinte SHA-256 de ses fichiers dans `SHA256SUMS.txt`. Dans PowerShell :
-
-```powershell
-Get-FileHash .\WinQEMU_<version>_x64.msix -Algorithm SHA256
-```
-
-La valeur doit être celle de `SHA256SUMS.txt`. La signature du paquet se lit dans ses Propriétés, onglet Signatures
-numériques : `troposteff`.
+Rien à faire : le Store met WinQEMU à jour tout seul, sur place. Les paramètres, la bibliothèque et les machines
+virtuelles sont conservés.
 
 ### Désinstaller
 
 Désinstallez WinQEMU depuis Paramètres, Applications (ou `Get-AppxPackage troposteff.WinQEMU | Remove-AppxPackage` pour la
-version du Store, `Get-AppxPackage *cfde84db* | Remove-AppxPackage` pour celle de GitHub). Cela retire l'application et
+version du Store, `Get-AppxPackage *cfde84db* | Remove-AppxPackage` pour une bêta de GitHub). Cela retire l'application et
 ses paramètres ; **les machines virtuelles restent** dans leur dossier (`Documents\WinQEMU VMs` par défaut, ou celui choisi
-dans les paramètres), et une nouvelle installation les retrouve une fois ce dossier indiqué. Le certificat de la version
+dans les paramètres), et une nouvelle installation les retrouve une fois ce dossier indiqué. Le certificat d'une bêta
 GitHub se retire dans `certlm.msc`, Personnes autorisées.
 
 ## Compiler depuis les sources

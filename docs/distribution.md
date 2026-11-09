@@ -3,6 +3,16 @@
 How WinQEMU is packaged, signed, released and updated, and what moving to a trusted signature, the Microsoft Store or
 WinGet would take. For users, the README covers installing, updating and uninstalling.
 
+## Channels
+
+- **Microsoft Store** (product `9NTWD738Z396`): the only channel. See [Microsoft Store](#microsoft-store).
+- **GitHub releases: none since 2026-11-07.** The three betas published there (`2026.0.1_beta` to `2026.0.3_beta`) were
+  deleted as obsolete, and their Git tags with them. Without the Store, WinQEMU is built from source (README).
+
+  The GitHub channel's tooling is kept, unused, in case it is ever reopened: `tools/Build-Package.ps1`,
+  `Install-WinQEMU.ps1`, the `.appinstaller` and the Release check workflow. The sections below that describe it
+  (Releasing on GitHub, Signing today) say how it worked.
+
 ## Packaging
 
 - **One MSIX for x64**, built by `tools/Build-Package.ps1` (`dotnet publish -c Release` with
@@ -28,7 +38,9 @@ and nothing else, so the manifest says `2026.0.1.0`; the suffix exists only in w
 Raise `Version` in `WinQEMU/Package.appxmanifest` for each release: Windows only updates to a higher version, and refuses to
 register a changed manifest under the same one.
 
-## Releasing
+## Releasing on GitHub (not used)
+
+No GitHub release is published any more (see Channels). If one ever is:
 
 1. Raise the version in the manifest; commit it on `main`.
 2. `pwsh ./tools/Build-Package.ps1`: builds and signs the package with the certificate in the author's store, and writes
@@ -60,9 +72,9 @@ are kept.
 version; App Installer never downgrades, so PCs that took the withdrawn one keep it. Fix forward: publish a higher version.
 Never reuse a version number for different contents.
 
-## Signing today, and the trust it asks for
+## Signing outside the Store, and the trust it asks for
 
-The package is signed by a self-signed certificate, `CN=troposteff` (5 years, in the author's personal store; public part in
+The Store signs its own package. The GitHub package (none published today) is signed by a self-signed certificate, `CN=troposteff` (5 years, in the author's personal store; public part in
 `packaging/WinQEMU.cer`). Windows installs it only once the certificate is trusted, so `Install-WinQEMU.ps1`, run as
 administrator:
 
@@ -152,10 +164,21 @@ App Control, needs no certificate on users' PCs, and is updated by the Store. Wh
   drivers, the microphone, how to test.
 - **The privacy policy** ([`PRIVACY.md`](../PRIVACY.md)), required by the microphone capability: WinQEMU collects nothing.
 
-Left to the author: the Partner Center account (free for individuals; identity check with a government ID), the name
-reservation (the "QEMU" trademark in the name is the author's call, see the README notice), `identity.json`, age rating,
-markets, price (free), screenshots (`docs/images`), and the submission. Betas can go to a package flight (a private
-audience) instead of GitHub pre-releases.
+Done by the author in Partner Center: the account, the name reservation, `identity.json`, age rating, markets, price
+(free), screenshots (`docs/images`). Betas, if any again, would go to a package flight (a private audience) rather than
+to GitHub.
+
+### Offline licensing (download for organizations)
+
+"Allow organization-managed (offline) licensing and distribution for organizations", in the submission's Pricing and
+availability, was turned on in November 2026 (2026.1.4 resubmitted with it). Without it, `winget download --id
+9NTWD738Z396 -s msstore` answers that the package does not support download. With it, an organization's administrator
+(Entra role Global, User or License Administrator) can download the Store-signed `.msix` and an offline licence, to
+install WinQEMU on its PCs without the Store.
+
+That package carries the **Store identity**, not the GitHub one: it is the Store application, not a way to restore a
+GitHub channel. Whether it may be republished publicly (on GitHub, say) has not been checked; the option is described
+as distribution for organizations.
 
 Not needed for the Store: `WinQEMU.appinstaller`, `Install-WinQEMU.ps1`, the certificate, `SHA256SUMS.txt`.
 
@@ -176,9 +199,9 @@ package for removal, shows the draft, and sends it to certification only on "yes
 - **Not in GitHub Actions**, on purpose: the key stays on the author's PC, as the signing key does.
 - The rest of the listing (short description, search terms, screenshots) is carried over from the published submission;
   change it in Partner Center.
-- **Not yet run on a real version**: in particular `msstore publish` given the `.msix` path (so that it does not take the
-  repository for a WinUI project to build) and the role Developer being enough to submit. Check the first draft in
-  Partner Center before answering "yes".
+- **First run for 2026.1.4**: the role Developer was enough to submit, and `msstore publish` took the `.msix` path as it
+  was. The draft keeps the uploaded package as "PendingUpload", without a version, until the Store has processed it: the
+  script recognises it by its file name, and a run stopped after the upload takes that draft up again without uploading.
 
 ## WinGet
 
@@ -194,11 +217,13 @@ install there, nor on any PC without the certificate. Two ways, once one exists:
 
 What the tests cannot run, before a release:
 
-- **Fresh install**: Windows Sandbox, no QEMU: run `Install-WinQEMU.ps1` as administrator; WinQEMU starts, opens the
-  readiness assistant (QEMU missing), `winqemu help` answers.
+- **Fresh install**: Windows Sandbox, no QEMU: install the package (from the Store once published, or `Install-WinQEMU.ps1`
+  as administrator for a self-signed one); WinQEMU starts, opens the readiness assistant (QEMU missing), `winqemu help`
+  answers.
 - **Update**: on a PC with the previous version and some machines: install the new package; the library, the settings and
   the machines are all there, the version in the settings is the new one.
 - **Without acceleration**: on a PC (or a VM with nested virtualisation) where Windows Hypervisor Platform is off: the
   assistant says so and offers to enable it (one UAC prompt, then a restart); a machine on "Automatic" starts in emulation
   instead of failing.
-- **Altered download**: change a byte of the `.msix`: `Install-WinQEMU.ps1` refuses it before trusting anything.
+- **Altered download** (GitHub package only): change a byte of the `.msix`: `Install-WinQEMU.ps1` refuses it before
+  trusting anything.

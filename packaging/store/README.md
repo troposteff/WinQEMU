@@ -35,7 +35,7 @@ What WinQEMU needs on the Store, prepared but not submitted. The background is i
    - Age ratings: the questionnaire (no user-generated content shared, no purchases).
    - Packages: the `.msix`.
    - Store listings: English (United States) and French (France), from the two listing files. Screenshots at least
-     1366 x 768: `docs/images/summary-*.png`, `console-*.png` and `wizard-*.png` (1924 x 1130); the snapshot tree (850 x 830) is too small.
+     1366 x 768: `docs/images/summary-*.png`, `console-*.png`, `wizard-*.png` and `snapshots-*.png` (1924 x 1130).
      Rather than pasting: **Export listings**, then
      `pwsh ./packaging/store/New-ListingImport.ps1 -Export <exported .csv>`, then **Import listings**, **Import folder**,
      `artifacts\store\listing\WinQEMU-listing`. The export comes first because its Field, ID and Type columns must come

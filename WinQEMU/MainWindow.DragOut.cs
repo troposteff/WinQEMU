@@ -10,8 +10,8 @@ using WinQEMU.Core.Sharing;
 namespace WinQEMU
 {
     /// <summary>
-    /// Files dragged out of a Windows guest's console and dropped on this PC (Sharing.GuestDragOut for the guest half,
-    /// Controls.GuestDragSource for the drag on this PC).
+    /// Files dragged out of a guest's console (Windows, or Linux with a desktop) and dropped on this PC
+    /// (Sharing.GuestDragOut for the guest half, Controls.GuestDragSource for the drag on this PC).
     /// </summary>
     public sealed partial class MainWindow
     {
@@ -30,8 +30,7 @@ namespace WinQEMU
             _guestDragBusy = true;
             try
             {
-                _ = ConsoleHost.PinGuestPointerToEdgeAsync();
-                if (await _viewModel.WaitForGuestDragAsync(TimeSpan.FromSeconds(1.5)) is not { } files)
+                if (await _viewModel.WaitForGuestDragAsync(ConsoleHost.EdgeOfPointer(), ConsoleHost.PinGuestPointerToEdgeAsync) is not { } files)
                 {
                     _viewModel.AppendDiagnostic("Files: a press in the console left it, but the guest dragged no files.");
                     return;
@@ -81,6 +80,8 @@ namespace WinQEMU
             finally
             {
                 _guestDragBusy = false;
+                // A Linux guest's window along the edge: its drag has ended on it by now (the guest's button was released).
+                _ = _viewModel.HideGuestDragEdgeAsync();
             }
         }
 
@@ -105,7 +106,7 @@ namespace WinQEMU
             return folder;
         }
 
-        /// <summary>The name an item of the guest gets in the drag folder: its own (Windows guest, so a valid Windows name).</summary>
+        /// <summary>The name an item of the guest gets in the drag folder: its own, made a valid Windows name (a Linux name may not be).</summary>
         private static string NameOf(string guestPath)
         {
             var trimmed = guestPath.TrimEnd('\\', '/');

@@ -1371,10 +1371,46 @@ namespace WinQEMU.ViewModels
         {
             if (session.GuestAgentPort is not { } port || !_displayRuns.Add((session, port)))
                 return;
-            if (GuestOsCatalog.Find(session.Config.GuestOs)?.Family == "Windows")
+            var family = GuestOsCatalog.Find(session.Config.GuestOs)?.Family;
+            if (family == "Windows")
                 _ = PrepareGuestDisplayAsync(session, port);
             else if (session.Config.UnattendedSetup == UnattendedSetupState.Installing)
                 _ = FinishWhenAgentAnswersAsync(session);
+            else if (family == "Linux")
+                _ = PrepareLinuxDragOutAsync(session, port);
+        }
+
+        /// <summary>
+        /// Sets up dragging files out of a Linux guest's console (Sharing.GuestDragOut), once per QEMU process. Nobody
+        /// needs to be logged in: the program starts with each logon. Tried again a few times if the agent fails.
+        /// </summary>
+        private async Task PrepareLinuxDragOutAsync(VmSession session, int port)
+        {
+            for (var attempt = 1; attempt <= 3 && session.IsRunning && session.GuestAgentPort == port; attempt++)
+            {
+                try
+                {
+                    await using (var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(5)))
+                    {
+                        if (agent is null)
+                            return;
+                        await GuestDragOut.SetupLinuxAsync(agent);
+                    }
+                    _dragOutReady.Add((session, port));
+                    AppendDiagnostic("Files: files dragged out of the console are copied to this PC.");
+                    return;
+                }
+                catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
+                {
+                    // Missing python3 or libX11 does not come back by waiting.
+                    if (attempt == 3 || ex.Message.Contains("is missing", StringComparison.Ordinal))
+                    {
+                        AppendDiagnostic($"Files: dragging files out of the console will not work ({ex.Message}).");
+                        return;
+                    }
+                }
+                await Task.Delay(TimeSpan.FromSeconds(20));
+            }
         }
 
         /// <summary>A Linux guest follows the window by itself; only an unattended installation waits on its agent.</summary>
@@ -1410,28 +1446,39 @@ namespace WinQEMU.ViewModels
             }
         }
 
-        /// <summary>Files may be dragged out of the selection's console: a Windows guest with its program running, no copy under way.</summary>
+        /// <summary>Files may be dragged out of the selection's console: a guest with its program running, no copy under way.</summary>
         public bool CanDragFromGuest =>
             SelectedVm is { } vm && SelectedSession is { IsRunning: true, GuestAgentPort: { } port } session
             && _dragOutReady.Contains((session, port)) && !_transfers.ContainsKey(vm);
 
         /// <summary>
         /// What the selection's guest is dragging, once the drag has reached the edge of its screen; null if nothing
-        /// arrives within <paramref name="wait"/> (a press that was no drag of files).
+        /// arrives in time (a press that was no drag of files). <paramref name="pin"/> puts the guest's pointer on the
+        /// edge and moves it a pixel, which makes the guest look again for the window under it; a Linux guest is told
+        /// first which <paramref name="edge"/> to lay its window along (it cannot see the pointer under Wayland).
         /// </summary>
-        public async Task<IReadOnlyList<string>?> WaitForGuestDragAsync(TimeSpan wait)
+        public async Task<IReadOnlyList<string>?> WaitForGuestDragAsync(string edge, Func<Task> pin)
         {
             if (SelectedSession is not { IsRunning: true } session)
                 return null;
+            var windowsGuest = GuestTools.IsWindows(session.Config);
             try
             {
                 await using var agent = await session.ConnectGuestAgentAsync();
                 if (!await agent.SynchronizeAsync(TimeSpan.FromSeconds(1)))
                     return null;
-                var end = DateTime.UtcNow + wait;
+                if (!windowsGuest)
+                {
+                    await GuestDragOut.ShowLinuxEdgeAsync(agent, edge);
+                    // The program reads the edge every 50 ms.
+                    await Task.Delay(150);
+                }
+                _ = pin();
+                // A Linux guest asks for the list over XDND once its window is under the pointer: a little longer.
+                var end = DateTime.UtcNow + TimeSpan.FromSeconds(windowsGuest ? 1.5 : 2.5);
                 do
                 {
-                    if (await GuestDragOut.ReadAsync(agent) is { } files)
+                    if (await GuestDragOut.ReadAsync(agent, windowsGuest) is { } files)
                         return files;
                     await Task.Delay(100);
                 }
@@ -1461,6 +1508,25 @@ namespace WinQEMU.ViewModels
 
         /// <summary>Stops the copy of a drag that was cancelled.</summary>
         public void CancelGuestDragCopy() => CancelSendFiles();
+
+        /// <summary>Takes the Linux program's window away from the edge once the drag is over (nothing to do for Windows).</summary>
+        public async Task HideGuestDragEdgeAsync()
+        {
+            if (SelectedSession is not { IsRunning: true } session || GuestTools.IsWindows(session.Config))
+                return;
+            try
+            {
+                await using var agent = await session.ConnectGuestAgentAsync();
+                if (await agent.SynchronizeAsync(TimeSpan.FromSeconds(1)))
+                    await GuestDragOut.ShowLinuxEdgeAsync(agent, "none");
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or System.Net.Sockets.SocketException
+                                           or OperationCanceledException or InvalidOperationException)
+            {
+                // Laid down at its next drop anyway; a strip left along the edge only takes drops made there.
+                AppendDiagnostic($"Files: the guest's drag window could not be taken away ({ex.Message}).");
+            }
+        }
 
         private async Task PrepareGuestDisplayAsync(VmSession session, int port)
         {

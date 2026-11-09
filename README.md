@@ -57,7 +57,7 @@ through the Windows Hypervisor Platform (WHPX).
 - **Files**:
   - files and folders dropped on the console are copied to the guest's desktop;
   - files are copied back from the guest through a browser of its folders;
-  - files dragged out of a Windows guest's console are dropped on this PC, in Explorer or any other window that takes files.
+  - files dragged out of the console are dropped on this PC, in Explorer or any other window that takes files (Windows guests, and Linux guests with a desktop, Wayland or X11).
 - **Sound**:
   - per-machine volume and mute;
   - optional microphone;

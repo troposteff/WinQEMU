@@ -845,7 +845,7 @@ s'ouvre sur le résultat. `Sharing.GuestFilePull`, même état par machine que l
 
 ## Glisser des fichiers de l'invité vers ce PC
 
-Comme VMware, **invité Windows seulement** pour l'instant (Linux : Wayland le rend difficile) : des fichiers glissés hors
+Comme VMware, invités Windows et Linux avec un bureau (voir plus bas pour Linux) : des fichiers glissés hors
 de la console sont déposés sur ce PC (Explorateur ou toute cible qui prend des fichiers). `Sharing.GuestDragOut` (côté
 invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmConsoleHost.GuestDragLeft`.
 
@@ -907,6 +907,43 @@ invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmCon
   sur les deux chemins ; Échap (copie annulée, dossier supprimé, rien dans la destination, aucun émetteur resté dans
   l'invité) ; relâché hors cible ; glissers de suite après un Échap ; icônes restées en place. Dépôt sur un élément du
   volet de navigation de l'Explorateur : correct.
+
+- **Invité Linux** (`GuestDragOut.LinuxHelperSource`, `LinuxSetupScript`) : sous Wayland aucun programme ne voit un glisser
+  qui ne le survole pas, mais GNOME et KDE font passer un glisser de fichiers vers une fenêtre **XWayland** en XDND. D'où
+  un petit programme Python (ctypes sur `libX11.so.6`, rien à installer : python3 est là sur les distributions avec
+  bureau) : fenêtre X11 *override-redirect* **InputOutput** (une InputOnly n'a pas de surface Wayland), presque
+  transparente, `XdndAware` 5 ; au `XdndPosition` il répond `XdndStatus` (copie) et demande `text/uri-list`, écrit la
+  liste dans `/var/lib/winqemu/dragout.txt` (même format que Windows), et au dépôt répond `XdndFinished` sans rien faire.
+  **Bande de 4 px le long d'un bord entier**, posée seulement quand l'hôte l'écrit dans `/var/lib/winqemu/dragout-edge`
+  (`left`… ou `none`, par `guest-file-write` ; `VmConsoleHost.EdgeOfPointer` : le côté de la console que le pointeur a
+  quitté), retirée à la fin du glisser (`HideGuestDragEdgeAsync`) : posée en permanence elle prendrait les clics du bord
+  (barre de GNOME). Installé par l'agent en root (`/usr/local/lib/winqemu/`), lancé à chaque ouverture de session (autostart
+  XDG) et dans les sessions déjà ouvertes : `DISPLAY` et `XAUTHORITY` lus par `systemctl --user show-environment` de
+  l'utilisateur, `runuser … setsid -f`. Pièges : sorties du programme lancé redirigées (sinon `guest-exec` ne finit
+  jamais, le fils tient les tubes) ; `pkill -f '^[^ ]*python3 …[.]py$'` (sans ancre, il tuait le `sh -c` du script, qui nomme
+  le programme) ; **`umask 022` et `chmod` explicites** : l'agent d'openSUSE tourne avec `UMask=0077`, et le dossier du
+  programme et l'entrée d'autostart sortaient lisibles de root seul (« Permission denied » dans la session KDE ; Ubuntu n'a
+  pas cette restriction). Tout script lancé par l'agent qui crée un fichier destiné à l'utilisateur doit s'en méfier.
+  **Aucune session n'est attendue** : l'agent répond bien avant l'ouverture de session, que l'autostart
+  couvre ; une première version attendait une session, abandonnait au bout de 5 min, et une ouverture plus tardive ne
+  prenait jamais de glisser. Pour la même raison la liste (`dragout.txt`) est créée par l'installation, root, **mode 666** :
+  le programme tourne au nom de qui ouvre la session, et la liste ne nomme que des fichiers que l'hôte copie pour son
+  propre utilisateur (qui lit déjà tout l'invité par l'agent) ; un utilisateur de l'invité qui l'écrirait ne recevrait rien.
+  **Vérifié dans l'app sur une copie d'Ubuntu 26.04 (GNOME, Wayland), 09/11/2026**, glisser simulé vers l'Explorateur :
+  fichier de 60 Mo et dossier avec sous-dossier et nom accentué (SHA-256 identiques), dix glissers de suite dont un dépôt
+  dans l'invité entre deux, Échap (rien dans la destination, dossier de travail supprimé, aucun émetteur resté), relâché
+  hors cible (effet 0), icônes restées en place, session ouverte après l'installation (ouverture automatique). **Une fois
+  sur dix, GNOME n'a pas passé le glisser à la bande** : « the guest dragged no files » au journal, rien de cassé, le
+  suivant passe. openSUSE ou Fedora installés à la main : agent bloqué (`guest-exec`, SELinux), donc rien ; installés par
+  WinQEMU, ils ont ce qu'il faut.
+  **KDE (KWin) ne passe un glisser Wayland qu'aux fenêtres X11 qu'il gère** : la fenêtre override-redirect, qui suffit à
+  GNOME, n'a jamais reçu de XdndEnter (sondé avec une fenêtre rouge visible : override-redirect rien, fenêtre normale la
+  liste). Sous KWin (reconnu par `_NET_SUPPORTING_WM_CHECK` → `_NET_WM_NAME`), la bande est une fenêtre gérée de type
+  **`_NET_WM_WINDOW_TYPE_DOCK`** (`ABOVE`, hors barre des tâches), **avec sa position et sa taille dans `WM_NORMAL_HINTS`**
+  (`USPosition`… min = max) : sans elles, KWin la plaçait au milieu de l'écran et le glisser finissait sur le bureau, qui
+  y **déplaçait l'icône**. Gestionnaire d'erreurs X neutre (une fenêtre disparue arrêterait le programme).
+  **Vérifié dans l'app sur openSUSE Tumbleweed (Plasma 6, Wayland) installé par WinQEMU, 09/11/2026** : fichier de 60 Mo et
+  dossier (SHA-256 identiques), Échap, relâché hors cible, icônes en place ; Ubuntu revérifié ensuite.
 
 ## Réseaux virtuels
 

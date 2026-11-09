@@ -11,7 +11,9 @@
     the licence, a Microsoft Entra account that is Global, User or License Administrator of the author's tenant: winget
     asks for the sign-in if needed.
 
-    Run it once the Store has published the manifest's version (tools/Publish-Store.ps1, then certification). Writes
+    The last step of a release (docs/distribution.md, Releasing a version): run it once the Store has published the
+    manifest's version (tools/Publish-Store.ps1, then certification), from the commit the Store package was built from or
+    a later one that changes only documentation or scripts; it refuses otherwise. Writes
     artifacts\github\v<version>\:
       WinQEMU_<version>_x64.msix          the package, as the Store serves it
       WinQEMU_<version>_License.xml       its offline licence
@@ -27,6 +29,18 @@ $ErrorActionPreference = 'Stop'
 $productId = '9NTWD738Z396'
 $info = & (Join-Path $PSScriptRoot 'Get-WinQemuVersion.ps1') -Root $Root
 if ($info.Beta) { throw "$($info.Display) is a beta: only versions published on the Store get a GitHub release." }
+
+# The tag goes on the current commit: it must hold the sources the Store package was built from. Documentation and scripts
+# may have moved on since the version was raised, the application must not.
+$versionCommit = (git -C $Root log -1 --format=%H "-SVersion=`"$($info.Package)`"" -- WinQEMU/Package.appxmanifest).Trim()
+if (-not $versionCommit) { throw "No commit sets Version=`"$($info.Package)`" in the manifest: commit the version first." }
+$changed = @(git -C $Root diff --name-only $versionCommit HEAD -- WinQEMU WinQEMU.Core WinQEMU.Cli)
+if ($changed) {
+    throw "The application changed since $($versionCommit.Substring(0, 7)) set $($info.Package) ($($changed.Count) files, $($changed[0])…): check out the commit the Store package was built from."
+}
+if (git -C $Root status --porcelain -- WinQEMU WinQEMU.Core WinQEMU.Cli) { throw 'The application sources have uncommitted changes.' }
+git -C $Root fetch -q origin
+if (-not (git -C $Root branch -r --contains HEAD)) { throw 'The current commit is not pushed: push it first, the tag is created on GitHub.' }
 
 $out = Join-Path $Root "artifacts\github\$($info.Tag)"
 $download = Join-Path $out 'download'

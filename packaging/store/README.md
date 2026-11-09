@@ -50,6 +50,7 @@ What WinQEMU needs on the Store, prepared but not submitted. The background is i
 - The README and the readiness assistant can point at the Store; WinGet installs it by its Store id (`msstore` source).
 - PCs that had the GitHub version: WinQEMU from the Store takes their settings over at its first start and asks for the
   GitHub version to be uninstalled.
-- Each version: raise `Version` in `Package.appxmanifest`, write the "What's new" sections of both listings, then
-  `pwsh ./tools/Publish-Store.ps1` (builds, uploads a draft, submits after confirmation; see `docs/distribution.md`,
-  Store updates).
+- Each version: raise `Version` in `Package.appxmanifest`, write the "What's new" sections of both listings, commit and
+  push, then `pwsh ./tools/Publish-Store.ps1` (builds, uploads a draft, submits after confirmation). Once certified and
+  published, `pwsh ./tools/New-GitHubRelease.ps1` prepares the GitHub release with the Store's package and licence. See
+  `docs/distribution.md`, Releasing a version.

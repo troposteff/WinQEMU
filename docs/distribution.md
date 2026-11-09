@@ -15,6 +15,24 @@ WinGet would take. For users, the README covers installing, updating and uninsta
   `Install-WinQEMU.ps1`, the `.appinstaller`. The sections that describe it (Self-signed releases, Signing outside the
   Store) say how it worked.
 
+## Releasing a version
+
+All from the author's PC, in this order:
+
+1. **Prepare.** Raise `Version` in `WinQEMU/Package.appxmanifest` (Windows only updates to a higher version), write the
+   "What's new" sections of `packaging/store/listing.en.md` and `listing.fr.md`, commit and push on `main`.
+2. **Submit to the Store.** `pwsh ./tools/Publish-Store.ps1`: builds the Store package, uploads a draft, sends it to
+   certification on "yes" ([Store updates](#store-updates-toolspublish-storeps1)).
+3. **Wait for certification.** Partner Center sends an email; meanwhile `msstore submission status 9NTWD738Z396`, or
+   `-Wait` on the script. Certification can take hours, publication a few more.
+4. **Release on GitHub.** Once the Store serves the new version: `pwsh ./tools/New-GitHubRelease.ps1`, check
+   `notes.md`, then run the `gh release create` command it prints
+   ([GitHub releases of the Store package](#github-releases-of-the-store-package)).
+
+The GitHub release is tagged on the commit checked out when it is prepared: keep it the one the Store package was built
+from, or a later one that only changes documentation or scripts. `New-GitHubRelease.ps1` refuses a checkout whose
+application sources differ from the commit that set the version.
+
 ## Packaging
 
 - **One MSIX for x64**, built by `tools/Build-Package.ps1` (`dotnet publish -c Release` with
@@ -50,6 +68,10 @@ For each version the Store has published, once certified:
    and `notes.md` (the "What's new" of `listing.en.md`, how to install, the hashes).
 2. It publishes nothing: it prints the `gh release create` command, tag on the current commit (pushed first), marked
    latest. Pushing the tag runs Release check.
+
+It stops before downloading if the application's sources (`WinQEMU`, `WinQEMU.Core`, `WinQEMU.Cli`) have changed since
+the commit that set the manifest's version, or if the current commit is not pushed: the tag would name sources the
+Store package was not built from.
 
 - **Offline licensing** must be on in Partner Center (Pricing and availability), and the licence needs an Entra account
   that is Global, User or License Administrator of the author's tenant: winget asks for the sign-in if needed.

@@ -138,6 +138,11 @@ Installer ne met à jour que vers plus haut.
   changerait les dates). **Lancé pour 2026.1.4** : le rôle Developer suffit ; le paquet envoyé reste « PendingUpload » sans
   version tant que le Store ne l'a pas traité, d'où sa reconnaissance par nom de fichier, et un passage interrompu après
   l'envoi reprend le brouillon sans renvoyer le paquet. Le script est lancé par l'utilisateur, pas par Claude.
+- **Déroulé d'une version** (`docs/distribution.md`, Releasing a version) : `Version` du manifeste et « What's new » des
+  deux fiches, commit et push ; `Publish-Store.ps1` (l'utilisateur) ; attente de la certification et de la publication ;
+  `New-GitHubRelease.ps1`, puis `gh release create` avec l'accord de l'utilisateur. L'étiquette est posée sur le commit
+  courant : le script refuse si `WinQEMU`, `WinQEMU.Core` ou `WinQEMU.Cli` ont changé depuis le commit qui a fixé la
+  version (le paquet du Store n'aurait pas été compilé de ces sources), ou si ce commit n'est pas poussé.
 
 ## Préparer ce PC (`Dialogs.ReadinessDialog`)
 

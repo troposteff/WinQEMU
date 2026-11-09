@@ -17,6 +17,9 @@
       5. Shows the draft and asks; only "yes" sends it to certification (msstore submission publish). Otherwise the draft
          stays in Partner Center, to finish there or delete (msstore submission delete 9NTWD738Z396).
 
+    Once certified and published, tools/New-GitHubRelease.ps1 makes the GitHub release (docs/distribution.md, Releasing
+    a version).
+
     The rest of the listing (short description, search terms, screenshots) is the published one, carried over by the
     draft: change it in Partner Center, or import it with packaging/store/New-ListingImport.ps1.
 
@@ -192,3 +195,4 @@ if ($Wait) {
 } else {
     "Submitted. Partner Center sends an email once certified; meanwhile: msstore submission status $productId"
 }
+'Once the Store serves this version, the GitHub release: pwsh ./tools/New-GitHubRelease.ps1'

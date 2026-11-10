@@ -57,7 +57,7 @@ l'accélération matérielle de la plateforme d'hyperviseur Windows (WHPX).
 - **Fichiers** :
   - fichiers et dossiers déposés sur la console sont copiés sur le Bureau de l'invité ;
   - on récupère des fichiers de l'invité en parcourant ses dossiers ;
-  - des fichiers glissés hors de la console d'un invité Windows sont déposés sur ce PC, dans l'Explorateur ou toute autre fenêtre qui prend des fichiers.
+  - des fichiers glissés hors de la console sont déposés sur ce PC, dans l'Explorateur ou toute autre fenêtre qui prend des fichiers (invités Windows, et invités Linux avec un bureau, Wayland ou X11).
 - **Son** :
   - volume et coupure par machine ;
   - micro sur demande ;

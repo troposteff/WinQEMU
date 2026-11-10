@@ -175,7 +175,7 @@
   <data name="ResourcesCpu" xml:space="preserve"><value>Processor</value></data>
   <data name="ResourcesMemory" xml:space="preserve"><value>Memory</value></data>
   <data name="ResourcesDisk" xml:space="preserve"><value>Disk</value></data>
-  <data name="ConsoleHint" xml:space="preserve"><value>Click in the console to give it the keyboard. Drag files onto it to copy them to the guest, or out of a Windows guest to copy them to this PC.</value></data>
+  <data name="ConsoleHint" xml:space="preserve"><value>Click in the console to give it the keyboard. Drag files onto it to copy them to the guest, or out of it to copy them to this PC.</value></data>
   <data name="ConsoleScaling" xml:space="preserve"><value>Console scaling</value></data>
   <data name="ConsoleTypeClipboard" xml:space="preserve"><value>Type clipboard</value></data>
   <data name="ConsoleTypeClipboardTip" xml:space="preserve"><value>Types the text of this PC's clipboard on the guest's keyboard, for a guest without a shared clipboard (a server's text console, a sign-in screen)</value></data>

@@ -112,6 +112,51 @@ public sealed class GuestFileDropTests : IAsyncLifetime
     }
 
     [Fact]
+    public void The_linux_programs_on_the_copy_port_wait_for_the_hosts_go()
+    {
+        // Awaited before the program writes anything of its own: its first answer, or the copy's marker.
+        static void Before(string script, string first, string then)
+        {
+            Assert.DoesNotContain("{PORT_HANDSHAKE}", script);
+            Assert.Contains("sub await_go", script);
+            Assert.InRange(script.IndexOf(first, StringComparison.Ordinal), 0, script.IndexOf(then, StringComparison.Ordinal));
+        }
+
+        Before(GuestFileDrop.LinuxReceiver, "await_go($go)", "reply(\"");
+        Before(GuestFilePull.LinuxSender, "await_go($marker)", "put($marker)");
+    }
+
+    [Fact]
+    public async Task A_blank_line_before_READY_is_skipped()
+    {
+        // The newline a Linux receiver writes to find the last drop's dead connection, when it reaches this one.
+        var port = new ScriptedPort("\nWQDROP1 READY /home/alex/Bureau\nWQDROP1 DONE a.txt\n");
+        var result = await GuestFileDrop.TransferAsync(port, Array.Empty<DropEntry>(), _ => Task.FromResult<string?>(null),
+            null, CancellationToken.None);
+
+        Assert.Equal(new[] { "a.txt" }, result.Names);
+        Assert.Equal((byte)'E', port.Written[^1]);
+    }
+
+    /// <summary>A port whose guest says <c>text</c>, whatever it is sent.</summary>
+    private sealed class ScriptedPort(string text) : Stream
+    {
+        private readonly MemoryStream _said = new(System.Text.Encoding.UTF8.GetBytes(text));
+        private readonly MemoryStream _sent = new();
+        public byte[] Written => _sent.ToArray();
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => _said.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => _sent.Write(buffer, offset, count);
+    }
+
+    [Fact]
     public async Task The_windows_receiver_writes_the_drop_and_numbers_names_already_taken()
     {
         var source = Directory.CreateDirectory(Path.Combine(_folder, "source")).FullName;

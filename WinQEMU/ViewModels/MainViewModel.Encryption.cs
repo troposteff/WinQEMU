@@ -59,11 +59,11 @@ namespace WinQEMU.ViewModels
             }
             catch (Exception ex) when (ex is QemuImgException or DiskPasswordException or System.IO.IOException)
             {
-                AppendDiagnostic($"{session.Config.Name}: {ex.Message}");
+                AppendDiagnostic(session.Config, ex.Message);
             }
 
             var text = string.Format(CultureInfo.CurrentCulture, EncryptionText.AutoStartNeedsPassword, session.Config.Name);
-            AppendDiagnostic(text);
+            AppendDiagnostic(session.Config, text);
             ReportError(new InvalidOperationException(text));
             return false;
         }

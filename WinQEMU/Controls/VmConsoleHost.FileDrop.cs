@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using WinQEMU.Core.Input;
@@ -32,6 +33,20 @@ namespace WinQEMU.Controls
         /// ("left", "right"). Once per press.
         /// </summary>
         public event Action<string>? GuestDragLeft;
+
+        /// <summary>The side of the console the host's pointer is beyond: left, right, top or bottom.</summary>
+        public string EdgeOfPointer()
+        {
+            if (_console is not { IsEmbedded: true } console || !NativeMethods.GetCursorPos(out var cursor)
+                || !GetWindowRect(console.Handle, out var bounds))
+                return "left";
+            var beyond = new[]
+            {
+                ("left", bounds.Left - cursor.X), ("right", cursor.X - (bounds.Right - 1)),
+                ("top", bounds.Top - cursor.Y), ("bottom", cursor.Y - (bounds.Bottom - 1))
+            };
+            return beyond.MaxBy(side => side.Item2).Item1;
+        }
 
         /// <summary>
         /// Puts the guest's pointer on the edge of its screen nearest to where the host's pointer is, and moves it along

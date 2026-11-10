@@ -114,14 +114,17 @@ namespace WinQEMU.Core.Services
                     if (FedoraStage2(isoPath) is not { } stage2)
                         return false;
                     WriteOemDrive(folder, "ks.cfg", FedoraKickstart(settings));
-                    commandLine = $"{stage2} inst.ks=hd:LABEL={OemDriveLabel}:/ks.cfg quiet";
+                    commandLine = FedoraCommandLine(stage2);
                     break;
                 case "opensuse":
-                    WriteOemDrive(folder, "autoinst.xml", AutoYast(settings, OpenSuseProduct(isoPath)));
+                    WriteOemDrive(folder, "autoinst.xml", AutoYast(settings, OpenSuseProduct(isoPath), OpenSuseOnlineRepository(isoPath)));
                     // kexec=3: Tumbleweed's repository moves on, and an ISO a few days old no longer has the kernel of
                     // the packages; linuxrc then stopped on "To use the selected repository a matching boot image is
                     // needed. Download it now and restart?". 3 loads that kernel without asking, and only when needed.
-                    commandLine = $"splash=silent kexec=3 autoyast=label://{OemDriveLabel}/autoinst.xml";
+                    // ifcfg=*=dhcp: from a DVD, linuxrc has no need of the network and leaves it down; YaST then stopped
+                    // on "Réseau non fonctionnel" while saving its settings (86 %), and the online repository the DVD
+                    // gets (OpenSuseOnlineRepository) could not be reached. The NET medium brings it up anyway.
+                    commandLine = $"splash=silent kexec=3 ifcfg=*=dhcp autoyast=label://{OemDriveLabel}/autoinst.xml";
                     break;
                 default:
                     return false;
@@ -255,6 +258,35 @@ namespace WinQEMU.Core.Services
 
         // ---- Fedora ----
 
+        /// <summary>The installer's kernel line: its image (<see cref="FedoraStage2"/>) and the kickstart.</summary>
+        public static string FedoraCommandLine(string stage2) =>
+            $"{stage2} inst.ks=hd:LABEL={OemDriveLabel}:/ks.cfg quiet";
+
+        /// <summary>
+        /// Run by Anaconda before it sets up its sources: waits until the network is up and Fedora's mirror server answers by
+        /// name, twice, three seconds apart (a minute at most).
+        /// </summary>
+        /// <remarks>
+        /// From the netinst ISO (Fedora 45), Anaconda set up its sources about a second after NetworkManager had brought the
+        /// card up, and the very first lookup failed ("Could not resolve host: mirrors.fedoraproject.org", packaging.log,
+        /// 3 ms after systemd-resolved's "Using degraded feature set UDP instead of UDP+EDNS0 for DNS server 10.0.2.3", 0.4 s
+        /// before NetworkManager handed it the DNS servers): it stopped on "Erreur lors de la configuration des dépôts".
+        /// Name resolution worked a moment later, and from a shell every time. The network brought up from the initramfs
+        /// (ip=dhcp) changed nothing: NetworkManager re-applies it as Anaconda starts.
+        /// </remarks>
+        internal const string FedoraWaitForNetwork = """
+            %pre --log=/tmp/winqemu-pre.log
+            nm-online -s -q -t 60
+            ok=0
+            for i in $(seq 60); do
+              if curl -sSI --max-time 5 -o /dev/null https://mirrors.fedoraproject.org; then ok=$((ok + 1)); else ok=0; fi
+              echo "$(date +%T.%N) try $i ok $ok"
+              [ "$ok" -ge 2 ] && break
+              sleep 3
+            done
+            %end
+            """;
+
         public static string FedoraKickstart(UnattendedLinux s)
         {
             // Environments of the comps file (GNOME is Workstation's).
@@ -275,13 +307,16 @@ namespace WinQEMU.Core.Services
             // KDE's first-boot assistant (mandatory in its comps groups), which "firstboot --disable" does not reach: Fedora
             // KDE started on "Bienvenue sur Plasma Desktop, Commencer la configuration" with the account already made.
             var excluded = s.Desktop == LinuxDesktop.Kde ? "\n-plasma-setup" : string.Empty;
+            // No --activate: NetworkManager has the card up already, and re-activating it cut it off just as Anaconda set up
+            // its sources ("Could not resolve host: mirrors.fedoraproject.org" one second after the re-activation, two
+            // before NetworkManager's "dns-change"). The line still names the installed system. See FedoraWaitForNetwork.
             return $"""
                 # Written by WinQEMU for an unattended installation.
                 text
                 lang {s.Locale}
                 keyboard --xlayouts='{s.KeyboardLayout}'
                 timezone {s.TimeZone} --utc
-                network --bootproto=dhcp --activate --hostname={s.Hostname}
+                network --bootproto=dhcp --hostname={s.Hostname}
                 zerombr
                 clearpart --all --initlabel
                 autopart
@@ -297,6 +332,8 @@ namespace WinQEMU.Core.Services
                 qemu-guest-agent
                 spice-vdagent{excluded}
                 %end
+
+                {FedoraWaitForNetwork}
 
                 %post
                 {UnconfinedAgent}
@@ -330,7 +367,11 @@ namespace WinQEMU.Core.Services
         /// "Impossible de suggérer un partitionnement". Disks under 4 GiB are skipped, whatever bus the system disk is on.
         /// kdump is off: on by default, it reserved guest memory and failed at every start ("Failed to start Load kdump").
         /// </remarks>
-        public static string AutoYast(UnattendedLinux s, string product = "openSUSE")
+        /// <param name="onlineRepository">
+        /// A repository added to the installation, for a medium that does not carry every package asked for (see
+        /// <see cref="OpenSuseOnlineRepository"/>); null for none.
+        /// </param>
+        public static string AutoYast(UnattendedLinux s, string product = "openSUSE", string? onlineRepository = null)
         {
             string[] desktop = s.Desktop switch
             {
@@ -345,6 +386,19 @@ namespace WinQEMU.Core.Services
             };
             string[] patterns = ["base", "minimal_base", "enhanced_base", .. desktop, "yast2_basis", "sw_management"];
             string X(string value) => SecurityElement.Escape(value);
+            var addOn = onlineRepository is null ? string.Empty : $"""
+                  <add-on>
+                    <add_on_products config:type="list">
+                      <listentry>
+                        <media_url>{X(onlineRepository)}</media_url>
+                        <product_dir>/</product_dir>
+                        <alias>repo-oss</alias>
+                        <name>Main Repository (OSS)</name>
+                      </listentry>
+                    </add_on_products>
+                  </add-on>
+
+                """;
             return $"""
                 <?xml version="1.0"?>
                 <!DOCTYPE profile>
@@ -355,6 +409,7 @@ namespace WinQEMU.Core.Services
                       <confirm config:type="boolean">false</confirm>
                     </mode>
                   </general>
+                {addOn}
                   <language>
                     <language>{X(s.Locale.Replace(".UTF-8", string.Empty, StringComparison.Ordinal))}</language>
                   </language>
@@ -481,6 +536,27 @@ namespace WinQEMU.Core.Services
             }
             return "openSUSE";
         }
+
+        /// <summary>Tumbleweed's main online repository.</summary>
+        public const string TumbleweedOnlineRepository = "https://download.opensuse.org/tumbleweed/repo/oss/";
+
+        /// <summary>
+        /// The online repository to add to the installation: Tumbleweed's for its DVD (media.1/media names it
+        /// "openSUSE-Tumbleweed-DVD-…"), none otherwise.
+        /// </summary>
+        /// <remarks>
+        /// The DVD carries a selection of packages only, spice-vdagent not among them: AutoYaST stopped on "Ces paquets
+        /// n'ont pas pu être trouvés dans les dépôts de logiciels : spice-vdagent" (Tumbleweed DVD of 30/10/2026). The
+        /// NET medium installs from that repository already. Leap's DVD is left as it is: not tried.
+        /// </remarks>
+        public static string? OpenSuseOnlineRepository(string isoPath) =>
+            IsoFileReader.Read(isoPath, "media.1/media") is { } bytes && IsTumbleweedDvd(Encoding.UTF8.GetString(bytes))
+                ? TumbleweedOnlineRepository
+                : null;
+
+        /// <summary>Whether media.1/media is that of Tumbleweed's DVD.</summary>
+        public static bool IsTumbleweedDvd(string media) =>
+            media.Contains("openSUSE-Tumbleweed-DVD-", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>YaST's keymap names, from the xkb layout this PC's keyboard maps to.</summary>
         private static string YastKeymap(string xkb) => xkb switch

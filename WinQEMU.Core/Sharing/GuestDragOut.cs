@@ -195,13 +195,332 @@ namespace WinQEMU.Core.Sharing
                 throw new GuestAgentException($"Dragging out of the guest could not be set up: {result.Error.Trim()}");
         }
 
+        // ---- Linux guests ----
+
+        /// <summary>
+        /// Where the Linux program writes what is being dragged. Writable by everyone: the program runs as whoever logs
+        /// in, maybe long after the setup, and the list only names files for the host to copy to its own user, who reads
+        /// any file of the guest through the agent anyway. A guest user writing it would receive nothing.
+        /// </summary>
+        public const string LinuxStatePath = "/var/lib/winqemu/dragout.txt";
+
+        /// <summary>
+        /// Which edge of the screen the program lays its window along, written by the host through the agent: left,
+        /// right, top, bottom, or none.
+        /// </summary>
+        public const string LinuxEdgePath = "/var/lib/winqemu/dragout-edge";
+
+        /// <summary>Where the Linux program is installed.</summary>
+        public const string LinuxHelperPath = "/usr/local/lib/winqemu/winqemu-dragout.py";
+
+        /// <summary>
+        /// The program for a Linux guest's desktop: python3 over libX11 (ctypes), nothing to install. Under Wayland too,
+        /// through XWayland.
+        /// </summary>
+        /// <remarks>
+        /// A Wayland client can neither place its window on the screen nor see the pointer. An X11 window can, through
+        /// XWayland: an override-redirect window is laid where asked, and Mutter (GNOME) passes a Wayland drag, from
+        /// Files, on to it over XDND (checked on Ubuntu 26.04: XdndEnter, XdndPosition, then the text/uri-list at the
+        /// drop). KWin (Plasma) does the same for the X11 windows it manages only: there the window is a dock that says
+        /// where it wants to be (checked on openSUSE Tumbleweed, Plasma 6). VMware's and VirtualBox's tools do this on
+        /// X11 only.
+        ///
+        /// The program cannot see where the pointer is either, so the host says which edge the drag left the console by
+        /// (<see cref="LinuxEdgePath"/>), and the window is a strip along that whole edge, there only while the host
+        /// asks: the guest's pointer slides along the edge as the host's moves outside the console, and stays over it.
+        /// The file list is asked for at the first XdndPosition, before any drop, and written to
+        /// <see cref="LinuxStatePath"/> as the Windows program does; a drop on the strip does nothing (copy, the files
+        /// stay), and lays it down.
+        /// </remarks>
+        public static readonly string LinuxHelperSource = """
+            # winqemu-dragout: files dragged to an edge of the screen, for WinQEMU (see GuestDragOut in its source).
+            import ctypes, fcntl, os, sys, time, urllib.parse
+            from ctypes import c_int, c_uint, c_long, c_ulong, c_char_p, c_void_p, POINTER, byref, Structure, Union
+
+            STATE = '/var/lib/winqemu/dragout.txt'
+            EDGE = '/var/lib/winqemu/dragout-edge'
+            IDLE = 'winqemu-dragout 1\nidle\nend\n'
+            THICKNESS = 4
+
+            class XSetWindowAttributes(Structure):
+                _fields_ = [('background_pixmap', c_ulong), ('background_pixel', c_ulong), ('border_pixmap', c_ulong),
+                            ('border_pixel', c_ulong), ('bit_gravity', c_int), ('win_gravity', c_int), ('backing_store', c_int),
+                            ('backing_planes', c_ulong), ('backing_pixel', c_ulong), ('save_under', c_int), ('event_mask', c_long),
+                            ('do_not_propagate_mask', c_long), ('override_redirect', c_int), ('colormap', c_ulong), ('cursor', c_ulong)]
+
+            class XClientMessageEvent(Structure):
+                _fields_ = [('type', c_int), ('serial', c_ulong), ('send_event', c_int), ('display', c_void_p), ('window', c_ulong),
+                            ('message_type', c_ulong), ('format', c_int), ('l', c_long * 5)]
+
+            class XSelectionEvent(Structure):
+                _fields_ = [('type', c_int), ('serial', c_ulong), ('send_event', c_int), ('display', c_void_p), ('requestor', c_ulong),
+                            ('selection', c_ulong), ('target', c_ulong), ('property', c_ulong), ('time', c_ulong)]
+
+            class XEvent(Union):
+                _fields_ = [('type', c_int), ('xclient', XClientMessageEvent), ('xselection', XSelectionEvent), ('pad', c_long * 24)]
+
+            def write_state(text):
+                try:
+                    with open(STATE, 'w', encoding='utf-8') as f:
+                        f.write(text)
+                except OSError:
+                    pass
+
+            def read_edge():
+                try:
+                    with open(EDGE, encoding='utf-8') as f:
+                        return f.read().strip()
+                except OSError:
+                    return 'none'
+
+            def paths(uri_list):
+                found = []
+                for line in uri_list.replace('\r\n', '\n').split('\n'):
+                    if not line or line.startswith('#'):
+                        continue
+                    uri = urllib.parse.urlparse(line)
+                    path = urllib.parse.unquote(uri.path)
+                    if uri.scheme == 'file' and path and '\n' not in path:
+                        found.append(path)
+                return found
+
+            def main():
+                # One per session: the logon start and the host's setup may both run it.
+                lock = open(os.path.join(os.environ.get('XDG_RUNTIME_DIR') or '/tmp', 'winqemu-dragout.lock'), 'w')
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except OSError:
+                    return 0
+
+                x = ctypes.cdll.LoadLibrary('libX11.so.6')
+                x.XOpenDisplay.restype = c_void_p; x.XOpenDisplay.argtypes = [c_char_p]
+                x.XDefaultRootWindow.restype = c_ulong; x.XDefaultRootWindow.argtypes = [c_void_p]
+                x.XInternAtom.restype = c_ulong; x.XInternAtom.argtypes = [c_void_p, c_char_p, c_int]
+                x.XCreateWindow.restype = c_ulong
+                x.XCreateWindow.argtypes = [c_void_p, c_ulong, c_int, c_int, c_uint, c_uint, c_uint, c_int, c_uint, c_void_p, c_ulong,
+                                            POINTER(XSetWindowAttributes)]
+                x.XChangeProperty.argtypes = [c_void_p, c_ulong, c_ulong, c_ulong, c_int, c_int, c_void_p, c_int]
+                x.XGetGeometry.argtypes = [c_void_p, c_ulong, POINTER(c_ulong), POINTER(c_int), POINTER(c_int), POINTER(c_uint),
+                                           POINTER(c_uint), POINTER(c_uint), POINTER(c_uint)]
+                x.XMoveResizeWindow.argtypes = [c_void_p, c_ulong, c_int, c_int, c_uint, c_uint]
+                x.XMapRaised.argtypes = [c_void_p, c_ulong]
+                x.XUnmapWindow.argtypes = [c_void_p, c_ulong]
+                x.XFlush.argtypes = [c_void_p]
+                x.XPending.argtypes = [c_void_p]
+                x.XNextEvent.argtypes = [c_void_p, POINTER(XEvent)]
+                x.XSendEvent.argtypes = [c_void_p, c_ulong, c_int, c_long, POINTER(XEvent)]
+                x.XConvertSelection.argtypes = [c_void_p, c_ulong, c_ulong, c_ulong, c_ulong, c_ulong]
+                x.XGetWindowProperty.argtypes = [c_void_p, c_ulong, c_ulong, c_long, c_long, c_int, c_ulong, POINTER(c_ulong),
+                                                 POINTER(c_int), POINTER(c_ulong), POINTER(c_ulong), POINTER(c_void_p)]
+                x.XFree.argtypes = [c_void_p]
+
+                # A window gone meanwhile (the window manager's check window) would end the program under Xlib's default handler.
+                handler = ctypes.CFUNCTYPE(c_int, c_void_p, c_void_p)(lambda display, error: 0)
+                x.XSetErrorHandler(handler)
+                d = x.XOpenDisplay(None)
+                if not d:
+                    return 1
+                atom = lambda name: x.XInternAtom(d, name.encode(), 0)
+                aware, enter, position, status, drop, finished = (atom('XdndAware'), atom('XdndEnter'), atom('XdndPosition'),
+                                                                  atom('XdndStatus'), atom('XdndDrop'), atom('XdndFinished'))
+                selection, copy, uri_list, prop = atom('XdndSelection'), atom('XdndActionCopy'), atom('text/uri-list'), atom('WINQEMU_DRAG')
+                root = x.XDefaultRootWindow(d)
+
+                def property_of(window, name, kind, length):
+                    kind_out, size_format, count, after, data = c_ulong(), c_int(), c_ulong(), c_ulong(), c_void_p()
+                    if x.XGetWindowProperty(d, window, atom(name), 0, length, 0, kind, byref(kind_out), byref(size_format),
+                                            byref(count), byref(after), byref(data)) != 0 or not data:
+                        return None
+                    value = ctypes.cast(data, POINTER(c_ulong))[0] if kind == 33 else ctypes.string_at(data, count.value)
+                    x.XFree(data)
+                    return value
+
+                # KWin passes a Wayland drag to the X11 windows it manages only: an override-redirect one never got XdndEnter
+                # (Plasma 6, openSUSE Tumbleweed). Managed, the window goes where the window manager puts it, unless it says
+                # where it wants to be (WM_NORMAL_HINTS): a dock, above everything, out of the taskbar. Mutter (GNOME) passes
+                # the drag to an override-redirect window, which no window manager moves: kept there.
+                check = property_of(root, '_NET_SUPPORTING_WM_CHECK', 33, 1)  # XA_WINDOW
+                name = property_of(check, '_NET_WM_NAME', atom('UTF8_STRING'), 64) if check else None
+                managed = bool(name) and b'KWin' in name
+
+                attributes = XSetWindowAttributes()
+                attributes.override_redirect = 0 if managed else 1
+                attributes.background_pixel = 0
+                # InputOutput: an InputOnly window has no Wayland surface, so the compositor would never find it under the pointer.
+                window = x.XCreateWindow(d, root, 0, 0, 1, 1, 0, 0, 1, None, 0x200 | 0x2, byref(attributes))  # CWOverrideRedirect | CWBackPixel
+                version = c_ulong(5)
+                x.XChangeProperty(d, window, aware, 4, 32, 0, byref(version), 1)  # XA_ATOM
+                opacity = c_ulong(0x02000000)  # about 1 %, where the compositor honours it
+                x.XChangeProperty(d, window, atom('_NET_WM_WINDOW_OPACITY'), 6, 32, 0, byref(opacity), 1)  # XA_CARDINAL
+                if managed:
+                    dock = c_ulong(atom('_NET_WM_WINDOW_TYPE_DOCK'))
+                    x.XChangeProperty(d, window, atom('_NET_WM_WINDOW_TYPE'), 4, 32, 0, byref(dock), 1)
+                    states = (c_ulong * 3)(atom('_NET_WM_STATE_ABOVE'), atom('_NET_WM_STATE_SKIP_TASKBAR'),
+                                           atom('_NET_WM_STATE_SKIP_PAGER'))
+                    x.XChangeProperty(d, window, atom('_NET_WM_STATE'), 4, 32, 0, states, 3)
+
+                def send(target, kind, data):
+                    event = XEvent()
+                    event.xclient.type = 33; event.xclient.window = target; event.xclient.message_type = kind; event.xclient.format = 32
+                    for i, value in enumerate(data):
+                        event.xclient.l[i] = value
+                    x.XSendEvent(d, target, 0, 0, byref(event))
+
+                def lay(edge):
+                    r, gx, gy, w, h, b, depth = c_ulong(), c_int(), c_int(), c_uint(), c_uint(), c_uint(), c_uint()
+                    x.XGetGeometry(d, root, byref(r), byref(gx), byref(gy), byref(w), byref(h), byref(b), byref(depth))
+                    w, h, t = w.value, h.value, THICKNESS
+                    box = {'left': (0, 0, t, h), 'right': (w - t, 0, t, h), 'top': (0, 0, w, t), 'bottom': (0, h - t, w, t)}[edge]
+                    if managed:
+                        # USPosition | USSize | PPosition | PSize | PMinSize | PMaxSize: here, this size, no other.
+                        bx, by, bw, bh = box
+                        hints = (c_ulong * 18)(63, bx, by, bw, bh, bw, bh, bw, bh, 0, 0, 0, 0, 0, 0, 0, 0, 1)
+                        x.XChangeProperty(d, window, 40, 41, 32, 0, hints, 18)  # WM_NORMAL_HINTS, WM_SIZE_HINTS
+                    x.XMoveResizeWindow(d, window, *box)
+                    x.XMapRaised(d, window)
+
+                write_state(IDLE)
+                shown, laid, source, asked = 'none', False, 0, False
+                event = XEvent()
+                while True:
+                    edge = read_edge()
+                    if edge != shown:
+                        shown = edge
+                        if edge in ('left', 'right', 'top', 'bottom'):
+                            lay(edge)
+                            laid, asked = True, False
+                        else:
+                            x.XUnmapWindow(d, window)
+                            laid = False
+                            write_state(IDLE)
+                    while x.XPending(d):
+                        x.XNextEvent(d, byref(event))
+                        if event.type == 33:  # ClientMessage
+                            message = event.xclient
+                            if message.message_type == enter:
+                                source, asked = message.l[0], False
+                            elif message.message_type == position:
+                                send(message.l[0], status, [window, 1 | 2, 0, 0, copy])  # accepted, keep sending positions
+                                if not asked:
+                                    x.XConvertSelection(d, selection, uri_list, prop, window, message.l[3])
+                                    asked = True
+                            elif message.message_type == drop:
+                                # Nothing to do with it here: the files stay, the host copies them.
+                                send(message.l[0], finished, [window, 1, copy])
+                                x.XUnmapWindow(d, window)
+                                laid = False
+                        elif event.type == 31 and event.xselection.property:  # SelectionNotify
+                            kind, size_format, count, after, data = c_ulong(), c_int(), c_ulong(), c_ulong(), c_void_p()
+                            x.XGetWindowProperty(d, window, prop, 0, 1 << 22, 1, 0, byref(kind), byref(size_format),
+                                                 byref(count), byref(after), byref(data))
+                            text = ctypes.string_at(data, count.value).decode('utf-8', 'replace') if data else ''
+                            if data:
+                                x.XFree(data)
+                            found = paths(text)
+                            if found:
+                                write_state('winqemu-dragout 1\ndrag\n' + ''.join('file ' + p + '\n' for p in found) + 'end\n')
+                    x.XFlush(d)
+                    time.sleep(0.05)
+
+            if __name__ == '__main__':
+                sys.exit(main())
+            """.ReplaceLineEndings("\n");
+
+        /// <summary>
+        /// Run as root by the agent: installs the program, starts it at each logon (XDG autostart), and in the graphical
+        /// sessions already open, with the X display and its authority read from the session's systemd environment.
+        /// Nobody logged in yet is fine: the logon starts it (the guest's agent answers well before that, and a first
+        /// version waited for a session, gave up after five minutes, and never took a drag from a later logon).
+        /// Exit 3: python3 or libX11 missing.
+        /// </summary>
+        public static string LinuxSetupScript => """
+            set -u
+            # openSUSE's agent runs with UMask=0077: the program's folder and the autostart entry came out root-only, and
+            # the session could neither start nor read the program ("Permission denied").
+            umask 022
+            command -v python3 >/dev/null 2>&1 || { echo "python3 is missing" >&2; exit 3; }
+            python3 -c "import ctypes; ctypes.CDLL('libX11.so.6')" 2>/dev/null || { echo "libX11 is missing" >&2; exit 3; }
+            dir=/var/lib/winqemu
+            mkdir -p /usr/local/lib/winqemu "$dir"
+            # Explicit too: an earlier run may have left them root-only.
+            chmod 755 /usr/local/lib/winqemu "$dir"
+            printf '%s' '{SOURCE}' | base64 -d > {HELPER}.new && mv {HELPER}.new {HELPER}
+            chmod 644 {HELPER}
+            printf 'none\n' > {EDGE}
+            chmod 644 {EDGE}
+            # Written by the program, run as whoever logs in (see LinuxStatePath).
+            touch {STATE}
+            chown root:root {STATE}
+            chmod 666 {STATE}
+            mkdir -p /etc/xdg/autostart
+            printf '[Desktop Entry]\nType=Application\nName=WinQEMU\nExec=python3 {HELPER}\nNoDisplay=true\n' > /etc/xdg/autostart/winqemu-dragout.desktop
+            chmod 644 /etc/xdg/autostart/winqemu-dragout.desktop
+            for session in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
+              [ "$(loginctl show-session "$session" -p Class --value)" = user ] || continue
+              case "$(loginctl show-session "$session" -p Type --value)" in wayland|x11) ;; *) continue ;; esac
+              user=$(loginctl show-session "$session" -p Name --value)
+              uid=$(id -u "$user") || continue
+              environment=$(runuser -u "$user" -- env XDG_RUNTIME_DIR=/run/user/$uid DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus \
+                systemctl --user show-environment 2>/dev/null)
+              display=$(printf '%s\n' "$environment" | sed -n 's/^DISPLAY=//p')
+              authority=$(printf '%s\n' "$environment" | sed -n 's/^XAUTHORITY=//p')
+              [ -n "$display" ] || continue
+              # Started here as "python3 …", by the session's autostart as "/usr/bin/python3 …": both are matched, but
+              # not this script's own command line, which names the program too.
+              pkill -u "$user" -f '^[^ ]*python3 {HELPER_PATTERN}$' 2>/dev/null
+              sleep 0.3
+              runuser -u "$user" -- env DISPLAY="$display" XAUTHORITY="$authority" XDG_RUNTIME_DIR=/run/user/$uid \
+                setsid -f python3 {HELPER} >/dev/null 2>&1 </dev/null
+            done
+            exit 0
+            """.ReplaceLineEndings("\n")
+            .Replace("{SOURCE}", Convert.ToBase64String(Encoding.UTF8.GetBytes(LinuxHelperSource)), StringComparison.Ordinal)
+            .Replace("{HELPER_PATTERN}", LinuxHelperPath.Replace(".", "[.]", StringComparison.Ordinal), StringComparison.Ordinal)
+            .Replace("{HELPER}", LinuxHelperPath, StringComparison.Ordinal)
+            .Replace("{EDGE}", LinuxEdgePath, StringComparison.Ordinal)
+            .Replace("{STATE}", LinuxStatePath, StringComparison.Ordinal);
+
+        /// <summary>Installs and starts the Linux program; throws with the reason when it cannot (see <see cref="LinuxSetupScript"/>).</summary>
+        public static async Task SetupLinuxAsync(GuestAgentClient agent, CancellationToken cancellationToken = default)
+        {
+            var result = await agent.RunAsync("/bin/sh", new[] { "-c", LinuxSetupScript }, null, TimeSpan.FromSeconds(60), cancellationToken)
+                .ConfigureAwait(false);
+            if (result.ExitCode != 0)
+                throw new GuestAgentException($"Dragging out of the guest could not be set up: {result.Error.Trim()}");
+        }
+
+        /// <summary>
+        /// Lays the Linux program's strip along <paramref name="edge"/> (left, right, top, bottom), or takes it away (none).
+        /// </summary>
+        public static async Task ShowLinuxEdgeAsync(GuestAgentClient agent, string edge, CancellationToken cancellationToken = default)
+        {
+            var timeout = TimeSpan.FromSeconds(3);
+            var handle = await agent.ExecuteAsync("guest-file-open", new JsonObject { ["path"] = LinuxEdgePath, ["mode"] = "w" },
+                timeout, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await agent.ExecuteAsync("guest-file-write", new JsonObject
+                {
+                    ["handle"] = handle!.GetValue<long>(),
+                    ["buf-b64"] = Convert.ToBase64String(Encoding.ASCII.GetBytes(edge + "\n"))
+                }, timeout, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await agent.ExecuteAsync("guest-file-close", new JsonObject { ["handle"] = handle!.GetValue<long>() }, timeout,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+
         /// <summary>
         /// The files being dragged in the guest right now, or null when no drag has reached the edge of its screen.
         /// </summary>
-        public static async Task<IReadOnlyList<string>?> ReadAsync(GuestAgentClient agent, CancellationToken cancellationToken = default)
+        public static async Task<IReadOnlyList<string>?> ReadAsync(GuestAgentClient agent, bool windowsGuest = true,
+            CancellationToken cancellationToken = default)
         {
             var timeout = TimeSpan.FromSeconds(3);
-            var handle = await agent.ExecuteAsync("guest-file-open", new JsonObject { ["path"] = StatePath, ["mode"] = "r" },
+            var handle = await agent.ExecuteAsync("guest-file-open",
+                new JsonObject { ["path"] = windowsGuest ? StatePath : LinuxStatePath, ["mode"] = "r" },
                 timeout, cancellationToken).ConfigureAwait(false);
             var bytes = new List<byte>();
             try

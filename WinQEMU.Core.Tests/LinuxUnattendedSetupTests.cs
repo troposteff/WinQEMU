@@ -58,6 +58,14 @@ public class LinuxUnattendedSetupTests
         var console = LinuxUnattendedSetup.FedoraKickstart(Settings(LinuxDesktop.None));
         Assert.Contains("@^server-product-environment", console);
         Assert.Contains("reboot", kickstart);
+        // Re-activating the card cut it off as Anaconda set up its sources: "Could not resolve host".
+        Assert.Contains("\nnetwork --bootproto=dhcp --hostname=", kickstart.ReplaceLineEndings("\n"));
+        Assert.DoesNotContain("--activate", kickstart);
+        // Anaconda waits for the network and DNS before setting up its sources: its first lookup failed otherwise.
+        Assert.Contains("\n%pre --log=/tmp/winqemu-pre.log\nnm-online", kickstart.ReplaceLineEndings("\n"));
+        Assert.Contains("https://mirrors.fedoraproject.org", kickstart);
+        Assert.Equal("inst.stage2=hd:LABEL=Fedora-E-dvd-x86_64-45 inst.ks=hd:LABEL=OEMDRV:/ks.cfg quiet",
+            LinuxUnattendedSetup.FedoraCommandLine("inst.stage2=hd:LABEL=Fedora-E-dvd-x86_64-45"));
         // A text-mode installation otherwise leaves Workstation on a text login.
         Assert.Contains("\nxconfig --startxonboot\n", kickstart.ReplaceLineEndings("\n"));
         Assert.Contains("\nskipx\n", console.ReplaceLineEndings("\n"));
@@ -93,6 +101,23 @@ public class LinuxUnattendedSetupTests
         Assert.Contains("(typepermissive virt_qemu_ga_t)", script);
         Assert.Contains("ExecStart=/usr/bin/qemu-ga -p /dev/virtio-ports/org.qemu.guest_agent.0\\n", script);
         Assert.DoesNotContain("block-rpcs", script);
+    }
+
+    [Fact]
+    public void A_Tumbleweed_DVD_installs_with_the_online_repository_too()
+    {
+        XNamespace yast = "http://www.suse.com/1.0/yast2ns";
+        var dvd = XDocument.Parse(LinuxUnattendedSetup.AutoYast(Settings(LinuxDesktop.Kde), "openSUSE",
+            LinuxUnattendedSetup.TumbleweedOnlineRepository));
+        var other = XDocument.Parse(LinuxUnattendedSetup.AutoYast(Settings(LinuxDesktop.Kde)));
+
+        // spice-vdagent is not on the DVD: AutoYaST stopped on "package not available".
+        Assert.Equal("https://download.opensuse.org/tumbleweed/repo/oss/", dvd.Descendants(yast + "media_url").Single().Value);
+        Assert.Empty(other.Descendants(yast + "add-on"));
+        Assert.True(LinuxUnattendedSetup.IsTumbleweedDvd(
+            "openSUSE - openSUSE-Tumbleweed-DVD-x86_64-Build4888.1-Media\nopenSUSE-Tumbleweed-DVD-x86_64-Build4888.1\n1\n"));
+        Assert.False(LinuxUnattendedSetup.IsTumbleweedDvd("openSUSE - openSUSE-Tumbleweed-NET-x86_64-Build4888.1-Media\n"));
+        Assert.False(LinuxUnattendedSetup.IsTumbleweedDvd("openSUSE - openSUSE-Leap-16.0-DVD-x86_64-Build1.1-Media\n"));
     }
 
     // The names each installer knows the environment by: tasksel's task, the comps environment, the pattern.

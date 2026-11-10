@@ -68,4 +68,91 @@ public sealed class GuestDragOutTests : IDisposable
         compiler.WaitForExit();
         Assert.True(compiler.ExitCode == 0 && File.Exists(exe), errors);
     }
+
+    // ---- Linux ----
+
+    [Fact]
+    public void TheLinuxSetupCarriesTheProgramAndNoCarriageReturn()
+    {
+        var script = GuestDragOut.LinuxSetupScript;
+        var encoded = script.Split('\'').First(part => part.Length > 1000);
+        Assert.Equal(GuestDragOut.LinuxHelperSource, Encoding.UTF8.GetString(Convert.FromBase64String(encoded)));
+        Assert.DoesNotContain('\r', script);
+        Assert.DoesNotContain('\r', GuestDragOut.LinuxHelperSource);
+        Assert.Contains(GuestDragOut.LinuxStatePath, script);
+        Assert.Contains(GuestDragOut.LinuxEdgePath, script);
+        // pkill's pattern must not match the setup script's own command line, which names the program too.
+        Assert.Contains("'^[^ ]*python3 /usr/local/lib/winqemu/winqemu-dragout[.]py$'", script);
+        // Under KWin the strip is a managed dock that says where it goes: an override-redirect window gets no drag there.
+        Assert.Contains("_NET_WM_WINDOW_TYPE_DOCK", GuestDragOut.LinuxHelperSource);
+        Assert.Contains("b'KWin' in name", GuestDragOut.LinuxHelperSource);
+        // Whoever logs in later, the program can write its list: the setup does not wait for a session.
+        Assert.Contains("chmod 666 /var/lib/winqemu/dragout.txt", script);
+        // openSUSE's agent runs with UMask=0077: what the session reads is made readable whatever it was.
+        Assert.Contains("umask 022", script);
+        Assert.Contains("chmod 755 /usr/local/lib/winqemu", script);
+        Assert.Contains("chmod 644 /etc/xdg/autostart/winqemu-dragout.desktop", script);
+        Assert.DoesNotContain("exit 4", script);
+    }
+
+    /// <summary>The setup as /bin/sh reads it (Git's sh here; skipped where there is none).</summary>
+    [Fact]
+    public void TheLinuxSetupIsValidShell()
+    {
+        if (Tool("sh.exe") is not { } shell)
+            return;
+        var script = Path.Combine(_folder, "setup.sh");
+        File.WriteAllText(script, GuestDragOut.LinuxSetupScript, new UTF8Encoding(false));
+        var (code, output) = Run(shell, "-n", script);
+        Assert.True(code == 0, output);
+    }
+
+    /// <summary>The program's file list from the text/uri-list it is given, run by Python (skipped where there is none).</summary>
+    [Fact]
+    public void TheLinuxProgramReadsFileUrisOnly()
+    {
+        if (Tool("python.exe") is not { } python)
+            return;
+        var program = Path.Combine(_folder, "dragout.py");
+        File.WriteAllText(program, GuestDragOut.LinuxHelperSource, new UTF8Encoding(false));
+        var check = Path.Combine(_folder, "check.py");
+        // fcntl is Linux's only: a stand-in, the test never reaches main().
+        File.WriteAllText(check, """
+            import importlib.util, sys, types
+            sys.modules['fcntl'] = types.ModuleType('fcntl')
+            spec = importlib.util.spec_from_file_location('dragout', sys.argv[1])
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            listed = 'file:///home/alex/Bureau/a%20b.txt\r\n# comment\r\nhttps://example.org/x\r\nfile:///home/alex/%C3%A9t%C3%A9\r\n'
+            print('|'.join(module.paths(listed)))
+            """, new UTF8Encoding(false));
+        var (code, output) = Run(python, "-I", "-X", "utf8", check, program);
+        Assert.True(code == 0, output);
+        Assert.Equal("/home/alex/Bureau/a b.txt|/home/alex/été", output.Trim());
+    }
+
+    private static string? Tool(string name) =>
+        new[] { Path.Combine(@"C:\Program Files\Git\usr\bin", name) }
+            .Concat((Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator)
+                .Select(folder => Path.Combine(folder.Trim('"'), name)))
+            .FirstOrDefault(path => File.Exists(path) && !path.Contains("WindowsApps", StringComparison.OrdinalIgnoreCase));
+
+    private static (int Code, string Output) Run(string program, params string[] arguments)
+    {
+        var start = new ProcessStartInfo(program)
+        {
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8
+        };
+        foreach (var argument in arguments)
+            start.ArgumentList.Add(argument);
+        using var process = Process.Start(start)!;
+        var error = process.StandardError.ReadToEndAsync();
+        var output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return (process.ExitCode, output + error.Result);
+    }
 }

@@ -616,6 +616,16 @@ le presse-papiers n'y a pas d'usage, et la Debian serveur de l'utilisateur étai
 get-default` y répondait pourtant `graphical.target`). Absents : lien dans la barre de la console et section
 **Outils invités** du résumé. L'interface ne cite pas les VMware Tools (choix de l'utilisateur).
 
+- **La conclusion est écrite dans le journal de la machine** (« Guest tools: complete. », « … did not answer within 3 min. »…).
+  **Journal de l'interface** : `AppendDiagnostic(message)` écrit dans le journal de la machine affichée (celui de sa
+  `VmSession`, gardé), `AppendDiagnostic(config, message)` dans celui d'une machine donnée, pour une tâche de fond
+  (démarrage avec WinQEMU, fin d'installation, affichage, instantané automatique…). Avant, tout allait dans le texte
+  affiché, refait au changement de sélection : une ligne pour une machine non affichée (WinQEMU caché, démarrage par la
+  commande) était perdue, ou montrée un moment sous une autre. Vérifié : Fedora affichée, Ubuntu démarrée par la commande,
+  ses lignes dans son journal et aucune dans celui de Fedora. Le bandeau dit « absents ou incomplets » aussi pour un agent qui n'a pas répondu à temps : une fausse alerte
+  vue sur Ubuntu venait de scripts d'essai qui interrogeaient l'agent pendant le démarrage (son canal n'a qu'un client) ;
+  démarrage propre avec ouverture de session automatique : « complete » 31 s après le démarrage (10/11/2026).
+
 - **Sans agent, rien ne s'exécute dans l'invité.** Linux : WinQEMU **tape** la commande (`apt-get`/`dnf`/`zypper`/`pacman`)
   dans un terminal que l'utilisateur a ouvert (`Input.KeyboardText` : touches de la disposition de ce PC, AltGr = Alt droit,
   touche morte suivie d'espace, détectée par `ToUnicodeEx` avec les modificateurs ; un caractère à la fois, le tampon PS/2
@@ -821,10 +831,22 @@ s'ouvre sur le résultat. `Sharing.GuestFilePull`, même état par machine que l
   l'invité annulé par Échap ; le bouton Récupérer annulé en avait autant. Annulé ou échoué, l'hôte lit et jette le port
   pendant que l'agent tue l'émetteur (`taskkill /F`, `kill -9`), jusqu'à sa fin. L'émetteur réessaie aussi d'ouvrir le
   port 10 s (un port n'a qu'un ouvreur), sauf s'il n'existe pas.
-- **QEMU ne ferme pas une connexion qui se termine quand le port est fermé côté invité** : chaque copie en laisse une en
-  `CLOSE_WAIT` (mesuré par `netstat`, déjà avant ce qui précède), sans gêner les suivantes. Une fois, juste après deux copies
-  arrêtées de suite, les connexions suivantes ont été **refusées** jusqu'au redémarrage de la machine ; jamais revu avec la
-  même séquence. La connexion est réessayée 3 s (`ConnectAsync`) avant de dire « démarrée sans le canal de copie ».
+- **QEMU (Windows) ne voit pas qu'une connexion au port a été fermée par l'hôte** : elle reste son client (`CLOSE_WAIT`), une
+  lecture dans l'invité bloque comme si un hôte était là, et la connexion suivante attend derrière elle. **Seule une écriture
+  de l'invité** lui fait découvrir la connexion morte et prendre la suivante, et cette écriture est perdue (ou retenue : le
+  programme invité reste bloqué dans `write`) ; au-delà de quelques connexions en attente, les suivantes sont **refusées**
+  (« refusées jusqu'au redémarrage », vu une fois). Le canal de l'agent se comporte de même (d'où une connexion neuve par
+  essai). Mesuré sur Ubuntu avec les programmes de l'invité et un client TCP à la place de WinQEMU. Conséquence, vue sous
+  Linux : **chaque glisser hors de l'invité après le premier échouait** au bout de 20 s (« l'envoi s'est arrêté (code 0) ») :
+  l'émetteur écrivait aussitôt, et le marqueur de la copie partait vers la connexion de la copie précédente.
+  **D'où `GuestFileDrop.LinuxPortHandshake`**, partagé par l'émetteur et le récepteur Linux : l'hôte envoie un « feu vert »
+  dès sa connexion (le marqueur de la copie, `WQDROPGO…` pour un dépôt), le programme n'écrit rien des siens avant de l'avoir
+  lu (il ne passe que par la connexion que QEMU a prise) et, en attendant, écrit un saut de ligne toutes les 0,5 s, **sans
+  bloquer**, chacun débusquant une connexion morte ; un saut de ligne arrivé jusqu'à l'hôte est ignoré (octets avant le
+  marqueur, ligne vide avant READY). Le récepteur n'écrit plus rien après que l'hôte a raccroché (son `FAIL` arrivait dans la
+  connexion suivante). Vérifié : 8 copies et dépôts mêlés à la suite, en partant d'un port bloqué. Les programmes Windows
+  n'ont pas changé (aucune perte observée). La connexion est réessayée 3 s (`ConnectAsync`) avant de dire « démarrée sans
+  le canal de copie ».
 - **Noms** : un nom de premier niveau déjà pris est numéroté ; les caractères interdits par Windows (`:`, `?`…) et
   points ou espaces finaux sont remplacés (`WindowsName`). Lien symbolique vers un fichier : son contenu est copié ;
   vers un dossier : ignoré (boucles). Annulé ou échoué : ce que la copie a créé est supprimé.
@@ -833,7 +855,7 @@ s'ouvre sur le résultat. `Sharing.GuestFilePull`, même état par machine que l
 
 ## Glisser des fichiers de l'invité vers ce PC
 
-Comme VMware, **invité Windows seulement** pour l'instant (Linux : Wayland le rend difficile) : des fichiers glissés hors
+Comme VMware, invités Windows et Linux avec un bureau (voir plus bas pour Linux) : des fichiers glissés hors
 de la console sont déposés sur ce PC (Explorateur ou toute cible qui prend des fichiers). `Sharing.GuestDragOut` (côté
 invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmConsoleHost.GuestDragLeft`.
 
@@ -895,6 +917,43 @@ invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmCon
   sur les deux chemins ; Échap (copie annulée, dossier supprimé, rien dans la destination, aucun émetteur resté dans
   l'invité) ; relâché hors cible ; glissers de suite après un Échap ; icônes restées en place. Dépôt sur un élément du
   volet de navigation de l'Explorateur : correct.
+
+- **Invité Linux** (`GuestDragOut.LinuxHelperSource`, `LinuxSetupScript`) : sous Wayland aucun programme ne voit un glisser
+  qui ne le survole pas, mais GNOME et KDE font passer un glisser de fichiers vers une fenêtre **XWayland** en XDND. D'où
+  un petit programme Python (ctypes sur `libX11.so.6`, rien à installer : python3 est là sur les distributions avec
+  bureau) : fenêtre X11 *override-redirect* **InputOutput** (une InputOnly n'a pas de surface Wayland), presque
+  transparente, `XdndAware` 5 ; au `XdndPosition` il répond `XdndStatus` (copie) et demande `text/uri-list`, écrit la
+  liste dans `/var/lib/winqemu/dragout.txt` (même format que Windows), et au dépôt répond `XdndFinished` sans rien faire.
+  **Bande de 4 px le long d'un bord entier**, posée seulement quand l'hôte l'écrit dans `/var/lib/winqemu/dragout-edge`
+  (`left`… ou `none`, par `guest-file-write` ; `VmConsoleHost.EdgeOfPointer` : le côté de la console que le pointeur a
+  quitté), retirée à la fin du glisser (`HideGuestDragEdgeAsync`) : posée en permanence elle prendrait les clics du bord
+  (barre de GNOME). Installé par l'agent en root (`/usr/local/lib/winqemu/`), lancé à chaque ouverture de session (autostart
+  XDG) et dans les sessions déjà ouvertes : `DISPLAY` et `XAUTHORITY` lus par `systemctl --user show-environment` de
+  l'utilisateur, `runuser … setsid -f`. Pièges : sorties du programme lancé redirigées (sinon `guest-exec` ne finit
+  jamais, le fils tient les tubes) ; `pkill -f '^[^ ]*python3 …[.]py$'` (sans ancre, il tuait le `sh -c` du script, qui nomme
+  le programme) ; **`umask 022` et `chmod` explicites** : l'agent d'openSUSE tourne avec `UMask=0077`, et le dossier du
+  programme et l'entrée d'autostart sortaient lisibles de root seul (« Permission denied » dans la session KDE ; Ubuntu n'a
+  pas cette restriction). Tout script lancé par l'agent qui crée un fichier destiné à l'utilisateur doit s'en méfier.
+  **Aucune session n'est attendue** : l'agent répond bien avant l'ouverture de session, que l'autostart
+  couvre ; une première version attendait une session, abandonnait au bout de 5 min, et une ouverture plus tardive ne
+  prenait jamais de glisser. Pour la même raison la liste (`dragout.txt`) est créée par l'installation, root, **mode 666** :
+  le programme tourne au nom de qui ouvre la session, et la liste ne nomme que des fichiers que l'hôte copie pour son
+  propre utilisateur (qui lit déjà tout l'invité par l'agent) ; un utilisateur de l'invité qui l'écrirait ne recevrait rien.
+  **Vérifié dans l'app sur une copie d'Ubuntu 26.04 (GNOME, Wayland), 09/11/2026**, glisser simulé vers l'Explorateur :
+  fichier de 60 Mo et dossier avec sous-dossier et nom accentué (SHA-256 identiques), dix glissers de suite dont un dépôt
+  dans l'invité entre deux, Échap (rien dans la destination, dossier de travail supprimé, aucun émetteur resté), relâché
+  hors cible (effet 0), icônes restées en place, session ouverte après l'installation (ouverture automatique). **Une fois
+  sur dix, GNOME n'a pas passé le glisser à la bande** : « the guest dragged no files » au journal, rien de cassé, le
+  suivant passe. openSUSE ou Fedora installés à la main : agent bloqué (`guest-exec`, SELinux), donc rien ; installés par
+  WinQEMU, ils ont ce qu'il faut.
+  **KDE (KWin) ne passe un glisser Wayland qu'aux fenêtres X11 qu'il gère** : la fenêtre override-redirect, qui suffit à
+  GNOME, n'a jamais reçu de XdndEnter (sondé avec une fenêtre rouge visible : override-redirect rien, fenêtre normale la
+  liste). Sous KWin (reconnu par `_NET_SUPPORTING_WM_CHECK` → `_NET_WM_NAME`), la bande est une fenêtre gérée de type
+  **`_NET_WM_WINDOW_TYPE_DOCK`** (`ABOVE`, hors barre des tâches), **avec sa position et sa taille dans `WM_NORMAL_HINTS`**
+  (`USPosition`… min = max) : sans elles, KWin la plaçait au milieu de l'écran et le glisser finissait sur le bureau, qui
+  y **déplaçait l'icône**. Gestionnaire d'erreurs X neutre (une fenêtre disparue arrêterait le programme).
+  **Vérifié dans l'app sur openSUSE Tumbleweed (Plasma 6, Wayland) installé par WinQEMU, 09/11/2026** : fichier de 60 Mo et
+  dossier (SHA-256 identiques), Échap, relâché hors cible, icônes en place ; Ubuntu revérifié ensuite.
 
 ## Réseaux virtuels
 
@@ -1069,7 +1128,16 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
     sans kickstart ; elle a pourtant `images/pxeboot`, d'où le test (`IsoFileReader.Contains`, sans lire le gigaoctet).
     **`xconfig --startxonboot`** avec bureau (`skipx` sinon) : installé en mode `text`, Workstation démarrait sur une
     connexion texte. **`-plasma-setup`** pour KDE : l'assistant de premier démarrage de Plasma (obligatoire dans ses groupes
-    comps, hors de portée de `firstboot --disable`) proposait de créer un compte qui existait déjà.
+    comps, hors de portée de `firstboot --disable`) proposait de créer un compte qui existait déjà. **Un `%pre` attend le
+    réseau et le DNS** (`FedoraWaitForNetwork` : `nm-online`, puis `mirrors.fedoraproject.org` qui répond deux fois) : depuis
+    l'ISO netinst de Fedora 45, Anaconda préparait ses sources une seconde après que NetworkManager avait monté la carte, et
+    sa toute première recherche de nom échouait (« Could not resolve host », 3 ms après « Using degraded feature set UDP
+    instead of UDP+EDNS0 for DNS server 10.0.2.3 » de systemd-resolved) : arrêt sur « Erreur lors de la configuration des
+    dépôts ». Juste après, et depuis un shell, la résolution marchait toujours. **Pas de `--activate`** sur la ligne
+    `network` (la réactivation coupait la carte au même moment) ; `ip=dhcp` sur la ligne du noyau n'y changeait rien.
+    Vérifié de bout en bout (Xfce, 09/11/2026) : 9 min sans fenêtre, sources préparées 7 s après le début du `%pre`.
+    Diagnostic sans agent : un second QMP dans les arguments supplémentaires, touches envoyées par `send-key` dans le
+    shell d'Anaconda (onglet tmux 2 : `Ctrl+B` puis `N`), positions AZERTY, et `screendump`.
   - **openSUSE** (linuxrc, YaST) : `autoinst.xml` sur la clé OEMDRV, `autoyast=label://OEMDRV/autoinst.xml`. L'ISO NET de
     Tumbleweed utilise encore YaST (pas Agama). **Produit exigé** (`<products>`) : un même support en propose plusieurs
     (openSUSE, MicroOS, Aeon, Kalpa), sinon « None or wrong base product » ; lu dans `media.1/products`. **Disques de moins de 4 Gio exclus** (`skip_list`) :
@@ -1078,7 +1146,14 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
     `media.1/media` : l'arbre ISO 9660 primaire ne sait pas nommer `.treeinfo` (point initial). SLE refusé (enregistrement).
     **`kexec=3`** : le dépôt de Tumbleweed avance, et une ISO de quelques jours n'a plus le noyau de ses paquets ; linuxrc
     s'arrêtait sur « To use the selected repository a matching boot image is needed. Download it now and restart? ». 3 le
-    charge sans demander, seulement si nécessaire (source de linuxrc, `install.c`). **Disposition graphique** : `<keymap>` ne règle
+    charge sans demander, seulement si nécessaire (source de linuxrc, `install.c`). **DVD de Tumbleweed** (`media.1/media`
+    le nomme `openSUSE-Tumbleweed-DVD-…`) : il ne porte qu'une sélection de paquets, sans `spice-vdagent`, et AutoYaST
+    s'arrêtait sur « Ces paquets n'ont pas pu être trouvés… : spice-vdagent » (DVD du 30/10/2026) ; le dépôt en ligne
+    `tumbleweed/repo/oss` est ajouté (`<add-on>`, `OpenSuseOnlineRepository`). L'ISO NET installe déjà depuis lui. Et
+    **`ifcfg=*=dhcp`** sur la ligne du noyau : depuis le DVD, linuxrc laissait le réseau éteint, et YaST s'arrêtait à 86 %
+    sur « Réseau non fonctionnel » (le dépôt en ligne aurait été injoignable). **Vérifié de bout en bout** sur le DVD du
+    30/10/2026 avec KDE (09/11/2026) : 12 min sans aucune fenêtre, `spice-vdagent` installé, `repo-oss` à côté du DVD,
+    réseau en place, écran de connexion de Plasma. **Disposition graphique** : `<keymap>` ne règle
     que la console ; Xfce (LightDM) montrait « us » à la connexion. SDDM (LXQt) affiche encore « us » : c'est le clavier virtuel de X, qui ne prend celui du vrai clavier (« fr », vérifié par `xkbcomp -i`) qu'à la première touche. `/etc/X11/xorg.conf.d/00-keyboard.conf` écrit par `<files>`.
   - Suivi des essais par `winqemu capture <machine> [fichier]` (nouveau, comme `captureScreen` de vmrun : `screendump` de
     la session, sans dépendre de l'écran).

@@ -581,7 +581,7 @@ namespace WinQEMU.ViewModels
                     continue;
                 try
                 {
-                    AppendDiagnostic($"Start with WinQEMU: starting {entry.Machine.Name}.");
+                    AppendDiagnostic(entry.Machine, "Start with WinQEMU: starting.");
                     await StartMachineAsync(session);
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or IOException or QmpException
@@ -631,7 +631,7 @@ namespace WinQEMU.ViewModels
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or QmpException or IOException)
                 {
-                    AppendDiagnostic($"{session.Config.Name}: shutdown could not be asked for ({ex.Message}).");
+                    AppendDiagnostic(session.Config, $"Shutdown could not be asked for ({ex.Message}).");
                 }
             }
         }
@@ -787,7 +787,7 @@ namespace WinQEMU.ViewModels
                 // Ubuntu's installer kernel is booted directly by QEMU: no firmware prompt to answer.
                 if (GuestOsCatalog.Find(config.GuestOs)?.Family == "Windows")
                     _ = session.PressBootKeyAsync(TimeSpan.FromSeconds(20));
-                AppendDiagnostic("Unattended installation: starting the installer from the ISO.");
+                AppendDiagnostic(session.Config, "Unattended installation: starting the installer from the ISO.");
             }
 
             MountSharedFolders(session);
@@ -936,20 +936,43 @@ namespace WinQEMU.ViewModels
         }
 
         /// <summary>
-        /// Appends a shell-side diagnostic to the same log as QEMU's output, so console embedding
-        /// problems are visible next to the VM they belong to. Safe to call from any thread.
+        /// Appends a shell-side diagnostic to the log of the machine shown, next to QEMU's output. Safe to call from any
+        /// thread. Something about another machine goes through <see cref="AppendDiagnostic(VmConfig, string)"/>.
         /// </summary>
+        /// <remarks>
+        /// Into the machine's own log, kept by its session, not only into the text shown: that text is rebuilt from the
+        /// session's log at each selection, and a line written only there was lost (or showed a while under another
+        /// machine) once something else was selected.
+        /// </remarks>
         public void AppendDiagnostic(string message)
         {
+            var stamped = $"[{DateTime.Now:HH:mm:ss}] {message}";
             _dispatcher.TryEnqueue(() =>
             {
-                _logBuffer.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
+                if (SelectedSession is { } session)
+                {
+                    session.AppendLog(message);
+                    return;
+                }
+                _logBuffer.Add(stamped);
                 if (_logBuffer.Count > MaxDisplayedLogLines)
                     _logBuffer.RemoveRange(0, _logBuffer.Count - MaxDisplayedLogLines);
 
                 _logFlushTimer.Stop();
                 _logFlushTimer.Start();
             });
+        }
+
+        /// <summary>
+        /// A diagnostic about a given machine, into its own log whichever is shown (a task in the background: a start
+        /// with WinQEMU, an installation finishing, the display set up after a guest reboot).
+        /// </summary>
+        public void AppendDiagnostic(VmConfig config, string message)
+        {
+            if (Manager.FindSession(config) is { } session)
+                session.AppendLog(message);
+            else
+                AppendDiagnostic($"{config.Name}: {message}");
         }
 
         private void FlushLog()
@@ -1371,10 +1394,46 @@ namespace WinQEMU.ViewModels
         {
             if (session.GuestAgentPort is not { } port || !_displayRuns.Add((session, port)))
                 return;
-            if (GuestOsCatalog.Find(session.Config.GuestOs)?.Family == "Windows")
+            var family = GuestOsCatalog.Find(session.Config.GuestOs)?.Family;
+            if (family == "Windows")
                 _ = PrepareGuestDisplayAsync(session, port);
             else if (session.Config.UnattendedSetup == UnattendedSetupState.Installing)
                 _ = FinishWhenAgentAnswersAsync(session);
+            else if (family == "Linux")
+                _ = PrepareLinuxDragOutAsync(session, port);
+        }
+
+        /// <summary>
+        /// Sets up dragging files out of a Linux guest's console (Sharing.GuestDragOut), once per QEMU process. Nobody
+        /// needs to be logged in: the program starts with each logon. Tried again a few times if the agent fails.
+        /// </summary>
+        private async Task PrepareLinuxDragOutAsync(VmSession session, int port)
+        {
+            for (var attempt = 1; attempt <= 3 && session.IsRunning && session.GuestAgentPort == port; attempt++)
+            {
+                try
+                {
+                    await using (var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(5)))
+                    {
+                        if (agent is null)
+                            return;
+                        await GuestDragOut.SetupLinuxAsync(agent);
+                    }
+                    _dragOutReady.Add((session, port));
+                    session.AppendLog("Files: files dragged out of the console are copied to this PC.");
+                    return;
+                }
+                catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
+                {
+                    // Missing python3 or libX11 does not come back by waiting.
+                    if (attempt == 3 || ex.Message.Contains("is missing", StringComparison.Ordinal))
+                    {
+                        session.AppendLog($"Files: dragging files out of the console will not work ({ex.Message}).");
+                        return;
+                    }
+                }
+                await Task.Delay(TimeSpan.FromSeconds(20));
+            }
         }
 
         /// <summary>A Linux guest follows the window by itself; only an unattended installation waits on its agent.</summary>
@@ -1389,7 +1448,7 @@ namespace WinQEMU.ViewModels
             }
             catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
             {
-                AppendDiagnostic($"Unattended installation: the guest agent did not answer ({ex.Message}).");
+                AppendDiagnostic(session.Config, $"Unattended installation: the guest agent did not answer ({ex.Message}).");
             }
         }
 
@@ -1402,36 +1461,47 @@ namespace WinQEMU.ViewModels
             {
                 await GuestDragOut.SetupAsync(agent);
                 _dragOutReady.Add((session, port));
-                AppendDiagnostic("Files: files dragged out of the console are copied to this PC.");
+                AppendDiagnostic(session.Config, "Files: files dragged out of the console are copied to this PC.");
             }
             catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
             {
-                AppendDiagnostic($"Files: dragging files out of the console will not work ({ex.Message}).");
+                AppendDiagnostic(session.Config, $"Files: dragging files out of the console will not work ({ex.Message}).");
             }
         }
 
-        /// <summary>Files may be dragged out of the selection's console: a Windows guest with its program running, no copy under way.</summary>
+        /// <summary>Files may be dragged out of the selection's console: a guest with its program running, no copy under way.</summary>
         public bool CanDragFromGuest =>
             SelectedVm is { } vm && SelectedSession is { IsRunning: true, GuestAgentPort: { } port } session
             && _dragOutReady.Contains((session, port)) && !_transfers.ContainsKey(vm);
 
         /// <summary>
         /// What the selection's guest is dragging, once the drag has reached the edge of its screen; null if nothing
-        /// arrives within <paramref name="wait"/> (a press that was no drag of files).
+        /// arrives in time (a press that was no drag of files). <paramref name="pin"/> puts the guest's pointer on the
+        /// edge and moves it a pixel, which makes the guest look again for the window under it; a Linux guest is told
+        /// first which <paramref name="edge"/> to lay its window along (it cannot see the pointer under Wayland).
         /// </summary>
-        public async Task<IReadOnlyList<string>?> WaitForGuestDragAsync(TimeSpan wait)
+        public async Task<IReadOnlyList<string>?> WaitForGuestDragAsync(string edge, Func<Task> pin)
         {
             if (SelectedSession is not { IsRunning: true } session)
                 return null;
+            var windowsGuest = GuestTools.IsWindows(session.Config);
             try
             {
                 await using var agent = await session.ConnectGuestAgentAsync();
                 if (!await agent.SynchronizeAsync(TimeSpan.FromSeconds(1)))
                     return null;
-                var end = DateTime.UtcNow + wait;
+                if (!windowsGuest)
+                {
+                    await GuestDragOut.ShowLinuxEdgeAsync(agent, edge);
+                    // The program reads the edge every 50 ms.
+                    await Task.Delay(150);
+                }
+                _ = pin();
+                // A Linux guest asks for the list over XDND once its window is under the pointer: a little longer.
+                var end = DateTime.UtcNow + TimeSpan.FromSeconds(windowsGuest ? 1.5 : 2.5);
                 do
                 {
-                    if (await GuestDragOut.ReadAsync(agent) is { } files)
+                    if (await GuestDragOut.ReadAsync(agent, windowsGuest) is { } files)
                         return files;
                     await Task.Delay(100);
                 }
@@ -1462,6 +1532,25 @@ namespace WinQEMU.ViewModels
         /// <summary>Stops the copy of a drag that was cancelled.</summary>
         public void CancelGuestDragCopy() => CancelSendFiles();
 
+        /// <summary>Takes the Linux program's window away from the edge once the drag is over (nothing to do for Windows).</summary>
+        public async Task HideGuestDragEdgeAsync()
+        {
+            if (SelectedSession is not { IsRunning: true } session || GuestTools.IsWindows(session.Config))
+                return;
+            try
+            {
+                await using var agent = await session.ConnectGuestAgentAsync();
+                if (await agent.SynchronizeAsync(TimeSpan.FromSeconds(1)))
+                    await GuestDragOut.ShowLinuxEdgeAsync(agent, "none");
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or System.Net.Sockets.SocketException
+                                           or OperationCanceledException or InvalidOperationException)
+            {
+                // Laid down at its next drop anyway; a strip left along the edge only takes drops made there.
+                AppendDiagnostic($"Files: the guest's drag window could not be taken away ({ex.Message}).");
+            }
+        }
+
         private async Task PrepareGuestDisplayAsync(VmSession session, int port)
         {
             // As for the shared folders: the agent answers before Windows can start programs.
@@ -1475,7 +1564,7 @@ namespace WinQEMU.ViewModels
                     FinishUnattendedSetup(session.Config);
                     await WindowsGuestDisplay.SetupAsync(agent);
                     _displayReady.Add((session, port));
-                    AppendDiagnostic("Display: the guest's resolution now follows the console.");
+                    AppendDiagnostic(session.Config, "Display: the guest's resolution now follows the console.");
                     RequestGuestResolution(_consoleSize.Width, _consoleSize.Height);
                     await PrepareDragOutAsync(agent, session, port);
                     return;
@@ -1483,7 +1572,7 @@ namespace WinQEMU.ViewModels
                 catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
                 {
                     if (attempt == 5)
-                        AppendDiagnostic($"Display: the guest's resolution will not follow the console ({ex.Message}).");
+                        AppendDiagnostic(session.Config, $"Display: the guest's resolution will not follow the console ({ex.Message}).");
                     else
                         await Task.Delay(TimeSpan.FromSeconds(20));
                 }
@@ -1519,13 +1608,13 @@ namespace WinQEMU.ViewModels
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    AppendDiagnostic($"Unattended installation: {file} could not be deleted ({ex.Message}).");
+                    AppendDiagnostic(config, $"Unattended installation: {file} could not be deleted ({ex.Message}).");
                 }
             }
             config.BootFromIso = false;
             config.UnattendedSetup = UnattendedSetupState.None;
             Manager.Save(config);
-            AppendDiagnostic("Unattended installation: done. Answer file deleted; the machine now starts from its disk.");
+            AppendDiagnostic(config, "Unattended installation: done. Answer file deleted; the machine now starts from its disk.");
         }
 
         /// <summary>
@@ -1826,7 +1915,7 @@ namespace WinQEMU.ViewModels
                 var name = await AutoSnapshots.TakeIfDueAsync(config, images, Manager.VirtualMachines.ToList(), DateTime.UtcNow);
                 Manager.Save(config);
                 if (name is not null)
-                    AppendDiagnostic($"Automatic snapshot: {name}.");
+                    AppendDiagnostic(config, $"Automatic snapshot: {name}.");
             }
             catch (Exception ex) when (ex is QemuImgException or IOException or InvalidOperationException)
             {
@@ -1943,7 +2032,18 @@ namespace WinQEMU.ViewModels
             catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
             {
                 report = new GuestToolsReport(GuestToolsState.Unknown, string.Empty);
+                session.AppendLog($"Guest tools: could not be checked ({ex.Message}).");
             }
+            // In the machine's own log (AppendDiagnostic writes to the one shown, which another selection clears): the
+            // banner says "missing or incomplete" for an agent that did not answer as for a missing spice-vdagent, and a
+            // false one was seen without anything saying which.
+            session.AppendLog(report.State switch
+            {
+                GuestToolsState.AgentMissing => $"Guest tools: the guest agent did not answer within {agentWait.TotalMinutes:0} min.",
+                GuestToolsState.Incomplete => "Guest tools: the agent answers, but the clipboard agent is missing.",
+                GuestToolsState.Complete => "Guest tools: complete.",
+                _ => "Guest tools: unknown."
+            });
             if (session.IsRunning && !_toolsInstalls.Contains(config))
                 SetToolsReport(config, report);
         }

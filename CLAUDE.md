@@ -616,10 +616,13 @@ le presse-papiers n'y a pas d'usage, et la Debian serveur de l'utilisateur étai
 get-default` y répondait pourtant `graphical.target`). Absents : lien dans la barre de la console et section
 **Outils invités** du résumé. L'interface ne cite pas les VMware Tools (choix de l'utilisateur).
 
-- **La conclusion est écrite dans le journal de la machine** (« Guest tools: complete. », « … did not answer within 3 min. »…),
-  par `VmSession.AppendLog`, pas `AppendDiagnostic` : celui-ci écrit dans le journal **affiché**, vidé au changement de
-  sélection ; une ligne pour une machine non affichée (WinQEMU caché, démarrage par la commande) était perdue ou attribuée
-  à une autre. Le bandeau dit « absents ou incomplets » aussi pour un agent qui n'a pas répondu à temps : une fausse alerte
+- **La conclusion est écrite dans le journal de la machine** (« Guest tools: complete. », « … did not answer within 3 min. »…).
+  **Journal de l'interface** : `AppendDiagnostic(message)` écrit dans le journal de la machine affichée (celui de sa
+  `VmSession`, gardé), `AppendDiagnostic(config, message)` dans celui d'une machine donnée, pour une tâche de fond
+  (démarrage avec WinQEMU, fin d'installation, affichage, instantané automatique…). Avant, tout allait dans le texte
+  affiché, refait au changement de sélection : une ligne pour une machine non affichée (WinQEMU caché, démarrage par la
+  commande) était perdue, ou montrée un moment sous une autre. Vérifié : Fedora affichée, Ubuntu démarrée par la commande,
+  ses lignes dans son journal et aucune dans celui de Fedora. Le bandeau dit « absents ou incomplets » aussi pour un agent qui n'a pas répondu à temps : une fausse alerte
   vue sur Ubuntu venait de scripts d'essai qui interrogeaient l'agent pendant le démarrage (son canal n'a qu'un client) ;
   démarrage propre avec ouverture de session automatique : « complete » 31 s après le démarrage (10/11/2026).
 

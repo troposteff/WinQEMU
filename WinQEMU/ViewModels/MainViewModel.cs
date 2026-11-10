@@ -581,7 +581,7 @@ namespace WinQEMU.ViewModels
                     continue;
                 try
                 {
-                    AppendDiagnostic($"Start with WinQEMU: starting {entry.Machine.Name}.");
+                    AppendDiagnostic(entry.Machine, "Start with WinQEMU: starting.");
                     await StartMachineAsync(session);
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or IOException or QmpException
@@ -631,7 +631,7 @@ namespace WinQEMU.ViewModels
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or QmpException or IOException)
                 {
-                    AppendDiagnostic($"{session.Config.Name}: shutdown could not be asked for ({ex.Message}).");
+                    AppendDiagnostic(session.Config, $"Shutdown could not be asked for ({ex.Message}).");
                 }
             }
         }
@@ -787,7 +787,7 @@ namespace WinQEMU.ViewModels
                 // Ubuntu's installer kernel is booted directly by QEMU: no firmware prompt to answer.
                 if (GuestOsCatalog.Find(config.GuestOs)?.Family == "Windows")
                     _ = session.PressBootKeyAsync(TimeSpan.FromSeconds(20));
-                AppendDiagnostic("Unattended installation: starting the installer from the ISO.");
+                AppendDiagnostic(session.Config, "Unattended installation: starting the installer from the ISO.");
             }
 
             MountSharedFolders(session);
@@ -936,20 +936,43 @@ namespace WinQEMU.ViewModels
         }
 
         /// <summary>
-        /// Appends a shell-side diagnostic to the same log as QEMU's output, so console embedding
-        /// problems are visible next to the VM they belong to. Safe to call from any thread.
+        /// Appends a shell-side diagnostic to the log of the machine shown, next to QEMU's output. Safe to call from any
+        /// thread. Something about another machine goes through <see cref="AppendDiagnostic(VmConfig, string)"/>.
         /// </summary>
+        /// <remarks>
+        /// Into the machine's own log, kept by its session, not only into the text shown: that text is rebuilt from the
+        /// session's log at each selection, and a line written only there was lost (or showed a while under another
+        /// machine) once something else was selected.
+        /// </remarks>
         public void AppendDiagnostic(string message)
         {
+            var stamped = $"[{DateTime.Now:HH:mm:ss}] {message}";
             _dispatcher.TryEnqueue(() =>
             {
-                _logBuffer.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
+                if (SelectedSession is { } session)
+                {
+                    session.AppendLog(message);
+                    return;
+                }
+                _logBuffer.Add(stamped);
                 if (_logBuffer.Count > MaxDisplayedLogLines)
                     _logBuffer.RemoveRange(0, _logBuffer.Count - MaxDisplayedLogLines);
 
                 _logFlushTimer.Stop();
                 _logFlushTimer.Start();
             });
+        }
+
+        /// <summary>
+        /// A diagnostic about a given machine, into its own log whichever is shown (a task in the background: a start
+        /// with WinQEMU, an installation finishing, the display set up after a guest reboot).
+        /// </summary>
+        public void AppendDiagnostic(VmConfig config, string message)
+        {
+            if (Manager.FindSession(config) is { } session)
+                session.AppendLog(message);
+            else
+                AppendDiagnostic($"{config.Name}: {message}");
         }
 
         private void FlushLog()
@@ -1425,7 +1448,7 @@ namespace WinQEMU.ViewModels
             }
             catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
             {
-                AppendDiagnostic($"Unattended installation: the guest agent did not answer ({ex.Message}).");
+                AppendDiagnostic(session.Config, $"Unattended installation: the guest agent did not answer ({ex.Message}).");
             }
         }
 
@@ -1438,11 +1461,11 @@ namespace WinQEMU.ViewModels
             {
                 await GuestDragOut.SetupAsync(agent);
                 _dragOutReady.Add((session, port));
-                AppendDiagnostic("Files: files dragged out of the console are copied to this PC.");
+                AppendDiagnostic(session.Config, "Files: files dragged out of the console are copied to this PC.");
             }
             catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
             {
-                AppendDiagnostic($"Files: dragging files out of the console will not work ({ex.Message}).");
+                AppendDiagnostic(session.Config, $"Files: dragging files out of the console will not work ({ex.Message}).");
             }
         }
 
@@ -1541,7 +1564,7 @@ namespace WinQEMU.ViewModels
                     FinishUnattendedSetup(session.Config);
                     await WindowsGuestDisplay.SetupAsync(agent);
                     _displayReady.Add((session, port));
-                    AppendDiagnostic("Display: the guest's resolution now follows the console.");
+                    AppendDiagnostic(session.Config, "Display: the guest's resolution now follows the console.");
                     RequestGuestResolution(_consoleSize.Width, _consoleSize.Height);
                     await PrepareDragOutAsync(agent, session, port);
                     return;
@@ -1549,7 +1572,7 @@ namespace WinQEMU.ViewModels
                 catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
                 {
                     if (attempt == 5)
-                        AppendDiagnostic($"Display: the guest's resolution will not follow the console ({ex.Message}).");
+                        AppendDiagnostic(session.Config, $"Display: the guest's resolution will not follow the console ({ex.Message}).");
                     else
                         await Task.Delay(TimeSpan.FromSeconds(20));
                 }
@@ -1585,13 +1608,13 @@ namespace WinQEMU.ViewModels
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    AppendDiagnostic($"Unattended installation: {file} could not be deleted ({ex.Message}).");
+                    AppendDiagnostic(config, $"Unattended installation: {file} could not be deleted ({ex.Message}).");
                 }
             }
             config.BootFromIso = false;
             config.UnattendedSetup = UnattendedSetupState.None;
             Manager.Save(config);
-            AppendDiagnostic("Unattended installation: done. Answer file deleted; the machine now starts from its disk.");
+            AppendDiagnostic(config, "Unattended installation: done. Answer file deleted; the machine now starts from its disk.");
         }
 
         /// <summary>
@@ -1892,7 +1915,7 @@ namespace WinQEMU.ViewModels
                 var name = await AutoSnapshots.TakeIfDueAsync(config, images, Manager.VirtualMachines.ToList(), DateTime.UtcNow);
                 Manager.Save(config);
                 if (name is not null)
-                    AppendDiagnostic($"Automatic snapshot: {name}.");
+                    AppendDiagnostic(config, $"Automatic snapshot: {name}.");
             }
             catch (Exception ex) when (ex is QemuImgException or IOException or InvalidOperationException)
             {

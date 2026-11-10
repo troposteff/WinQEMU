@@ -616,6 +616,13 @@ le presse-papiers n'y a pas d'usage, et la Debian serveur de l'utilisateur étai
 get-default` y répondait pourtant `graphical.target`). Absents : lien dans la barre de la console et section
 **Outils invités** du résumé. L'interface ne cite pas les VMware Tools (choix de l'utilisateur).
 
+- **La conclusion est écrite dans le journal de la machine** (« Guest tools: complete. », « … did not answer within 3 min. »…),
+  par `VmSession.AppendLog`, pas `AppendDiagnostic` : celui-ci écrit dans le journal **affiché**, vidé au changement de
+  sélection ; une ligne pour une machine non affichée (WinQEMU caché, démarrage par la commande) était perdue ou attribuée
+  à une autre. Le bandeau dit « absents ou incomplets » aussi pour un agent qui n'a pas répondu à temps : une fausse alerte
+  vue sur Ubuntu venait de scripts d'essai qui interrogeaient l'agent pendant le démarrage (son canal n'a qu'un client) ;
+  démarrage propre avec ouverture de session automatique : « complete » 31 s après le démarrage (10/11/2026).
+
 - **Sans agent, rien ne s'exécute dans l'invité.** Linux : WinQEMU **tape** la commande (`apt-get`/`dnf`/`zypper`/`pacman`)
   dans un terminal que l'utilisateur a ouvert (`Input.KeyboardText` : touches de la disposition de ce PC, AltGr = Alt droit,
   touche morte suivie d'espace, détectée par `ToUnicodeEx` avec les modificateurs ; un caractère à la fois, le tampon PS/2

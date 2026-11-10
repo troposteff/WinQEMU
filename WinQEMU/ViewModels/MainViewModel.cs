@@ -1397,7 +1397,7 @@ namespace WinQEMU.ViewModels
                         await GuestDragOut.SetupLinuxAsync(agent);
                     }
                     _dragOutReady.Add((session, port));
-                    AppendDiagnostic("Files: files dragged out of the console are copied to this PC.");
+                    session.AppendLog("Files: files dragged out of the console are copied to this PC.");
                     return;
                 }
                 catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
@@ -1405,7 +1405,7 @@ namespace WinQEMU.ViewModels
                     // Missing python3 or libX11 does not come back by waiting.
                     if (attempt == 3 || ex.Message.Contains("is missing", StringComparison.Ordinal))
                     {
-                        AppendDiagnostic($"Files: dragging files out of the console will not work ({ex.Message}).");
+                        session.AppendLog($"Files: dragging files out of the console will not work ({ex.Message}).");
                         return;
                     }
                 }
@@ -2009,7 +2009,18 @@ namespace WinQEMU.ViewModels
             catch (Exception ex) when (ex is GuestAgentException or IOException or OperationCanceledException or InvalidOperationException)
             {
                 report = new GuestToolsReport(GuestToolsState.Unknown, string.Empty);
+                session.AppendLog($"Guest tools: could not be checked ({ex.Message}).");
             }
+            // In the machine's own log (AppendDiagnostic writes to the one shown, which another selection clears): the
+            // banner says "missing or incomplete" for an agent that did not answer as for a missing spice-vdagent, and a
+            // false one was seen without anything saying which.
+            session.AppendLog(report.State switch
+            {
+                GuestToolsState.AgentMissing => $"Guest tools: the guest agent did not answer within {agentWait.TotalMinutes:0} min.",
+                GuestToolsState.Incomplete => "Guest tools: the agent answers, but the clipboard agent is missing.",
+                GuestToolsState.Complete => "Guest tools: complete.",
+                _ => "Guest tools: unknown."
+            });
             if (session.IsRunning && !_toolsInstalls.Contains(config))
                 SetToolsReport(config, report);
         }

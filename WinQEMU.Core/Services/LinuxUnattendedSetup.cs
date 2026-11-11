@@ -307,16 +307,19 @@ namespace WinQEMU.Core.Services
             // KDE's first-boot assistant (mandatory in its comps groups), which "firstboot --disable" does not reach: Fedora
             // KDE started on "Bienvenue sur Plasma Desktop, Commencer la configuration" with the account already made.
             var excluded = s.Desktop == LinuxDesktop.Kde ? "\n-plasma-setup" : string.Empty;
-            // No --activate: NetworkManager has the card up already, and re-activating it cut it off just as Anaconda set up
-            // its sources ("Could not resolve host: mirrors.fedoraproject.org" one second after the re-activation, two
-            // before NetworkManager's "dns-change"). The line still names the installed system. See FedoraWaitForNetwork.
+            // The network line names the installed system and nothing else. Configuring the card there (--bootproto=dhcp,
+            // with or without --activate) makes Anaconda re-activate it once the %pre scripts are over, FedoraWaitForNetwork
+            // among them: systemd-resolved's journal shows the DNS server list reset two seconds after the %pre, and the
+            // sources set up one second later failed on "Could not resolve host: mirrors.fedoraproject.org" (two installs
+            // out of two on 11/11/2026). NetworkManager has the card up by DHCP already, in the installer as in the
+            // installed system.
             return $"""
                 # Written by WinQEMU for an unattended installation.
                 text
                 lang {s.Locale}
                 keyboard --xlayouts='{s.KeyboardLayout}'
                 timezone {s.TimeZone} --utc
-                network --bootproto=dhcp --hostname={s.Hostname}
+                network --hostname={s.Hostname}
                 zerombr
                 clearpart --all --initlabel
                 autopart

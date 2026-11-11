@@ -58,8 +58,10 @@ public class LinuxUnattendedSetupTests
         var console = LinuxUnattendedSetup.FedoraKickstart(Settings(LinuxDesktop.None));
         Assert.Contains("@^server-product-environment", console);
         Assert.Contains("reboot", kickstart);
-        // Re-activating the card cut it off as Anaconda set up its sources: "Could not resolve host".
-        Assert.Contains("\nnetwork --bootproto=dhcp --hostname=", kickstart.ReplaceLineEndings("\n"));
+        // The card is left alone: configured here, Anaconda re-activated it after the %pre scripts and its first lookup
+        // failed, "Could not resolve host".
+        Assert.Contains("\nnetwork --hostname=", kickstart.ReplaceLineEndings("\n"));
+        Assert.DoesNotContain("--bootproto", kickstart);
         Assert.DoesNotContain("--activate", kickstart);
         // Anaconda waits for the network and DNS before setting up its sources: its first lookup failed otherwise.
         Assert.Contains("\n%pre --log=/tmp/winqemu-pre.log\nnm-online", kickstart.ReplaceLineEndings("\n"));

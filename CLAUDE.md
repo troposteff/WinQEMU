@@ -1162,8 +1162,12 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
     l'ISO netinst de Fedora 45, Anaconda préparait ses sources une seconde après que NetworkManager avait monté la carte, et
     sa toute première recherche de nom échouait (« Could not resolve host », 3 ms après « Using degraded feature set UDP
     instead of UDP+EDNS0 for DNS server 10.0.2.3 » de systemd-resolved) : arrêt sur « Erreur lors de la configuration des
-    dépôts ». Juste après, et depuis un shell, la résolution marchait toujours. **Pas de `--activate`** sur la ligne
-    `network` (la réactivation coupait la carte au même moment) ; `ip=dhcp` sur la ligne du noyau n'y changeait rien.
+    dépôts ». Juste après, et depuis un shell, la résolution marchait toujours. `ip=dhcp` sur la ligne du noyau n'y
+    changeait rien. **L'attente ne suffisait pas** (11/11/2026, deux installations sur deux arrêtées sur la même erreur) :
+    une ligne `network` qui configure la carte (`--bootproto=dhcp`, avec ou sans `--activate`) la fait **réactiver par
+    Anaconda après les `%pre`** (journal de systemd-resolved : liste DNS vidée 2 s après la fin du `%pre`, sources
+    préparées 1 s plus tard). La ligne ne porte donc plus que **`--hostname`** : NetworkManager a déjà la carte en DHCP,
+    dans l'installateur comme dans le système installé (vérifié : nom d'hôte, carte connectée, résolution de noms).
     Vérifié de bout en bout (Xfce, 09/11/2026) : 9 min sans fenêtre, sources préparées 7 s après le début du `%pre`.
     Diagnostic sans agent : un second QMP dans les arguments supplémentaires, touches envoyées par `send-key` dans le
     shell d'Anaconda (onglet tmux 2 : `Ctrl+B` puis `N`), positions AZERTY, et `screendump`.

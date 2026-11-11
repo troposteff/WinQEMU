@@ -330,7 +330,8 @@ namespace WinQEMU.Core.Services
                 %packages
                 {environment}
                 qemu-guest-agent
-                spice-vdagent{excluded}
+                spice-vdagent
+                {string.Join('\n', GuestTools.FedoraPerl.Split(' '))}{excluded}
                 %end
 
                 {FedoraWaitForNetwork}

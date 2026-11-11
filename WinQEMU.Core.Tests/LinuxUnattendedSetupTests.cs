@@ -71,6 +71,8 @@ public class LinuxUnattendedSetupTests
         Assert.Contains("\nskipx\n", console.ReplaceLineEndings("\n"));
         // KDE's own first-boot assistant would otherwise ask to set up an account that exists.
         Assert.Contains("\n-plasma-setup\n%end", LinuxUnattendedSetup.FedoraKickstart(Settings(LinuxDesktop.Kde)).ReplaceLineEndings("\n"));
+        // Perl, which WinQEMU's guest programs are written in: Fedora with Xfce came without it.
+        Assert.Contains("\nspice-vdagent\nperl-interpreter\nperl-IO\nperl-Socket\nperl-Errno\n%end", kickstart.ReplaceLineEndings("\n"));
         Assert.DoesNotContain("plasma-setup", kickstart);
         // SELinux confines the agent: what it ran could not reach /home.
         Assert.Contains("%post\nif command -v semodule", kickstart.ReplaceLineEndings("\n"));

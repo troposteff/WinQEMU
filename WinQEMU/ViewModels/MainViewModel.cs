@@ -2040,7 +2040,7 @@ namespace WinQEMU.ViewModels
             session.AppendLog(report.State switch
             {
                 GuestToolsState.AgentMissing => $"Guest tools: the guest agent did not answer within {agentWait.TotalMinutes:0} min.",
-                GuestToolsState.Incomplete => "Guest tools: the agent answers, but the clipboard agent is missing.",
+                GuestToolsState.Incomplete => $"Guest tools: the agent answers, but {report.Missing ?? "something"} is missing.",
                 GuestToolsState.Complete => "Guest tools: complete.",
                 _ => "Guest tools: unknown."
             });

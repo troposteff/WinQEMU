@@ -139,4 +139,5 @@
   <data name="GuestOsFirewallCaveat" xml:space="preserve"><value>A firewall needs two network cards, WAN and LAN: add the second one in Hardware once the machine is created, for example on a virtual network for the machines it protects.</value></data>
   <data name="UnattendedLinuxHostnameRule" xml:space="preserve"><value>A computer name contains only letters, digits and hyphens, does not start or end with a hyphen, and has 63 characters at most.</value></data>
   <data name="UnattendedWindowsComputerNameRule" xml:space="preserve"><value>A Windows computer name contains only letters, digits and hyphens, not only digits, does not start or end with a hyphen, and has 15 characters at most.</value></data>
+  <data name="GuestToolsNoPerl" xml:space="preserve"><value>The guest agent answers, but Perl is not installed: files cannot be copied to or from the guest, and shared folders are not mounted.</value></data>
 </root>

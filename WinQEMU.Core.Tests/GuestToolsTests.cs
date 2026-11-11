@@ -33,6 +33,43 @@ public sealed class GuestToolsTests : IDisposable
         }
     }
 
+    // What the Linux check prints: "present" (spice-vdagent), "headless" (no desktop), "perl".
+    [Theory]
+    [InlineData("present\nperl\n", GuestToolsState.Complete, null)]
+    [InlineData("headless\nperl\n", GuestToolsState.Complete, null)]
+    [InlineData("perl\n", GuestToolsState.Incomplete, "spice-vdagent")]
+    // A Fedora installed with Xfce had no Perl: nothing could be copied, whatever else was there.
+    [InlineData("present\n", GuestToolsState.Incomplete, "Perl")]
+    [InlineData("headless\n", GuestToolsState.Incomplete, "Perl")]
+    [InlineData("", GuestToolsState.Incomplete, "Perl")]
+    public void A_Linux_guest_needs_Perl_and_with_a_desktop_the_clipboard_agent(string output, GuestToolsState state, string? missing)
+    {
+        var report = GuestTools.Report(output, windowsGuest: false);
+
+        Assert.Equal(state, report.State);
+        Assert.Equal(missing, report.Missing);
+    }
+
+    [Fact]
+    public void A_Windows_guest_is_not_asked_for_Perl()
+    {
+        Assert.Equal(GuestToolsState.Complete, GuestTools.Report("present", windowsGuest: true).State);
+        Assert.Equal(GuestToolsState.Incomplete, GuestTools.Report("", windowsGuest: true).State);
+    }
+
+    [Fact]
+    public void Perl_is_checked_and_installed_with_the_modules_the_guest_programs_use()
+    {
+        Assert.Contains("perl -MIO::Handle -MSocket -e 'my $e = $!{EBUSY}'", GuestTools.LinuxCheckScript);
+        Assert.Contains("dnf install -y $packages perl-interpreter perl-IO perl-Socket perl-Errno\n", GuestTools.LinuxToolsScript);
+        Assert.Contains("apt-get install -y $packages perl-base\n", GuestTools.LinuxToolsScript);
+        // The clipboard agent only where there is a desktop to use it.
+        Assert.Contains("packages=spice-vdagent", GuestTools.LinuxToolsScript);
+        // Each sessions folder on its own: "ls a b" failed when one was missing, and Xfce on X11 read as no desktop.
+        Assert.DoesNotContain("ls /usr/share/xsessions", GuestTools.LinuxToolsScript + GuestTools.LinuxCheckScript);
+        Assert.Contains("spice-vdagent perl-interpreter perl-IO perl-Socket perl-Errno;", GuestTools.LinuxInstallCommand);
+    }
+
     [Fact]
     public void Tools_are_looked_at_only_in_an_installed_system()
     {

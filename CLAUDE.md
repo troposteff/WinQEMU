@@ -626,6 +626,17 @@ get-default` y répondait pourtant `graphical.target`). Absents : lien dans la b
   vue sur Ubuntu venait de scripts d'essai qui interrogeaient l'agent pendant le démarrage (son canal n'a qu'un client) ;
   démarrage propre avec ouverture de session automatique : « complete » 31 s après le démarrage (10/11/2026).
 
+- **Perl fait partie des outils d'un invité Linux** : le récepteur du dépôt, l'émetteur de la récupération et la pompe des
+  dossiers partagés sont en Perl, présent sur Debian, Ubuntu (perl-base essentiel) et openSUSE, mais **pas sur une Fedora
+  installée avec Xfce** : un glisser hors de l'invité lisait sa liste puis échouait sur « Failed to execute child process
+  "perl" ». La vérification le teste avec ses modules (`perl -MIO::Handle -MSocket`, `%!`), le signale (« Perl n'est pas
+  installé… », `GuestTools.Report`), « Installer les outils invités » l'installe (`FedoraPerl` : `perl-interpreter perl-IO
+  perl-Socket perl-Errno`, Fedora découpant Perl en petits paquets ; `perl-base` ou `perl` ailleurs), et l'installation
+  automatique de Fedora l'ajoute à ses paquets. Vérifié sur Fedora 45 Xfce : Perl retiré, journal « Perl is missing »,
+  script d'installation par l'agent, vérification « perl ».
+- **Bureau détecté dossier par dossier** : `ls xsessions/*.desktop wayland-sessions/*.desktop` échouait dès qu'un des
+  deux dossiers manquait (X11 seul sous Xfce, Wayland seul sous Ubuntu) et l'invité passait pour « sans bureau » : sans
+  `spice-vdagent`, il aurait été dit complet à tort.
 - **Sans agent, rien ne s'exécute dans l'invité.** Linux : WinQEMU **tape** la commande (`apt-get`/`dnf`/`zypper`/`pacman`)
   dans un terminal que l'utilisateur a ouvert (`Input.KeyboardText` : touches de la disposition de ce PC, AltGr = Alt droit,
   touche morte suivie d'espace, détectée par `ToUnicodeEx` avec les modificateurs ; un caractère à la fois, le tampon PS/2
@@ -954,6 +965,8 @@ invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmCon
   y **déplaçait l'icône**. Gestionnaire d'erreurs X neutre (une fenêtre disparue arrêterait le programme).
   **Vérifié dans l'app sur openSUSE Tumbleweed (Plasma 6, Wayland) installé par WinQEMU, 09/11/2026** : fichier de 60 Mo et
   dossier (SHA-256 identiques), Échap, relâché hors cible, icônes en place ; Ubuntu revérifié ensuite.
+  **X11 vérifié aussi** (Fedora 45, Xfce, LightDM, 11/11/2026), image mise à l'échelle (l'invité Xfce ne suit pas la
+  fenêtre) : fichier de 60 Mo et dossier, SHA-256 identiques, icônes en place.
 
 ## Réseaux virtuels
 

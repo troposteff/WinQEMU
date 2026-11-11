@@ -18,7 +18,8 @@ namespace WinQEMU.Core.Services
         Complete
     }
 
-    public sealed record GuestToolsReport(GuestToolsState State, string Text);
+    /// <param name="Missing">What is missing, in English, for the machine's log; null when nothing is.</param>
+    public sealed record GuestToolsReport(GuestToolsState State, string Text, string? Missing = null);
 
     /// <summary>
     /// The guest's side of WinQEMU, as VMware Tools are VMware's: qemu-guest-agent, on which shared folders,
@@ -71,20 +72,38 @@ namespace WinQEMU.Core.Services
         /// </summary>
         public const string LinuxInstallCommand =
             "sudo sh -c 'if command -v apt-get >/dev/null; then apt-get install -y qemu-guest-agent spice-vdagent; " +
-            "elif command -v dnf >/dev/null; then dnf install -y qemu-guest-agent spice-vdagent; " +
+            "elif command -v dnf >/dev/null; then dnf install -y qemu-guest-agent spice-vdagent " + FedoraPerl + "; " +
             "elif command -v zypper >/dev/null; then zypper -n in qemu-guest-agent spice-vdagent; " +
             "elif command -v pacman >/dev/null; then pacman -S --noconfirm qemu-guest-agent spice-vdagent; fi; " +
             "systemctl start qemu-guest-agent'";
 
-        /// <summary>Run by the agent as root: the clipboard agent, without a question. Exit 31: no known package manager.</summary>
+        /// <summary>
+        /// Perl as WinQEMU's guest programs need it, in Fedora's packages: the interpreter and the core modules they use
+        /// (IO::Handle, Socket, %! for Errno), which Fedora ships apart.
+        /// </summary>
+        /// <remarks>
+        /// The file drop's receiver, the pull's sender and the shared folders' pump are Perl, there on Debian and Ubuntu
+        /// (perl-base is essential) and on openSUSE, but not on a Fedora installed with Xfce: a drag out of the guest
+        /// read its list, then failed on "Failed to execute child process "perl" (No such file or directory)".
+        /// </remarks>
+        public const string FedoraPerl = "perl-interpreter perl-IO perl-Socket perl-Errno";
+
+        /// <summary>
+        /// Run by the agent as root: what is missing, without a question. The clipboard agent for a guest with a desktop
+        /// only, and Perl (see <see cref="FedoraPerl"/>). Exit 31: no known package manager.
+        /// </summary>
         public static readonly string LinuxToolsScript = """
             export DEBIAN_FRONTEND=noninteractive
-            if command -v apt-get >/dev/null; then apt-get install -y spice-vdagent
-            elif command -v dnf >/dev/null; then dnf install -y spice-vdagent
-            elif command -v zypper >/dev/null; then zypper -n in spice-vdagent
-            elif command -v pacman >/dev/null; then pacman -S --noconfirm spice-vdagent
+            packages=
+            desktop=
+            for f in /usr/share/xsessions/*.desktop /usr/share/wayland-sessions/*.desktop; do [ -e "$f" ] && desktop=1; done
+            if [ -n "$desktop" ] && ! command -v spice-vdagent >/dev/null; then packages=spice-vdagent; fi
+            if command -v apt-get >/dev/null; then apt-get install -y $packages perl-base
+            elif command -v dnf >/dev/null; then dnf install -y $packages {FEDORA_PERL}
+            elif command -v zypper >/dev/null; then zypper -n in $packages perl
+            elif command -v pacman >/dev/null; then pacman -S --noconfirm --needed $packages perl
             else exit 31; fi
-            """.ReplaceLineEndings("\n");
+            """.Replace("{FEDORA_PERL}", FedoraPerl, StringComparison.Ordinal).ReplaceLineEndings("\n");
 
         /// <summary>Whether the machine's profile is one WinQEMU has tools for.</summary>
         public static bool Applies(VmConfig config) =>
@@ -103,11 +122,16 @@ namespace WinQEMU.Core.Services
         /// Asked of a Linux guest: whether spice-vdagent is there, and whether it has a desktop at all. Without
         /// one (a server, like the user's Debian), the clipboard agent has nothing to do, and calling the tools
         /// incomplete only nagged. A desktop is known by the sessions it declares to its display manager;
-        /// "systemctl get-default" said graphical.target on that Debian too.
+        /// "systemctl get-default" said graphical.target on that Debian too. And whether Perl is there with the modules
+        /// WinQEMU's guest programs use (see <see cref="FedoraPerl"/>).
         /// </summary>
         public const string LinuxCheckScript =
             "command -v spice-vdagent >/dev/null && echo present; " +
-            "ls /usr/share/xsessions/*.desktop /usr/share/wayland-sessions/*.desktop >/dev/null 2>&1 || echo headless";
+            // One by one: "ls a b" fails as soon as one of the two folders is missing, and a guest with X11 sessions only
+            // (Fedora with Xfce) or Wayland ones only (Ubuntu) was said to have no desktop.
+            "desktop=; for f in /usr/share/xsessions/*.desktop /usr/share/wayland-sessions/*.desktop; do [ -e \"$f\" ] && desktop=1; done; " +
+            "[ -n \"$desktop\" ] || echo headless; " +
+            "perl -MIO::Handle -MSocket -e 'my $e = $!{EBUSY}' 2>/dev/null && echo perl";
 
         /// <summary>What the guest has, asked of its agent.</summary>
         public static async Task<GuestToolsReport> CheckAsync(GuestAgentClient agent, bool windowsGuest, CancellationToken cancellationToken = default)
@@ -127,15 +151,23 @@ namespace WinQEMU.Core.Services
                     null, TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
             }
 
-            if (result.Output.Contains("present", StringComparison.Ordinal))
+            return Report(result.Output, windowsGuest);
+        }
+
+        /// <summary>What the check's output means (<see cref="LinuxCheckScript"/>, or the Windows service found).</summary>
+        public static GuestToolsReport Report(string output, bool windowsGuest)
+        {
+            bool Has(string word) => output.Contains(word, StringComparison.Ordinal);
+            // Before the clipboard: without Perl nothing is copied and no shared folder is mounted, desktop or not.
+            if (!windowsGuest && !Has("perl"))
+                return new GuestToolsReport(GuestToolsState.Incomplete, CoreText.GuestToolsNoPerl, "Perl");
+            if (Has("present"))
                 return new GuestToolsReport(GuestToolsState.Complete, CoreText.GuestToolsInstalled);
-            if (result.Output.Contains("headless", StringComparison.Ordinal))
-            {
+            if (Has("headless"))
                 return new GuestToolsReport(GuestToolsState.Complete, CoreText.GuestToolsHeadless);
-            }
-            return new GuestToolsReport(GuestToolsState.Incomplete, windowsGuest
-                ? CoreText.GuestToolsIncompleteWindows
-                : CoreText.GuestToolsIncompleteLinux);
+            return windowsGuest
+                ? new GuestToolsReport(GuestToolsState.Incomplete, CoreText.GuestToolsIncompleteWindows, "virtio-win's guest tools")
+                : new GuestToolsReport(GuestToolsState.Incomplete, CoreText.GuestToolsIncompleteLinux, "spice-vdagent");
         }
 
         /// <summary>Installs what the agent alone does not bring. Windows needs virtio-win's ISO in a drive.</summary>

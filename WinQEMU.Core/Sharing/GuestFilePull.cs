@@ -548,7 +548,7 @@ namespace WinQEMU.Core.Sharing
                     throw new GuestFileDropException(CoreText.FileDropNotRunning);
 
                 // Connected first, as for a drop: in Linux, a port with no host behind it ends at once.
-                using var client = await ConnectAsync(dropPort, cancellationToken).ConfigureAwait(false);
+                using var client = await GuestFileDrop.ConnectToPortAsync(session, dropPort, cancellationToken).ConfigureAwait(false);
 
                 long pid;
                 var marker = NewMarker();
@@ -639,41 +639,6 @@ namespace WinQEMU.Core.Sharing
         {
             var go = Encoding.ASCII.GetBytes(marker);
             await client.GetStream().WriteAsync(go, cancellationToken).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Connects to QEMU's end of the copy port, trying again for a few seconds: a connection refused there is not
-        /// always a machine started without the port.
-        /// </summary>
-        /// <remarks>
-        /// Seen once, right after two copies stopped in a row (Escape, then a release over nothing): the next copies
-        /// were refused until the machine was restarted. QEMU does not see a connection closed by the host, keeps it as
-        /// its client until the guest writes to it, and lets few connections wait behind it: refused beyond that (made
-        /// to happen with a Linux guest; GuestFileDrop.LinuxPortHandshake). Waiting covers a refusal that is only a moment.
-        /// </remarks>
-        private static async Task<TcpClient> ConnectAsync(int port, CancellationToken cancellationToken)
-        {
-            for (var attempt = 1; ; attempt++)
-            {
-                var client = new TcpClient { NoDelay = true };
-                try
-                {
-                    await client.ConnectAsync("127.0.0.1", port, cancellationToken).ConfigureAwait(false);
-                    return client;
-                }
-                catch (SocketException)
-                {
-                    client.Dispose();
-                    if (attempt >= 10)
-                        throw new GuestFileDropException(CoreText.FileDropStartedWithoutChannel);
-                }
-                catch
-                {
-                    client.Dispose();
-                    throw;
-                }
-                await Task.Delay(300, cancellationToken).ConfigureAwait(false);
-            }
         }
 
         /// <summary>

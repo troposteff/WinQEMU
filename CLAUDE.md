@@ -718,6 +718,14 @@ pas accessible depuis l'environnement de test.
   le bouton d'alimentation, et WinQEMU quitte une fois tous arrêtés, ce qui laisse Windows continuer. Annulé
   (`WM_ENDSESSION` faux), WinQEMU reste ; les invités déjà priés s'arrêtent quand même. Vérifié en envoyant ces
   messages à la fenêtre (Ubuntu éteint par lui-même, code 0, puis WinQEMU fermé) ; pas sur un vrai arrêt de Windows.
+- **Arrêter un invité Linux passe par l'agent** (`VmSession.RequestShutdownAsync`, donc bouton, commande, dossier, fermeture
+  de WinQEMU, arrêt de Windows) : ce qu'un bureau fait du bouton d'alimentation lui appartient. Plasma n'affichait que son
+  écran de déconnexion (`winqemu stop --wait` abandonnait après 300 s), Xfce ne s'arrêtait pas en 90 s, GNOME compte 60 s.
+  Agent qui répond (3 s au plus) et invité Linux : `guest-shutdown` ; sinon, ou sur refus (openSUSE installé à la main le
+  bloque), le bouton. **Windows garde le bouton**, auquel il obéit : l'agent y force la fermeture des programmes
+  (`EWX_FORCE`). `guest-shutdown` ne répond que s'il échoue (`GuestAgentClient.ShutdownAsync` : le silence vaut accord) ;
+  « Redémarrer » prenait ce silence pour un refus et appuyait en plus sur le bouton. Vérifié par `winqemu stop --wait` sur
+  Fedora 45 Xfce et openSUSE KDE : arrêtées en 2 s, journal de l'invité « guest-shutdown called » puis arrêt propre.
 - **Attendre les machines vivantes** (`VmManager.LiveSessions`), pas `RunningSessions` : une machine priée de
   s'arrêter passe « Arrêt en cours », que `RunningSessions` exclut. Les premières versions de « Arrêter et quitter »
   la croyaient donc arrêtée aussitôt et coupaient QEMU en quittant (Ubuntu « arrêté » en 3 s). Une machine en pause est
@@ -856,8 +864,16 @@ s'ouvre sur le résultat. `Sharing.GuestFilePull`, même état par machine que l
   bloquer**, chacun débusquant une connexion morte ; un saut de ligne arrivé jusqu'à l'hôte est ignoré (octets avant le
   marqueur, ligne vide avant READY). Le récepteur n'écrit plus rien après que l'hôte a raccroché (son `FAIL` arrivait dans la
   connexion suivante). Vérifié : 8 copies et dépôts mêlés à la suite, en partant d'un port bloqué. Les programmes Windows
-  n'ont pas changé (aucune perte observée). La connexion est réessayée 3 s (`ConnectAsync`) avant de dire « démarrée sans
-  le canal de copie ».
+  n'ont pas changé : mesuré sur Windows 11 (11/11/2026), l'ouverture du port par le programme invité suffit à faire lâcher
+  la connexion morte à QEMU, et rien n'est perdu.
+- **Port qui refuse toute connexion** (`GuestFileDrop.ConnectToPortAsync`, commun au dépôt et à la récupération) : QEMU
+  garde une connexion morte, une seule attend derrière, la troisième est refusée ; or chaque copie se connecte avant de
+  lancer son programme invité, donc rien ne débloquait plus le port jusqu'au redémarrage de la machine. Deux copies finies
+  avant que leur programme ait ouvert le port suffisent (Perl absent, glisser relâché dans le vide après un Échap).
+  Refusée, la connexion fait **ouvrir et fermer le port dans l'invité par l'agent** (`ClearPortCommand` : `type nul >` le
+  port sous Windows, `: <>` sous Linux, sans rien écrire), ce qui fait lâcher ses connexions mortes à QEMU, puis réessaie
+  3 s avant de dire « démarrée sans le canal de copie ». Reproduit avec un client TCP sur Windows 11 et Fedora ; vérifié
+  dans l'app sur Fedora (port mis en refus, glisser de 60 Mo réussi, ligne « Copy port: connection refused… » au journal).
 - **Noms** : un nom de premier niveau déjà pris est numéroté ; les caractères interdits par Windows (`:`, `?`…) et
   points ou espaces finaux sont remplacés (`WindowsName`). Lien symbolique vers un fichier : son contenu est copié ;
   vers un dossier : ignoré (boucles). Annulé ou échoué : ce que la copie a créé est supprimé.

@@ -130,6 +130,39 @@ namespace WinQEMU.Core.Qemu
         }
 
         /// <summary>
+        /// Asks the guest to power off ("powerdown") or restart ("reboot"). guest-shutdown answers only when it
+        /// fails: silence for <paramref name="wait"/>, or the connection closed by a guest already going down, is
+        /// the order taken; an error is thrown as <see cref="GuestAgentException"/>.
+        /// </summary>
+        public async Task ShutdownAsync(string mode, TimeSpan wait, CancellationToken cancellationToken = default)
+        {
+            var request = new JsonObject { ["execute"] = "guest-shutdown", ["arguments"] = new JsonObject { ["mode"] = mode } };
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(wait);
+
+            await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await _writer.WriteLineAsync(request.ToJsonString()).ConfigureAwait(false);
+                while (await _reader.ReadLineAsync(deadline.Token).ConfigureAwait(false) is { } line)
+                {
+                    if (ParseLine(line)?["error"] is JsonObject error)
+                        throw new GuestAgentException(error["desc"]?.GetValue<string>() ?? "The guest agent reported an error.");
+                }
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (IOException)
+            {
+            }
+            finally
+            {
+                _lock.Release();
+            }
+        }
+
+        /// <summary>
         /// Runs a program in the guest (as root on Linux) and waits for it. <paramref name="input"/> goes to
         /// its standard input, which is how secrets are passed: never on a command line, readable in ps.
         /// </summary>

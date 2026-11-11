@@ -599,6 +599,71 @@ namespace WinQEMU.Core.Sharing
                     Convert.ToBase64String(Encoding.Unicode.GetBytes(script)) };
 
         /// <summary>
+        /// Connects to QEMU's end of the copy port. A connection refused there is not always a machine started without
+        /// the port: the port is then cleared from inside the guest, and tried again for a few seconds.
+        /// </summary>
+        /// <remarks>
+        /// QEMU does not see a connection closed by the host while no program of the guest has the port open: it keeps
+        /// it as its client, one more connection waits behind it, and the third is refused, until the machine is
+        /// restarted since every copy connects before it starts its program in the guest. Two copies that end before
+        /// their program opened the port are enough: no Perl in the guest, a drag released over nothing right after
+        /// one stopped by Escape. Made to happen with a TCP client on Windows 11 and on Fedora: in both, the port
+        /// merely opened and closed in the guest makes QEMU drop its dead connections, and the next one is accepted.
+        /// </remarks>
+        internal static async Task<TcpClient> ConnectToPortAsync(VmSession session, int port, CancellationToken cancellationToken)
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                var client = new TcpClient { NoDelay = true };
+                try
+                {
+                    await client.ConnectAsync("127.0.0.1", port, cancellationToken).ConfigureAwait(false);
+                    return client;
+                }
+                catch (SocketException)
+                {
+                    client.Dispose();
+                    if (attempt >= 10)
+                        throw new GuestFileDropException(CoreText.FileDropStartedWithoutChannel);
+                }
+                catch
+                {
+                    client.Dispose();
+                    throw;
+                }
+
+                if (attempt == 1)
+                    await ClearPortAsync(session, cancellationToken).ConfigureAwait(false);
+                else
+                    await Task.Delay(300, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>What the agent runs to open and close the copy port: program, then arguments.</summary>
+        public static (string Program, string[] Arguments) ClearPortCommand(bool windows) => windows
+            ? ("cmd.exe", new[] { "/c", "type nul > " + WindowsPortPath })
+            : ("/bin/sh", new[] { "-c", ": <> " + LinuxPortPath });
+
+        /// <summary>Opens and closes the port in the guest, through the agent; without an agent, nothing.</summary>
+        private static async Task ClearPortAsync(VmSession session, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await using var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+                if (agent is null)
+                    return;
+                var os = await agent.ExecuteAsync("guest-get-osinfo", null, TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+                var (program, arguments) = ClearPortCommand(os?["id"]?.GetValue<string>() == "mswindows");
+                await agent.RunAsync(program, arguments, null, TimeSpan.FromSeconds(10), cancellationToken).ConfigureAwait(false);
+                session.AppendLog("Copy port: connection refused; opened and closed in the guest to clear it.");
+            }
+            catch (Exception ex) when (ex is GuestAgentException or IOException or SocketException or TimeoutException)
+            {
+                // The connection is tried again all the same, and says what it finds.
+            }
+        }
+
+        /// <summary>
         /// Talks to a receiver over its port: waits for READY, sends the entries, and reads the outcome.
         /// <paramref name="receiverExited"/> is asked when the receiver goes quiet, so that one that died (or
         /// never started) is reported instead of waited for: the port gives no sign of it.
@@ -781,15 +846,7 @@ namespace WinQEMU.Core.Sharing
                     throw new GuestFileDropException(CoreText.FileDropNotRunning);
 
                 // Connected first: in Linux, a read on a port with no host behind it ends at once.
-                using var client = new TcpClient { NoDelay = true };
-                try
-                {
-                    await client.ConnectAsync("127.0.0.1", dropPort, cancellationToken).ConfigureAwait(false);
-                }
-                catch (SocketException)
-                {
-                    throw new GuestFileDropException(CoreText.FileDropStartedWithoutChannel);
-                }
+                using var client = await ConnectToPortAsync(session, dropPort, cancellationToken).ConfigureAwait(false);
 
                 long pid;
                 await using (var agent = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(10), cancellationToken)

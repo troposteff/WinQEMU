@@ -31,6 +31,20 @@ public sealed class GuestFileDropTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
+    // Two copies that ended before their guest program opened the port, and QEMU refused every connection until the
+    // machine was restarted. The port opened and closed in the guest, writing nothing, frees it.
+    [Fact]
+    public void A_refused_port_is_cleared_by_opening_and_closing_it_in_the_guest()
+    {
+        var windows = GuestFileDrop.ClearPortCommand(windows: true);
+        Assert.Equal("cmd.exe", windows.Program);
+        Assert.Equal(new[] { "/c", @"type nul > \\.\Global\org.winqemu.drop.0" }, windows.Arguments);
+
+        var linux = GuestFileDrop.ClearPortCommand(windows: false);
+        Assert.Equal("/bin/sh", linux.Program);
+        Assert.Equal(new[] { "-c", ": <> /dev/virtio-ports/org.winqemu.drop.0" }, linux.Arguments);
+    }
+
     [Fact]
     public void The_drop_port_joins_the_guest_channels_on_their_controller()
     {

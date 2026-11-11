@@ -236,11 +236,51 @@ namespace WinQEMU.Core.Qemu
         /// Presses the virtual power button (ACPI). The guest OS shuts down cleanly, or ignores it
         /// entirely if no ACPI-aware OS is running — this is a request, not a guarantee.
         /// </summary>
+        /// <remarks>
+        /// A Linux guest whose agent answers is shut down by the agent instead: what a desktop does with the button is
+        /// its own business. Plasma only showed its logout screen and waited ("winqemu stop --wait" gave up after
+        /// 300 s on openSUSE), GNOME counts 60 s down first. Windows keeps the button, which it obeys: the agent
+        /// there forces programs closed (EWX_FORCE).
+        /// </remarks>
         public async Task RequestShutdownAsync(CancellationToken cancellationToken = default)
         {
+            var qmp = RequireQmp();
+            var port = GuestAgentPort;
             State = VmState.Stopping;
+            if (port is { } agentPort && await ShutLinuxDownThroughAgentAsync(agentPort, cancellationToken).ConfigureAwait(false))
+            {
+                AppendLog("Shutdown asked of the guest agent; waiting for the guest to shut down.");
+                return;
+            }
+
             AppendLog("ACPI power button pressed; waiting for the guest to shut down.");
-            await RequireQmp().ExecuteAsync("system_powerdown", null, cancellationToken).ConfigureAwait(false);
+            await qmp.ExecuteAsync("system_powerdown", null, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Whether a Linux guest's agent took the order to power off. A few seconds at most: a guest without an agent,
+        /// or one still starting, gets the power button without much of a wait.
+        /// </summary>
+        private static async Task<bool> ShutLinuxDownThroughAgentAsync(int port, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await using var agent = await GuestAgentClient.ConnectAsync(port, cancellationToken).ConfigureAwait(false);
+                if (!await agent.SynchronizeAsync(TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false))
+                    return false;
+                var os = await agent.ExecuteAsync("guest-get-osinfo", null, TimeSpan.FromSeconds(3), cancellationToken).ConfigureAwait(false);
+                if (os?["kernel-version"] is null || os["id"]?.GetValue<string>() == "mswindows")
+                    return false;
+                await agent.ShutdownAsync("powerdown", TimeSpan.FromSeconds(2), cancellationToken).ConfigureAwait(false);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or SocketException or TimeoutException or GuestAgentException
+                                           or InvalidOperationException)
+            {
+                // No agent, one busy with another client, or one that refuses the order (openSUSE's own unit
+                // blocks it in a guest installed by hand): the button.
+                return false;
+            }
         }
 
         /// <summary>Hard reset, equivalent to the reset button. The guest loses unwritten data.</summary>

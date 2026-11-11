@@ -30,13 +30,8 @@ namespace WinQEMU.ViewModels
                 {
                     try
                     {
-                        await agent.ExecuteAsync("guest-shutdown", new JsonObject { ["mode"] = "reboot" }, TimeSpan.FromSeconds(5));
-                        AppendDiagnostic("Restart: the guest agent is rebooting the guest.");
-                        return null;
-                    }
-                    catch (Exception ex) when (ex is TimeoutException or IOException or OperationCanceledException)
-                    {
-                        // The agent goes down with the guest: no answer is the expected one.
+                        // No answer is the expected one (GuestAgentClient.ShutdownAsync); only a refusal is thrown.
+                        await agent.ShutdownAsync("reboot", TimeSpan.FromSeconds(3));
                         AppendDiagnostic("Restart: the guest agent is rebooting the guest.");
                         return null;
                     }

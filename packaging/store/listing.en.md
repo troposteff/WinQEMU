@@ -16,7 +16,7 @@ At first start, WinQEMU checks that this PC is ready: QEMU found, hardware accel
 
 Virtual machines: a library in nested folders, a creation wizard, unattended installation of Windows 10/11, Ubuntu, Debian, Fedora and openSUSE, import from VMware, VirtualBox, Hyper-V and OVA, export to OVA, full and linked clones, templates, automatic start, machines left running in the background.
 
-Console: integrated or full screen, the guest's resolution following the window, a shared clipboard, typing the clipboard into the guest, screen capture, files dropped onto the guest's desktop or copied back from it, sound with per-machine volume.
+Console: integrated or full screen, the guest's resolution following the window, a shared clipboard, typing the clipboard into the guest, screen capture, files dropped onto the guest's desktop, dragged out of it onto this PC or copied back from it, sound with per-machine volume.
 
 Snapshots: offline, live on the disks, or with memory under emulation; a snapshot tree; automatic snapshots.
 
@@ -36,7 +36,7 @@ A Windows interface over QEMU: create, run and manage virtual machines with hard
 
 ## What's new in this version
 
-Unattended installation of Debian, Fedora and openSUSE, with the desktop of your choice (GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt) or as a console with SSH, and a computer name of your choice for every unattended installation. More guest systems in the wizard, grouped by family, with where to download each one. The window reopens where it was closed, on the same screen. A key held down repeats in the guest, text consoles included. When QEMU stops responding, WinQEMU offers to power the machine off instead of freezing with it. The machine's log copies the details a bug report needs. Restart in the full-screen bar, and the winqemu capture command.
+Drag files out of the guest: files and folders dragged out of the console are dropped on this PC, in Explorer or any other window that takes files, from Windows guests and from Linux guests with a desktop (GNOME, KDE Plasma, Xfce; Wayland or X11). Shutting down a Linux guest goes through its guest agent, so it stops at once whatever its desktop does with the power button. Unattended installation of Fedora no longer stops on its repositories, and openSUSE installs from the DVD as well. A Linux guest without Perl is reported and repaired by "Install the guest tools". Copies to and from a guest no longer fail one after another until the machine is restarted.
 
 ## Product features
 
@@ -46,7 +46,7 @@ Unattended installation of Debian, Fedora and openSUSE, with the desktop of your
 - Import from VMware, VirtualBox, Hyper-V and OVA; export to OVA
 - Full and linked clones, templates
 - Integrated or full-screen console, guest resolution following the window
-- Shared clipboard, file drop and copy from the guest
+- Shared clipboard, files dragged into and out of the guest
 - Snapshot tree, live and automatic snapshots
 - Disk encryption (LUKS, AES-256)
 - Private, internal and external virtual networks

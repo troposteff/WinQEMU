@@ -16,7 +16,7 @@ Au premier démarrage, WinQEMU vérifie que ce PC est prêt : QEMU trouvé, acc�
 
 Machines virtuelles : une bibliothèque en dossiers imbriqués, un assistant de création, l'installation automatique de Windows 10/11, d'Ubuntu, de Debian, de Fedora et d'openSUSE, l'import depuis VMware, VirtualBox, Hyper-V et OVA, l'export en OVA, les clones complets et liés, les modèles, le démarrage automatique, les machines laissées en arrière-plan.
 
-Console : intégrée ou en plein écran, la résolution de l'invité suivant la fenêtre, un presse-papiers partagé, la saisie du presse-papiers dans l'invité, la capture d'écran, des fichiers déposés sur le Bureau de l'invité ou récupérés depuis lui, le son avec un volume par machine.
+Console : intégrée ou en plein écran, la résolution de l'invité suivant la fenêtre, un presse-papiers partagé, la saisie du presse-papiers dans l'invité, la capture d'écran, des fichiers déposés sur le Bureau de l'invité, glissés hors de lui vers ce PC ou récupérés depuis lui, le son avec un volume par machine.
 
 Instantanés : hors ligne, à chaud sur les disques, ou avec la mémoire sous émulation ; une arborescence d'instantanés ; des instantanés automatiques.
 
@@ -36,7 +36,7 @@ Une interface Windows au-dessus de QEMU : créez, lancez et gérez des machines 
 
 ## Nouveautés de cette version
 
-Installation automatique de Debian, Fedora et openSUSE, avec le bureau de votre choix (GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt) ou en console avec SSH, et nom de l'ordinateur au choix pour toute installation automatique. Plus de systèmes invités dans l'assistant, rangés par famille, avec où télécharger chacun. La fenêtre rouvre là où elle a été fermée, sur le même écran. Une touche maintenue se répète dans l'invité, consoles texte comprises. Quand QEMU ne répond plus, WinQEMU propose d'éteindre la machine au lieu de se figer avec elle. Le journal de la machine copie ce qu'il faut pour signaler un bug. Redémarrer depuis la barre du plein écran, et la commande winqemu capture.
+Glisser des fichiers hors de l'invité : les fichiers et dossiers glissés hors de la console sont déposés sur ce PC, dans l'Explorateur ou toute fenêtre qui prend des fichiers, depuis un invité Windows ou un invité Linux avec un bureau (GNOME, KDE Plasma, Xfce ; Wayland ou X11). L'arrêt d'un invité Linux passe par son agent invité : il s'arrête aussitôt, quoi que son bureau fasse du bouton d'alimentation. L'installation automatique de Fedora ne s'arrête plus sur ses dépôts, et openSUSE s'installe aussi depuis le DVD. Un invité Linux sans Perl est signalé et réparé par « Installer les outils invités ». Les copies vers et depuis un invité n'échouent plus l'une après l'autre jusqu'au redémarrage de la machine.
 
 ## Fonctionnalités du produit
 
@@ -46,7 +46,7 @@ Installation automatique de Debian, Fedora et openSUSE, avec le bureau de votre 
 - Import depuis VMware, VirtualBox, Hyper-V et OVA ; export en OVA
 - Clones complets et liés, modèles
 - Console intégrée ou en plein écran, résolution de l'invité suivant la fenêtre
-- Presse-papiers partagé, dépôt et récupération de fichiers
+- Presse-papiers partagé, fichiers glissés vers l'invité et hors de lui
 - Arborescence d'instantanés, instantanés à chaud et automatiques
 - Chiffrement des disques (LUKS, AES-256)
 - Réseaux virtuels privés, internes et externes

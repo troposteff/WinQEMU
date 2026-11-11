@@ -971,7 +971,11 @@ invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmCon
   dans l'invité entre deux, Échap (rien dans la destination, dossier de travail supprimé, aucun émetteur resté), relâché
   hors cible (effet 0), icônes restées en place, session ouverte après l'installation (ouverture automatique). **Une fois
   sur dix, GNOME n'a pas passé le glisser à la bande** : « the guest dragged no files » au journal, rien de cassé, le
-  suivant passe. openSUSE ou Fedora installés à la main : agent bloqué (`guest-exec`, SELinux), donc rien ; installés par
+  suivant passe. D'où, pour un invité Linux, **le pointeur de l'invité rebougé sur le bord chaque seconde** tant que la
+  liste n'arrive pas (quatre fois au plus, 4,5 s d'attente au lieu de 2,5 s ; un glisser rattrapé le dit au journal). Non
+  démontré : 60 glissers scriptés de suite sur Ubuntu (11/11/2026), 60 pris du premier coup, aucun à rattraper ; le cas
+  d'origine était une série avec un dépôt dans l'invité au milieu. Prix : un appui qui sort de la console sans glisser de
+  fichiers attend 2 s de plus avant d'abandonner. openSUSE ou Fedora installés à la main : agent bloqué (`guest-exec`, SELinux), donc rien ; installés par
   WinQEMU, ils ont ce qu'il faut.
   **KDE (KWin) ne passe un glisser Wayland qu'aux fenêtres X11 qu'il gère** : la fenêtre override-redirect, qui suffit à
   GNOME, n'a jamais reçu de XdndEnter (sondé avec une fenêtre rouge visible : override-redirect rien, fenêtre normale la

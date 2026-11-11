@@ -1498,12 +1498,25 @@ namespace WinQEMU.ViewModels
                 }
                 _ = pin();
                 // A Linux guest asks for the list over XDND once its window is under the pointer: a little longer.
-                var end = DateTime.UtcNow + TimeSpan.FromSeconds(windowsGuest ? 1.5 : 2.5);
+                // And its pointer is moved again every second without a list: one drag in ten, GNOME did not hand the
+                // drag to the window laid under a pointer that was already there ("the guest dragged no files").
+                var start = DateTime.UtcNow;
+                var end = start + TimeSpan.FromSeconds(windowsGuest ? 1.5 : 4.5);
+                var pins = 1;
                 do
                 {
                     if (await GuestDragOut.ReadAsync(agent, windowsGuest) is { } files)
+                    {
+                        if (pins > 1)
+                            AppendDiagnostic($"Files: the guest's drag reached its window after the pointer was moved {pins} times.");
                         return files;
+                    }
                     await Task.Delay(100);
+                    if (!windowsGuest && DateTime.UtcNow - start > TimeSpan.FromSeconds(pins) && pins < 4)
+                    {
+                        pins++;
+                        _ = pin();
+                    }
                 }
                 while (DateTime.UtcNow < end);
             }

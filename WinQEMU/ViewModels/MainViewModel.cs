@@ -1987,7 +1987,8 @@ namespace WinQEMU.ViewModels
             IReadOnlyList<IReadOnlyList<(int Number, bool Down)>> strokes;
             try
             {
-                strokes = Core.Input.KeyboardText.ToKeystrokes(text, Core.Input.KeyboardText.CurrentLayout());
+                strokes = Core.Input.KeyboardText.ToKeystrokes(text, Core.Input.KeyboardText.CurrentLayout(),
+                    linuxGuest: GuestOsCatalog.Find(session.Config.GuestOs)?.Family == "Linux");
             }
             catch (ArgumentException ex)
             {
@@ -2165,7 +2166,7 @@ namespace WinQEMU.ViewModels
                     else
                     {
                         Say(ShellText.ToolsTypingCommand);
-                        await session.TypeAsync(Core.Input.KeyboardText.ToKeystrokes(GuestTools.LinuxInstallCommand + "\n", layout));
+                        await session.TypeAsync(Core.Input.KeyboardText.ToKeystrokes(GuestTools.LinuxInstallCommand + "\n", layout, linuxGuest: true));
                         Say(ShellText.ToolsSudoPassword);
                         AppendDiagnostic("Guest tools: installation command typed in the guest.");
                     }
@@ -2183,7 +2184,7 @@ namespace WinQEMU.ViewModels
                     // The agent answers already, so waiting for it would not wait for the command: sudo may ask for a
                     // password first, and the agent is restarted at the end. Asked until it is no longer held back.
                     Say(ShellText.ToolsTypingCommand);
-                    await session.TypeAsync(Core.Input.KeyboardText.ToKeystrokes(GuestTools.LinuxInstallCommand + "\n", layout));
+                    await session.TypeAsync(Core.Input.KeyboardText.ToKeystrokes(GuestTools.LinuxInstallCommand + "\n", layout, linuxGuest: true));
                     Say(ShellText.ToolsSudoPassword);
                     AppendDiagnostic("Guest tools: command typed in the guest to free its agent.");
                     var end = DateTime.UtcNow + TimeSpan.FromMinutes(10);

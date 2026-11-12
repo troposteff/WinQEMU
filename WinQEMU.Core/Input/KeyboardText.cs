@@ -35,7 +35,14 @@ namespace WinQEMU.Core.Input
         /// One list of key events per character, in order. A line break is Enter. Throws for a character
         /// the layout has no key for.
         /// </summary>
-        public static IReadOnlyList<IReadOnlyList<(int Number, bool Down)>> ToKeystrokes(string text, IntPtr layout)
+        /// <param name="linuxGuest">
+        /// Whether a Linux guest reads the keys. Windows makes the accents behind AltGr dead keys (French: ~ on AltGr+2,
+        /// ` on AltGr+7); Linux's layouts of the same name give the character at once, on the console as under X and
+        /// Wayland. Typed the Windows way, "~/x" came out "~ /x" in a French Fedora and Debian: the space meant to
+        /// release the dead key was a space. For such a guest these keys are plain ones, and a letter that needs one as
+        /// its accent (ñ in French) has no key. Dead keys without AltGr (^ and ¨) are dead in both.
+        /// </param>
+        public static IReadOnlyList<IReadOnlyList<(int Number, bool Down)>> ToKeystrokes(string text, IntPtr layout, bool linuxGuest = false)
         {
             var strokes = new List<IReadOnlyList<(int, bool)>>();
             foreach (var ch in text.Replace("\r\n", "\n", StringComparison.Ordinal))
@@ -46,11 +53,11 @@ namespace WinQEMU.Core.Input
                     continue;
                 }
 
-                var keys = KeysFor(ch, layout, out var dead);
+                var keys = KeysFor(ch, layout, out var dead, out var altGr);
                 if (keys is not null)
                 {
                     // A dead key waits for the next one; a space then gives its own character.
-                    if (dead)
+                    if (dead && !(linuxGuest && altGr))
                     {
                         keys.Add((Space, true));
                         keys.Add((Space, false));
@@ -59,16 +66,19 @@ namespace WinQEMU.Core.Input
                     continue;
                 }
 
-                strokes.Add(Composed(ch, layout)
-                    ?? throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, CoreText.KeyboardCannotType, ch), nameof(text)));
+                strokes.Add(Composed(ch, layout, linuxGuest)
+                    // No parameter name: the message is shown to the user as it is, and .NET appends
+                    // " (Parameter 'text')" to it otherwise.
+                    ?? throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, CoreText.KeyboardCannotType, ch)));
             }
             return strokes;
         }
 
         /// <summary>The keys of one character the layout has a key for (modifiers around it), or null.</summary>
-        private static List<(int, bool)>? KeysFor(char ch, IntPtr layout, out bool dead)
+        private static List<(int, bool)>? KeysFor(char ch, IntPtr layout, out bool dead, out bool altGr)
         {
             dead = false;
+            altGr = false;
             var scan = VkKeyScanEx(ch, layout);
             if (scan == -1)
                 return null;
@@ -83,7 +93,8 @@ namespace WinQEMU.Core.Input
             if ((shiftState & 1) != 0)
                 modifiers.Add(LeftShift);
             // Ctrl+Alt in a layout's table is AltGr.
-            if ((shiftState & 6) == 6)
+            altGr = (shiftState & 6) == 6;
+            if (altGr)
                 modifiers.Add(RightAlt);
             else if ((shiftState & 2) != 0)
                 modifiers.Add(LeftCtrl);
@@ -103,7 +114,7 @@ namespace WinQEMU.Core.Input
         /// A letter with an accent no key carries (ê, ë, ñ on a French keyboard) as a person types it: the
         /// accent's dead key, then the letter. Null when the layout has no such dead key (É in French).
         /// </summary>
-        private static List<(int, bool)>? Composed(char ch, IntPtr layout)
+        private static List<(int, bool)>? Composed(char ch, IntPtr layout, bool linuxGuest)
         {
             var parts = ch.ToString().Normalize(System.Text.NormalizationForm.FormD);
             if (parts.Length != 2)
@@ -119,9 +130,10 @@ namespace WinQEMU.Core.Input
             };
             if (accent == '\0')
                 return null;
-            var deadKey = KeysFor(accent, layout, out var dead);
-            var letter = KeysFor(parts[0], layout, out var letterDead);
-            if (deadKey is null || !dead || letter is null || letterDead)
+            var deadKey = KeysFor(accent, layout, out var dead, out var altGr);
+            var letter = KeysFor(parts[0], layout, out var letterDead, out _);
+            // In a Linux guest an accent behind AltGr is not a dead key: it would be typed before the letter, not on it.
+            if (deadKey is null || !dead || (linuxGuest && altGr) || letter is null || letterDead)
                 return null;
             deadKey.AddRange(letter);
             return deadKey;

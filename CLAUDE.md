@@ -699,12 +699,19 @@ refusé en le nommant, sans moitié de texte tapée. Confirmation au-delà de 30
 
 - **Lettre qu'aucune touche ne porte** (ê, ë, ñ en AZERTY) : décomposée (NFD), touche morte de l'accent puis la lettre ;
   sans touche morte pour cet accent (É en AZERTY), refusée.
-- **Positions de touches, pas caractères** : l'invité doit avoir la disposition de ce PC. Écart vu sur Debian en
-  « fr latin9 », où AltGr+2 n'est pas une touche morte : « ~ » seul (touche morte + espace sous Windows) y devient « ~ ».
-  Tout le reste est juste.
+- **Positions de touches, pas caractères** : l'invité doit avoir la disposition de ce PC.
+- **Invité Linux : un accent derrière AltGr est une touche ordinaire** (`ToKeystrokes(…, linuxGuest: true)`, profil de
+  famille Linux, et la commande des outils invités). Windows en fait des touches mortes (français : ~ sur AltGr+2, ` sur
+  AltGr+7), suivies d'une espace pour avoir le caractère seul ; les dispositions Linux du même nom donnent le caractère
+  aussitôt, et « ~/x » sortait « ~ /x » (Debian « fr latin9 », Fedora « fr »). Sans l'espace pour un invité Linux ; une
+  lettre qui aurait besoin de cet accent (ñ en français, qui sortirait « ~n ») est refusée. Les touches mortes sans
+  AltGr (^ ¨) le restent partout. Règle établie pour le français ; non vérifiée pour d'autres dispositions ni sous un
+  bureau (xkb « fr » : AltGr+2 = `asciitilde`, non morte).
 - Vérifié sur la console texte d'une copie jetable de Debian 13 (relu par `/dev/vcsu1` via l'agent) et dans Exécuter
-  d'un Windows 11. Le presse-papiers n'était pas accessible depuis l'environnement de test : bouton vérifié seulement
-  jusqu'à « Rien à taper ».
+  d'un Windows 11. **Bouton vérifié de bout en bout sur le PC de test** (12/11/2026, invite de connexion d'une console
+  texte Fedora, relue par `screendump`) : `été à çà: {a}[b]|c\d @home #1 €5 <ok> "q" 's' ù% êö` tapé juste ; « ~/x »
+  sortait « ~ /x », corrigé (ci-dessus) et revérifié : ``cd ~/x_y `date` ~ ^2 été êö`` tapé juste, « ñ » refusé ;
+  « École » refusé sans rien taper. Le message de refus finissait par « (Parameter 'text') » (nom de paramètre de l'`ArgumentException`), retiré.
 
 ## Capture de la console
 
@@ -713,8 +720,8 @@ au format PNG, **à la résolution de l'invité** quelle que soit la mise à l'�
 dans `Images\WinQEMU\<machine> aaaa-MM-jj HH.mm.ss.png`, copiée dans le presse-papiers (image et fichier) ; un menu
 volant le dit, avec « Afficher dans l'Explorateur ». QEMU écrit d'abord dans le dossier temporaire puis le fichier est
 déplacé : qemu-system ouvre ses chemins par l'API ANSI, et la destination n'existe pas encore, donc n'a pas de nom 8.3.
-Vérifié sur un clone de Debian (PNG 1364 × 786). **La copie dans le presse-papiers n'a pas pu être vérifiée** : il n'est
-pas accessible depuis l'environnement de test.
+Vérifié sur un clone de Debian (PNG 1364 × 786). Copie dans le presse-papiers vérifiée sur le PC de test (12/11/2026,
+Fedora) : image 1966 × 1524 et fichier (`FileDrop`) du même PNG, menu volant affiché.
 
 ## Démarrage automatique et arrière-plan
 

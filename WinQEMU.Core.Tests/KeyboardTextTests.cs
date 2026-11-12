@@ -64,6 +64,23 @@ public sealed class KeyboardTextTests : IDisposable
         Assert.Equal((KeyboardText.Space, false), keys[^1]);
     }
 
+    // "~/x" came out "~ /x" in a French Fedora and Debian: there AltGr+2 gives ~ at once, and the space stayed.
+    [Fact]
+    public void In_a_Linux_guest_an_accent_behind_AltGr_is_a_plain_key()
+    {
+        var french = Layout("0000040C");
+        var tilde = new[] { (KeyboardText.RightAlt, true), (0x03, true), (0x03, false), (KeyboardText.RightAlt, false) };
+
+        Assert.Equal(tilde, KeyboardText.ToKeystrokes("~", french, linuxGuest: true).SelectMany(k => k).ToArray());
+        // ` is AltGr+7.
+        Assert.Equal(4, KeyboardText.ToKeystrokes("`", french, linuxGuest: true).SelectMany(k => k).Count());
+        // ^ has a key of its own, dead in both systems: still followed by a space, and still the accent of ê.
+        Assert.Equal((KeyboardText.Space, false), KeyboardText.ToKeystrokes("^", french, linuxGuest: true).SelectMany(k => k).Last());
+        Assert.Equal(4, KeyboardText.ToKeystrokes("ê", french, linuxGuest: true).SelectMany(k => k).Count());
+        // ñ would be "~n" there: refused rather than typed wrong.
+        Assert.Throws<ArgumentException>(() => KeyboardText.ToKeystrokes("ñ", french, linuxGuest: true));
+    }
+
     [Fact]
     public void A_letter_no_key_carries_is_its_accents_dead_key_then_the_letter()
     {
@@ -90,6 +107,8 @@ public sealed class KeyboardTextTests : IDisposable
     {
         var error = Assert.Throws<ArgumentException>(() => KeyboardText.ToKeystrokes("日", Layout("00000409")));
         Assert.Contains("日", error.Message);
+        // Shown to the user as it is: with a parameter name, .NET ended it with " (Parameter 'text')".
+        Assert.DoesNotContain("Parameter", error.Message);
     }
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]

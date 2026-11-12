@@ -40,10 +40,12 @@ namespace WinQEMU.Core.Input
         /// ` on AltGr+7); Linux's layouts of the same name give the character at once, on the console as under X and
         /// Wayland. Typed the Windows way, "~/x" came out "~ /x" in a French Fedora and Debian: the space meant to
         /// release the dead key was a space. For such a guest these keys are plain ones, and a letter that needs one as
-        /// its accent (ñ in French) has no key. Dead keys without AltGr (^ and ¨) are dead in both.
+        /// its accent (ñ in French) has no key. Dead keys without AltGr (^ and ¨) are dead in both. Only for the French
+        /// layout, where it was seen: Linux's Belgian layout, for one, keeps its AltGr accents dead as Windows does.
         /// </param>
         public static IReadOnlyList<IReadOnlyList<(int Number, bool Down)>> ToKeystrokes(string text, IntPtr layout, bool linuxGuest = false)
         {
+            linuxGuest = linuxGuest && IsFrench(layout);
             var strokes = new List<IReadOnlyList<(int, bool)>>();
             foreach (var ch in text.Replace("\r\n", "\n", StringComparison.Ordinal))
             {
@@ -73,6 +75,12 @@ namespace WinQEMU.Core.Input
             }
             return strokes;
         }
+
+        /// <summary>
+        /// Whether the layout is France's AZERTY (0000040C): the high word of a layout's handle names the layout itself,
+        /// the low word the input language it is used for.
+        /// </summary>
+        private static bool IsFrench(IntPtr layout) => ((layout.ToInt64() >> 16) & 0xFFFF) == 0x040C;
 
         /// <summary>The keys of one character the layout has a key for (modifiers around it), or null.</summary>
         private static List<(int, bool)>? KeysFor(char ch, IntPtr layout, out bool dead, out bool altGr)

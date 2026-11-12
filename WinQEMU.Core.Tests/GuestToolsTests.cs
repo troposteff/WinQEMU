@@ -60,6 +60,8 @@ public sealed class GuestToolsTests : IDisposable
         // Writing in a user's folder, which is what a copy does: Fedora's policy lets a confined agent list /home.
         Assert.Contains("mktemp -p \"$d\" .winqemu-XXXXXX 2>/dev/null) && rm -f \"$t\" || echo confined", GuestTools.LinuxCheckScript);
         Assert.DoesNotContain("ls /home", GuestTools.LinuxCheckScript);
+        // Only in the agent's own SELinux domain: a home root cannot write for another reason is not "held back".
+        Assert.Contains("if grep -q virt_qemu_ga_t /proc/self/attr/current 2>/dev/null; then", GuestTools.LinuxCheckScript);
         Assert.True(GuestTools.IsExecDisabled("Command guest-exec has been disabled"));
         Assert.True(GuestTools.IsExecDisabled("Command 'guest-exec' has been disabled"));
         Assert.False(GuestTools.IsExecDisabled("The guest agent did not answer guest-exec in time."));
@@ -71,10 +73,14 @@ public sealed class GuestToolsTests : IDisposable
         var command = GuestTools.LinuxInstallCommand;
 
         Assert.Contains("(typepermissive virt_qemu_ga_t)", command);
-        // Read from the running agent: openSUSE's unit only says ${FILTER_RPC_ARGS}, set in a file of its own.
-        Assert.Contains("ps -C qemu-ga -o args= | grep -q \"block-rpcs.*guest-exec\"", command);
-        Assert.Contains("ExecStart=/usr/bin/qemu-ga -p /dev/virtio-ports/org.qemu.guest_agent.0", command);
-        Assert.EndsWith("systemctl daemon-reload; systemctl restart qemu-guest-agent; fi'", command);
+        // Read from the running agent: openSUSE's unit only says ${FILTER_RPC_ARGS}, set in a file of its own. A block
+        // list naming guest-exec, or an allow list without it; an allow list with it is left alone.
+        Assert.Contains("case \"$(ps -C qemu-ga -o args=)\" in *allow-rpcs*guest-exec*) ;; *block-rpcs*guest-exec*|*blacklist*guest-exec*|*allow-rpcs*) ", command);
+        Assert.Contains("printf \"FILTER_RPC_ARGS=\\nBLACKLIST_RPC=\\n\" >>/etc/sysconfig/qemu-ga", command);
+        // Started, and restarted only where it was blocked: on Debian a restart killed what had begun through the agent.
+        Assert.Contains("systemctl start qemu-guest-agent; sleep 2; ", command);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(command, "systemctl restart"));
+        Assert.EndsWith("systemctl restart qemu-guest-agent;; esac'", command);
         // One "sh -c '…'": a single quote inside would end it.
         Assert.Equal(2, command.Count(c => c == '\''));
     }

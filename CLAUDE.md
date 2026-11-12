@@ -122,7 +122,9 @@ Installer ne met à jour que vers plus haut.
     d'OpenVPN, comme Npcap (`TapDriver.IsBundled`). **Sans pilote, « Ajouter un réseau interne » est grisé** (demande de
     l'utilisateur : un bouton qui ne répondait que par un guide avait l'air de marcher), guide et lien affichés en
     permanence dessous ; le pilote est recherché toutes les 2 s tant que le dialogue est ouvert, et le bouton revient seul
-    (`UpdateInternalAvailability`). **De même « Ajouter un réseau externe » sans Npcap**, dans toutes les versions
+    (`UpdateInternalAvailability`, lecture hors du fil de l'interface). Un pilote sans aucune carte ne compte qu'au bout
+    de 15 s (`CanAddInternal`) : l'installateur écrit son dossier avant de créer la première carte, et un clic dans
+    l'intervalle aurait demandé une élévation pour en ajouter une seconde (non reproduit : ce PC a le pilote). **De même « Ajouter un réseau externe » sans Npcap**, dans toutes les versions
     (`UpdateExternalAvailability`), son guide sous celui de TAP. L'aide sous les boutons a son texte propre à la version sans pilote
     (`NetworksTypesHintNoDriver` : elle disait le pilote « fourni avec WinQEMU » au-dessus du lien pour le télécharger).
     Vérifié dans l'interface (12/11/2026) sur un PC sans pilote TAP ni Npcap, l'installateur écarté du dossier de
@@ -654,18 +656,27 @@ get-default` y répondait pourtant `graphical.target`). Absents : lien dans la b
   répondait, dossiers partagés, copies et glisser échouaient, et rien ne disait pourquoi (openSUSE : « could not be
   checked », état inconnu, aucun bouton). Détecté à la vérification : `guest-exec` refusé (« Command guest-exec has been
   disabled », `IsExecDisabled`), ou **écriture refusée dans le dossier d'un utilisateur** (`mktemp` dans le premier
-  `/home/*/`, si `/sys/fs/selinux` existe). Pas `ls /home` : Fedora 45 le permet à l'agent confiné, ainsi que lister le
-  dossier ; lire un fichier y est refusé, et `/sys/fs/selinux/enforce` lui est invisible. Rien ne se corrige par un agent
-  bridé : « Installer les outils invités » **tape** la même commande que sans agent, qui fait désormais ce que fait
-  l'installation automatique (`LinuxReleaseAgent` : domaine `virt_qemu_ga_t` permissif, puis surcharge de l'unité si la
-  ligne de commande **de l'agent en marche** bloque `guest-exec`). L'unité d'openSUSE ne dit que `${FILTER_RPC_ARGS}`,
-  posé dans `/usr/etc/sysconfig/qemu-ga` : chercher `block-rpcs` dans `systemctl cat` ne trouvait rien. Après la saisie,
-  l'agent répond déjà : on redemande jusqu'à ce qu'il ne soit plus bridé (10 min), au lieu d'attendre sa réponse.
+  `/home/*/`, seulement si la commande tourne dans le domaine `virt_qemu_ga_t` : un dossier que root ne peut pas écrire
+  pour une autre raison, NFS ou lecture seule, n'est pas un agent bridé, et l'offre reviendrait sans fin). Pas `ls /home` :
+  Fedora 45 le permet à l'agent confiné, ainsi que lister le dossier ; lire un fichier y est refusé, et
+  `/sys/fs/selinux/enforce` lui est invisible. Rien ne se corrige par un agent bridé : « Installer les outils invités »
+  **tape** la même commande que sans agent, qui fait désormais ce que fait l'installation automatique
+  (`LinuxReleaseAgent`) : domaine `virt_qemu_ga_t` permissif (effet immédiat, sans redémarrer l'agent : vérifié), agent
+  **démarré, pas redémarré** (sous Debian le paquet l'a déjà démarré, et un redémarrage tuerait ce que WinQEMU vient de
+  lancer par lui), puis, seulement si la ligne de commande **de l'agent en marche** bloque `guest-exec` (liste de blocage
+  qui le nomme, ou liste d'autorisation sans lui, comme la famille Red Hat), filtre vidé dans `/etc/sysconfig/qemu-ga`
+  (`FILTER_RPC_ARGS=`, et `BLACKLIST_RPC=`, son ancien nom) et agent redémarré. Ce fichier est celui de l'administrateur,
+  lu en dernier par l'unité d'openSUSE comme par celle de Red Hat ; l'unité d'openSUSE ne dit que `${FILTER_RPC_ARGS}`,
+  posé dans `/usr/etc/sysconfig/qemu-ga` : chercher `block-rpcs` dans `systemctl cat` ne trouvait rien. **Un agent qui
+  répond n'est pas la fin de la commande** (bridé, il répondait avant ; tout juste installé sur openSUSE, il répond deux
+  secondes avec `guest-exec` bloqué) : dans les deux cas on redemande jusqu'à ce qu'il ne soit plus bridé (10 min).
+  « Signaler l'espace libre (TRIM) » reste offert à un agent bridé (`guest-fstrim` n'est pas `guest-exec`).
   Vérifié dans l'app (12/11/2026) sur openSUSE DE et Fedora test remis dans l'état d'un invité installé à la main (module
   SELinux et surcharge retirés), commande tapée dans une console texte en root : openSUSE détecté « guest-exec is
   blocked », agent libéré (la suite a échoué sur `spice-vdagent`, absent du dépôt DVD de cette machine, sans rapport) ;
   Fedora détecté « SELinux confines the agent », « installed » 12 s après la saisie. Non vérifié : sudo demandant un mot
-  de passe dans un terminal de bureau, et un invité réellement installé à la main.
+  de passe dans un terminal de bureau, un invité réellement installé à la main, sans agent du tout, ou de la famille Red
+  Hat (liste d'autorisation, de mémoire).
 - **Bureau détecté dossier par dossier** : `ls xsessions/*.desktop wayland-sessions/*.desktop` échouait dès qu'un des
   deux dossiers manquait (X11 seul sous Xfce, Wayland seul sous Ubuntu) et l'invité passait pour « sans bureau » : sans
   `spice-vdagent`, il aurait été dit complet à tort.
@@ -705,8 +716,9 @@ refusé en le nommant, sans moitié de texte tapée. Confirmation au-delà de 30
   AltGr+7), suivies d'une espace pour avoir le caractère seul ; les dispositions Linux du même nom donnent le caractère
   aussitôt, et « ~/x » sortait « ~ /x » (Debian « fr latin9 », Fedora « fr »). Sans l'espace pour un invité Linux ; une
   lettre qui aurait besoin de cet accent (ñ en français, qui sortirait « ~n ») est refusée. Les touches mortes sans
-  AltGr (^ ¨) le restent partout. Règle établie pour le français ; non vérifiée pour d'autres dispositions ni sous un
-  bureau (xkb « fr » : AltGr+2 = `asciitilde`, non morte).
+  AltGr (^ ¨) le restent partout. **Appliquée à la seule disposition française** (`IsFrench`, 0000040C) : la disposition
+  belge de Linux, par exemple, garde ses accents AltGr morts comme Windows. Non vérifiée sous un bureau (xkb « fr » :
+  AltGr+2 = `asciitilde`, non morte).
 - Vérifié sur la console texte d'une copie jetable de Debian 13 (relu par `/dev/vcsu1` via l'agent) et dans Exécuter
   d'un Windows 11. **Bouton vérifié de bout en bout sur le PC de test** (12/11/2026, invite de connexion d'une console
   texte Fedora, relue par `screendump`) : `été à çà: {a}[b]|c\d @home #1 €5 <ok> "q" 's' ù% êö` tapé juste ; « ~/x »

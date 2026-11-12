@@ -79,6 +79,10 @@ public sealed class KeyboardTextTests : IDisposable
         Assert.Equal(4, KeyboardText.ToKeystrokes("ê", french, linuxGuest: true).SelectMany(k => k).Count());
         // ñ would be "~n" there: refused rather than typed wrong.
         Assert.Throws<ArgumentException>(() => KeyboardText.ToKeystrokes("ñ", french, linuxGuest: true));
+        // Known for France's layout only: Belgium's (~ on AltGr+=) is typed as for Windows, dead key then space.
+        var belgian = Layout("0000080C");
+        Assert.Equal(Keys("~", belgian), KeyboardText.ToKeystrokes("~", belgian, linuxGuest: true).SelectMany(k => k).ToArray());
+        Assert.Equal((KeyboardText.Space, false), Keys("~", belgian)[^1]);
     }
 
     [Fact]

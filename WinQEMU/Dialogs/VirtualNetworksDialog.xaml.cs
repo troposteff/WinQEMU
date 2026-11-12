@@ -34,11 +34,24 @@ namespace WinQEMU.Dialogs
 
             // A driver is installed outside WinQEMU, while this dialog is open: looked for again every two seconds, so
             // its button comes back by itself.
+            // Read off the interface's thread: the registry and every network card of this PC, every two seconds.
             var driverWatch = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            driverWatch.Tick += (_, _) =>
+            var reading = false;
+            driverWatch.Tick += async (_, _) =>
             {
-                UpdateInternalAvailability();
-                UpdateExternalAvailability();
+                if (reading)
+                    return;
+                reading = true;
+                try
+                {
+                    var (tap, npcap) = await System.Threading.Tasks.Task.Run(() => (CanAddInternal(), Npcap.IsInstalled));
+                    ShowInternalAvailability(tap);
+                    ShowExternalAvailability(npcap);
+                }
+                finally
+                {
+                    reading = false;
+                }
             };
             TapDownloadLink.NavigateUri = new Uri(TapDriver.DownloadPage);
             UpdateInternalAvailability();
@@ -59,10 +72,46 @@ namespace WinQEMU.Dialogs
         /// <returns>Whether an internal network can be added.</returns>
         private bool UpdateInternalAvailability()
         {
-            var available = TapDriver.IsBundled || TapDriver.IsInstalled;
+            var available = CanAddInternal();
+            ShowInternalAvailability(available);
+            return available;
+        }
+
+        private void ShowInternalAvailability(bool available)
+        {
             AddInternalButton.IsEnabled = available;
             TapPanel.Visibility = available ? Visibility.Collapsed : Visibility.Visible;
-            return available;
+        }
+
+        private readonly object _driverGate = new();
+        private DateTime? _driverWithoutAdapterSince;
+        private bool _driverLookedFor;
+
+        /// <summary>
+        /// Whether the TAP driver is there to add an internal network with; read from any thread.
+        /// </summary>
+        /// <remarks>
+        /// The driver's installer writes its folder (tapinstall.exe) before it creates the first adapter. Taken as
+        /// installed in between, the button came back mid-installation, and a click then asked for a second elevation to
+        /// add an adapter beside the one being created. A driver with no adapter at all counts once it has been so for
+        /// fifteen seconds, or was already so when the dialog opened (adapters removed by hand: adding one is right).
+        /// </remarks>
+        private bool CanAddInternal()
+        {
+            if (TapDriver.IsBundled || TapAdapter.List().Count > 0)
+                return true;
+            lock (_driverGate)
+            {
+                var first = !_driverLookedFor;
+                _driverLookedFor = true;
+                if (TapDriver.InstallDirectory is null)
+                {
+                    _driverWithoutAdapterSince = null;
+                    return false;
+                }
+                _driverWithoutAdapterSince ??= first ? DateTime.MinValue : DateTime.UtcNow;
+                return DateTime.UtcNow - _driverWithoutAdapterSince > TimeSpan.FromSeconds(15);
+            }
         }
 
         /// <summary>The same for an external network and Npcap, which no build carries.</summary>
@@ -70,9 +119,14 @@ namespace WinQEMU.Dialogs
         private bool UpdateExternalAvailability()
         {
             var available = Npcap.IsInstalled;
+            ShowExternalAvailability(available);
+            return available;
+        }
+
+        private void ShowExternalAvailability(bool available)
+        {
             AddExternalButton.IsEnabled = available;
             NpcapPanel.Visibility = available ? Visibility.Collapsed : Visibility.Visible;
-            return available;
         }
 
         private void OnNetworksChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateEmptyText();

@@ -92,19 +92,21 @@ namespace WinQEMU.Core.Services
         /// </summary>
         /// <remarks>
         /// Typed, not run by the agent: a blocked guest-exec runs nothing, and a confined one may not load a policy
-        /// module. Inside the single quotes of "sh -c": double quotes only. The agent is (re)started first and its
-        /// command line read: openSUSE's unit says only "${FILTER_RPC_ARGS}", set in /usr/etc/sysconfig/qemu-ga, so the
-        /// unit's text does not show the block. The unit is overridden only where guest-exec is among the blocked
-        /// commands, so another distribution's own choices are left alone.
+        /// module. Inside the single quotes of "sh -c": double quotes only. The agent is started (not restarted: on
+        /// Debian the package has started it already, and a restart killed what WinQEMU had just begun through it) and
+        /// its command line read: openSUSE's unit says only "${FILTER_RPC_ARGS}", set in /usr/etc/sysconfig/qemu-ga, so
+        /// the unit's text does not show the block. Where the running agent blocks guest-exec (a block list naming it,
+        /// or an allow list without it, as the Red Hat family's), the filter is emptied in /etc/sysconfig/qemu-ga, the
+        /// administrator's file that openSUSE's unit and Red Hat's both read last, and the agent restarted; a
+        /// distribution that does not block it is left alone. BLACKLIST_RPC is the variable's older name.
         /// </remarks>
         public const string LinuxReleaseAgent =
             "if command -v semodule >/dev/null; then echo \"(typepermissive virt_qemu_ga_t)\" >/tmp/winqemu_qemu_ga.cil; " +
             "semodule -i /tmp/winqemu_qemu_ga.cil; rm -f /tmp/winqemu_qemu_ga.cil; fi; " +
-            "systemctl restart qemu-guest-agent; sleep 2; " +
-            "if ps -C qemu-ga -o args= | grep -q \"block-rpcs.*guest-exec\"; then " +
-            "d=/etc/systemd/system/qemu-guest-agent.service.d; mkdir -p $d; " +
-            "printf \"[Service]\\nExecStart=\\nExecStart=/usr/bin/qemu-ga -p /dev/virtio-ports/org.qemu.guest_agent.0\\n\" >$d/winqemu.conf; " +
-            "systemctl daemon-reload; systemctl restart qemu-guest-agent; fi";
+            "systemctl start qemu-guest-agent; sleep 2; " +
+            "case \"$(ps -C qemu-ga -o args=)\" in *allow-rpcs*guest-exec*) ;; " +
+            "*block-rpcs*guest-exec*|*blacklist*guest-exec*|*allow-rpcs*) " +
+            "printf \"FILTER_RPC_ARGS=\\nBLACKLIST_RPC=\\n\" >>/etc/sysconfig/qemu-ga; systemctl restart qemu-guest-agent;; esac";
 
         /// <summary>
         /// Perl as WinQEMU's guest programs need it, in Fedora's packages: the interpreter and the core modules they use
@@ -163,8 +165,10 @@ namespace WinQEMU.Core.Services
             "perl -MIO::Handle -MSocket -e 'my $e = $!{EBUSY}' 2>/dev/null && echo perl; " +
             // What SELinux denies a confined agent's commands (Fedora or openSUSE installed by hand), and what file copies
             // need: writing in a user's folder. Not "ls /home", which Fedora 45 allows (so does listing the folder; reading
-            // a file in it is denied), nor /sys/fs/selinux/enforce, which a confined agent may not even see.
-            "if [ -d /sys/fs/selinux ]; then for d in /home/*/; do [ -d \"$d\" ] || continue; " +
+            // a file in it is denied), nor /sys/fs/selinux/enforce, which a confined agent may not even see. Only for a
+            // command running in the agent's own SELinux domain: a home that root cannot write for another reason (NFS,
+            // read-only) is not something the typed command lifts, and the offer would come back for ever.
+            "if grep -q virt_qemu_ga_t /proc/self/attr/current 2>/dev/null; then for d in /home/*/; do [ -d \"$d\" ] || continue; " +
             "t=$(mktemp -p \"$d\" .winqemu-XXXXXX 2>/dev/null) && rm -f \"$t\" || echo confined; break; done; fi";
 
         /// <summary>

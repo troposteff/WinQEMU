@@ -1966,7 +1966,9 @@ namespace WinQEMU.ViewModels
             }
         }
 
-        public bool CanTrimGuestDisks => IsSelectedRunning && GuestToolsState is GuestToolsState.Complete or GuestToolsState.Incomplete;
+        // Restricted too: guest-fstrim is the agent's own command, which a blocked guest-exec does not take away.
+        public bool CanTrimGuestDisks =>
+            IsSelectedRunning && GuestToolsState is GuestToolsState.Complete or GuestToolsState.Incomplete or GuestToolsState.Restricted;
 
         // ---- Typing into the guest ----
 
@@ -2155,38 +2157,34 @@ namespace WinQEMU.ViewModels
                     await Task.Delay(TimeSpan.FromSeconds(6));
                 }
 
-                if (agentMissing)
+                if (agentMissing && windows)
                 {
-                    if (windows)
-                    {
-                        // Started by the user from the drive: typed in the Run box, Defender takes it for the
-                        // "ClickFix" attack and stops it (see GuestTools).
-                        Say(ShellText.ToolsWindowsWaitAgent);
-                    }
-                    else
-                    {
-                        Say(ShellText.ToolsTypingCommand);
-                        await session.TypeAsync(Core.Input.KeyboardText.ToKeystrokes(GuestTools.LinuxInstallCommand + "\n", layout, linuxGuest: true));
-                        Say(ShellText.ToolsSudoPassword);
-                        AppendDiagnostic("Guest tools: installation command typed in the guest.");
-                    }
-
-                    await using var answered = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(windows ? 20 : 10));
+                    // Started by the user from the drive: typed in the Run box, Defender takes it for the
+                    // "ClickFix" attack and stops it (see GuestTools).
+                    Say(ShellText.ToolsWindowsWaitAgent);
+                    await using var answered = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(20));
                     if (answered is null)
-                    {
-                        return windows
-                            ? ShellText.ToolsAgentStillMissingWindows
-                            : ShellText.ToolsAgentStillMissingLinux;
-                    }
+                        return ShellText.ToolsAgentStillMissingWindows;
                 }
-                else if (restricted)
+                else if (agentMissing || restricted)
                 {
-                    // The agent answers already, so waiting for it would not wait for the command: sudo may ask for a
-                    // password first, and the agent is restarted at the end. Asked until it is no longer held back.
                     Say(ShellText.ToolsTypingCommand);
                     await session.TypeAsync(Core.Input.KeyboardText.ToKeystrokes(GuestTools.LinuxInstallCommand + "\n", layout, linuxGuest: true));
                     Say(ShellText.ToolsSudoPassword);
-                    AppendDiagnostic("Guest tools: command typed in the guest to free its agent.");
+                    AppendDiagnostic(restricted
+                        ? "Guest tools: command typed in the guest to free its agent."
+                        : "Guest tools: installation command typed in the guest.");
+                    if (agentMissing)
+                    {
+                        await using var answered = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromMinutes(10));
+                        if (answered is null)
+                            return ShellText.ToolsAgentStillMissingLinux;
+                    }
+
+                    // An agent that answers is not the end of the command. Held back, it answered before the command
+                    // (sudo may ask for a password first); just installed on openSUSE, it answers for two seconds with
+                    // guest-exec blocked before the command frees and restarts it, and going on then failed on
+                    // "Command guest-exec has been disabled". Asked until it is no longer held back.
                     var end = DateTime.UtcNow + TimeSpan.FromMinutes(10);
                     while (true)
                     {

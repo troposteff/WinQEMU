@@ -25,10 +25,54 @@ namespace WinQEMU.Dialogs
             InitializeComponent();
             DialogWidth.Fit(this, 640);
             _manager = manager;
+            // The Microsoft Store build carries no driver installer: saying "comes with WinQEMU" there contradicted the
+            // download link shown a line below, on the first internal network.
+            TypesHint.Text = TapDriver.IsBundled ? DialogText.NetworksTypesHint : DialogText.NetworksTypesHintNoDriver;
             NetworkList.ItemsSource = manager.Settings.VirtualNetworks;
             manager.Settings.VirtualNetworks.CollectionChanged += OnNetworksChanged;
-            Closed += (_, _) => manager.Settings.VirtualNetworks.CollectionChanged -= OnNetworksChanged;
             UpdateEmptyText();
+
+            // A driver is installed outside WinQEMU, while this dialog is open: looked for again every two seconds, so
+            // its button comes back by itself.
+            var driverWatch = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            driverWatch.Tick += (_, _) =>
+            {
+                UpdateInternalAvailability();
+                UpdateExternalAvailability();
+            };
+            TapDownloadLink.NavigateUri = new Uri(TapDriver.DownloadPage);
+            UpdateInternalAvailability();
+            UpdateExternalAvailability();
+            driverWatch.Start();
+            Closed += (_, _) =>
+            {
+                driverWatch.Stop();
+                manager.Settings.VirtualNetworks.CollectionChanged -= OnNetworksChanged;
+            };
+        }
+
+        /// <summary>
+        /// Without the TAP driver, and in a build that cannot install it (the Microsoft Store's), an internal network
+        /// cannot be added: its button is greyed out (the user's request: a button that only answered with a guide looked
+        /// as if it worked), and the guide with the download link stays below it, since a disabled button explains nothing.
+        /// </summary>
+        /// <returns>Whether an internal network can be added.</returns>
+        private bool UpdateInternalAvailability()
+        {
+            var available = TapDriver.IsBundled || TapDriver.IsInstalled;
+            AddInternalButton.IsEnabled = available;
+            TapPanel.Visibility = available ? Visibility.Collapsed : Visibility.Visible;
+            return available;
+        }
+
+        /// <summary>The same for an external network and Npcap, which no build carries.</summary>
+        /// <returns>Whether an external network can be added.</returns>
+        private bool UpdateExternalAvailability()
+        {
+            var available = Npcap.IsInstalled;
+            AddExternalButton.IsEnabled = available;
+            NpcapPanel.Visibility = available ? Visibility.Collapsed : Visibility.Visible;
+            return available;
         }
 
         private void OnNetworksChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateEmptyText();
@@ -59,6 +103,9 @@ namespace WinQEMU.Dialogs
         /// </summary>
         private async void OnAddInternalClick(object sender, RoutedEventArgs e)
         {
+            // The driver may have gone since the last look (uninstalled with the dialog open).
+            if (!UpdateInternalAvailability())
+                return;
             var networks = _manager.Settings.VirtualNetworks;
             bool Free(Core.Networking.TapAdapter adapter) =>
                 networks.All(n => !n.TapAdapterId.Equals(adapter.Id, StringComparison.OrdinalIgnoreCase));
@@ -68,14 +115,6 @@ namespace WinQEMU.Dialogs
             if (free is null)
             {
                 var installing = !Core.Networking.TapDriver.IsInstalled;
-                if (installing && !Core.Networking.TapDriver.IsBundled)
-                {
-                    ShowError(null);
-                    TapDownloadLink.NavigateUri = new Uri(Core.Networking.TapDriver.DownloadPage);
-                    TapPanel.Visibility = Visibility.Visible;
-                    return;
-                }
-                TapPanel.Visibility = Visibility.Collapsed;
                 ShowProgress(installing
                     ? DialogText.NetworksInstallingTap
                     : DialogText.NetworksAddingTap);
@@ -133,14 +172,9 @@ namespace WinQEMU.Dialogs
         /// </summary>
         private void OnAddExternalClick(object sender, RoutedEventArgs e)
         {
-            TapPanel.Visibility = Visibility.Collapsed;
-            if (!Npcap.IsInstalled)
-            {
-                ShowError(null);
-                NpcapPanel.Visibility = Visibility.Visible;
+            // Npcap may have gone since the last look (uninstalled with the dialog open).
+            if (!UpdateExternalAvailability())
                 return;
-            }
-            NpcapPanel.Visibility = Visibility.Collapsed;
 
             var adapter = PhysicalAdapter.List().FirstOrDefault();
             if (adapter is null)

@@ -165,26 +165,33 @@
                 <!-- Not IsEnabled: that is declared by Control, and a panel binding it breaks XamlCompiler. -->
                 <StackPanel x:Name="AddButtons" Orientation="Horizontal" Spacing="8">
                     <Button Click="OnAddPrivateClick" Content="{x:Bind t:DialogText.NetworksAddPrivate}" />
-                    <Button Click="OnAddInternalClick" Content="{x:Bind t:DialogText.NetworksAddInternal}" />
-                    <Button Click="OnAddExternalClick" Content="{x:Bind t:DialogText.NetworksAddExternal}" />
+                    <Button x:Name="AddInternalButton" Click="OnAddInternalClick" Content="{x:Bind t:DialogText.NetworksAddInternal}" />
+                    <Button x:Name="AddExternalButton" Click="OnAddExternalClick" Content="{x:Bind t:DialogText.NetworksAddExternal}" />
                 </StackPanel>
+                <!-- Its text is set by the constructor: it depends on whether this build carries the TAP driver. -->
                 <TextBlock
+                    x:Name="TypesHint"
                     Style="{StaticResource Hint}"
-                    Text="{x:Bind t:DialogText.NetworksTypesHint}"
                     TextWrapping="Wrap" />
-                <!-- Npcap's licence forbids bundling it: the user installs it, guided from here. -->
-                <StackPanel x:Name="NpcapPanel" Spacing="4" Visibility="Collapsed">
-                    <TextBlock
-                        Text="{x:Bind t:DialogText.NetworksNpcapHint}"
-                        TextWrapping="Wrap" />
-                    <HyperlinkButton Padding="0" Content="{x:Bind t:DialogText.NetworksNpcapDownload}" NavigateUri="https://npcap.com/#download" />
-                </StackPanel>
-                <!-- The Microsoft Store build carries no driver installer (TapDriver.IsBundled): the user installs TAP-Windows. -->
+                <!--
+                    The Microsoft Store build carries no driver installer (TapDriver.IsBundled): the user installs
+                    TAP-Windows. Shown for as long as the driver is missing, while "Add an internal network" is disabled.
+                -->
                 <StackPanel x:Name="TapPanel" Spacing="4" Visibility="Collapsed">
                     <TextBlock
                         Text="{x:Bind t:DialogText.NetworksTapHint}"
                         TextWrapping="Wrap" />
                     <HyperlinkButton x:Name="TapDownloadLink" Padding="0" Content="{x:Bind t:DialogText.NetworksTapDownload}" />
+                </StackPanel>
+                <!--
+                    Npcap's licence forbids bundling it: the user installs it, guided from here. Shown for as long as it
+                    is missing, while "Add an external network" is disabled. Below TAP's guide, as the buttons are ordered.
+                -->
+                <StackPanel x:Name="NpcapPanel" Spacing="4" Visibility="Collapsed">
+                    <TextBlock
+                        Text="{x:Bind t:DialogText.NetworksNpcapHint}"
+                        TextWrapping="Wrap" />
+                    <HyperlinkButton Padding="0" Content="{x:Bind t:DialogText.NetworksNpcapDownload}" NavigateUri="https://npcap.com/#download" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <ProgressRing x:Name="ProgressRing" Width="16" Height="16" IsActive="False" Visibility="Collapsed" />

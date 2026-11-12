@@ -206,7 +206,7 @@
   <data name="NetworksAddInternal" xml:space="preserve"><value>Ajouter un réseau interne</value></data>
   <data name="NetworksAddExternal" xml:space="preserve"><value>Ajouter un réseau externe</value></data>
   <data name="NetworksTypesHint" xml:space="preserve"><value>Un réseau interne relie aussi ce PC aux machines, par une carte TAP-Windows : une carte par réseau interne. Le pilote (d'OpenVPN, licence GPLv2, source github.com/OpenVPN/tap-windows6) est fourni avec WinQEMU et installé au premier réseau interne. Un réseau externe met les machines sur le réseau de ce PC, chacune avec sa propre adresse donnée par la box, grâce à Npcap ; elles n'y joignent pas ce PC lui-même (pour cela : leur carte NAT, ou un réseau interne).</value></data>
-  <data name="NetworksNpcapHint" xml:space="preserve"><value>Un réseau externe passe par Npcap, le pilote de capture de Wireshark, gratuit. Installez-le avec ses options par défaut, sans cocher « Restrict Npcap driver's access to Administrators only », puis cliquez à nouveau sur « Ajouter un réseau externe ».</value></data>
+  <data name="NetworksNpcapHint" xml:space="preserve"><value>Un réseau externe passe par Npcap, le pilote de capture de Wireshark, gratuit. Installez-le avec ses options par défaut, sans cocher « Restrict Npcap driver's access to Administrators only » : « Ajouter un réseau externe » devient disponible dès qu'il est là.</value></data>
   <data name="NetworksNpcapDownload" xml:space="preserve"><value>Télécharger Npcap sur npcap.com</value></data>
   <data name="NetworksDefaultPrivate" xml:space="preserve"><value>Réseau privé</value></data>
   <data name="NetworksDefaultInternal" xml:space="preserve"><value>Réseau interne</value></data>
@@ -317,7 +317,7 @@ Pris le {2}</value></data>
   <data name="ReadinessTcgNote" xml:space="preserve"><value>Sans accélération, les machines tournent quand même, en émulation (TCG), environ dix fois plus lentement ; certains invités, dont Windows 11, deviennent difficilement utilisables.</value></data>
   <data name="ReadinessDismiss" xml:space="preserve"><value>Ne plus afficher au démarrage</value></data>
   <data name="SettingsCheckPc" xml:space="preserve"><value>Vérifier ce PC…</value></data>
-  <data name="NetworksTapHint" xml:space="preserve"><value>Un réseau interne passe par TAP-Windows, le pilote gratuit d'OpenVPN. Installez-le (Windows demande l'autorisation d'administrateur, et peut demander s'il faut faire confiance à OpenVPN), puis cliquez à nouveau sur « Ajouter un réseau interne ».</value></data>
+  <data name="NetworksTapHint" xml:space="preserve"><value>Un réseau interne passe par TAP-Windows, le pilote gratuit d'OpenVPN. Installez-le (Windows demande l'autorisation d'administrateur, et peut demander s'il faut faire confiance à OpenVPN) : « Ajouter un réseau interne » devient disponible dès qu'il est là.</value></data>
   <data name="NetworksTapDownload" xml:space="preserve"><value>Télécharger TAP-Windows sur openvpn.net</value></data>
   <data name="CpuNoOptions" xml:space="preserve"><value>Aucune : les fonctions du modèle seul</value></data>
   <data name="CpuFlagsTitle" xml:space="preserve"><value>Fonctions du processeur</value></data>
@@ -330,4 +330,5 @@ Pris le {2}</value></data>
   <data name="NewVmDesktopHeader" xml:space="preserve"><value>Environnement de bureau</value></data>
   <data name="NewVmDesktopNone" xml:space="preserve"><value>Aucun : une console avec SSH</value></data>
   <data name="NewVmComputerNameHeader" xml:space="preserve"><value>Nom de l'ordinateur</value></data>
+  <data name="NetworksTypesHintNoDriver" xml:space="preserve"><value>Un réseau interne relie aussi ce PC aux machines, par une carte TAP-Windows : une carte par réseau interne. Son pilote (d'OpenVPN, gratuit) s'installe à part : le bouton reste grisé tant qu'il manque. Un réseau externe met les machines sur le réseau de ce PC, chacune avec sa propre adresse donnée par la box, grâce à Npcap ; elles n'y joignent pas ce PC lui-même (pour cela : leur carte NAT, ou un réseau interne).</value></data>
 </root>

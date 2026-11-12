@@ -116,7 +116,16 @@ Installer ne met à jour que vers plus haut.
   - **Pas de pilote embarqué dans la version Store** (`WinQemuStore`, règle 10.2.4 : dépendre d'un pilote non Microsoft est en
     général refusé) : l'installateur TAP-Windows est **retiré** des éléments `Content` (le SDK les liste tous par défaut :
     une simple condition sur la copie le laissait dans le paquet, le script l'a vu). Réseau interne : lien vers l'installateur
-    d'OpenVPN, comme Npcap (`TapDriver.IsBundled`). Non vérifié dans l'interface : ce PC a déjà le pilote.
+    d'OpenVPN, comme Npcap (`TapDriver.IsBundled`). **Sans pilote, « Ajouter un réseau interne » est grisé** (demande de
+    l'utilisateur : un bouton qui ne répondait que par un guide avait l'air de marcher), guide et lien affichés en
+    permanence dessous ; le pilote est recherché toutes les 2 s tant que le dialogue est ouvert, et le bouton revient seul
+    (`UpdateInternalAvailability`). **De même « Ajouter un réseau externe » sans Npcap**, dans toutes les versions
+    (`UpdateExternalAvailability`), son guide sous celui de TAP. L'aide sous les boutons a son texte propre à la version sans pilote
+    (`NetworksTypesHintNoDriver` : elle disait le pilote « fourni avec WinQEMU » au-dessus du lien pour le télécharger).
+    Vérifié dans l'interface (12/11/2026) sur un PC sans pilote TAP ni Npcap, l'installateur écarté du dossier de
+    compilation (même chemin de code que la version Store, dont le `.msix` publié ne le contient pas) : les deux boutons
+    grisés, leurs guides et liens, aucun réseau ajouté ; installateur présent, bouton interne actif et pas de guide TAP.
+    Non vérifié : les liens suivis, l'installation d'un pilote, le bouton qui revient, puis le réseau créé.
   - **Une autre identité = une autre application** : au premier démarrage sans réglages, `Services.SettingsImport` copie le
     `settings.json` de l'installation GitHub (famille `…_6swaqgnpzyjaw`, lu dans `%LOCALAPPDATA%\Packages\…\LocalCache`), et
     un bandeau demande de désinstaller celle-ci. Vérifié avec un paquet d'identité de test enregistré à côté (bibliothèque,

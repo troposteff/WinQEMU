@@ -206,7 +206,7 @@
   <data name="NetworksAddInternal" xml:space="preserve"><value>Add an internal network</value></data>
   <data name="NetworksAddExternal" xml:space="preserve"><value>Add an external network</value></data>
   <data name="NetworksTypesHint" xml:space="preserve"><value>An internal network also connects this PC to the machines, through a TAP-Windows adapter: one adapter per internal network. The driver (from OpenVPN, GPLv2 licence, source github.com/OpenVPN/tap-windows6) comes with WinQEMU and is installed with the first internal network. An external network puts the machines on this PC's network, each with its own address given by the router, thanks to Npcap; there they cannot reach this PC itself (for that: their NAT card, or an internal network).</value></data>
-  <data name="NetworksNpcapHint" xml:space="preserve"><value>An external network goes through Npcap, Wireshark's free capture driver. Install it with its default options, without checking “Restrict Npcap driver's access to Administrators only”, then click “Add an external network” again.</value></data>
+  <data name="NetworksNpcapHint" xml:space="preserve"><value>An external network goes through Npcap, Wireshark's free capture driver. Install it with its default options, without checking “Restrict Npcap driver's access to Administrators only”: “Add an external network” becomes available as soon as it is there.</value></data>
   <data name="NetworksNpcapDownload" xml:space="preserve"><value>Download Npcap from npcap.com</value></data>
   <data name="NetworksDefaultPrivate" xml:space="preserve"><value>Private network</value></data>
   <data name="NetworksDefaultInternal" xml:space="preserve"><value>Internal network</value></data>
@@ -317,7 +317,7 @@ Taken on {2}</value></data>
   <data name="ReadinessTcgNote" xml:space="preserve"><value>Without acceleration, machines still run, in emulation (TCG), about ten times slower; some guests, Windows 11 among them, become hardly usable.</value></data>
   <data name="ReadinessDismiss" xml:space="preserve"><value>Do not show at start</value></data>
   <data name="SettingsCheckPc" xml:space="preserve"><value>Check this PC…</value></data>
-  <data name="NetworksTapHint" xml:space="preserve"><value>An internal network goes through OpenVPN's free TAP-Windows driver. Install it (Windows asks for administrator permission, and may ask whether to trust OpenVPN), then click “Add an internal network” again.</value></data>
+  <data name="NetworksTapHint" xml:space="preserve"><value>An internal network goes through OpenVPN's free TAP-Windows driver. Install it (Windows asks for administrator permission, and may ask whether to trust OpenVPN): “Add an internal network” becomes available as soon as it is there.</value></data>
   <data name="NetworksTapDownload" xml:space="preserve"><value>Download TAP-Windows from openvpn.net</value></data>
   <data name="CpuNoOptions" xml:space="preserve"><value>None: the model's own features</value></data>
   <data name="CpuFlagsTitle" xml:space="preserve"><value>Processor features</value></data>
@@ -330,4 +330,5 @@ Taken on {2}</value></data>
   <data name="NewVmDesktopHeader" xml:space="preserve"><value>Desktop environment</value></data>
   <data name="NewVmDesktopNone" xml:space="preserve"><value>None: a console with SSH</value></data>
   <data name="NewVmComputerNameHeader" xml:space="preserve"><value>Computer name</value></data>
+  <data name="NetworksTypesHintNoDriver" xml:space="preserve"><value>An internal network also connects this PC to the machines, through a TAP-Windows adapter: one adapter per internal network. Its driver (from OpenVPN, free) is installed separately: the button stays greyed out until it is there. An external network puts the machines on this PC's network, each with its own address given by the router, thanks to Npcap; there they cannot reach this PC itself (for that: their NAT card, or an internal network).</value><comment>The Microsoft Store build, which carries no driver installer (TapDriver.IsBundled).</comment></data>
 </root>

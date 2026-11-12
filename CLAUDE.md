@@ -1042,6 +1042,10 @@ Bouton à côté des Paramètres (`VirtualNetworksDialog`).
   « branche » (IOCTL media status, sinon Windows ne demande pas d'adresse) et en fait un port du
   commutateur. Le DHCP réserve `.1` à sa MAC : Windows prend son adresse tout seul, sans droits.
   Accès refusé (5) → réglage « Non-Admin Access » de la carte. OpenVPN Connect (`tap_ovpnconnect`) exclu.
+  **Wintun écarté** (étudié le 12/11/2026, non essayé) : maintenu, plus rapide, une seule DLL redistribuable, mais niveau
+  IP et non Ethernet (ARP et en-têtes à simuler pour ce PC), pas de DHCP pour ce PC (adresse à poser en administrateur),
+  carte ouvrable seulement avec des droits élevés (UAC à chaque démarrage du réseau, ou un service), et la règle 10.2.4
+  du Store s'applique pareil. À reconsidérer seulement si TAP-Windows cessait de s'installer sur un Windows futur.
 - **Externe** (les VM sur le réseau physique, chacune avec son adresse donnée par la box ; pas de DHCP WinQEMU) :
   la carte physique choisie (`PhysicalAdapter`, `VirtualNetwork.PhysicalAdapterId`) devient un port du
   commutateur par **Npcap** (`Networking.Npcap`, P/Invoke vers `System32\Npcap\wpcap.dll`), comme le pilote de

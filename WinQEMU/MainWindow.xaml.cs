@@ -1214,6 +1214,7 @@ namespace WinQEMU
                 return;
             var windows = _viewModel.IsSelectedWindowsGuest;
             var agentMissing = _viewModel.GuestToolsState == Core.Services.GuestToolsState.AgentMissing;
+            var typed = _viewModel.InstallTypesInGuest;
 
             string? iso = null;
             if (windows)
@@ -1235,6 +1236,9 @@ namespace WinQEMU
                     string.Format(CultureInfo.CurrentCulture, ShellText.InstallToolsWindowsAgent, System.IO.Path.GetFileName(iso), swap),
                 (false, true) =>
                     string.Format(CultureInfo.CurrentCulture, ShellText.InstallToolsLinuxNoAgent, Core.Services.GuestTools.LinuxInstallCommand),
+                // An agent its distribution holds back: the same typed command, which also frees it.
+                (false, false) when typed =>
+                    string.Format(CultureInfo.CurrentCulture, ShellText.InstallToolsLinuxRestricted, Core.Services.GuestTools.LinuxInstallCommand),
                 (false, false) =>
                     ShellText.InstallToolsLinuxAgent
             };
@@ -1243,7 +1247,7 @@ namespace WinQEMU
             {
                 Title = ShellText.InstallToolsTitle,
                 Content = DialogBody(text),
-                PrimaryButtonText = !windows && agentMissing ? ShellText.InstallToolsTypeButton : ShellText.InstallToolsButton,
+                PrimaryButtonText = typed ? ShellText.InstallToolsTypeButton : ShellText.InstallToolsButton,
                 CloseButtonText = CommonText.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot

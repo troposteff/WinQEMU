@@ -650,6 +650,22 @@ get-default` y répondait pourtant `graphical.target`). Absents : lien dans la b
   perl-Socket perl-Errno`, Fedora découpant Perl en petits paquets ; `perl-base` ou `perl` ailleurs), et l'installation
   automatique de Fedora l'ajoute à ses paquets. Vérifié sur Fedora 45 Xfce : Perl retiré, journal « Perl is missing »,
   script d'installation par l'agent, vérification « perl ».
+- **Agent bridé par la distribution** (`GuestToolsState.Restricted`, Fedora et openSUSE installés à la main) : l'agent
+  répondait, dossiers partagés, copies et glisser échouaient, et rien ne disait pourquoi (openSUSE : « could not be
+  checked », état inconnu, aucun bouton). Détecté à la vérification : `guest-exec` refusé (« Command guest-exec has been
+  disabled », `IsExecDisabled`), ou **écriture refusée dans le dossier d'un utilisateur** (`mktemp` dans le premier
+  `/home/*/`, si `/sys/fs/selinux` existe). Pas `ls /home` : Fedora 45 le permet à l'agent confiné, ainsi que lister le
+  dossier ; lire un fichier y est refusé, et `/sys/fs/selinux/enforce` lui est invisible. Rien ne se corrige par un agent
+  bridé : « Installer les outils invités » **tape** la même commande que sans agent, qui fait désormais ce que fait
+  l'installation automatique (`LinuxReleaseAgent` : domaine `virt_qemu_ga_t` permissif, puis surcharge de l'unité si la
+  ligne de commande **de l'agent en marche** bloque `guest-exec`). L'unité d'openSUSE ne dit que `${FILTER_RPC_ARGS}`,
+  posé dans `/usr/etc/sysconfig/qemu-ga` : chercher `block-rpcs` dans `systemctl cat` ne trouvait rien. Après la saisie,
+  l'agent répond déjà : on redemande jusqu'à ce qu'il ne soit plus bridé (10 min), au lieu d'attendre sa réponse.
+  Vérifié dans l'app (12/11/2026) sur openSUSE DE et Fedora test remis dans l'état d'un invité installé à la main (module
+  SELinux et surcharge retirés), commande tapée dans une console texte en root : openSUSE détecté « guest-exec is
+  blocked », agent libéré (la suite a échoué sur `spice-vdagent`, absent du dépôt DVD de cette machine, sans rapport) ;
+  Fedora détecté « SELinux confines the agent », « installed » 12 s après la saisie. Non vérifié : sudo demandant un mot
+  de passe dans un terminal de bureau, et un invité réellement installé à la main.
 - **Bureau détecté dossier par dossier** : `ls xsessions/*.desktop wayland-sessions/*.desktop` échouait dès qu'un des
   deux dossiers manquait (X11 seul sous Xfce, Wayland seul sous Ubuntu) et l'invité passait pour « sans bureau » : sans
   `spice-vdagent`, il aurait été dit complet à tort.
@@ -1168,7 +1184,8 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   voyait pas `/home` ni ne chargeait `9pnet_fd` (dossiers partagés, dépôt et récupération en échec). Seul ce domaine est
   rendu permissif (`typepermissive`, module CIL chargé par `semodule` après l'installation, `UnconfinedAgent`) ; SELinux
   reste appliqué au reste. **openSUSE bloque en plus `guest-exec`** (`--block-rpcs` dans son unité) : surchargé par
-  `/etc/systemd/system/qemu-guest-agent.service.d/winqemu.conf`. Un invité installé à la main garde ces deux limites.
+  `/etc/systemd/system/qemu-guest-agent.service.d/winqemu.conf`. Un invité installé à la main a ces deux limites jusqu'à
+  « Installer les outils invités », qui les lève (voir Outils invités, agent bridé).
   **Nom de l'ordinateur modifiable** dans l'assistant (toutes les installations automatiques, Windows compris) : tiré du nom
   de la machine et le suivant tant qu'on ne le change pas ; règle NetBIOS pour Windows (15 caractères, pas que des chiffres),
   une étiquette DNS pour Linux (`WhyComputerNameIsRefused`, `WhyHostnameIsRefused`).

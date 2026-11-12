@@ -279,4 +279,10 @@ Cette question reviendra dans 1 minute si la machine ne répond toujours pas, et
   <data name="DraggedToPc" xml:space="preserve"><value>Glissé sur ce PC : {0}</value></data>
   <data name="DragOutCancelled" xml:space="preserve"><value>Glisser annulé : rien n'a été laissé sur ce PC.</value></data>
   <data name="DragOutFailed" xml:space="preserve"><value>Les fichiers glissés hors de l'invité n'ont pas pu être copiés : {0}</value></data>
+  <data name="InstallToolsLinuxRestricted" xml:space="preserve"><value>L'agent invité répond, mais la distribution de l'invité le bride : rien ne peut être corrigé par lui. Ouvrez une session et un terminal dans l'invité, puis cliquez sur « Taper la commande ». WinQEMU y tape, au clavier de ce PC :
+
+{0}
+
+Ne touchez pas au clavier pendant la saisie (quelques secondes). Si sudo demande votre mot de passe, tapez-le dans la console.</value></data>
+  <data name="ToolsStillRestricted" xml:space="preserve"><value>L'agent invité est toujours bridé après dix minutes. Vérifiez dans l'invité que la commande s'est bien exécutée.</value></data>
 </root>

@@ -50,6 +50,35 @@ public sealed class GuestToolsTests : IDisposable
         Assert.Equal(missing, report.Missing);
     }
 
+    // Fedora and openSUSE installed by hand: the agent answered, shared folders and copies failed, and nothing said why.
+    [Fact]
+    public void An_agent_its_distribution_holds_back_is_said_so_whatever_else_is_there()
+    {
+        var report = GuestTools.Report("present\nperl\nconfined\n", windowsGuest: false);
+
+        Assert.Equal(GuestToolsState.Restricted, report.State);
+        // Writing in a user's folder, which is what a copy does: Fedora's policy lets a confined agent list /home.
+        Assert.Contains("mktemp -p \"$d\" .winqemu-XXXXXX 2>/dev/null) && rm -f \"$t\" || echo confined", GuestTools.LinuxCheckScript);
+        Assert.DoesNotContain("ls /home", GuestTools.LinuxCheckScript);
+        Assert.True(GuestTools.IsExecDisabled("Command guest-exec has been disabled"));
+        Assert.True(GuestTools.IsExecDisabled("Command 'guest-exec' has been disabled"));
+        Assert.False(GuestTools.IsExecDisabled("The guest agent did not answer guest-exec in time."));
+    }
+
+    [Fact]
+    public void The_typed_command_frees_the_agent_as_an_unattended_installation_does()
+    {
+        var command = GuestTools.LinuxInstallCommand;
+
+        Assert.Contains("(typepermissive virt_qemu_ga_t)", command);
+        // Read from the running agent: openSUSE's unit only says ${FILTER_RPC_ARGS}, set in a file of its own.
+        Assert.Contains("ps -C qemu-ga -o args= | grep -q \"block-rpcs.*guest-exec\"", command);
+        Assert.Contains("ExecStart=/usr/bin/qemu-ga -p /dev/virtio-ports/org.qemu.guest_agent.0", command);
+        Assert.EndsWith("systemctl daemon-reload; systemctl restart qemu-guest-agent; fi'", command);
+        // One "sh -c '…'": a single quote inside would end it.
+        Assert.Equal(2, command.Count(c => c == '\''));
+    }
+
     [Fact]
     public void A_Windows_guest_is_not_asked_for_Perl()
     {

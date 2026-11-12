@@ -140,4 +140,5 @@
   <data name="UnattendedLinuxHostnameRule" xml:space="preserve"><value>Un nom d'ordinateur ne contient que des lettres, des chiffres et des tirets, ne commence ni ne finit par un tiret, et compte 63 caractères au plus.</value></data>
   <data name="UnattendedWindowsComputerNameRule" xml:space="preserve"><value>Un nom d'ordinateur Windows ne contient que des lettres, des chiffres et des tirets, pas seulement des chiffres, ne commence ni ne finit par un tiret, et compte 15 caractères au plus.</value></data>
   <data name="GuestToolsNoPerl" xml:space="preserve"><value>L'agent invité répond, mais Perl n'est pas installé : aucun fichier ne peut être copié vers l'invité ou depuis lui, et les dossiers partagés ne sont pas montés.</value></data>
+  <data name="GuestToolsRestricted" xml:space="preserve"><value>L'agent invité répond, mais la distribution de l'invité le bride (SELinux, ou commandes bloquées) : dossiers partagés, copies de fichiers et glisser-déposer ne marchent pas. « Installer les outils invités » lève ces limites.</value></data>
 </root>

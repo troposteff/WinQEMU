@@ -13,6 +13,11 @@ namespace WinQEMU.Core.Services
         Checking,
         /// <summary>No agent answered: nothing works that goes through the guest.</summary>
         AgentMissing,
+        /// <summary>
+        /// The agent answers, but its distribution holds it back (guest-exec blocked, or what it runs confined by
+        /// SELinux): nothing can be fixed through it, and the command typed in the guest lifts both.
+        /// </summary>
+        Restricted,
         /// <summary>The agent answers, but the rest of the tools are not there (clipboard, display drivers).</summary>
         Incomplete,
         Complete
@@ -68,14 +73,38 @@ namespace WinQEMU.Core.Services
 
         /// <summary>
         /// Typed in a terminal of the guest: the agent and the clipboard agent from whichever package manager
-        /// the distribution has, then the agent started (its unit waits for the virtio port, which is there).
+        /// the distribution has, the agent freed of what its distribution holds it back with
+        /// (<see cref="LinuxReleaseAgent"/>), then started again (its unit waits for the virtio port, which is there).
         /// </summary>
         public const string LinuxInstallCommand =
             "sudo sh -c 'if command -v apt-get >/dev/null; then apt-get install -y qemu-guest-agent spice-vdagent; " +
             "elif command -v dnf >/dev/null; then dnf install -y qemu-guest-agent spice-vdagent " + FedoraPerl + "; " +
             "elif command -v zypper >/dev/null; then zypper -n in qemu-guest-agent spice-vdagent; " +
             "elif command -v pacman >/dev/null; then pacman -S --noconfirm qemu-guest-agent spice-vdagent; fi; " +
-            "systemctl start qemu-guest-agent'";
+            LinuxReleaseAgent + "'";
+
+        /// <summary>
+        /// What an unattended installation by WinQEMU does to the agent (LinuxUnattendedSetup.UnconfinedAgent and
+        /// OpenSuseAgentCommands), for a guest installed by hand: the agent's SELinux domain made permissive (Fedora,
+        /// openSUSE: what it ran could not list /home nor load 9pnet_fd), and openSUSE's unit without its
+        /// "--block-rpcs=guest-exec,…" ("Command guest-exec has been disabled"). Without them shared folders, file
+        /// copies and drags failed on such a guest with the agent answering, and nothing said why.
+        /// </summary>
+        /// <remarks>
+        /// Typed, not run by the agent: a blocked guest-exec runs nothing, and a confined one may not load a policy
+        /// module. Inside the single quotes of "sh -c": double quotes only. The agent is (re)started first and its
+        /// command line read: openSUSE's unit says only "${FILTER_RPC_ARGS}", set in /usr/etc/sysconfig/qemu-ga, so the
+        /// unit's text does not show the block. The unit is overridden only where guest-exec is among the blocked
+        /// commands, so another distribution's own choices are left alone.
+        /// </remarks>
+        public const string LinuxReleaseAgent =
+            "if command -v semodule >/dev/null; then echo \"(typepermissive virt_qemu_ga_t)\" >/tmp/winqemu_qemu_ga.cil; " +
+            "semodule -i /tmp/winqemu_qemu_ga.cil; rm -f /tmp/winqemu_qemu_ga.cil; fi; " +
+            "systemctl restart qemu-guest-agent; sleep 2; " +
+            "if ps -C qemu-ga -o args= | grep -q \"block-rpcs.*guest-exec\"; then " +
+            "d=/etc/systemd/system/qemu-guest-agent.service.d; mkdir -p $d; " +
+            "printf \"[Service]\\nExecStart=\\nExecStart=/usr/bin/qemu-ga -p /dev/virtio-ports/org.qemu.guest_agent.0\\n\" >$d/winqemu.conf; " +
+            "systemctl daemon-reload; systemctl restart qemu-guest-agent; fi";
 
         /// <summary>
         /// Perl as WinQEMU's guest programs need it, in Fedora's packages: the interpreter and the core modules they use
@@ -131,7 +160,20 @@ namespace WinQEMU.Core.Services
             // (Fedora with Xfce) or Wayland ones only (Ubuntu) was said to have no desktop.
             "desktop=; for f in /usr/share/xsessions/*.desktop /usr/share/wayland-sessions/*.desktop; do [ -e \"$f\" ] && desktop=1; done; " +
             "[ -n \"$desktop\" ] || echo headless; " +
-            "perl -MIO::Handle -MSocket -e 'my $e = $!{EBUSY}' 2>/dev/null && echo perl";
+            "perl -MIO::Handle -MSocket -e 'my $e = $!{EBUSY}' 2>/dev/null && echo perl; " +
+            // What SELinux denies a confined agent's commands (Fedora or openSUSE installed by hand), and what file copies
+            // need: writing in a user's folder. Not "ls /home", which Fedora 45 allows (so does listing the folder; reading
+            // a file in it is denied), nor /sys/fs/selinux/enforce, which a confined agent may not even see.
+            "if [ -d /sys/fs/selinux ]; then for d in /home/*/; do [ -d \"$d\" ] || continue; " +
+            "t=$(mktemp -p \"$d\" .winqemu-XXXXXX 2>/dev/null) && rm -f \"$t\" || echo confined; break; done; fi";
+
+        /// <summary>
+        /// Whether the agent refused to run anything: openSUSE starts it with guest-exec blocked, and QEMU's agent
+        /// answers "Command guest-exec has been disabled".
+        /// </summary>
+        public static bool IsExecDisabled(string agentError) =>
+            agentError.Contains("guest-exec", StringComparison.OrdinalIgnoreCase)
+            && agentError.Contains("disabled", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>What the guest has, asked of its agent.</summary>
         public static async Task<GuestToolsReport> CheckAsync(GuestAgentClient agent, bool windowsGuest, CancellationToken cancellationToken = default)
@@ -147,8 +189,16 @@ namespace WinQEMU.Core.Services
             }
             else
             {
-                result = await agent.RunAsync("/bin/sh", new[] { "-c", LinuxCheckScript },
-                    null, TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    result = await agent.RunAsync("/bin/sh", new[] { "-c", LinuxCheckScript },
+                        null, TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
+                }
+                catch (GuestAgentException ex) when (IsExecDisabled(ex.Message))
+                {
+                    // Before: "could not be checked", state unknown, and no way offered to fix it.
+                    return new GuestToolsReport(GuestToolsState.Restricted, CoreText.GuestToolsRestricted, "guest-exec is blocked");
+                }
             }
 
             return Report(result.Output, windowsGuest);
@@ -158,6 +208,9 @@ namespace WinQEMU.Core.Services
         public static GuestToolsReport Report(string output, bool windowsGuest)
         {
             bool Has(string word) => output.Contains(word, StringComparison.Ordinal);
+            // First: whatever else is there, nothing WinQEMU runs in this guest reaches the user's files.
+            if (!windowsGuest && Has("confined"))
+                return new GuestToolsReport(GuestToolsState.Restricted, CoreText.GuestToolsRestricted, "SELinux confines the agent");
             // Before the clipboard: without Perl nothing is copied and no shared folder is mounted, desktop or not.
             if (!windowsGuest && !Has("perl"))
                 return new GuestToolsReport(GuestToolsState.Incomplete, CoreText.GuestToolsNoPerl, "Perl");

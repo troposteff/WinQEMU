@@ -279,4 +279,10 @@ You will be asked again in 1 minute if the machine is still not responding; this
   <data name="DraggedToPc" xml:space="preserve"><value>Dragged onto this PC: {0}</value></data>
   <data name="DragOutCancelled" xml:space="preserve"><value>Drag cancelled: nothing was left on this PC.</value></data>
   <data name="DragOutFailed" xml:space="preserve"><value>The files dragged out of the guest could not be copied: {0}</value></data>
+  <data name="InstallToolsLinuxRestricted" xml:space="preserve"><value>The guest agent answers, but the guest's distribution holds it back, so nothing can be fixed through it. Sign in and open a terminal in the guest, then click “Type the command”. WinQEMU types there, with this PC's keyboard layout:
+
+{0}
+
+Do not touch the keyboard while it types (a few seconds). If sudo asks for your password, type it in the console.</value></data>
+  <data name="ToolsStillRestricted" xml:space="preserve"><value>The guest agent is still held back after ten minutes. Check in the guest that the command ran correctly.</value></data>
 </root>

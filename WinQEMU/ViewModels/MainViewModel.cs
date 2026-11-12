@@ -2053,6 +2053,7 @@ namespace WinQEMU.ViewModels
             session.AppendLog(report.State switch
             {
                 GuestToolsState.AgentMissing => $"Guest tools: the guest agent did not answer within {agentWait.TotalMinutes:0} min.",
+                GuestToolsState.Restricted => $"Guest tools: the agent answers, but the guest holds it back ({report.Missing ?? "restricted"}).",
                 GuestToolsState.Incomplete => $"Guest tools: the agent answers, but {report.Missing ?? "something"} is missing.",
                 GuestToolsState.Complete => "Guest tools: complete.",
                 _ => "Guest tools: unknown."
@@ -2080,7 +2081,15 @@ namespace WinQEMU.ViewModels
         public bool IsInstallingGuestTools => SelectedVm is { } vm && _toolsInstalls.Contains(vm);
 
         public bool CanInstallGuestTools =>
-            !IsInstallingGuestTools && GuestToolsState is GuestToolsState.AgentMissing or GuestToolsState.Incomplete;
+            !IsInstallingGuestTools
+            && GuestToolsState is GuestToolsState.AgentMissing or GuestToolsState.Restricted or GuestToolsState.Incomplete;
+
+        /// <summary>
+        /// Whether installing the selection's tools starts with a command typed in the guest: a Linux guest without an
+        /// agent, or with one its distribution holds back, through which nothing can be fixed.
+        /// </summary>
+        public bool InstallTypesInGuest =>
+            !IsSelectedWindowsGuest && GuestToolsState is GuestToolsState.AgentMissing or GuestToolsState.Restricted;
 
         /// <summary>Said in the console bar too: missing tools, or their installation under way.</summary>
         public bool HasGuestToolsWarning => CanInstallGuestTools || IsInstallingGuestTools;
@@ -2129,6 +2138,7 @@ namespace WinQEMU.ViewModels
                 return ShellText.MachineMustRun;
             var windows = GuestTools.IsWindows(target);
             var agentMissing = GuestToolsState == GuestToolsState.AgentMissing;
+            var restricted = !windows && GuestToolsState == GuestToolsState.Restricted;
             var layout = Core.Input.KeyboardText.CurrentLayout();
             _toolsInstalls.Add(target);
             void Say(string text) => SetToolsReport(target, new GuestToolsReport(GuestToolsState.Checking, text));
@@ -2166,6 +2176,34 @@ namespace WinQEMU.ViewModels
                         return windows
                             ? ShellText.ToolsAgentStillMissingWindows
                             : ShellText.ToolsAgentStillMissingLinux;
+                    }
+                }
+                else if (restricted)
+                {
+                    // The agent answers already, so waiting for it would not wait for the command: sudo may ask for a
+                    // password first, and the agent is restarted at the end. Asked until it is no longer held back.
+                    Say(ShellText.ToolsTypingCommand);
+                    await session.TypeAsync(Core.Input.KeyboardText.ToKeystrokes(GuestTools.LinuxInstallCommand + "\n", layout));
+                    Say(ShellText.ToolsSudoPassword);
+                    AppendDiagnostic("Guest tools: command typed in the guest to free its agent.");
+                    var end = DateTime.UtcNow + TimeSpan.FromMinutes(10);
+                    while (true)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                        if (!session.IsRunning)
+                            return ShellText.ToolsAgentStopped;
+                        try
+                        {
+                            await using var probe = await GuestShareMounter.WaitForAgentAsync(session, TimeSpan.FromSeconds(10));
+                            if (probe is not null && (await GuestTools.CheckAsync(probe, false)).State != GuestToolsState.Restricted)
+                                break;
+                        }
+                        catch (Exception ex) when (ex is GuestAgentException or IOException)
+                        {
+                            // The agent being restarted by the command.
+                        }
+                        if (DateTime.UtcNow > end)
+                            return ShellText.ToolsStillRestricted;
                     }
                 }
 

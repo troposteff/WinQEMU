@@ -107,7 +107,10 @@ Installer ne met à jour que vers plus haut.
     `CN=EA8415CD-…`) et, avec un compte Entra administrateur, `9NTWD738Z396_License.xml`. Vérifié dans Windows Sandbox :
     **sans licence, le paquet s'installe mais ne démarre pas** (« Impossible d'ouvrir cette application », `0x87E10BC6`) ;
     avec `Add-AppxProvisionedPackage -LicensePath`, WinQEMU démarre (le sandbox n'a pas le Store : un PC qui l'a obtiendrait
-    peut-être la licence en ligne, comme le dit NanaZip ; non vérifié). L'App Developer Agreement (8.11) ne dit rien de la
+    peut-être la licence en ligne, comme le dit NanaZip ; non vérifié). Revérifié pour la release GitHub 2026.1.5
+    (12/11/2026, sandbox **réseau coupé**, `.wsb` avec le dossier de la release monté en lecture seule et un script en
+    `LogonCommand`, qui tourne élevé) : paquet provisionné avec sa licence, signature `Store`, WinQEMU démarre sur
+    « Préparer ce PC », `winqemu help` répond (code 0). L'App Developer Agreement (8.11) ne dit rien de la
     republication ; la licence porte le `RequestorID` du tenant. Republiés sur GitHub (voir plus haut).
   - `tools/Build-StorePackage.ps1` : `.msix` **non signé** (le Store signe) avec l'identité de Partner Center, donnée au
     build par une copie du manifeste (`WinQemuStoreManifest` du csproj ; sans `AppxManifest` déclaré, les outils MSIX
@@ -125,7 +128,11 @@ Installer ne met à jour que vers plus haut.
     Vérifié dans l'interface (12/11/2026) sur un PC sans pilote TAP ni Npcap, l'installateur écarté du dossier de
     compilation (même chemin de code que la version Store, dont le `.msix` publié ne le contient pas) : les deux boutons
     grisés, leurs guides et liens, aucun réseau ajouté ; installateur présent, bouton interne actif et pas de guide TAP.
-    Non vérifié : les liens suivis, l'installation d'un pilote, le bouton qui revient, puis le réseau créé.
+    Puis TAP-Windows installé par l'utilisateur depuis le lien, dialogue ouvert : bouton revenu et guide retiré tout
+    seuls, réseau interne créé sans invite sur la carte de l'installateur ; Ubuntu branchée dessus par une seconde carte : ce PC a
+    pris 10.77.1.1 par DHCP, l'invité 10.77.1.132, et répond au ping de ce PC. Même parcours pour Npcap : installé par
+    l'utilisateur depuis le lien, bouton revenu seul, réseau externe créé sur la carte Ethernet, Ubuntu y a reçu
+    192.168.1.113 de la box et joint la passerelle (ping depuis l'invité, par l'agent). Ce PC a désormais TAP et Npcap.
   - **Une autre identité = une autre application** : au premier démarrage sans réglages, `Services.SettingsImport` copie le
     `settings.json` de l'installation GitHub (famille `…_6swaqgnpzyjaw`, lu dans `%LOCALAPPDATA%\Packages\…\LocalCache`), et
     un bandeau demande de désinstaller celle-ci. Vérifié avec un paquet d'identité de test enregistré à côté (bibliothèque,

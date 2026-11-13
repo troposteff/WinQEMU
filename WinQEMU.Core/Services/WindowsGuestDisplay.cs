@@ -91,8 +91,9 @@ namespace WinQEMU.Core.Services
         public static string SetupScript => """
             $ErrorActionPreference = 'Stop'
             $ProgressPreference = 'SilentlyContinue'
+            """ + "\n" + GuestWorkFolder.ProtectFunction + "\n" + """
             $dir = "$env:ProgramData\WinQEMU"
-            New-Item $dir -ItemType Directory -Force | Out-Null
+            Protect-WinQemuFolder $dir
             $source = @'
             """ + "\n" + HelperSource + "\n" + """
             '@

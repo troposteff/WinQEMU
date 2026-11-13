@@ -87,7 +87,10 @@ namespace WinQEMU.Core.Services
             port=/dev/virtio-ports/org.winqemu.shares.0
             [ -e "$port" ] || exit 13
             modprobe 9pnet_fd 2>/dev/null; modprobe 9p 2>/dev/null
-            mkdir -p "$dir" && chown "$uid:$gid" "$dir"
+            # Run as root on a path the user owns: a link there (~/Partages -> /etc) would have chown give /etc to the
+            # user and the share be mounted over it.
+            if [ -L "$dir" ]; then echo "$dir" >&2; exit 16; fi
+            mkdir -p "$dir" && chown -h "$uid:$gid" "$dir"
             run=/run/winqemu; sock="$run/shares.sock"
             mkdir -p "$run" && chmod 700 "$run" && rm -f "$sock" || exit 14
             if command -v perl >/dev/null 2>&1; then
@@ -208,8 +211,8 @@ namespace WinQEMU.Core.Services
         /// <summary>The setup script for one run, with the address, the drive's name and the map script in place.</summary>
         public static string WindowsSetupFor(string url) =>
             WindowsSetupScript.Replace("{URL}", url, StringComparison.Ordinal)
-                .Replace("{LABEL}", WindowsDriveLabel.Replace("'", "''", StringComparison.Ordinal), StringComparison.Ordinal)
-                .Replace("{MAP}", WindowsMapScript.Replace("'", "''", StringComparison.Ordinal), StringComparison.Ordinal);
+                .Replace("{LABEL}", Sharing.GuestFileDrop.Quote(WindowsDriveLabel), StringComparison.Ordinal)
+                .Replace("{MAP}", Sharing.GuestFileDrop.Quote(WindowsMapScript), StringComparison.Ordinal);
 
         public static string Explain(GuestExecResult result) => result.ExitCode switch
         {
@@ -218,6 +221,7 @@ namespace WinQEMU.Core.Services
             13 => CoreText.GuestSharesNoChannel,
             14 => CoreText.GuestSharesRelayFailed,
             15 => CoreText.GuestSharesNoRelayTool,
+            16 => string.Format(CultureInfo.CurrentCulture, CoreText.GuestSharesFolderIsLink, result.Error.Trim()),
             20 => CoreText.GuestSharesNoWebClient,
             21 => string.Format(CultureInfo.CurrentCulture, CoreText.GuestSharesTaskFailed, result.Error.Trim()),
             _ => string.Format(CultureInfo.CurrentCulture, CoreText.GuestSharesScriptFailed, result.ExitCode, result.Error.Trim())

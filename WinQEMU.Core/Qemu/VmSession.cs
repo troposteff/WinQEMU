@@ -328,8 +328,11 @@ namespace WinQEMU.Core.Qemu
                 {
                     try
                     {
-                        // 'quit' makes QEMU exit; the process watcher then drives the state to Stopped.
-                        await qmp.ExecuteAsync("quit", null, cancellationToken).ConfigureAwait(false);
+                        // 'quit' makes QEMU exit; the process watcher then drives the state to Stopped. A frozen QEMU
+                        // never answers: without a limit, "Éteindre" and winqemu poweroff hung with the lock held.
+                        using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        limit.CancelAfter(TimeSpan.FromSeconds(5));
+                        await qmp.ExecuteAsync("quit", null, limit.Token).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {

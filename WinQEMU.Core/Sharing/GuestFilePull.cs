@@ -322,6 +322,7 @@ namespace WinQEMU.Core.Sharing
         public static string WindowsSenderScript(string portPath, IEnumerable<string> paths, string marker, string? workFolder = null) => """
             $ErrorActionPreference = 'Stop'
             $ProgressPreference = 'SilentlyContinue'
+            {PROTECT}
             $work = '{WORK}'
             if (-not $work) { $work = "$env:ProgramData\WinQEMU" }
             New-Item $work -ItemType Directory -Force | Out-Null
@@ -333,6 +334,8 @@ namespace WinQEMU.Core.Sharing
               $process = Get-Process -Id ([int]$old[0]) -ErrorAction SilentlyContinue
               if ($process -and $process.Id -ne $PID -and $process.StartTime.Ticks -eq [long]$old[1]) { Stop-Process -Id $process.Id -Force; Start-Sleep -Milliseconds 300 }
             }
+            # After stopping a stuck copy, which holds its DLL.
+            if (-not '{WORK}') { Protect-WinQemuFolder $work }
             Set-Content $pidFile "$PID $((Get-Process -Id $PID).StartTime.Ticks)"
             $dll = "$work\WinQemuPull-{HASH}.dll"
             if (-not (Test-Path $dll)) {
@@ -343,6 +346,7 @@ namespace WinQEMU.Core.Sharing
             $paths = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{PATHS}'))
             exit ([WinQemuPull]::Run('{PORT}', $paths, '{MARKER}'))
             """
+            .Replace("{PROTECT}", Services.GuestWorkFolder.ProtectFunction, StringComparison.Ordinal)
             .Replace("{MARKER}", marker, StringComparison.Ordinal)
             .Replace("{WORK}", GuestFileDrop.Quote(workFolder ?? string.Empty), StringComparison.Ordinal)
             .Replace("{HASH}", SenderHash, StringComparison.Ordinal)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Collections.Specialized;
 using System.Linq;
@@ -1799,6 +1799,7 @@ namespace WinQEMU
                 return;
             _windowsEnding = true;
             _viewModel.AppendDiagnostic("Windows is ending the session: the machines are shut down first.");
+            _viewModel.CancelFolderStart();
             await _viewModel.RequestShutdownOfAllAsync();
 
             while (_windowsEnding)
@@ -1808,6 +1809,7 @@ namespace WinQEMU
                     break;
                 _sessionEnd.SetReason(string.Format(CultureInfo.CurrentCulture, ShellText.ShutdownReason, string.Join(", ", left)));
                 await Task.Delay(500);
+                await _viewModel.KeepShuttingDownAllAsync();
             }
             if (!_windowsEnding)
                 return;
@@ -1830,6 +1832,7 @@ namespace WinQEMU
             if (ending)
                 return;
             _windowsEnding = false;
+            _viewModel.StopShuttingDownAll();
             _sessionEnd.ClearReason();
         }
 
@@ -1912,6 +1915,7 @@ namespace WinQEMU
         /// </summary>
         private async Task StopMachinesAndQuitAsync()
         {
+            _viewModel.CancelFolderStart();
             await _viewModel.RequestShutdownOfAllAsync();
 
             var status = DialogBody(string.Empty);
@@ -1938,7 +1942,16 @@ namespace WinQEMU
                 }
                 status.Text = string.Format(CultureInfo.CurrentCulture, ShellText.ShuttingDownBody, string.Join(", ", left));
             }
-            timer.Tick += (_, _) => Refresh();
+            var asking = false;
+            timer.Tick += async (_, _) =>
+            {
+                Refresh();
+                if (allStopped || asking)
+                    return;
+                asking = true;
+                await _viewModel.KeepShuttingDownAllAsync();
+                asking = false;
+            };
             Refresh();
             if (!allStopped)
             {
@@ -1946,7 +1959,10 @@ namespace WinQEMU
                 var choice = await ShowDialogAsync(dialog);
                 timer.Stop();
                 if (!allStopped && choice != ContentDialogResult.Primary)
+                {
+                    _viewModel.StopShuttingDownAll();
                     return;
+                }
             }
 
             // Release the console before the process dies, so no stale child HWND outlives it.

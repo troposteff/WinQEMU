@@ -17,7 +17,7 @@ namespace WinQEMU.Cli
         private static async Task<int> Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
-            UiLanguage.Apply(AppSettings.Load().Language);
+            UiLanguage.Apply(AppSettings.Load(importFirst: false).Language);
 
             if (args.Length == 0 || args[0] is "help" or "--help" or "-h" or "/?")
             {

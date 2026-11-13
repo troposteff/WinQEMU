@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -579,7 +579,8 @@ namespace WinQEMU.ViewModels
                 var wait = opened + entry.After - DateTime.UtcNow;
                 if (wait > TimeSpan.Zero)
                     await Task.Delay(wait);
-                if (!Manager.VirtualMachines.Contains(entry.Machine))
+                // The plan was made at opening, up to an hour ago: unticked or made a template since, the machine stays.
+                if (!Manager.VirtualMachines.Contains(entry.Machine) || !entry.Machine.AutoStart || entry.Machine.IsTemplate || IsStoppingAll)
                     continue;
 
                 var session = Manager.GetSession(entry.Machine);
@@ -624,14 +625,44 @@ namespace WinQEMU.ViewModels
             });
         }
 
+        private readonly HashSet<VmSession> _starting = new();
+        private readonly Dictionary<VmSession, DateTime> _shutdownAsked = new();
+
+        /// <summary>WinQEMU is shutting every machine down to quit, or for Windows: nothing may start meanwhile.</summary>
+        public bool IsStoppingAll { get; private set; }
+
         /// <summary>
-        /// Asks every running machine's guest to shut down, as its Arrêter button does. A paused one is resumed
-        /// first: frozen, it would never hear the power button.
+        /// Starts shutting every machine down, as its Arrêter button does; the caller then calls
+        /// <see cref="KeepShuttingDownAllAsync"/> while it waits, and <see cref="StopShuttingDownAll"/> if it gives up.
         /// </summary>
-        public async Task RequestShutdownOfAllAsync()
+        public Task RequestShutdownOfAllAsync()
         {
-            foreach (var session in Manager.RunningSessions.ToList())
+            IsStoppingAll = true;
+            _shutdownAsked.Clear();
+            return KeepShuttingDownAllAsync();
+        }
+
+        /// <summary>
+        /// Asks every live machine not yet asked: one still starting once it runs, and again every 30 s one that did
+        /// not go. Only the running ones used to be asked, while every live one was waited for: a machine starting then,
+        /// or one whose guest ignored the button (Debian still booting), kept Windows waiting until the user forced it,
+        /// which killed QEMU. A paused one is resumed first: frozen, it would never hear the power button.
+        /// </summary>
+        public async Task KeepShuttingDownAllAsync()
+        {
+            foreach (var session in Manager.LiveSessions.ToList())
             {
+                if (session.State is not (VmState.Running or VmState.Paused or VmState.Stopping))
+                    continue;
+                if (_shutdownAsked.TryGetValue(session, out var asked) && DateTime.UtcNow - asked < TimeSpan.FromSeconds(30))
+                    continue;
+                // A machine asked by someone else (its button, winqemu stop) gets its first 30 s too.
+                if (!_shutdownAsked.ContainsKey(session) && session.State == VmState.Stopping)
+                {
+                    _shutdownAsked[session] = DateTime.UtcNow;
+                    continue;
+                }
+                _shutdownAsked[session] = DateTime.UtcNow;
                 try
                 {
                     if (session.State == VmState.Paused)
@@ -643,6 +674,13 @@ namespace WinQEMU.ViewModels
                     AppendDiagnostic(session.Config, $"Shutdown could not be asked for ({ex.Message}).");
                 }
             }
+        }
+
+        /// <summary>The user stayed (cancelled the quit, or Windows' shutdown): machines may start again.</summary>
+        public void StopShuttingDownAll()
+        {
+            IsStoppingAll = false;
+            _shutdownAsked.Clear();
         }
 
         /// <summary>
@@ -778,11 +816,27 @@ namespace WinQEMU.ViewModels
             // Before the automatic snapshot, which would otherwise be taken for a start that is then refused.
             if (config.IsTemplate)
                 throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, CoreText.ManagerTemplateCannotStart, config.Name));
-            // The password first: the automatic snapshot opens the disks too.
-            await PrepareDiskKeyAsync(session);
-            await TakeAutoSnapshotAsync(config);
-            session.UpdateSharedFolders(config.SharedFolders);
-            await session.StartAsync();
+            // Every machine is being shut down (WinQEMU quitting, Windows ending the session): one started now would
+            // keep Windows waiting.
+            if (IsStoppingAll)
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, ShellText.StartRefusedWhileStoppingAll, config.Name));
+            // The session stays Stopped through the password and the automatic snapshot, seconds for encrypted disks:
+            // a second start meanwhile (button, winqemu start, start with WinQEMU) took a second snapshot and opened the
+            // same disks twice.
+            if (!_starting.Add(session))
+                throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, ShellText.StartAlreadyInProgress, config.Name));
+            try
+            {
+                // The password first: the automatic snapshot opens the disks too.
+                await PrepareDiskKeyAsync(session);
+                await TakeAutoSnapshotAsync(config);
+                session.UpdateSharedFolders(config.SharedFolders);
+                await session.StartAsync();
+            }
+            finally
+            {
+                _starting.Remove(session);
+            }
 
             // Stamped here rather than in the core: this continuation is back on the UI thread, which
             // is the only thread allowed to raise PropertyChanged on a data-bound config.
@@ -1293,7 +1347,8 @@ namespace WinQEMU.ViewModels
             }
 
             adapter.PortForwards.Add(forward);
-            SaveSelected();
+            // The machine of the click: the selection may have changed during the await.
+            Manager.Save(target);
             RefreshLanServices();
             return null;
         }
@@ -1323,6 +1378,8 @@ namespace WinQEMU.ViewModels
         /// <summary>Closes a service, live when the machine runs.</summary>
         public async Task CloseServiceAsync(LanServiceItem item)
         {
+            if (SelectedVm is not { } target)
+                return;
             if (SelectedSession is { IsRunning: true } session)
             {
                 try
@@ -1331,12 +1388,14 @@ namespace WinQEMU.ViewModels
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or QmpException)
                 {
+                    // Still open in QEMU: forgotten here, it would keep forwarding with nothing left to close it.
                     ReportError(ex);
+                    return;
                 }
             }
 
             item.Adapter.PortForwards.Remove(item.Forward);
-            SaveSelected();
+            Manager.Save(target);
             RefreshLanServices();
         }
 

@@ -33,7 +33,21 @@ namespace WinQEMU.Core.Services
             new ServicePreset(CoreText.LanAccessHttps, PortForwardProtocol.Tcp, 443)
         };
 
-        public static bool IsOnNetwork(PortForward forward) => forward.HostAddress is AllInterfaces or "";
+        /// <summary>
+        /// Where QEMU listens for the forward. An empty field is this PC only, as QEMU's command line has always made it:
+        /// the LAN section read it as the network, offered "ssh … @192.168.x.x" for a loopback listener, and removed
+        /// "tcp:0.0.0.0:p" from a running machine, which had no such forward and kept the real one.
+        /// </summary>
+        public static string ListenAddressOf(PortForward forward) =>
+            string.IsNullOrWhiteSpace(forward.HostAddress) ? "127.0.0.1" : forward.HostAddress.Trim();
+
+        /// <summary>An IPv4 address, or empty (this PC only).</summary>
+        public static bool IsValidListenAddress(string? address) =>
+            string.IsNullOrWhiteSpace(address)
+            || (IPAddress.TryParse(address.Trim(), out var parsed) && parsed.AddressFamily == AddressFamily.InterNetwork
+                && address.Trim().Count(c => c == '.') == 3);
+
+        public static bool IsOnNetwork(PortForward forward) => ListenAddressOf(forward) == AllInterfaces;
 
         /// <summary>
         /// The guest's own port when it is free and not a privileged one Windows itself may want (22,
@@ -110,12 +124,12 @@ namespace WinQEMU.Core.Services
 
         /// <summary>The host-forward rule for QEMU's hostfwd_add, e.g. "tcp:0.0.0.0:2222-:22".</summary>
         public static string RuleOf(PortForward forward) =>
-            $"{(forward.Protocol == PortForwardProtocol.Udp ? "udp" : "tcp")}:{(forward.HostAddress.Length == 0 ? AllInterfaces : forward.HostAddress)}:" +
+            $"{(forward.Protocol == PortForwardProtocol.Udp ? "udp" : "tcp")}:{ListenAddressOf(forward)}:" +
             $"{forward.HostPort.ToString(CultureInfo.InvariantCulture)}-:{forward.GuestPort.ToString(CultureInfo.InvariantCulture)}";
 
         /// <summary>The same rule as hostfwd_remove wants it: without the guest side.</summary>
         public static string RemovalRuleOf(PortForward forward) =>
-            $"{(forward.Protocol == PortForwardProtocol.Udp ? "udp" : "tcp")}:{(forward.HostAddress.Length == 0 ? AllInterfaces : forward.HostAddress)}:" +
+            $"{(forward.Protocol == PortForwardProtocol.Udp ? "udp" : "tcp")}:{ListenAddressOf(forward)}:" +
             forward.HostPort.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>Kept in French whatever the interface's language: the rule lives on in Windows' firewall.</summary>
@@ -149,14 +163,20 @@ namespace WinQEMU.Core.Services
                 if (!enabled)
                     return true;
 
+                // A block rule wins over any allow rule. Windows writes one for QEMU when its own prompt, raised by the
+                // first forward on 0.0.0.0, is cancelled (or for the public profile when only private is ticked): an
+                // allow rule alone said "allowed" while nothing got through.
+                var allowed = false;
                 foreach (dynamic rule in policy.Rules)
                 {
-                    if ((bool)rule.Enabled && (int)rule.Direction == 1 && (int)rule.Action == 1
-                        && ((int)rule.Profiles & profiles) != 0
-                        && string.Equals((string?)rule.ApplicationName, qemuPath, StringComparison.OrdinalIgnoreCase))
-                        return true;
+                    if (!(bool)rule.Enabled || (int)rule.Direction != 1 || ((int)rule.Profiles & profiles) == 0
+                        || !string.Equals((string?)rule.ApplicationName, qemuPath, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if ((int)rule.Action == 0)
+                        return false;
+                    allowed = true;
                 }
-                return false;
+                return allowed;
             }
             catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidCastException or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
             {
@@ -168,9 +188,18 @@ namespace WinQEMU.Core.Services
         /// Adds an inbound rule for QEMU on the private and domain profiles (not public: a café's network
         /// has no business reaching the guest). One UAC prompt; OperationCanceledException if declined.
         /// </summary>
-        public static async Task<bool> AllowQemuAsync(string qemuPath) =>
-            await Elevation.RunAsync(Path.Combine(Environment.SystemDirectory, "netsh.exe"),
-                $"advfirewall firewall add rule name=\"{FirewallRuleName}\" dir=in action=allow " +
-                $"program=\"{qemuPath}\" enable=yes profile=private,domain").ConfigureAwait(false) == 0;
+        /// <remarks>
+        /// QEMU's inbound rules are all replaced by this one, in the same prompt: those Windows wrote from its own prompt
+        /// (a block rule beats an allow rule), and ours from an earlier click (each click added one more).
+        /// </remarks>
+        public static async Task<bool> AllowQemuAsync(string qemuPath)
+        {
+            var netsh = Path.Combine(Environment.SystemDirectory, "netsh.exe");
+            var commands = $"\"{netsh}\" advfirewall firewall delete rule name=all dir=in program=\"{qemuPath}\" >nul & " +
+                           $"\"{netsh}\" advfirewall firewall add rule name=\"{FirewallRuleName}\" dir=in action=allow " +
+                           $"program=\"{qemuPath}\" enable=yes profile=private,domain";
+            return await Elevation.RunAsync(Path.Combine(Environment.SystemDirectory, "cmd.exe"), $"/s /c \"{commands}\"")
+                .ConfigureAwait(false) == 0;
+        }
     }
 }

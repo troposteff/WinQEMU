@@ -122,4 +122,5 @@
   <data name="ImportExternalDataFile" xml:space="preserve"><value>an external data file</value></data>
   <data name="ImportPackageDescriptor" xml:space="preserve"><value>a VMDK descriptor naming files outside the package</value></data>
   <data name="ImportChainTooDeep" xml:space="preserve"><value>a chain of more than sixteen images</value></data>
+  <data name="ValidatePortForwardAddress" xml:space="preserve"><value>Port forward: "{0}" is not an IPv4 address (0.0.0.0 for the network, 127.0.0.1 or empty for this PC only).</value></data>
 </root>

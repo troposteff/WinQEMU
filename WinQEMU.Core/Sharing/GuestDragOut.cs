@@ -166,8 +166,9 @@ namespace WinQEMU.Core.Sharing
         public static string SetupScript => """
             $ErrorActionPreference = 'Stop'
             $ProgressPreference = 'SilentlyContinue'
+            {PROTECT}
             $dir = "$env:ProgramData\WinQEMU"
-            New-Item $dir -ItemType Directory -Force | Out-Null
+            Protect-WinQemuFolder $dir
             $exe = Join-Path $dir '{EXE}'
             if (-not (Test-Path $exe)) {
               $source = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{SOURCE}'))
@@ -182,7 +183,8 @@ namespace WinQEMU.Core.Sharing
             $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
             Register-ScheduledTask -TaskName 'WinQEMU-DragOut' -Action (New-ScheduledTaskAction -Execute $exe) -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal $principal -Settings $settings -Force | Out-Null
             if (-not (Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($exe)) -ErrorAction SilentlyContinue)) { Start-ScheduledTask -TaskName 'WinQEMU-DragOut' }
-            """.Replace("{EXE}", ExecutableName)
+            """.Replace("{PROTECT}", Services.GuestWorkFolder.ProtectFunction)
+            .Replace("{EXE}", ExecutableName)
             .Replace("{SOURCE}", Convert.ToBase64String(Encoding.UTF8.GetBytes(HelperSource)));
 
         /// <summary>Compiles and starts the program. The guest may still be booting: see <see cref="Services.GuestShareMounter"/>.</summary>

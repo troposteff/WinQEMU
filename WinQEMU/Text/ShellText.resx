@@ -285,4 +285,6 @@ You will be asked again in 1 minute if the machine is still not responding; this
 
 Do not touch the keyboard while it types (a few seconds). If sudo asks for your password, type it in the console.</value></data>
   <data name="ToolsStillRestricted" xml:space="preserve"><value>The guest agent is still held back after ten minutes. Check in the guest that the command ran correctly.</value></data>
+  <data name="StartRefusedWhileStoppingAll" xml:space="preserve"><value>WinQEMU is shutting every machine down: {0} is not started.</value></data>
+  <data name="StartAlreadyInProgress" xml:space="preserve"><value>{0} is already being started.</value></data>
 </root>

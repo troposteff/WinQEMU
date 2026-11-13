@@ -209,6 +209,12 @@ namespace WinQEMU.ViewModels
         private async Task<CliResponse> StopFromCommandAsync(string[] args, CancellationToken cancellationToken)
         {
             var config = FindMachine(Argument(args, 0, CliText.ArgumentMachine));
+            // Read before acting: a "--timeout abc" refused after the button was pressed told a script nothing happened.
+            var seconds = Option(args, "--timeout") is { } value
+                ? int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) && parsed > 0
+                    ? parsed
+                    : throw new CommandException(string.Format(CultureInfo.CurrentCulture, CliText.BadTimeout, value), CliProtocol.Misuse)
+                : 300;
             var session = RunningSessionOf(config);
             // A paused guest would not hear the power button.
             if (session.State == VmState.Paused)
@@ -217,11 +223,6 @@ namespace WinQEMU.ViewModels
             if (!args.Contains("--wait"))
                 return Ok(string.Format(CultureInfo.CurrentCulture, CliText.ShutdownRequested, config.Name));
 
-            var seconds = Option(args, "--timeout") is { } value
-                ? int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) && parsed > 0
-                    ? parsed
-                    : throw new CommandException(string.Format(CultureInfo.CurrentCulture, CliText.BadTimeout, value), CliProtocol.Misuse)
-                : 300;
             if (!await WaitForAsync(session, s => !IsLive(s.State), TimeSpan.FromSeconds(seconds), cancellationToken))
                 throw new CommandException(string.Format(CultureInfo.CurrentCulture, CliText.StillRunning, config.Name, seconds));
             return Ok(string.Format(CultureInfo.CurrentCulture, CliText.Stopped, config.Name));

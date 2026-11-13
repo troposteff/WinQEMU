@@ -87,9 +87,15 @@ namespace WinQEMU.Core.Services
 
         public static string SettingsPath => Path.Combine(SettingsDirectory, "settings.json");
 
-        public static AppSettings Load()
+        /// <param name="importFirst">
+        /// False for the winqemu command, which only wants the language: taking the GitHub installation's settings over is
+        /// WinQEMU's to do, at its own first start, which then asks to uninstall that installation. Done by a command typed
+        /// first, the window found settings already there and never asked.
+        /// </param>
+        public static AppSettings Load(bool importFirst = true)
         {
-            SettingsImport.ImportIfFirstStart();
+            if (importFirst)
+                SettingsImport.ImportIfFirstStart();
             try
             {
                 if (File.Exists(SettingsPath))

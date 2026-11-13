@@ -14,6 +14,16 @@ namespace WinQEMU.Core.Services
     {
         private const int Sector = 2048;
 
+        // 16 MiB: far more than any directory or small file read here.
+        private const int MaxSectors = 8192;
+
+        // What a damaged or forged image raises: none may escape, the wizard reads images from a property getter
+        // (an index past a record, a 0xFFFFFFFF length took WinQEMU down).
+        private static bool IsMalformed(Exception ex) => ex is IOException or UnauthorizedAccessException or ArgumentException
+            or IndexOutOfRangeException or OverflowException or InvalidDataException;
+
+        private static int SectorsOf(uint length) => (int)Math.Min(((long)length + Sector - 1) / Sector, int.MaxValue);
+
         /// <summary>The file at <paramref name="path"/> ("sources/lang.ini"), or null when the image has no such file.</summary>
         public static byte[]? Read(string isoPath, string path, int maxBytes = 1024 * 1024)
         {
@@ -38,10 +48,10 @@ namespace WinQEMU.Core.Services
                 if (isDirectory || length > maxBytes)
                     return null;
 
-                var data = ReadSectors(iso, extent, (int)((length + Sector - 1) / Sector));
+                var data = ReadSectors(iso, extent, SectorsOf(length));
                 return data[..(int)length];
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            catch (Exception ex) when (IsMalformed(ex))
             {
                 return null;
             }
@@ -68,7 +78,7 @@ namespace WinQEMU.Core.Services
                 }
                 return !isDirectory;
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            catch (Exception ex) when (IsMalformed(ex))
             {
                 return false;
             }
@@ -155,8 +165,8 @@ namespace WinQEMU.Core.Services
                 var position = BitConverter.ToUInt32(header, at + 4);
                 if (extentLength == 0)
                     break;
-                var chunk = ReadSectors(iso, partitionStart + position, (extentLength + Sector - 1) / Sector);
                 var take = Math.Min(extentLength, data.Length - written);
+                var chunk = ReadSectors(iso, partitionStart + position, (take + Sector - 1) / Sector);
                 Array.Copy(chunk, 0, data, written, take);
                 written += take;
             }
@@ -173,6 +183,8 @@ namespace WinQEMU.Core.Services
                 var implementationUse = BitConverter.ToUInt16(directory, offset + 36);
                 var icb = BitConverter.ToUInt32(directory, offset + 24);
                 var nameStart = offset + 38 + implementationUse;
+                if (nameStart + nameLength > directory.Length)
+                    break;
                 if (nameLength > 0 && (directory[offset + 18] & 8) == 0)   // not the parent entry
                 {
                     var compression = directory[nameStart];
@@ -189,7 +201,7 @@ namespace WinQEMU.Core.Services
 
         private static (uint Extent, uint Length, bool IsDirectory)? Find(FileStream iso, uint extent, uint length, string name)
         {
-            var directory = ReadSectors(iso, extent, (int)((length + Sector - 1) / Sector));
+            var directory = ReadSectors(iso, extent, SectorsOf(length));
             var offset = 0;
             while (offset < length)
             {
@@ -200,6 +212,8 @@ namespace WinQEMU.Core.Services
                     offset = (offset / Sector + 1) * Sector;
                     continue;
                 }
+                if (size < 34 || offset + size > directory.Length || offset + 33 + directory[offset + 32] > offset + size)
+                    return null;
                 var nameLength = directory[offset + 32];
                 var entryName = Encoding.ASCII.GetString(directory, offset + 33, nameLength);
                 var bare = entryName.Split(';')[0].TrimEnd('.');
@@ -216,6 +230,9 @@ namespace WinQEMU.Core.Services
 
         private static byte[] ReadSectors(FileStream iso, uint first, int count)
         {
+            // Counts come from the image: a forged length must not wrap around or ask for gigabytes.
+            if (count < 0 || count > MaxSectors)
+                throw new InvalidDataException("Implausible extent in the image.");
             var buffer = new byte[Math.Max(1, count) * Sector];
             iso.Seek((long)first * Sector, SeekOrigin.Begin);
             iso.ReadExactly(buffer);

@@ -73,6 +73,9 @@ namespace WinQEMU.Core.Qemu
                         problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidatePortForwardRange,
                             forward.HostPort, forward.GuestPort));
                     }
+                    // Goes into -netdev as typed: a comma there would start another option.
+                    if (!Services.LanAccess.IsValidListenAddress(forward.HostAddress))
+                        problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidatePortForwardAddress, forward.HostAddress));
                 }
             }
 
@@ -604,7 +607,7 @@ namespace WinQEMU.Core.Qemu
                         foreach (var forward in adapter.PortForwards)
                         {
                             var protocol = forward.Protocol == PortForwardProtocol.Udp ? "udp" : "tcp";
-                            var host = string.IsNullOrWhiteSpace(forward.HostAddress) ? "127.0.0.1" : forward.HostAddress;
+                            var host = Services.LanAccess.ListenAddressOf(forward);
                             netdev.Append($",hostfwd={protocol}:{host}:{forward.HostPort.ToString(CultureInfo.InvariantCulture)}-:{forward.GuestPort.ToString(CultureInfo.InvariantCulture)}");
                         }
                         break;

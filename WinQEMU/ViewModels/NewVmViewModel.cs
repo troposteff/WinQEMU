@@ -291,6 +291,13 @@ namespace WinQEMU.ViewModels
             if (!string.IsNullOrWhiteSpace(SecondaryIsoPath) && !File.Exists(SecondaryIsoPath))
                 return (string.Format(CultureInfo.CurrentCulture, DialogText.NewVmSecondIsoNotFound, SecondaryIsoPath), null);
 
+            // Refused, no longer only advised: the installation ends when the guest agent first answers, and the agent
+            // comes from that ISO. Without it the machine stayed "installing" for good: answer files (the password in
+            // base64) never deleted, the stick at every start, guest tools never offered, and "Press any key to boot
+            // from CD" at every boot, where a key started Setup over the disk.
+            if (UseUnattended && !IsLinuxUnattended && string.IsNullOrWhiteSpace(SecondaryIsoPath))
+                return (DialogText.NewVmNoVirtioUnattended, null);
+
             var advisories = new List<string>();
 
             if (string.IsNullOrWhiteSpace(IsoPath))
@@ -298,11 +305,7 @@ namespace WinQEMU.ViewModels
                 advisories.Add(DialogText.NewVmNoIsoAdvisory);
             }
 
-            if (UseUnattended && !IsLinuxUnattended && string.IsNullOrWhiteSpace(SecondaryIsoPath))
-            {
-                advisories.Add(DialogText.NewVmNoVirtioUnattended);
-            }
-            else if (SelectedProfile.SuggestsVirtioDrivers && string.IsNullOrWhiteSpace(SecondaryIsoPath))
+            if (SelectedProfile.SuggestsVirtioDrivers && string.IsNullOrWhiteSpace(SecondaryIsoPath))
             {
                 advisories.Add(DialogText.NewVmVirtioSuggested);
             }

@@ -132,7 +132,7 @@ namespace WinQEMU.Core.Services
         /// </summary>
         public static string AccountScript(UnattendedWindows s)
         {
-            var user = s.UserName.Replace("'", "''", StringComparison.Ordinal);
+            var user = Sharing.GuestFileDrop.Quote(s.UserName);
             var createUser = s.Password.Length == 0
                 ? $"New-LocalUser -Name '{user}' -NoPassword -AccountNeverExpires | Out-Null"
                 : $"$p = ConvertTo-SecureString ([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('{Convert.ToBase64String(Encoding.Unicode.GetBytes(s.Password))}'))) -AsPlainText -Force\r\n" +

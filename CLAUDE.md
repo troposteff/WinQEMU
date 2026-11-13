@@ -136,7 +136,9 @@ Installer ne met à jour que vers plus haut.
     l'utilisateur depuis le lien, bouton revenu seul, réseau externe créé sur la carte Ethernet, Ubuntu y a reçu
     192.168.1.113 de la box et joint la passerelle (ping depuis l'invité, par l'agent). Ce PC a désormais TAP et Npcap.
   - **Une autre identité = une autre application** : au premier démarrage sans réglages, `Services.SettingsImport` copie le
-    `settings.json` de l'installation GitHub (famille `…_6swaqgnpzyjaw`, lu dans `%LOCALAPPDATA%\Packages\…\LocalCache`), et
+    `settings.json` de l'installation GitHub (famille `…_6swaqgnpzyjaw`, lu dans `%LOCALAPPDATA%\Packages\…\LocalCache`,
+    relu en entier et vérifié avant d'être écrit : une copie partielle, pendant que l'autre WinQEMU le réécrit, aurait été
+    prise pour des réglages vides et jamais reprise), et
     un bandeau demande de désinstaller celle-ci. Vérifié avec un paquet d'identité de test enregistré à côté (bibliothèque,
     dossiers, QEMU repris ; réglages d'origine inchangés), puis retiré.
 - **Ce que Partner Center a refusé ou signalé, corrigé** : application `Cli` cachée (voir Ligne de commande) ;
@@ -679,7 +681,9 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
   qui passe par un lien (absent des listes, introuvable au parcours) ; les espaces réservés OneDrive (point d'analyse sans
   cible) restent permis. Noms de périphérique (`COM1`, `nul.txt`, `LPT¹`) refusés. 9P : taille de message bornée
   (4 Kio au moins), 65 536 fids au plus, ancien fid toujours fermé ; WebDAV : PROPPATCH borné à 1 Mio, dossier copié dans
-  lui-même refusé. Vérifié dans un vrai Ubuntu (jonction invisible, `COM1` refusé, lecture et écriture).
+  lui-même refusé. Vérifié dans un vrai Ubuntu (jonction invisible, `COM1` refusé, lecture et écriture). Côté invité
+  Linux, le script de montage (root) refuse un `~/Partages` qui est un lien symbolique (code 16) : vers `/etc`, `chown`
+  donnait `/etc` à l'utilisateur et le partage y était monté.
 - **L'agent invité n'est pas dans virtio-win-guest-tools** (qui n'apporte que spice-vdagent) : `guest-agent\qemu-ga-x86_64.msi`
   du même lecteur, à installer à part ; le message de WinQEMU le dit pour un invité Windows.
 
@@ -829,6 +833,17 @@ Fedora) : image 1966 × 1524 et fichier (`FileDrop`) du même PNG, menu volant a
   le bouton d'alimentation, et WinQEMU quitte une fois tous arrêtés, ce qui laisse Windows continuer. Annulé
   (`WM_ENDSESSION` faux), WinQEMU reste ; les invités déjà priés s'arrêtent quand même. Vérifié en envoyant ces
   messages à la fenêtre (Ubuntu éteint par lui-même, code 0, puis WinQEMU fermé) ; pas sur un vrai arrêt de Windows.
+- **Tout arrêter (quitter, arrêt de Windows) : relancé jusqu'au bout** (`MainViewModel.KeepShuttingDownAllAsync`, relecture du
+  13/11/2026). Seules les machines en marche étaient priées, mais toutes les vivantes attendues : une machine en cours de
+  démarrage, ou dont l'invité avait ignoré le bouton (Debian qui démarre), faisait attendre Windows jusqu'à ce que
+  l'utilisateur force l'arrêt, ce qui tuait QEMU. Désormais chaque tour prie celles qui ne l'ont pas été (une machine qui
+  démarre une fois en marche) et redemande toutes les 30 s ; pendant ce temps (`IsStoppingAll`) aucun démarrage : bouton,
+  `winqemu start` (refusé avec un message), démarrage d'un dossier (annulé), démarrage automatique. Vérifié par un
+  `WM_QUERYENDSESSION` envoyé à la fenêtre : Windows 11 arrêté, `winqemu start Ubuntu` refusé, WinQEMU fermé en 12 s.
+- **Un démarrage à la fois par machine** (`_starting`) : la session reste « Arrêtée » pendant le mot de passe et
+  l'instantané automatique ; un second démarrage entre-temps (bouton, commande, dossier) prenait un second instantané et
+  ouvrait les disques deux fois. Le plan du démarrage automatique est relu après son délai (machine décochée ou devenue
+  modèle : laissée).
 - **Arrêter un invité Linux passe par l'agent** (`VmSession.RequestShutdownAsync`, donc bouton, commande, dossier, fermeture
   de WinQEMU, arrêt de Windows) : ce qu'un bureau fait du bouton d'alimentation lui appartient. Plasma n'affichait que son
   écran de déconnexion (`winqemu stop --wait` abandonnait après 300 s), Xfce ne s'arrêtait pas en 90 s, GNOME compte 60 s.
@@ -865,6 +880,11 @@ démarrée d'un terminal est celle que montre la fenêtre, avec sa console, et r
 - Codes de sortie : 0, 1 échec, 2 commande incorrecte ; 10 en interne quand une machine chiffrée attend son mot de
   passe (demandé sans écho si un humain tape, sinon `--password-stdin`). `list --json` : noms et états stables
   (anglais), pour les scripts.
+- Options lues **avant** d'agir (`stop --wait --timeout abc` arrêtait la machine puis répondait « commande incorrecte »).
+  Serveur du tube : un nom déjà pris lève `UnauthorizedAccessException`, pas `IOException` ; il arrêtait le serveur pour
+  toute la session (installations GitHub et Store côte à côte), il réessaie désormais. `poweroff` : `quit` borné à 5 s
+  (un QEMU figé bloquait la commande, verrou pris). La commande ne reprend jamais les réglages de l'installation GitHub
+  (`AppSettings.Load(importFirst: false)`) : faite par elle, la fenêtre ne proposait plus de désinstaller l'autre.
 - `stop --wait` : un bouton d'alimentation pressé pendant que l'invité démarre est ignoré (Debian, 20 s après le
   démarrage) ; la commande le dit au bout du délai sans éteindre (`poweroff` le fait).
 - **Machine chiffrée** : jamais la boîte de mot de passe de la fenêtre (WinQEMU caché ne la montrerait à personne) :
@@ -921,6 +941,17 @@ Hôte vers invité seulement. `Sharing.GuestFileDrop`, état par machine dans `M
   raccroche sans rien envoyer laisse le récepteur bloqué dans `ReadFile` (vérifié) ; le récepteur suivant arrête
   donc l'ancien (fichier pid, et nom de processus ou heure de début pour ne pas tuer un autre) : un port n'a
   qu'un ouvreur. Un récepteur qui meurt sans répondre est découvert par `guest-exec-status` après 15 s de silence.
+- **`%ProgramData%\WinQEMU` verrouillé** (`Services.GuestWorkFolder`, relecture du 13/11/2026) : ProgramData laisse tout
+  utilisateur créer des fichiers dans un nouveau dossier, et le nom du récepteur est public ; un utilisateur standard de
+  l'invité pouvait y poser `WinQemuDrop-<hash>.dll`, que SYSTEM chargeait sans compiler (même chose pour l'émetteur, le
+  programme du glisser lancé à chaque ouverture de session, `SetResolution.exe`). Chaque script SYSTEM le donne d'abord à
+  SYSTEM, sans héritage : Administrateurs contrôle total, Utilisateurs lecture et exécution, `dragout.txt` modifiable. La
+  première fois, les programmes présents sont arrêtés, supprimés et recompilés ; un qui ne se supprime pas (récepteur
+  bloqué) fait échouer sans verrouiller, réessayé la fois suivante. Vérifié sur Windows 11 (droits relus, glisser relancé,
+  dépôt d'un fichier au nom accentué : récepteur recompilé, empreinte identique).
+- **Guillemets PowerShell** (`GuestFileDrop.Quote`) : PowerShell ferme une chaîne entre apostrophes aussi sur ’ ‘ ‚ ‛.
+  Un dossier de l'invité nommé `x’; commande; ’` exécutait sa commande en SYSTEM quand Récupérer le listait, et un compte
+  `O’Brien` cassait l'installation automatique de Windows. Les cinq sont doublés (test qui fait relire la chaîne à PowerShell).
 - **Agent rendu pendant la copie** : son canal n'accepte qu'un client, que partagent affichage et graphiques.
 - **Fenêtre de détection** (`Controls.DropCatcher`, comme celle des outils VMware) : la fenêtre SDL est à QEMU, et
   `RegisterDragDrop` n'accepte qu'une fenêtre du processus. Une cible posée sur la fenêtre principale, parente de
@@ -1235,7 +1266,13 @@ L'app affiche quoi taper depuis une autre machine (`ssh -p 10022 utilisateur@192
   redirigés par d'autres VM, même arrêtées, sont exclus.
 - **Pare-feu** : sans règle entrante pour `qemu-system-*.exe`, rien n'arrive du réseau (l'invite de Windows
   passe inaperçue ou est refusée à un utilisateur standard). Lu par l'API COM `HNetCfg.FwPolicy2` sans
-  droits ; règle ajoutée par `netsh` en `runas`, profils privé et domaine seulement (pas public).
+  droits ; règle ajoutée par `netsh` en `runas`, profils privé et domaine seulement (pas public). **Une règle de blocage
+  l'emporte** : Windows en écrit une pour QEMU quand son invite est annulée ; elle compte comme « non autorisé », et
+  « Autoriser » remplace toutes les règles entrantes de QEMU par la nôtre (dans la même invite UAC ; chaque clic en
+  ajoutait une de plus).
+- **Adresse vide = ce PC seulement, partout** (`LanAccess.ListenAddressOf`) : la ligne de commande écoutait sur 127.0.0.1
+  quand la section l'affichait joignable du réseau et retirait `tcp:0.0.0.0:p` (rien retiré). Adresse non IPv4 refusée
+  par `Validate` (une virgule ajoutait une option à `-netdev`). Une redirection que QEMU n'a pas pu retirer reste notée.
 
 ## Graphiques de ressources
 
@@ -1289,7 +1326,13 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   soit sa lettre. `VmConfig.UnattendedSetup` : `Pending` → au premier démarrage le shell appuie sur une touche pour
   « Press any key to boot from CD » (une seule fois, sinon l'installation recommencerait à chaque redémarrage) →
   `Installing` → quand l'agent répond, fichiers de réponses supprimés (mot de passe en base64 seulement) et
-  `BootFromIso` désactivé.
+  `BootFromIso` désactivé. **L'ISO virtio-win en second lecteur est exigée** par l'assistant (ce n'était qu'un conseil) :
+  sans elle pas d'agent, donc la machine restait « en installation » pour toujours (fichiers de réponses jamais
+  supprimés, clé à chaque démarrage, outils invités jamais proposés, et « Press any key to boot from CD » à chaque
+  démarrage, où une touche relançait l'installation sur le disque). **Lecteur d'ISO** (`IsoFileReader`) : une longueur
+  forgée (`0xFFFFFFFF`) faisait lire hors du secteur et WinQEMU tombait depuis l'assistant ; bornes vérifiées, 16 Mio au
+  plus, toute erreur = « absent » (`IsoFileReaderTests`). **Limite connue** : une installation Linux automatique
+  interrompue au premier démarrage repart du disque vide (l'état passe à « en installation » dès le lancement).
 - **Installation automatique d'Ubuntu** (`UbuntuUnattendedSetup`, même case de l'assistant, profil Ubuntu et ISO qui a
   `casper/vmlinuz`) : fichier `autoinstall` (cloud-init) sur une clé vvfat nommée **CIDATA**, où regarde la source
   NoCloud ; mot de passe en **SHA-512 crypt** (`Sha512Crypt`, vérifié sur les vecteurs de la spécification) ;

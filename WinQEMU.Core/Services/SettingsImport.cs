@@ -51,8 +51,22 @@ namespace WinQEMU.Core.Services
             var source = Path.Combine(localAppData, "Packages", SideloadedFamilyName, "LocalCache", "Local", "WinQEMU", "settings.json");
             if (!File.Exists(source))
                 return false;
+            // Read whole and checked first: the GitHub WinQEMU may be rewriting it (File.WriteAllText empties it first), and
+            // a partial copy would read as no settings, be overwritten by the first save, and never be taken over again.
+            var text = File.ReadAllText(source);
+            try
+            {
+                if (System.Text.Json.JsonDocument.Parse(text).RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                    return false;
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return false;
+            }
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.Copy(source, target);
+            var partial = target + ".import";
+            File.WriteAllText(partial, text);
+            File.Move(partial, target);
             return true;
         }
 

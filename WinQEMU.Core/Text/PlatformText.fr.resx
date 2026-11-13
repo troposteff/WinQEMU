@@ -122,4 +122,5 @@
   <data name="ImportExternalDataFile" xml:space="preserve"><value>un fichier de données externe</value></data>
   <data name="ImportPackageDescriptor" xml:space="preserve"><value>un descripteur VMDK qui désigne des fichiers hors du paquet</value></data>
   <data name="ImportChainTooDeep" xml:space="preserve"><value>une chaîne de plus de seize images</value></data>
+  <data name="ValidatePortForwardAddress" xml:space="preserve"><value>Redirection de port : « {0} » n'est pas une adresse IPv4 (0.0.0.0 pour le réseau, 127.0.0.1 ou vide pour ce PC seulement).</value></data>
 </root>

@@ -130,7 +130,7 @@
   <data name="NewVmLinuxPassword" xml:space="preserve"><value>{0} needs a password to sign in: enter one.</value></data>
   <data name="NewVmSecondIsoNotFound" xml:space="preserve"><value>Second ISO not found: {0}</value></data>
   <data name="NewVmNoIsoAdvisory" xml:space="preserve"><value>Without installation media, the VM will start on an empty disk and stop at the firmware. You can add an ISO later.</value></data>
-  <data name="NewVmNoVirtioUnattended" xml:space="preserve"><value>Without the virtio-win ISO in the second drive, Windows will install without its virtio drivers or the guest agent: no shared folders, and no resolution that follows the window.</value></data>
+  <data name="NewVmNoVirtioUnattended" xml:space="preserve"><value>The unattended installation of Windows needs the virtio-win ISO in the second drive: the guest agent it installs from there is what tells WinQEMU the installation is over. Choose it, or untick the unattended installation.</value></data>
   <data name="NewVmVirtioSuggested" xml:space="preserve"><value>For this system, the virtio-win ISO in the second drive lets you use virtio devices (faster network and disk). Optional here, since the disk is set up on a bus recognized natively.</value></data>
   <data name="NewVmHostSummary" xml:space="preserve"><value>Host: {0} logical processors, {1} of memory.</value></data>
   <data name="NewVmUnattendedUbuntu" xml:space="preserve"><value>{0} installs without asking anything: the whole disk, this account (administrator through sudo), this PC's language, keyboard and time zone, the guest agent and the clipboard agent (shared folders and copy and paste from the start). A NAT card is needed: the packages come from the Internet.</value></data>

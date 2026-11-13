@@ -67,6 +67,30 @@ public class LanAccessTests
     }
 
     [Fact]
+    public void An_empty_address_is_this_PC_only_everywhere()
+    {
+        // QEMU listened on 127.0.0.1 while the LAN section offered the network address and removed tcp:0.0.0.0.
+        var forward = new PortForward { HostAddress = " ", HostPort = 2222, GuestPort = 22 };
+
+        Assert.False(LanAccess.IsOnNetwork(forward));
+        Assert.Equal("tcp:127.0.0.1:2222-:22", LanAccess.RuleOf(forward));
+        Assert.Equal("tcp:127.0.0.1:2222", LanAccess.RemovalRuleOf(forward));
+    }
+
+    [Theory]
+    [InlineData("", true)]
+    [InlineData("0.0.0.0", true)]
+    [InlineData("192.168.1.20", true)]
+    [InlineData("127.0.0.1,smb=C:\\", false)]   // would add an option to -netdev
+    [InlineData("localhost", false)]
+    [InlineData("10.1", false)]                  // IPAddress.Parse reads it as 10.0.0.1
+    [InlineData("::1", false)]
+    public void Only_an_IPv4_address_is_a_listening_address(string address, bool valid)
+    {
+        Assert.Equal(valid, LanAccess.IsValidListenAddress(address));
+    }
+
+    [Fact]
     public void A_known_service_is_named_and_any_other_port_described()
     {
         Assert.Equal("Bureau à distance", LanAccess.LabelOf(new PortForward { GuestPort = 3389 }));

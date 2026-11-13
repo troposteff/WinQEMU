@@ -83,6 +83,9 @@ namespace WinQEMU.ViewModels
                             machine.Name, DateTime.Now + wait);
                         await Task.Delay(wait, cancel.Token);
                     }
+                    // Every machine is being shut down (quit, Windows ending the session): the rest stay off.
+                    if (IsStoppingAll)
+                        break;
                     if (!Manager.VirtualMachines.Contains(machine))
                         continue;
                     var session = Manager.GetSession(machine);
@@ -97,7 +100,7 @@ namespace WinQEMU.ViewModels
                             skipped.Add($"{machine.Name} : {reason}");
                             continue;
                         }
-                        AppendDiagnostic($"Folder start: starting {machine.Name}.");
+                        AppendDiagnostic(machine, "Folder start: starting.");
                         await StartMachineAsync(session);
                         done++;
                     }
@@ -165,7 +168,7 @@ namespace WinQEMU.ViewModels
                 catch (Exception ex) when (ex is InvalidOperationException or QmpException or IOException)
                 {
                     skipped.Add($"{machine.Name} : {ex.Message}");
-                    AppendDiagnostic($"{machine.Name}: {ex.Message}");
+                    AppendDiagnostic(machine, ex.Message);
                 }
             }
             RaiseFolderActions();

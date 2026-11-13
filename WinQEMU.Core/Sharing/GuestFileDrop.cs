@@ -558,6 +558,7 @@ namespace WinQEMU.Core.Sharing
         public static string WindowsReceiverScript(string portPath, string destination, string? workFolder = null) => """
             $ErrorActionPreference = 'Stop'
             $ProgressPreference = 'SilentlyContinue'
+            {PROTECT}
             $work = '{WORK}'
             if (-not $work) { $work = "$env:ProgramData\WinQEMU" }
             New-Item $work -ItemType Directory -Force | Out-Null
@@ -569,6 +570,8 @@ namespace WinQEMU.Core.Sharing
               $process = Get-Process -Id ([int]$old[0]) -ErrorAction SilentlyContinue
               if ($process -and $process.Id -ne $PID -and $process.StartTime.Ticks -eq [long]$old[1]) { Stop-Process -Id $process.Id -Force; Start-Sleep -Milliseconds 300 }
             }
+            # After stopping a stuck copy, which holds its DLL.
+            if (-not '{WORK}') { Protect-WinQemuFolder $work }
             Set-Content $pidFile "$PID $((Get-Process -Id $PID).StartTime.Ticks)"
             $dll = "$work\WinQemuDrop-{HASH}.dll"
             if (-not (Test-Path $dll)) {
@@ -578,6 +581,7 @@ namespace WinQEMU.Core.Sharing
             Add-Type -Path $dll
             exit ([WinQemuDrop]::Run('{PORT}', '{DEST}'))
             """
+            .Replace("{PROTECT}", Services.GuestWorkFolder.ProtectFunction, StringComparison.Ordinal)
             .Replace("{WORK}", Quote(workFolder ?? string.Empty), StringComparison.Ordinal)
             .Replace("{HASH}", SourceHash, StringComparison.Ordinal)
             .Replace("{PORT}", Quote(portPath), StringComparison.Ordinal)
@@ -591,7 +595,22 @@ namespace WinQEMU.Core.Sharing
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(WindowsReceiverSource)))[..12].ToLowerInvariant();
 
         /// <summary>For a single-quoted PowerShell string.</summary>
-        internal static string Quote(string text) => text.Replace("'", "''", StringComparison.Ordinal);
+        /// <remarks>
+        /// PowerShell ends a single-quoted string on the typographic quotes too (U+2018 to U+201B), not only on '. Doubling
+        /// the ASCII one alone let a guest folder named "x’; command; ’" run its command as SYSTEM when the Retrieve
+        /// dialog listed it, and a user named O’Brien broke the account script of an unattended Windows.
+        /// </remarks>
+        public static string Quote(string text)
+        {
+            var quoted = new StringBuilder(text.Length + 8);
+            foreach (var c in text)
+            {
+                quoted.Append(c);
+                if (c is '\'' or '‘' or '’' or '‚' or '‛')
+                    quoted.Append(c);
+            }
+            return quoted.ToString();
+        }
 
         /// <summary>PowerShell's arguments for <see cref="WindowsReceiverScript"/>.</summary>
         public static string[] PowerShellArguments(string script) =>

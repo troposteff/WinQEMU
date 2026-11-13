@@ -31,7 +31,7 @@ namespace WinQEMU.Cli
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                NamedPipeServerStream pipe;
+                NamedPipeServerStream? pipe = null;
                 try
                 {
                     pipe = CreatePipe();
@@ -39,13 +39,25 @@ namespace WinQEMU.Cli
                 }
                 catch (OperationCanceledException)
                 {
+                    pipe?.Dispose();
                     return;
                 }
-                catch (IOException)
+                // A name already taken fails with "access denied", an UnauthorizedAccessException: caught as an IOException
+                // only, it ended the server for the rest of the run, the command then reaching nothing or another
+                // installation's WinQEMU (the GitHub one and the Store one share the name).
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    // Another WinQEMU of this user holds the name (it cannot: one instance per user), or the
-                    // pipe broke while waiting; try again rather than leave the command line without a server.
-                    await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+                    // Another account or installation holds the name, or the pipe broke while waiting: try again
+                    // rather than leave the command line without a server.
+                    pipe?.Dispose();
+                    try
+                    {
+                        await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
                     continue;
                 }
                 _ = Task.Run(() => ServeAsync(pipe, cancellationToken));

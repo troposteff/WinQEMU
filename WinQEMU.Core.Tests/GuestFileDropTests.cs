@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Text;
 using WinQEMU.Core.Qemu;
 using WinQEMU.Core.Sharing;
 
@@ -12,6 +13,35 @@ namespace WinQEMU.Core.Tests;
 public sealed class GuestFileDropTests : IAsyncLifetime
 {
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "winqemu-drop-" + Guid.NewGuid().ToString("N"));
+
+    [Fact]
+    public void Every_quote_PowerShell_ends_a_string_on_is_doubled()
+    {
+        // A guest folder "x’; command; ’" ran its command as SYSTEM when the Retrieve dialog listed it.
+        Assert.Equal("O''Brien O’’Brien ‘‘a‚‚b‛‛", GuestFileDrop.Quote("O'Brien O’Brien ‘a‚b‛"));
+        Assert.Contains("-Name 'O’’Brien'", Services.WindowsUnattendedSetup.AccountScript(
+            new Services.UnattendedWindows("O’Brien", "", "PC", "fr-FR", "fr-FR", "040c:0000040c", "Romance Standard Time", "")));
+    }
+
+    [Fact]
+    public void A_name_built_to_break_out_of_its_quotes_stays_a_name_for_PowerShell()
+    {
+        var name = "x’; Write-Output INJECTED; ‘‚‛'";
+        var script = $"Write-Output '{GuestFileDrop.Quote(name)}'";
+        // The console's code page would turn the quotes into '?': PowerShell is asked for UTF-8.
+        var start = new ProcessStartInfo("powershell.exe", "-NoProfile -NonInteractive -EncodedCommand " +
+            Convert.ToBase64String(Encoding.Unicode.GetBytes("[Console]::OutputEncoding = [Text.Encoding]::UTF8; " + script)))
+        {
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            StandardOutputEncoding = Encoding.UTF8
+        };
+        using var process = Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEnd().Trim();
+        process.WaitForExit();
+
+        Assert.Equal(name, output);
+    }
 
     public Task InitializeAsync()
     {

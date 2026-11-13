@@ -1405,8 +1405,12 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   supprimés, clé à chaque démarrage, outils invités jamais proposés, et « Press any key to boot from CD » à chaque
   démarrage, où une touche relançait l'installation sur le disque). **Lecteur d'ISO** (`IsoFileReader`) : une longueur
   forgée (`0xFFFFFFFF`) faisait lire hors du secteur et WinQEMU tombait depuis l'assistant ; bornes vérifiées, 16 Mio au
-  plus, toute erreur = « absent » (`IsoFileReaderTests`). **Limite connue** : une installation Linux automatique
-  interrompue au premier démarrage repart du disque vide (l'état passe à « en installation » dès le lancement).
+  plus, toute erreur = « absent » (`IsoFileReaderTests`). **Installation interrompue avant d'avoir rien écrit**
+  (machine éteinte, WinQEMU fermé, netinst de Fedora encore à lire ses métadonnées) : l'état passait à « en installation »
+  dès le lancement, et chaque démarrage suivant partait du disque vide, sans jamais reproposer l'installateur. Au
+  démarrage, un disque système de moins de 64 Mio avec les fichiers de réponses encore là remet l'état « en attente »
+  (`MainViewModel.RestartInterruptedInstallationAsync`), dit au journal. Vérifié sur une machine jetable (état remis,
+  QEMU relancé sur l'installateur). Interrompue plus tard, l'installation laisse un disque à moitié écrit : à refaire.
 - **Installation automatique d'Ubuntu** (`UbuntuUnattendedSetup`, même case de l'assistant, profil Ubuntu et ISO qui a
   `casper/vmlinuz`) : fichier `autoinstall` (cloud-init) sur une clé vvfat nommée **CIDATA**, où regarde la source
   NoCloud ; mot de passe en **SHA-512 crypt** (`Sha512Crypt`, vérifié sur les vecteurs de la spécification) ;

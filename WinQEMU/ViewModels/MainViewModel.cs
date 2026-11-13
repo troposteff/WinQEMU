@@ -846,6 +846,7 @@ namespace WinQEMU.ViewModels
             {
                 // The password first: the automatic snapshot opens the disks too.
                 await PrepareDiskKeyAsync(session);
+                await RestartInterruptedInstallationAsync(config);
                 await TakeAutoSnapshotAsync(config);
                 session.UpdateSharedFolders(config.SharedFolders);
                 await session.StartAsync();
@@ -1700,6 +1701,43 @@ namespace WinQEMU.ViewModels
                         await Task.Delay(TimeSpan.FromSeconds(20));
                 }
             }
+        }
+
+        /// <summary>Below this, a system disk has had nothing installed on it (an empty qcow2 holds a few hundred KiB).</summary>
+        private const long UntouchedDiskBytes = 64L << 20;
+
+        /// <summary>
+        /// An unattended installation stopped before it wrote anything (the machine switched off, WinQEMU closed while
+        /// the installer was still starting, or Fedora's netinst fetching its metadata) is started over. The state went to
+        /// "installing" as the installer was launched, so every later start booted the empty disk, the installer was never
+        /// offered again, and the answer files (the password's hash) stayed, waiting for an agent that would never answer.
+        /// </summary>
+        private async Task RestartInterruptedInstallationAsync(VmConfig config)
+        {
+            if (config.UnattendedSetup != UnattendedSetupState.Installing || Manager.DiskService is not { } images
+                || config.Disks.FirstOrDefault() is not { } system)
+                return;
+            // Only while the answer files are there: without them there is nothing to start over with.
+            var folder = QemuArgumentBuilder.GetWindowsSetupFolder(config);
+            var answers = GuestOsCatalog.Find(config.GuestOs)?.Family == "Linux"
+                ? Path.Combine(folder, UbuntuUnattendedSetup.KernelFile)
+                : Path.Combine(folder, WindowsSetupAnswer.FileName);
+            var path = config.ResolvePath(system.FileName);
+            if (!File.Exists(answers) || !File.Exists(path))
+                return;
+            try
+            {
+                if ((await images.GetInfoAsync(path)).ActualSizeBytes >= UntouchedDiskBytes)
+                    return;
+            }
+            catch (QemuImgException)
+            {
+                return;
+            }
+            config.UnattendedSetup = UnattendedSetupState.Pending;
+            config.BootFromIso = GuestOsCatalog.Find(config.GuestOs)?.Family != "Linux";
+            Manager.Save(config);
+            AppendDiagnostic(config, "Unattended installation: interrupted before anything was written to the disk; started over.");
         }
 
         /// <summary>

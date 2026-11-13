@@ -162,8 +162,11 @@ namespace WinQEMU.Core.Services
                 throw;
             }
 
-            // From here on the copies are the machine's disks.
+            // From here on the copies are the machine's disks: all of them at once, in a single save, with the machine's
+            // state. Disk by disk, "not encrypted" was saved with the first disk's copy while the second still named its
+            // encrypted image: interrupted there, the machine could not start (no key asked) nor be encrypted again.
             var left = new List<string>();
+            var olds = config.Disks.Select(d => d.ChainFromTop.Select(config.ResolvePath).ToList()).ToList();
             config.DisksEncrypted = encrypt;
             // The snapshots are gone with the old images; the tree must not remember them.
             config.SnapshotLinks.Clear();
@@ -171,17 +174,20 @@ namespace WinQEMU.Core.Services
             for (var index = 0; index < config.Disks.Count; index++)
             {
                 var disk = config.Disks[index];
-                var old = disk.ChainFromTop.Select(config.ResolvePath).ToList();
                 disk.FileName = copies[index];
                 disk.BackingFileName = string.Empty;
                 disk.DeeperBackingFiles = new List<string>();
-                save();
+            }
+            save();
 
-                foreach (var path in old)
+            for (var index = 0; index < config.Disks.Count; index++)
+            {
+                var disk = config.Disks[index];
+                foreach (var path in olds[index])
                 {
-                    if (IsInside(config.FolderPath, path))
-                        TryDelete(path);
-                    else
+                    // One that cannot be deleted (held by a backup or sync program) is said, not passed over: when
+                    // encrypting, it is the machine's data in clear.
+                    if (!IsInside(config.FolderPath, path) || !TryDelete(path))
                         left.Add(path);
                 }
 
@@ -204,7 +210,13 @@ namespace WinQEMU.Core.Services
         /// added to every image (both then open them; a failure removes it again from those done), then the old one is
         /// erased from each. Interrupted during the second pass, every image still opens with the new password.
         /// </remarks>
-        public static async Task ChangePasswordAsync(VmConfig config, QemuImgService images, DiskKey newKey, CancellationToken cancellationToken = default)
+        /// <param name="newOpensEverything">
+        /// Called once the new password opens every image, before the old one is removed: from then on it is the one to
+        /// keep, even if removing the old one fails halfway (the old one kept in memory then opened nothing any more, and
+        /// the machine refused to start with "wrong password" without asking again).
+        /// </param>
+        public static async Task ChangePasswordAsync(VmConfig config, QemuImgService images, DiskKey newKey, CancellationToken cancellationToken = default,
+            Action? newOpensEverything = null)
         {
             var oldKey = images.Key ?? throw new InvalidOperationException(EncryptionText.PasswordRequired);
             if (oldKey.Password == newKey.Password)
@@ -245,6 +257,7 @@ namespace WinQEMU.Core.Services
                 throw;
             }
 
+            newOpensEverything?.Invoke();
             var renewed = images.WithKey(newKey);
             foreach (var path in paths)
                 await renewed.RemovePasswordAsync(path, oldKey, cancellationToken);
@@ -264,16 +277,19 @@ namespace WinQEMU.Core.Services
             return candidate;
         }
 
-        private static void TryDelete(string path)
+        /// <returns>Whether the file is gone.</returns>
+        private static bool TryDelete(string path)
         {
             try
             {
                 if (File.Exists(path))
                     File.Delete(path);
+                return true;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // Left behind rather than failing an operation that has already succeeded.
+                // Left behind rather than failing an operation that has already succeeded; the caller says so.
+                return false;
             }
         }
 

@@ -51,16 +51,32 @@ namespace WinQEMU.Core.Qemu
             Func<string, bool>? isProtected = null,
             CancellationToken cancellationToken = default)
         {
-            var fresh = new List<(DiskConfig Disk, string Temporary)>();
-            foreach (var disk in config.Disks)
+            // Everything that can fail for any disk (reading a size, creating a fresh overlay: a full volume, a key
+            // that does not open) is done for all of them before anything is deleted. Disk by disk, a failure on the
+            // second left the first one restored, its newer data gone, and the second at the present state.
+            var plans = new List<RevertPlan>();
+            try
             {
-                var chain = disk.ChainFromTop.ToList();
-                var index = OverlayIndex(disk, name);
-                if (index < 0)
-                    continue;
+                foreach (var disk in config.Disks)
+                {
+                    var index = OverlayIndex(disk, name);
+                    if (index >= 0)
+                        plans.Add(await PrepareRevertAsync(config, disk, index, isProtected, cancellationToken));
+                }
+            }
+            catch
+            {
+                foreach (var temporary in plans.Select(p => p.Temporary).OfType<string>())
+                    TryDelete(config.ResolvePath(temporary));
+                throw;
+            }
 
-                if (await RevertDiskAsync(config, disk, chain, index, isProtected, cancellationToken) is { } temporary)
-                    fresh.Add((disk, temporary));
+            var fresh = new List<(DiskConfig Disk, string Temporary)>();
+            foreach (var plan in plans)
+            {
+                ApplyRevert(config, plan);
+                if (plan.Temporary is { } temporary)
+                    fresh.Add((plan.Disk, temporary));
             }
 
             NameFreshOverlays(config, fresh, name);
@@ -80,22 +96,27 @@ namespace WinQEMU.Core.Qemu
 
             var chain = disk.ChainFromTop.ToList();
             var name = DiskConfig.SnapshotNameOf(disk.Id, chain[0]);
-            if (await RevertDiskAsync(config, disk, chain, 0, isProtected, cancellationToken) is { } temporary)
+            var plan = await PrepareRevertAsync(config, disk, 0, isProtected, cancellationToken);
+            ApplyRevert(config, plan);
+            if (plan.Temporary is { } temporary)
                 NameFreshOverlays(config, new[] { (disk, temporary) }, name);
         }
 
+        /// <summary>One disk's way back to the state under <c>Chain[Index]</c>; <see cref="Temporary"/>, a fresh overlay already created.</summary>
+        private sealed record RevertPlan(DiskConfig Disk, IReadOnlyList<string> Chain, int Index, int FirstProtected, string? Temporary);
+
         /// <summary>
-        /// Takes the disk back to the state under <c>chain[index]</c>. Returns the temporary name of the
-        /// fresh overlay when one had to be started, for <see cref="NameFreshOverlays"/> to settle.
+        /// What can fail, done before anything changes: when the state to return to is read by a clone, or sits under
+        /// an image that is, the fresh overlay the disk will start from is created on it now.
         /// </summary>
-        private async Task<string?> RevertDiskAsync(
+        private async Task<RevertPlan> PrepareRevertAsync(
             VmConfig config,
             DiskConfig disk,
-            IReadOnlyList<string> chain,
             int index,
             Func<string, bool>? isProtected,
             CancellationToken cancellationToken)
         {
+            var chain = disk.ChainFromTop.ToList();
             var target = chain[index];
             var firstProtected = isProtected is null
                 ? -1
@@ -106,25 +127,8 @@ namespace WinQEMU.Core.Qemu
                     .Min();
 
             if (firstProtected < 0 || firstProtected > index + 1)
-            {
-                while (disk.IsOverlay)
-                {
-                    // Repoint first, delete second, as for a single overlay: if a delete fails the
-                    // descriptor already names an image that still exists.
-                    var removed = disk.PopOverlay();
-                    var path = config.ResolvePath(removed);
-                    if (File.Exists(path))
-                        File.Delete(path);
+                return new RevertPlan(disk, chain, index, firstProtected, null);
 
-                    if (removed == target)
-                        break;
-                }
-
-                return null;
-            }
-
-            // The state to return to is read by a clone, or sits under an image that is: start a fresh
-            // overlay on it. Created before the descriptor changes, so a failure leaves everything as it was.
             var state = chain[index + 1];
             var statePath = config.ResolvePath(state);
             var size = (await _images.GetInfoAsync(statePath, cancellationToken)).VirtualSizeBytes;
@@ -134,29 +138,67 @@ namespace WinQEMU.Core.Qemu
                 // Relative, as the other overlays: the chain then survives moving the folder.
                 Path.GetRelativePath(config.FolderPath, statePath),
                 cancellationToken);
+            return new RevertPlan(disk, chain, index, firstProtected, temporary);
+        }
 
-            while (disk.PopOverlay() != target)
+        /// <summary>
+        /// Takes the disk back: the descriptor changes first (and records what is kept for the clones), then the files
+        /// it no longer names are deleted. A delete that fails leaves a stray file, never a descriptor naming a
+        /// missing one, nor an image a clone reads left out of both the chain and <see cref="DiskConfig.RetainedImages"/>
+        /// (it was then no longer protected, and a later merge wrote into what the clone reads).
+        /// </summary>
+        private static void ApplyRevert(VmConfig config, RevertPlan plan)
+        {
+            var (disk, chain, index, firstProtected, temporary) = (plan.Disk, plan.Chain, plan.Index, plan.FirstProtected, plan.Temporary);
+            var target = chain[index];
+            var doomed = new List<string>();
+
+            if (temporary is null)
+            {
+                while (disk.IsOverlay)
+                {
+                    var removed = disk.PopOverlay();
+                    doomed.Add(removed);
+                    if (removed == target)
+                        break;
+                }
+            }
+            else
+            {
+                while (disk.PopOverlay() != target)
+                {
+                }
+                disk.PushOverlay(temporary);
+
+                // Above every protected image: what the machine wrote since, thrown away as in a plain restore.
+                // From the first protected one down: kept for the clones, with what each is layered on.
+                for (var level = 0; level <= index; level++)
+                {
+                    if (level < firstProtected)
+                        doomed.Add(chain[level]);
+                    else
+                        disk.RetainedImages.Add(new RetainedImage { FileName = chain[level], BackingFileName = chain[level + 1] });
+                }
+            }
+
+            foreach (var file in doomed)
+            {
+                var path = config.ResolvePath(file);
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
             }
-            disk.PushOverlay(temporary);
-
-            // Above every protected image: what the machine wrote since, thrown away as in a plain restore.
-            // From the first protected one down: kept for the clones, with what each is layered on.
-            for (var level = 0; level <= index; level++)
-            {
-                if (level < firstProtected)
-                {
-                    var path = config.ResolvePath(chain[level]);
-                    if (File.Exists(path))
-                        File.Delete(path);
-                }
-                else
-                {
-                    disk.RetainedImages.Add(new RetainedImage { FileName = chain[level], BackingFileName = chain[level + 1] });
-                }
-            }
-
-            return temporary;
         }
 
         /// <summary>
@@ -223,9 +265,14 @@ namespace WinQEMU.Core.Qemu
                     var above = chain[index - 1];
                     // The original image keeps the disk's own format; every overlay is qcow2.
                     var belowFormat = index + 1 == chain.Count - 1 ? disk.Format : DiskFormat.Qcow2;
-                    // Relative, as the overlays sit in the VM folder: the chain then survives moving it.
+                    // Relative to the overlay's own folder, as QEMU resolves it: the chain then survives moving the
+                    // folder. Not the bare file name: the original image may be attached from elsewhere
+                    // (D:\img\deb.qcow2), and the overlay then named "deb.qcow2" in the VM folder, which does not exist
+                    // there (or is another image). On another drive GetRelativePath gives the absolute path.
+                    var abovePath = config.ResolvePath(above);
                     await _images.RebaseUnsafeAsync(
-                        config.ResolvePath(above), Path.GetFileName(below), belowFormat, cancellationToken);
+                        abovePath, Path.GetRelativePath(Path.GetDirectoryName(abovePath)!, config.ResolvePath(below)),
+                        belowFormat, cancellationToken);
                 }
 
                 disk.RemoveOverlay(target);

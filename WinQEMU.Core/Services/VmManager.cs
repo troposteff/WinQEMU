@@ -355,6 +355,11 @@ namespace WinQEMU.Core.Services
 
             var candidates = new HashSet<string>(formerlyRead.Select(LinkedCloneProtection.Normalize), StringComparer.OrdinalIgnoreCase);
             var protection = Protection;
+            // Never a file some machine's chain still names: a copy that inherited a retained entry, then took a live
+            // snapshot of the same name, had that very file deleted from the middle of its chain.
+            var inChains = new HashSet<string>(
+                VirtualMachines.SelectMany(m => m.Disks.SelectMany(d => d.ChainFromTop.Select(f => LinkedCloneProtection.Normalize(m.ResolvePath(f))))),
+                StringComparer.OrdinalIgnoreCase);
 
             foreach (var machine in VirtualMachines)
             {
@@ -366,6 +371,13 @@ namespace WinQEMU.Core.Services
                         var path = LinkedCloneProtection.Normalize(machine.ResolvePath(retained.FileName));
                         if (!candidates.Contains(path) || protection.IsProtected(path))
                             continue;
+                        if (inChains.Contains(path))
+                        {
+                            // Someone's current image: only the stale record goes.
+                            disk.RetainedImages.Remove(retained);
+                            changed = true;
+                            continue;
+                        }
 
                         try
                         {

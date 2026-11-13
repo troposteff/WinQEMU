@@ -117,4 +117,9 @@
   <data name="SessionNotRunningOrQmpLost" xml:space="preserve"><value>The VM is not running, or its QMP connection was lost.</value></data>
   <data name="ImageFileExists" xml:space="preserve"><value>The file already exists: {0}</value></data>
   <data name="UsbDefaultDeviceName" xml:space="preserve"><value>USB device</value></data>
+  <data name="ImportRemotePath" xml:space="preserve"><value>{0} is on another computer, and the machine's file does not lie there: WinQEMU does not open a network path named by a file it is importing (Windows would sign in to that computer). Copy the disk next to the machine's file, then try again.</value></data>
+  <data name="ImportImageReferences" xml:space="preserve"><value>Disk {0} makes its image read another file, “{1}”, outside its own folder or its package. Such an image cannot be imported: it could carry a file of this PC into the guest's disk.</value></data>
+  <data name="ImportExternalDataFile" xml:space="preserve"><value>an external data file</value></data>
+  <data name="ImportPackageDescriptor" xml:space="preserve"><value>a VMDK descriptor naming files outside the package</value></data>
+  <data name="ImportChainTooDeep" xml:space="preserve"><value>a chain of more than sixteen images</value></data>
 </root>

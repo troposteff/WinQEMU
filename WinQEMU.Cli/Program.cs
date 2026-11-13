@@ -80,7 +80,11 @@ namespace WinQEMU.Cli
         /// <summary>To the running WinQEMU, started first in the notification area if it is not running.</summary>
         private static async Task<NamedPipeClientStream> ConnectAsync(CancellationToken cancellationToken)
         {
-            var pipe = new NamedPipeClientStream(".", CliProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            // CurrentUserOnly: the server must belong to this user. Pipe names are shared by all the PC's sessions, and
+            // another account could create this one first (a SID is no secret), then receive the disk passwords given
+            // with --password-stdin or typed at the prompt. .NET then refuses the connection (UnauthorizedAccessException).
+            var pipe = new NamedPipeClientStream(".", CliProtocol.PipeName, PipeDirection.InOut,
+                PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
             try
             {
                 await pipe.ConnectAsync(500, cancellationToken);

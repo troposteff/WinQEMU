@@ -441,36 +441,50 @@ namespace WinQEMU.Core.Qemu
             // qcow2 disks only, like internal snapshots. QEMU would layer an overlay on a raw image too,
             // but the descriptor holds one format per disk: it would then name a qcow2 overlay as "raw",
             // and the next start would hand the guest the overlay's bytes as a raw disk.
-            foreach (var disk in VmSnapshotAggregator.SnapshotableDisks(Config))
+            var disks = VmSnapshotAggregator.SnapshotableDisks(Config)
+                .Select(disk => (Disk: disk, Overlay: Path.Combine(Config.FolderPath, $"{disk.Id}-{SanitizeSnapshotName(name)}.qcow2")))
+                .ToList();
+            // Every name checked before any disk is switched: found taken at the second disk, the first one already
+            // wrote to its overlay, which the descriptor never recorded.
+            foreach (var (_, overlayPath) in disks)
             {
-                var overlayPath = Path.Combine(
-                    Config.FolderPath,
-                    $"{disk.Id}-{SanitizeSnapshotName(name)}.qcow2");
-
                 if (File.Exists(overlayPath))
                     throw new IOException(string.Format(CultureInfo.CurrentCulture, PlatformText.SessionOverlayExists, overlayPath));
+            }
 
-                // blockdev-snapshot-sync creates a clear overlay, so everything written afterwards would be in clear.
-                if (Config.DisksEncrypted || DiskKey is not null)
+            try
+            {
+                foreach (var (disk, overlayPath) in disks)
                 {
-                    await CreateEncryptedOverlayAsync(qmp, disk, overlayPath, cancellationToken).ConfigureAwait(false);
-                    overlays[disk.Id] = overlayPath;
-                    AppendLog($"Disk '{disk.Id}' now writes to the encrypted overlay {Path.GetFileName(overlayPath)}.");
-                    continue;
-                }
-
-                await qmp.ExecuteAsync(
-                    "blockdev-snapshot-sync",
-                    new JsonObject
+                    // blockdev-snapshot-sync creates a clear overlay, so everything written afterwards would be in clear.
+                    if (Config.DisksEncrypted || DiskKey is not null)
                     {
-                        ["device"] = disk.Id,
-                        ["snapshot-file"] = QemuArgumentBuilder.QemuReadablePath(overlayPath),
-                        ["format"] = "qcow2"
-                    },
-                    cancellationToken).ConfigureAwait(false);
+                        await CreateEncryptedOverlayAsync(qmp, disk, overlayPath, cancellationToken).ConfigureAwait(false);
+                        overlays[disk.Id] = overlayPath;
+                        AppendLog($"Disk '{disk.Id}' now writes to the encrypted overlay {Path.GetFileName(overlayPath)}.");
+                        continue;
+                    }
 
-                overlays[disk.Id] = overlayPath;
-                AppendLog($"Disk '{disk.Id}' now writes to the overlay {Path.GetFileName(overlayPath)}.");
+                    await qmp.ExecuteAsync(
+                        "blockdev-snapshot-sync",
+                        new JsonObject
+                        {
+                            ["device"] = disk.Id,
+                            ["snapshot-file"] = QemuArgumentBuilder.QemuReadablePath(overlayPath),
+                            ["format"] = "qcow2"
+                        },
+                        cancellationToken).ConfigureAwait(false);
+
+                    overlays[disk.Id] = overlayPath;
+                    AppendLog($"Disk '{disk.Id}' now writes to the overlay {Path.GetFileName(overlayPath)}.");
+                }
+            }
+            catch (Exception ex) when (overlays.Count > 0 && ex is not LiveSnapshotIncompleteException)
+            {
+                // The disks already switched write to their overlays now: the caller must record them, or the next
+                // start reopens their old images and everything written since is lost.
+                AppendLog($"Live snapshot '{name}' failed after {overlays.Count} disk(s): {ex.Message}");
+                throw new LiveSnapshotIncompleteException(overlays, ex);
             }
 
             return overlays;

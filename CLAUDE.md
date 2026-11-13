@@ -332,6 +332,30 @@ courant, et dit pourquoi les autres ne le sont pas.
   ignorée. Un clone lié lit toute une image, donc l'état où elle a été figée : il pend de l'instantané dont la
   superposition repose sur sa base (« Base de <clone> »), ou de celui de l'image s'il n'y a plus rien dessus.
 
+- **Relecture du 13/11/2026, corrigé** (risques de perte de données) :
+  - *Machine de l'opération* : `VmSnapshotsViewModel` relisait `_config` après chaque `await` ; la sélection changée
+    pendant qu'un instantané à chaud se prenait (machine chiffrée : 2 s par disque), la superposition était enregistrée sur
+    **l'autre** machine, et une restauration appliquait `snapshot -a` à ses disques. La machine (et la session) est retenue
+    au début ; son descripteur est enregistré **aussitôt**, par machine (`Record(config, …)`, `SaveMachine`), et aussi
+    après un échec en cours de route. L'enregistrement différé de 600 ms écrivait la machine sélectionnée au moment du
+    tic : il est vidé au changement de sélection, et les opérations qui suppriment des fichiers (Fusionner, Revenir à
+    l'image de base) n'en dépendent plus (`VmHardwareViewModel.SaveNow`, avant la suppression).
+  - *Instantané à chaud raté au second disque* : le premier écrivait déjà dans sa superposition, jamais enregistrée ; le
+    démarrage suivant rouvrait l'ancienne image. Noms vérifiés pour tous les disques avant d'en basculer un ; un échec
+    après bascule lève `LiveSnapshotIncompleteException` avec ce qui a basculé, enregistré quand même.
+  - *Restaurer sur plusieurs disques* : tout ce qui peut échouer (taille, superposition neuve) est fait pour tous les
+    disques **avant** toute suppression (`PrepareRevertAsync` puis `ApplyRevert`) ; et les images gardées pour un clone
+    sont notées dans `RetainedImages` avant de supprimer quoi que ce soit (une suppression ratée laissait une image lue
+    par un clone hors de toute protection). Testé : restauration à deux disques dont le second échoue, rien ne change.
+  - *Supprimer un instantané au-dessus d'une image attachée hors du dossier* : la superposition du dessus était
+    rebasée sur le **nom seul** (`deb.qcow2`, cherché dans le dossier de la VM). Chemin relatif au dossier de la
+    superposition (absolu sur un autre lecteur). Testé contre qemu-img (échoue avec l'ancien code).
+  - *Copies et clones* n'héritent plus des `RetainedImages` de la source, et la libération ne supprime jamais un fichier
+    qu'une chaîne nomme encore (seul l'enregistrement périmé part).
+  - **Limite connue, non corrigée** : les superpositions des instantanés à chaud nomment leur base par chemin **absolu**
+    (QEMU l'écrit ainsi) ; une bibliothèque **copiée** ailleurs et gardée à l'ancien endroit lit encore l'ancienne base.
+  - Vérifié dans l'app par `winqemu snapshot` sur Fedora test : deux instantanés à chaud, suppression de celui du milieu
+    (chaîne relue par `qemu-img info --backing-chain`), restauration, `qemu-img check` propre, redémarrage.
 - **Instantanés automatiques** (`Services.AutoSnapshots`, comme AutoProtect de VMware ; section Instantanés :
   intervalle « à chaque démarrage » … hebdomadaire, nombre gardé) : `Auto aaaa-MM-jj HHhmm` (ASCII, trié par date).
   **Pris au démarrage, hors ligne** (`MainViewModel.StartMachineAsync`, avant QEMU), pas pendant que la machine
@@ -514,6 +538,17 @@ n'est que lue** et reste utilisable dans son hyperviseur.
   rien n'est extrait** : `TarArchive` donne la position de chaque fichier, et qemu-img ouvre un nom `json:` (pilote
   vmdk sur la fenêtre `offset`/`size` du pilote raw ; vérifié octet pour octet). Disque compressé (`ovf:compression`)
   ou découpé (`chunkSize`) : refusé.
+- **Ce qu'un fichier importé fait ouvrir** (`ImportSafety`, relecture du 13/11/2026) : un `.vmx`, `.vbox`, `.ovf` ou `.ova`
+  vient d'ailleurs. (1) Un disque, une ISO ou un `href` sur **un autre ordinateur** (`\\hôte\partage\…`) est refusé avant
+  tout `File.Exists`, qui s'y authentifiait déjà (empreinte NTLM livrée) dès le choix du fichier ; un chemin réseau reste
+  permis dans le dossier même du fichier choisi. (2) Une image qui ferait **lire d'autres fichiers** à qemu-img est
+  refusée avant que qemu-img l'ouvre (il suivrait ses références) : base qcow2 ou fichier de données externe, extension
+  ou parent VMDK (descripteur texte, ou intégré à un VMDK clairsemé) hors du dossier de l'image, chemin réseau, `json:` ;
+  dans un `.ova`, aucune référence ni descripteur texte. Lu dans les en-têtes, sans qemu. Sans cela, une base réglée sur
+  `C:\Users\…\Documents\…` mettait ce fichier dans le disque du nouvel invité. Les deltas d'instantanés VMware (parent
+  dans le même dossier) restent permis. Testé sur des en-têtes forgés (`ImportSafetyTests`). (3) **Tar** : une taille
+  négative (base 256 signée) faisait relire le même en-tête sans fin, sur le fil de l'interface ; refusée. Un descripteur
+  `.ovf` démesuré faisait mourir WinQEMU à l'allocation ; borné à 16 Mio.
 
 ## Export OVA (`Export.OvaExporter`)
 
@@ -539,7 +574,9 @@ manifeste `.mf` (SHA-256), puis chaque disque en **VMDK streamOptimized** (`qemu
   ne l'est pas), haché, puis recopié et supprimé. Il faut donc environ deux fois la taille du paquet ; le dialogue le dit.
 - **Tar écrit à la main** (`TarArchive`) : ustar simple, et au-delà de 8 Gio la taille en base 256 de GNU (lue par
   GNU tar, VirtualBox, 7-Zip, Python), pas un en-tête PAX qu'un lecteur qui ne le connaît pas prendrait pour un fichier
-  « PaxHeader/… ». Vérifié avec Python et GNU tar. Annulé ou échoué : paquet et fichiers de travail supprimés.
+  « PaxHeader/… ». Vérifié avec Python et GNU tar. Annulé ou échoué : paquet et fichiers de travail supprimés —
+  **seulement ce que l'export a créé** : un paquet déjà à la destination (l'export de la veille, réécrit) était supprimé
+  par une annulation pendant la conversion, avant qu'une ligne en soit écrite ; un dossier `.parts` préexistant aussi.
 
 ## Chiffrement des disques (`Qemu.DiskKey`)
 
@@ -566,6 +603,14 @@ QEMU), un mot de passe pour toutes les images d'une machine (`VmConfig.DisksEncr
 - **Chiffrer / déchiffrer** = `convert` de chaque chaîne puis échange (instantanés perdus, anciennes images supprimées,
   pas effacées) ; **changer le mot de passe** = `amend` en deux passes (ajout partout, puis retrait de l'ancien).
   Clones liés : même mot de passe des deux côtés, et chiffrer, déchiffrer ou changer le mot de passe y est refusé.
+- **Relecture du 13/11/2026, corrigé** : chiffrer ou déchiffrer bascule **tous** les disques sur leurs copies en un seul
+  enregistrement (disque par disque, « non chiffrée » était écrit avec le premier disque alors que le second nommait encore
+  son image chiffrée : interrompue là, la machine ne démarrait plus et ne se laissait plus chiffrer) ; une ancienne image
+  impossible à supprimer (tenue par une sauvegarde ou une synchronisation) est **dite** (en chiffrant, ce sont les données
+  en clair). Changer le mot de passe : le nouveau est retenu dès qu'il ouvre toutes les images, même si le retrait de
+  l'ancien échoue ensuite. **Tube de `winqemu`** : un autre compte du PC pouvait créer `WinQEMU.cli.<SID>` le premier
+  et recevoir les mots de passe donnés à la commande ; le serveur crée sa première instance avec `FirstPipeInstance`, la
+  commande se connecte avec `CurrentUserOnly` (propriétaire du tube vérifié par .NET).
 
 ## Périphériques USB de l'hôte
 
@@ -1029,6 +1074,9 @@ invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmCon
     faisaient échouer toute la récupération sous le premier niveau (« le fichier existe », tout supprimé) et fusionnaient
     deux dossiers au premier niveau. Le second est numéroté, à chaque niveau (`placed`, `taken`), testé
     (`GuestFilePullTests`, ainsi que l'abandon au milieu d'un fichier).
+  - **Revérifié sur Windows 11 après ces corrections** (13/11/2026, image mise à l'échelle) : glisser hors de l'invité de
+    3 Mo, de 400 Mo relâché pendant la copie, et d'un dossier avec sous-dossier (empreintes identiques, icônes en place) ;
+    dépôt vers l'invité d'un fichier de 25 Mo au nom accentué (empreinte identique, propriétaire l'utilisateur).
 - Vérifié sur une copie du Windows 11 de l'utilisateur (Ryzen, 09/11/2026), glisser simulé (`SetCursorPos`,
   `mouse_event`, processus *per-monitor aware*), empreintes SHA-256 comparées par l'agent : 3 Mo, 400 Mo, 3 Go relâché
   pendant la copie, sur les deux chemins (image à l'échelle : `PointerOverlay` ; image au pixel : SDL) ; **relâché sur

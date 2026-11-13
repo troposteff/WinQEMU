@@ -114,8 +114,13 @@ namespace WinQEMU.Core.Export
             // Next to the package, on the same volume: converting into the temp folder of C: would fail on a
             // full system drive while the destination had room.
             var work = destination + ".parts";
+            // Only what this export made is removed when it fails: a ".parts" folder already there is the user's, and a
+            // package already at the destination (yesterday's export, written over) was deleted by a cancel during the
+            // conversion, before anything had been written to it.
+            var ownWork = !Directory.Exists(work);
             Directory.CreateDirectory(work);
             var completed = false;
+            var writing = false;
             try
             {
                 // Conversion is most of the time (compression); hashing and copying share the rest.
@@ -160,6 +165,7 @@ namespace WinQEMU.Core.Export
 
                 bytesDone = 0;
                 var modified = DateTimeOffset.UtcNow;
+                writing = true;
                 await using (var package = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20, useAsync: true))
                 {
                     WriteFile(package, ovfName, ovf, modified);
@@ -190,8 +196,13 @@ namespace WinQEMU.Core.Export
             }
             finally
             {
-                TryDelete(() => Directory.Delete(work, recursive: true));
-                if (!completed)
+                if (ownWork)
+                    TryDelete(() => Directory.Delete(work, recursive: true));
+                else
+                    foreach (var disk in disks)
+                        TryDelete(() => File.Delete(Path.Combine(work, disk.Name)));
+                // Once writing has begun the old package is gone anyway, and a half-written one is no use.
+                if (!completed && writing)
                     TryDelete(() => File.Delete(destination));
             }
         }

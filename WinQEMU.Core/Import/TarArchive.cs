@@ -51,6 +51,13 @@ namespace WinQEMU.Core.Import
                 var size = ParseNumber(header.AsSpan(124, 12));
                 var type = (char)header[156];
                 var dataOffset = headerOffset + Block;
+                // A size read from a crafted package, negative (base 256 has a sign bit): it sent the next header back
+                // onto this one and the loop never ended, on the UI thread, while memory grew. A size beyond the end
+                // stays allowed: a truncated archive ends there, and qemu-img says what it cannot read.
+                if (size < 0)
+                    throw new FormatException(entries.Count == 0
+                        ? PlatformText.ImportTarInvalid
+                        : string.Format(CultureInfo.CurrentCulture, PlatformText.ImportTarDamaged, entries[^1].Name));
 
                 switch (type)
                 {
@@ -72,6 +79,9 @@ namespace WinQEMU.Core.Import
                         break;
                     default:
                         size = paxSize ?? size;
+                        if (size < 0)
+                            throw new FormatException(string.Format(CultureInfo.CurrentCulture, PlatformText.ImportTarDamaged,
+                                paxPath ?? longName ?? HeaderName(header)));
                         if (type is '0' or '\0' or '7')
                         {
                             var name = paxPath ?? longName ?? HeaderName(header);
@@ -85,7 +95,7 @@ namespace WinQEMU.Core.Import
 
                 // A truncated archive ends here; qemu-img then says what it cannot read.
                 var next = dataOffset + RoundUp(size);
-                if (next >= stream.Length)
+                if (next >= stream.Length || next <= headerOffset)
                     break;
                 stream.Position = next;
             }

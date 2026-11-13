@@ -32,6 +32,10 @@ namespace WinQEMU.Core.Import
             XDocument document;
             using (var stream = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
+                // A descriptor is a few kilobytes; a size beyond the file or absurd made the buffer's allocation fail,
+                // with an exception the import did not catch, and WinQEMU died.
+                if (descriptor.Size > 16 << 20 || descriptor.DataOffset + descriptor.Size > stream.Length)
+                    throw new FormatException(PlatformText.ImportTarHeaderTooLarge);
                 stream.Position = descriptor.DataOffset;
                 var bytes = new byte[descriptor.Size];
                 stream.ReadExactly(bytes);
@@ -55,6 +59,9 @@ namespace WinQEMU.Core.Import
             if (Uri.TryCreate(href, UriKind.Absolute, out var uri) && !uri.IsFile)
                 return null;
             var file = System.IO.Path.GetFullPath(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(ovfPath)!, href));
+            // Before File.Exists, which already authenticates to a network path (see ImportSafety).
+            if (!ImportSafety.MayOpen(file, ovfPath))
+                throw new FormatException(ImportSafety.RemoteMessage(href));
             return File.Exists(file) ? new DiskFile(file, null) : null;
         }
 
@@ -223,6 +230,7 @@ namespace WinQEMU.Core.Import
                         SourcePath = source.Path,
                         QemuSource = source.Entry is null ? null : JsonSource(driver, source.Path, source.Entry),
                         PackageEntry = source.Entry?.Name,
+                        PackageWindow = source.Entry,
                         Bus = bus,
                         SourceSlot = controller is null
                             ? href

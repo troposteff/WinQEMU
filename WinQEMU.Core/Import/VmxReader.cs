@@ -29,7 +29,10 @@ namespace WinQEMU.Core.Import
                 plan.Notes.Add(PlatformText.ImportVmwareSuspended);
             }
 
-            foreach (var disk in plan.Disks.Where(d => !File.Exists(d.SourcePath)))
+            // A path on another computer is refused before File.Exists, which already authenticates there (ImportSafety).
+            foreach (var disk in plan.Disks.Where(d => !ImportSafety.MayOpen(d.SourcePath, full)))
+                plan.Blocker ??= ImportSafety.RemoteMessage(disk.SourcePath);
+            foreach (var disk in plan.Disks.Where(d => ImportSafety.MayOpen(d.SourcePath, full) && !File.Exists(d.SourcePath)))
                 plan.Blocker ??= string.Format(CultureInfo.CurrentCulture, PlatformText.ImportDiskNotFound, disk.SourcePath);
 
             return plan;
@@ -101,7 +104,7 @@ namespace WinQEMU.Core.Import
                 {
                     // Only an image can come along; a physical drive of the old host means nothing here.
                     if (string.IsNullOrEmpty(plan.IsoPath) && file.EndsWith(".iso", StringComparison.OrdinalIgnoreCase)
-                        && File.Exists(resolve(file)))
+                        && ImportSafety.MayOpen(resolve(file), plan.SourcePath) && File.Exists(resolve(file)))
                         plan.IsoPath = resolve(file);
                     continue;
                 }

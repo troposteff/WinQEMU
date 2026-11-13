@@ -424,7 +424,8 @@ namespace WinQEMU.ViewModels
         /// </summary>
         public async Task DiscardOverlayAsync(DiskConfig disk)
         {
-            if (_config is null || !CanEdit || !disk.IsOverlay)
+            // Captured: the selection may change while qemu-img works (see SaveNow).
+            if (_config is not { } config || !CanEdit || !disk.IsOverlay)
                 return;
 
             try
@@ -432,9 +433,28 @@ namespace WinQEMU.ViewModels
                 if (_manager.DiskService is null)
                     throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
-                await new LiveSnapshotOperations(await _manager.ImagesForAsync(_config).ConfigureAwait(true))
-                    .RevertTopAsync(_config, disk, _manager.ProtectedImages).ConfigureAwait(true);
-                _requestSave();
+                await new LiveSnapshotOperations(await _manager.ImagesForAsync(config).ConfigureAwait(true))
+                    .RevertTopAsync(config, disk, _manager.ProtectedImages).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                _reportError(ex);
+            }
+            finally
+            {
+                SaveNow(config);
+            }
+        }
+
+        /// <summary>
+        /// Saves <paramref name="config"/> now, after files of its chain were deleted. The deferred save left 600 ms in
+        /// which a crash left a descriptor naming a deleted overlay, and it saved whatever was selected by then.
+        /// </summary>
+        private void SaveNow(VmConfig config)
+        {
+            try
+            {
+                _manager.Save(config);
             }
             catch (Exception ex)
             {
@@ -448,7 +468,7 @@ namespace WinQEMU.ViewModels
         /// </summary>
         public async Task CommitOverlayAsync(DiskConfig disk)
         {
-            if (_config is null || !CanEdit || !disk.IsOverlay)
+            if (_config is not { } config || !CanEdit || !disk.IsOverlay)
                 return;
 
             try
@@ -456,17 +476,19 @@ namespace WinQEMU.ViewModels
                 if (_manager.DiskService is null)
                     throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
-                if (_manager.WhyOverlayCannotBeMerged(_config, disk) is { } reason)
+                if (_manager.WhyOverlayCannotBeMerged(config, disk) is { } reason)
                     throw new InvalidOperationException(reason);
 
-                var overlay = ResolveDiskPath(disk);
+                var overlay = config.ResolvePath(disk.FileName);
                 // qemu-img commit writes into the overlay's own base, which is the next level down even
                 // when overlays are stacked.
-                var images = await _manager.ImagesForAsync(_config).ConfigureAwait(true);
+                var images = await _manager.ImagesForAsync(config).ConfigureAwait(true);
                 await images.CommitAsync(overlay).ConfigureAwait(true);
 
+                // Saved before the overlay is deleted, never after: interrupted in between, the machine starts from
+                // its base, which holds everything since the commit.
                 disk.PopOverlay();
-                _requestSave();
+                SaveNow(config);
 
                 if (File.Exists(overlay))
                     File.Delete(overlay);

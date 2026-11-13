@@ -53,13 +53,23 @@ namespace WinQEMU.Cli
         }
 
         /// <summary>This user only: the pipe would otherwise let anyone on the PC start, stop or snapshot their machines.</summary>
-        private static NamedPipeServerStream CreatePipe()
+        /// <remarks>
+        /// The first instance is created with FirstPipeInstance: if another account made the name first (to receive the
+        /// disk passwords sent by the command), creating it fails instead of joining that account's pipe. The command
+        /// checks the server's owner too (CurrentUserOnly).
+        /// </remarks>
+        private NamedPipeServerStream CreatePipe()
         {
             var security = new PipeSecurity();
             security.AddAccessRule(new PipeAccessRule(WindowsIdentity.GetCurrent().User!, PipeAccessRights.FullControl, AccessControlType.Allow));
-            return NamedPipeServerStreamAcl.Create(CliProtocol.PipeName, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances,
-                PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 0, 0, security);
+            var options = PipeOptions.Asynchronous | (_created ? PipeOptions.None : PipeOptions.FirstPipeInstance);
+            var pipe = NamedPipeServerStreamAcl.Create(CliProtocol.PipeName, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances,
+                PipeTransmissionMode.Byte, options, 0, 0, security);
+            _created = true;
+            return pipe;
         }
+
+        private bool _created;
 
         private async Task ServeAsync(NamedPipeServerStream pipe, CancellationToken cancellationToken)
         {

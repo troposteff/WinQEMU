@@ -65,7 +65,7 @@
   <data name="ForgetBody" xml:space="preserve"><value>The password of {0} is removed from the Windows Credential Manager. It will be asked at the next start, and the machine will no longer start with WinQEMU by itself.</value></data>
   <data name="ForgetButton" xml:space="preserve"><value>Forget</value></data>
   <data name="LeftInPlaceTitle" xml:space="preserve"><value>Images left in place</value></data>
-  <data name="LeftInPlaceBody" xml:space="preserve"><value>These images are outside the machine's folder and were not deleted. The machine no longer uses them, but they hold its data as it was:
+  <data name="LeftInPlaceBody" xml:space="preserve"><value>These images were not deleted: they are outside the machine's folder, or another program holds them open. The machine no longer uses them, but they hold its data as it was:
 {0}</value></data>
   <data name="SectionHeader" xml:space="preserve"><value>Disk encryption</value></data>
   <data name="SectionHint" xml:space="preserve"><value>As with VMware, the disks are encrypted with a password (LUKS, AES-256). The machine must be stopped to encrypt, decrypt or change the password.</value></data>

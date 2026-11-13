@@ -80,7 +80,7 @@ namespace WinQEMU.ViewModels
             // Hardware edits reuse the same debounce as the text fields: reordering the boot list or
             // typing a port number should not rewrite the descriptor on every keystroke.
             Hardware = new VmHardwareViewModel(Manager, RestartSaveDebounce, ReportError);
-            Snapshots = new VmSnapshotsViewModel(Manager, RestartSaveDebounce, ReportError);
+            Snapshots = new VmSnapshotsViewModel(Manager, SaveMachine, ReportError);
 
             // The library is reloaded on refresh, creation and deletion; the inventory rows follow it.
             Manager.VirtualMachines.CollectionChanged += (_, _) => RebuildItems();
@@ -256,6 +256,15 @@ namespace WinQEMU.ViewModels
             {
                 if (ReferenceEquals(_selectedVm, value))
                     return;
+
+                // A save still deferred belongs to the machine being left: done now. When it ran, it saved whatever
+                // was selected by then, and a change made just before the selection moved (a disk merged, its overlay
+                // already deleted) was never written to this machine's descriptor.
+                if (_saveDebounceTimer.IsRunning)
+                {
+                    _saveDebounceTimer.Stop();
+                    SaveSelected();
+                }
 
                 if (_selectedVm is not null)
                     _selectedVm.PropertyChanged -= OnSelectedVmPropertyChanged;
@@ -1905,6 +1914,19 @@ namespace WinQEMU.ViewModels
             AppendDiagnostic(atStart
                 ? $"USB: {entry.Name} will be connected at every start."
                 : $"USB: {entry.Name} will no longer be connected at start.");
+        }
+
+        /// <summary>Saves a given machine now, whatever is selected (an operation on image files that has just ended).</summary>
+        private void SaveMachine(VmConfig config)
+        {
+            try
+            {
+                Manager.Save(config);
+            }
+            catch (Exception ex)
+            {
+                ReportError(ex);
+            }
         }
 
         private void SaveSelected()

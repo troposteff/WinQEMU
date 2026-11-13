@@ -65,7 +65,7 @@
   <data name="ForgetBody" xml:space="preserve"><value>Le mot de passe de {0} est retiré du Gestionnaire d'identification de Windows. Il sera demandé au prochain démarrage, et la machine ne démarrera plus seule avec WinQEMU.</value></data>
   <data name="ForgetButton" xml:space="preserve"><value>Oublier</value></data>
   <data name="LeftInPlaceTitle" xml:space="preserve"><value>Images laissées en place</value></data>
-  <data name="LeftInPlaceBody" xml:space="preserve"><value>Ces images sont hors du dossier de la machine et n'ont pas été supprimées. La machine ne les utilise plus, mais elles contiennent ses données telles qu'elles étaient :
+  <data name="LeftInPlaceBody" xml:space="preserve"><value>Ces images n'ont pas été supprimées : elles sont hors du dossier de la machine, ou un autre programme les tient ouvertes. La machine ne les utilise plus, mais elles contiennent ses données telles qu'elles étaient :
 {0}</value></data>
   <data name="SectionHeader" xml:space="preserve"><value>Chiffrement des disques</value></data>
   <data name="SectionHint" xml:space="preserve"><value>Comme avec VMware, les disques sont chiffrés par un mot de passe (LUKS, AES-256). La machine doit être arrêtée pour chiffrer, déchiffrer ou changer le mot de passe.</value></data>

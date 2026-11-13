@@ -29,8 +29,14 @@ namespace WinQEMU.Core.Import
             if (plan.Blocker is null && plan.Disks.Count == 0)
                 plan.Blocker = PlatformText.ImportNoDisk;
 
-            foreach (var disk in plan.Disks.Where(d => File.Exists(d.SourcePath)))
+            foreach (var disk in plan.Disks.Where(d => ImportSafety.MayOpen(d.SourcePath, full) && File.Exists(d.SourcePath)))
             {
+                // Before qemu-img opens it, which would already follow what it names (ImportSafety).
+                if (ImportSafety.WhyUnsafe(disk) is { } unsafeReason)
+                {
+                    plan.Blocker ??= unsafeReason;
+                    continue;
+                }
                 try
                 {
                     var info = await images.GetInfoAsync(disk.ImageSpec, cancellationToken).ConfigureAwait(false);

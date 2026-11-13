@@ -622,7 +622,13 @@ namespace WinQEMU.Core.Services
             clone.LastStartedUtc = null;
             clone.IsTemplate = false;
             foreach (var disk in clone.Disks)
+            {
                 disk.TemplateOverlayFileName = string.Empty;
+                // The images the source keeps for its clones are its own, in its folder: resolved against the copy's
+                // folder, an inherited entry named a file the copy might create later (a live snapshot of the same
+                // name), which a release then deleted from the middle of the copy's chain.
+                disk.RetainedImages.Clear();
+            }
 
             // Two guests with one MAC on the same segment fight over it. An empty MAC stays empty: QEMU
             // assigns one at launch, exactly as it did for the original.

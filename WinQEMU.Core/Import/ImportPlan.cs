@@ -27,6 +27,9 @@ namespace WinQEMU.Core.Import
         /// <summary>The disk's file name inside its .ova, for display.</summary>
         public string? PackageEntry { get; init; }
 
+        /// <summary>Where the disk lies inside its .ova; null for a file of its own.</summary>
+        public TarEntry? PackageWindow { get; init; }
+
         /// <summary>The image as qemu-img takes it.</summary>
         public string ImageSpec => QemuSource ?? SourcePath;
 

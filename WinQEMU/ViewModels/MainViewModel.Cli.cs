@@ -336,7 +336,7 @@ namespace WinQEMU.ViewModels
             var action = Argument(args, 0, CliText.ArgumentAction).ToLowerInvariant();
             var config = FindMachine(Argument(args, 1, CliText.ArgumentMachine));
             Exception? failure = null;
-            var snapshots = new VmSnapshotsViewModel(Manager, () => Manager.Save(config), ex => failure = ex);
+            var snapshots = new VmSnapshotsViewModel(Manager, c => Manager.Save(c), ex => failure = ex);
             snapshots.Attach(config);
             snapshots.Session = Manager.FindSession(config) is { IsRunning: true } running ? running : null;
             // Set by the window for its own list; here from the session, as MainViewModel does for the selection.

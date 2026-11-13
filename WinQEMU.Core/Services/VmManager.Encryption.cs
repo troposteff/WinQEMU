@@ -256,10 +256,13 @@ namespace WinQEMU.Core.Services
             if (WhyCannotChangeDiskPassword(config) is { } refusal)
                 throw new InvalidOperationException(refusal);
 
-            await DiskEncryption.ChangePasswordAsync(config, ImagesFor(config), newKey, cancellationToken);
-            // The old one, remembered, would no longer open anything.
-            DiskPasswordStore.Delete(config.Id);
-            KeepDiskKey(config, newKey, remember);
+            // As soon as the new one opens every image, even if removing the old one then fails: the old one, remembered,
+            // would no longer open anything.
+            await DiskEncryption.ChangePasswordAsync(config, ImagesFor(config), newKey, cancellationToken, () =>
+            {
+                DiskPasswordStore.Delete(config.Id);
+                KeepDiskKey(config, newKey, remember);
+            });
         }
     }
 }

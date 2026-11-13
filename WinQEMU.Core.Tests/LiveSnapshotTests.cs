@@ -192,4 +192,58 @@ public class LiveSnapshotOperationTests : IAsyncLifetime
         Assert.Equal(new[] { "disk0-Test 1.qcow2", "disk0.qcow2" }, vm.Disks[0].ChainFromTop);
         Assert.True(await Holds("disk0-Test 1.qcow2", "0x33", "128k"));
     }
+
+    // The overlay above was rebased onto the bare name "deb.qcow2", looked for in the VM folder where it is not:
+    // "Could not open backing file" at the next start.
+    [Fact]
+    public async Task Deleting_a_snapshot_over_an_image_attached_from_elsewhere_keeps_the_chain_readable()
+    {
+        if (!Available) return;
+        var outside = Directory.CreateDirectory(Path.Combine(_folder, "img")).FullName;
+        var vmFolder = Directory.CreateDirectory(Path.Combine(_folder, "vm")).FullName;
+        var vm = Fixtures.Vm();
+        vm.FolderPath = vmFolder;
+        vm.Disks.Clear();
+        var basePath = Path.Combine(outside, "deb.qcow2");
+        var disk = new DiskConfig { Id = "disk0", FileName = basePath };
+        vm.Disks.Add(disk);
+        await _images!.CreateAsync(basePath, DiskFormat.Qcow2, 16L * 1024 * 1024);
+        await Io(@"img\deb.qcow2", "write -P 0x11 0 64k");
+        await _images.CreateAsync(Path.Combine(vmFolder, "disk0-S1.qcow2"), DiskFormat.Qcow2, 16L * 1024 * 1024, basePath);
+        disk.PushOverlay("disk0-S1.qcow2");
+        await Io(@"vm\disk0-S1.qcow2", "write -P 0x22 64k 64k");
+        await _images.CreateAsync(Path.Combine(vmFolder, "disk0-S2.qcow2"), DiskFormat.Qcow2, 16L * 1024 * 1024, "disk0-S1.qcow2");
+        disk.PushOverlay("disk0-S2.qcow2");
+        await Io(@"vm\disk0-S2.qcow2", "write -P 0x33 128k 64k");
+
+        await new LiveSnapshotOperations(_images).MergeAsync(vm, "S1");
+
+        Assert.True(await Holds(@"vm\disk0-S2.qcow2", "0x11", "0"));
+        Assert.True(await Holds(@"vm\disk0-S2.qcow2", "0x22", "64k"));
+        Assert.True(await Holds(@"vm\disk0-S2.qcow2", "0x33", "128k"));
+    }
+
+    // Disk by disk, the first disk was restored (its newer data gone) before the second one failed.
+    [Fact]
+    public async Task A_restore_that_cannot_be_done_on_every_disk_changes_none()
+    {
+        if (!Available) return;
+        var vm = await ThreeLevelsAsync();
+        var second = new DiskConfig { Id = "disk1", FileName = "disk1.qcow2" };
+        vm.Disks.Add(second);
+        await _images!.CreateAsync(Path.Combine(_folder, "disk1.qcow2"), DiskFormat.Qcow2, 16L * 1024 * 1024);
+        await _images.CreateAsync(Path.Combine(_folder, "disk1-Test 1.qcow2"), DiskFormat.Qcow2, 16L * 1024 * 1024, "disk1.qcow2");
+        second.PushOverlay("disk1-Test 1.qcow2");
+        // The second disk's state is read by a clone, and cannot be read here: its fresh overlay cannot be made.
+        var unreadable = Path.Combine(_folder, "disk1.qcow2");
+        File.Delete(unreadable);
+        bool Protected(string path) => string.Equals(Path.GetFullPath(path), unreadable, StringComparison.OrdinalIgnoreCase);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => new LiveSnapshotOperations(_images).RevertAsync(vm, "Test 1", Protected));
+
+        Assert.Equal(new[] { "disk0-Test 2.qcow2", "disk0-Test 1.qcow2", "disk0.qcow2" }, vm.Disks[0].ChainFromTop);
+        Assert.True(File.Exists(Path.Combine(_folder, "disk0-Test 2.qcow2")));
+        Assert.True(await Holds("disk0-Test 2.qcow2", "0x33", "128k"));
+        Assert.Empty(Directory.EnumerateFiles(_folder, "*.restauration*"));
+    }
 }

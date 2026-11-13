@@ -17,7 +17,10 @@ namespace WinQEMU.Core.Import
             var full = Path.GetFullPath(vboxPath);
             var plan = Parse(File.ReadAllText(full), full);
 
-            foreach (var disk in plan.Disks.Where(d => !File.Exists(d.SourcePath)))
+            // A path on another computer is refused before File.Exists, which already authenticates there (ImportSafety).
+            foreach (var disk in plan.Disks.Where(d => !ImportSafety.MayOpen(d.SourcePath, full)))
+                plan.Blocker ??= ImportSafety.RemoteMessage(disk.SourcePath);
+            foreach (var disk in plan.Disks.Where(d => ImportSafety.MayOpen(d.SourcePath, full) && !File.Exists(d.SourcePath)))
                 plan.Blocker ??= string.Format(CultureInfo.CurrentCulture, PlatformText.ImportDiskNotFound, disk.SourcePath);
 
             return plan;
@@ -82,7 +85,8 @@ namespace WinQEMU.Core.Import
                     if (string.Equals(deviceType, "DVD", StringComparison.OrdinalIgnoreCase))
                     {
                         var location = (string?)images.FirstOrDefault(i => SameUuid(i, uuid))?.Attribute("location");
-                        if (string.IsNullOrEmpty(plan.IsoPath) && location is not null && File.Exists(resolve(location)))
+                        if (string.IsNullOrEmpty(plan.IsoPath) && location is not null
+                            && ImportSafety.MayOpen(resolve(location), plan.SourcePath) && File.Exists(resolve(location)))
                             plan.IsoPath = resolve(location);
                         continue;
                     }

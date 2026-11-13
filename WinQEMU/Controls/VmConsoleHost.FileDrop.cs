@@ -34,6 +34,9 @@ namespace WinQEMU.Controls
         /// <summary>The press held now went to QEMU's window (the pointer overlay was not over it), which has not seen its release.</summary>
         private bool _sdlHasPress;
 
+        /// <summary>The guest's button was released for it while the real one was still held.</summary>
+        private bool _releasedWhileHeld;
+
         /// <summary>
         /// A button pressed in the guest is held outside the console: perhaps files dragged out of it. Says which button
         /// ("left", "right"). Once per press.
@@ -102,6 +105,9 @@ namespace WinQEMU.Controls
             QueuePointer(PointerEvent.Press(button, false));
             // Once per press, and only if SDL had it: a move marked "held" would otherwise read as a press to SDL, a
             // click on the guest's edge.
+            // Let go for the guest while the real button is still down: see WatchForDrag.
+            if (_pressButton is not null && (GetAsyncKeyState(0x01) < 0 || GetAsyncKeyState(0x02) < 0))
+                _releasedWhileHeld = true;
             if (!_sdlHasPress)
                 return;
             _sdlHasPress = false;
@@ -155,9 +161,13 @@ namespace WinQEMU.Controls
         private void WatchForDrag()
         {
             var catcher = _dropCatcher!;
-            // Physical buttons, either of them: Explorer also drags with the right one, and they may be swapped.
-            var left = GetAsyncKeyState(0x01) < 0;
-            var held = left || GetAsyncKeyState(0x02) < 0;
+            // Either button: Explorer also drags with the right one. GetAsyncKeyState reads the physical buttons, while
+            // the guest was sent the logical one (QEMU's window and the pointer overlay get WM_LBUTTONDOWN for the
+            // primary button): with the buttons swapped in Windows, a drag made with the primary button released the
+            // guest's right button, and its left one stayed down until the next click.
+            var swapped = GetSystemMetrics(23) != 0; // SM_SWAPBUTTON
+            var left = GetAsyncKeyState(swapped ? 0x02 : 0x01) < 0;
+            var held = left || GetAsyncKeyState(swapped ? 0x01 : 0x02) < 0;
             if (!held)
             {
                 // A press made in the guest and released outside the console: QEMU's own window, which has the mouse
@@ -168,6 +178,7 @@ namespace WinQEMU.Controls
                 _pressStartedOnConsole = null;
                 _pressButton = null;
                 _sdlHasPress = false;
+                _releasedWhileHeld = false;
                 _guestDragLeftRaised = false;
                 catcher.Hide();
                 return;
@@ -189,6 +200,14 @@ namespace WinQEMU.Controls
             if (_pressStartedOnConsole is null && pressedHere)
                 _sdlHasPress = _pointerOverlay is not { IsVisible: true };
             _pressStartedOnConsole ??= pressedHere;
+            // The guest's button was let go for it (a drag ended by Escape) with the real one still down: brought back
+            // over QEMU's window, the pointer's moves carry "button held", which SDL takes for a new press. It has one
+            // again, to be released for it if the button is let go outside (it then swallowed the next real press).
+            if (_releasedWhileHeld && over && _pointerOverlay is not { IsVisible: true })
+            {
+                _sdlHasPress = true;
+                _releasedWhileHeld = false;
+            }
             _pressButton ??= left ? "left" : "right";
             _pressEndedOutside = !over;
             if (_pressStartedOnConsole == true)
@@ -207,6 +226,9 @@ namespace WinQEMU.Controls
             ScreenToClient(_shellWindow, ref topLeft);
             catcher.Show(topLeft.X, topLeft.Y, bounds.Right - bounds.Left, bounds.Bottom - bounds.Top);
         }
+
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int index);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Bounds

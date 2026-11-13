@@ -17,7 +17,11 @@ namespace WinQEMU
     {
         private bool _guestDragBusy;
 
-        private void InitializeGuestDragOut() => ConsoleHost.GuestDragLeft += button => _ = DragOutOfGuestAsync(button);
+        private void InitializeGuestDragOut()
+        {
+            ConsoleHost.GuestDragLeft += button => _ = DragOutOfGuestAsync(button);
+            PurgeOldDragFolders();
+        }
 
         /// <summary>
         /// A button pressed in the console is held outside it. If the guest is dragging files, they are copied into a
@@ -25,7 +29,7 @@ namespace WinQEMU
         /// </summary>
         private async Task DragOutOfGuestAsync(string button)
         {
-            if (_guestDragBusy || !_viewModel.CanDragFromGuest)
+            if (_guestDragBusy || !_viewModel.BeginGuestDrag())
                 return;
             _guestDragBusy = true;
             try
@@ -79,29 +83,63 @@ namespace WinQEMU
             }
             finally
             {
-                _guestDragBusy = false;
                 // A Linux guest's window along the edge: its drag has ended on it by now (the guest's button was released).
-                _ = _viewModel.HideGuestDragEdgeAsync();
+                // Before the next drag may start, not beside it: the agent's channel takes one client, so a drag begun
+                // while this was under way found no files, or had its own strip taken away by this late "none".
+                try
+                {
+                    await _viewModel.HideGuestDragEdgeAsync();
+                }
+                catch (Exception ex) when (ex is IOException or InvalidOperationException or Core.Qemu.GuestAgentException
+                                               or OperationCanceledException)
+                {
+                }
+                _viewModel.EndGuestDrag();
+                _guestDragBusy = false;
             }
+        }
+
+        /// <summary>How long a drag's folder is kept: the target may be copying from it long after the drag has ended.</summary>
+        private static readonly TimeSpan DragFolderLife = TimeSpan.FromHours(24);
+
+        private static string DragRoot => Path.Combine(Windows.Storage.ApplicationData.Current.TemporaryFolder.Path, "DragOut");
+
+        /// <summary>
+        /// Removes the folders of drags older than a day, off the UI thread. An hour, counted from the folder's creation
+        /// and checked when the next drag began, removed files a slow target had not read yet (a large drop on a
+        /// network folder), and froze the window while the user held the button; and with no later drag, nothing was
+        /// ever removed, so it is done when WinQEMU starts too.
+        /// </summary>
+        private static void PurgeOldDragFolders()
+        {
+            var root = DragRoot;
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    if (!Directory.Exists(root))
+                        return;
+                    foreach (var old in Directory.EnumerateDirectories(root))
+                    {
+                        if (Directory.GetCreationTimeUtc(old) < DateTime.UtcNow - DragFolderLife)
+                            DeleteQuietly(old);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                }
+            });
         }
 
         /// <summary>
         /// A new folder for one drag, in the package's temporary folder: a real path that Explorer can read, where a
-        /// path under AppData would be the package's virtualised view. Folders of earlier drags are removed after an
-        /// hour: the drop target may still be copying from them when the drag ends.
+        /// path under AppData would be the package's virtualised view. Folders of earlier drags are removed after a
+        /// day (<see cref="PurgeOldDragFolders"/>).
         /// </summary>
         private static string NewDragFolder()
         {
-            var root = Path.Combine(Windows.Storage.ApplicationData.Current.TemporaryFolder.Path, "DragOut");
-            if (Directory.Exists(root))
-            {
-                foreach (var old in Directory.EnumerateDirectories(root))
-                {
-                    if (Directory.GetCreationTimeUtc(old) < DateTime.UtcNow.AddHours(-1))
-                        DeleteQuietly(old);
-                }
-            }
-            var folder = Path.Combine(root, Guid.NewGuid().ToString("N"));
+            PurgeOldDragFolders();
+            var folder = Path.Combine(DragRoot, Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(folder);
             return folder;
         }

@@ -994,6 +994,41 @@ invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmCon
   Windows signale l'appui sur la console à l'instant même (`WM_PARENTNOTIFY`, `OnChildClicked`, `_consolePressAt`) : un
   appui signalé depuis 150 ms au plus compte. Reproduit par un glisser scripté (13/11/2026, Ubuntu) : sortie de la console
   20 ms après l'appui, non détectée avant (détectée à 300 ms) ; après, détectée à 5, 20 et 300 ms, boutons gauche et droit.
+  Copie complète revérifiée avec ce correctif : fichier de 60 Mo glissé d'Ubuntu vers l'Explorateur, SHA-256 identique,
+  icône de l'invité restée en place.
+- **Relecture du code de la 2026.1.5 (13/11/2026), corrigé** :
+  - *Boutons de souris inversés dans Windows* : `GetAsyncKeyState` lit les boutons physiques, l'invité avait reçu le bouton
+    logique ; un glisser au bouton principal relâchait le bouton droit de l'invité, le gauche restant enfoncé
+    (`SM_SWAPBUTTON` consulté). Non vérifié (boutons non inversés ici).
+  - *Dossiers de glisser* (`TempState\DragOut`) : gardés **un jour** et non une heure (une cible lente, dépôt de 50 Go sur
+    un dossier réseau, lisait encore quand le glisser suivant les supprimait), purgés **hors du fil de l'interface** et
+    aussi au démarrage de WinQEMU (sans glisser suivant, rien n'était jamais supprimé).
+  - *Cible qui répond « aucun effet » après avoir pris les chemins* : comptée comme un dépôt (`GivenAfterRelease`), sinon
+    le dossier était supprimé sous elle. Non vérifié (l'Explorateur répond « copie »).
+  - *Liste périmée sous Linux* : le programme de l'invité ne remettait sa liste à zéro qu'au retrait de la bande ; si
+    l'hôte n'avait pas pu écrire `none` (agent occupé), l'appui suivant qui quittait la console copiait les fichiers du
+    glisser **précédent**. Remise à zéro à chaque pose de la bande, et une réponse arrivée après le retrait est ignorée.
+    Vérifié : trois glissers de suite (fichier, autre fichier, dossier), chacun le bon.
+  - *Programme Linux tué avec l'agent* : relancé par le script d'installation, il vivait dans le groupe de contrôle de
+    l'agent, et un redémarrage de l'agent (mise à jour du paquet) le tuait jusqu'à la prochaine ouverture de session.
+    Lancé par `systemd-run --user` (unité de l'utilisateur ; ancien lancement en repli, sans `XAUTHORITY` vide). Vérifié
+    sur Ubuntu : `…/user@1000.service/app.slice/run-….service`, glisser pris.
+  - *Retrait de la bande attendu* avant d'autoriser le glisser suivant (le canal de l'agent n'a qu'un client).
+  - *Échap puis retour sur la console, bouton tenu* : SDL reprenait un appui que personne ne relâchait
+    (`_releasedWhileHeld`). Non vérifié.
+  - *Mémoire* : ce que le shell range sur l'objet de données (image du glisser) n'était jamais libéré.
+  - *Récupération* : un émetteur qui abandonne au milieu d'un fichier écrit son enregistrement « X » là où l'hôte lit une
+    longueur de morceau ; l'hôte disait « morceau invalide (58…) » au lieu du message de l'invité. Non vérifié.
+  - *Fedora, `%pre`* : une minute au plus pour le nom, au lieu de jusqu'à neuf sans accès aux miroirs. Non vérifié.
+  - *Machine du glisser* : chaque étape lisait la machine **sélectionnée** ; changée pendant le glisser (`winqemu show`
+    depuis un terminal), l'annulation arrêtait la copie de l'autre machine, le résultat s'affichait chez elle, la bande
+    Linux restait chez la première et le relâchement du bouton partait vers la mauvaise. La session est retenue du début
+    à la fin (`BeginGuestDrag` / `EndGuestDrag`, `_dragSession`). Revérifié : deux glissers de suite depuis Ubuntu, compte
+    rendu dans son journal. Le changement de sélection en cours de glisser lui-même n'est pas reproduit.
+  - *Noms en collision* : deux noms de l'invité qui donnent un même nom Windows (`Makefile` / `makefile`, `a:b` / `a?b`)
+    faisaient échouer toute la récupération sous le premier niveau (« le fichier existe », tout supprimé) et fusionnaient
+    deux dossiers au premier niveau. Le second est numéroté, à chaque niveau (`placed`, `taken`), testé
+    (`GuestFilePullTests`, ainsi que l'abandon au milieu d'un fichier).
 - Vérifié sur une copie du Windows 11 de l'utilisateur (Ryzen, 09/11/2026), glisser simulé (`SetCursorPos`,
   `mouse_event`, processus *per-monitor aware*), empreintes SHA-256 comparées par l'agent : 3 Mo, 400 Mo, 3 Go relâché
   pendant la copie, sur les deux chemins (image à l'échelle : `PointerOverlay` ; image au pixel : SDL) ; **relâché sur

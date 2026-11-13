@@ -215,6 +215,93 @@ public sealed class GuestFilePullTests : IAsyncLifetime
         Assert.Equal("bonjour", File.ReadAllText(Path.Combine(here, "note.txt")));
     }
 
+    /// <summary>A sender's records, as the guest programs write them.</summary>
+    private sealed class Records
+    {
+        private readonly MemoryStream _stream = new();
+
+        private static byte[] Number(long value, int size)
+        {
+            var bytes = new byte[size];
+            for (var i = size - 1; i >= 0; i--, value >>= 8)
+                bytes[i] = (byte)value;
+            return bytes;
+        }
+
+        private Records Text(string type, string text)
+        {
+            var bytes = Encoding.UTF8.GetBytes(text);
+            _stream.Write(Encoding.ASCII.GetBytes(type));
+            _stream.Write(Number(bytes.Length, 2));
+            _stream.Write(bytes);
+            return this;
+        }
+
+        public Records Folder(string path) => Text("D", path);
+
+        /// <param name="sent">What is sent of the content before the sender goes on; all of it by default.</param>
+        public Records File(string path, string content, int? sent = null)
+        {
+            var bytes = Encoding.UTF8.GetBytes(content);
+            Text("F", path);
+            _stream.Write(Number(bytes.Length, 8));
+            _stream.Write(Number(0, 8));
+            var count = sent ?? bytes.Length;
+            if (count > 0)
+            {
+                _stream.Write(Number(count, 4));
+                _stream.Write(bytes, 0, count);
+            }
+            return this;
+        }
+
+        public Records Failure(string message) => Text("X", message);
+
+        public Stream End(bool finished = true)
+        {
+            if (finished)
+                _stream.Write("E"u8);
+            _stream.Position = 0;
+            return _stream;
+        }
+    }
+
+    // Under the first level, the second of the two failed on "the file exists" and the whole copy was removed; at the first
+    // level the two folders were merged into one.
+    [Fact]
+    public async Task Two_names_of_the_guest_that_make_one_for_Windows_are_both_kept()
+    {
+        var here = Directory.CreateDirectory(Path.Combine(_folder, "here")).FullName;
+        var records = new Records()
+            .Folder("src").File("src/Makefile", "upper").File("src/makefile", "lower")
+            .Folder("a:b").File("a:b/one", "1")
+            .Folder("a?b").File("a?b/two", "2")
+            .End();
+
+        var result = await GuestFilePull.ReceiveAsync(records, here, null, _ => Task.FromResult<string?>(null), CancellationToken.None);
+
+        Assert.Equal(new[] { "src", "a_b", "a_b (2)" }, result.Names);
+        Assert.Equal("upper", File.ReadAllText(Path.Combine(here, "src", "Makefile")));
+        Assert.Equal("lower", File.ReadAllText(Path.Combine(here, "src", "makefile (2)")));
+        Assert.Equal("1", File.ReadAllText(Path.Combine(here, "a_b", "one")));
+        Assert.Equal("2", File.ReadAllText(Path.Combine(here, "a_b (2)", "two")));
+    }
+
+    // Read as a chunk's length, the sender's "X" record gave "invalid chunk (58…)", which looked like lost bytes.
+    [Fact]
+    public async Task A_sender_that_gives_up_inside_a_file_is_reported_with_its_own_message()
+    {
+        var here = Directory.CreateDirectory(Path.Combine(_folder, "here")).FullName;
+        var records = new Records().File("log.txt", "0123456789", sent: 4).Failure("#changed /var/log/log.txt").End(finished: false);
+
+        var error = await Assert.ThrowsAsync<GuestFileDropException>(() =>
+            GuestFilePull.ReceiveAsync(records, here, null, _ => Task.FromResult<string?>(null), CancellationToken.None));
+
+        Assert.Contains("/var/log/log.txt", error.Message);
+        Assert.DoesNotContain("58", error.Message);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(here));
+    }
+
     private sealed class Progress : IProgress<DropProgress>
     {
         private readonly Action<DropProgress> _report;

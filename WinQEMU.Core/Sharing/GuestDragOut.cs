@@ -387,6 +387,10 @@ namespace WinQEMU.Core.Sharing
                     if edge != shown:
                         shown = edge
                         if edge in ('left', 'right', 'top', 'bottom'):
+                            # A new drag: the list of the one before must not be read as this one's. It stayed when
+                            # the host could not write "none" after a drag (the agent busy), and the next press
+                            # that left the console then copied the previous drag's files.
+                            write_state(IDLE)
                             lay(edge)
                             laid, asked = True, False
                         else:
@@ -417,7 +421,9 @@ namespace WinQEMU.Core.Sharing
                             if data:
                                 x.XFree(data)
                             found = paths(text)
-                            if found:
+                            # Not once the strip is gone: an answer that comes after the host gave up ("none") would
+                            # leave a list for the next drag to find.
+                            if found and shown in ('left', 'right', 'top', 'bottom'):
                                 write_state('winqemu-dragout 1\ndrag\n' + ''.join('file ' + p + '\n' for p in found) + 'end\n')
                     x.XFlush(d)
                     time.sleep(0.05)
@@ -469,8 +475,19 @@ namespace WinQEMU.Core.Sharing
               # not this script's own command line, which names the program too.
               pkill -u "$user" -f '^[^ ]*python3 {HELPER_PATTERN}$' 2>/dev/null
               sleep 0.3
-              runuser -u "$user" -- env DISPLAY="$display" XAUTHORITY="$authority" XDG_RUNTIME_DIR=/run/user/$uid \
-                setsid -f python3 {HELPER} >/dev/null 2>&1 </dev/null
+              # As a unit of the user's own systemd, which has the session's DISPLAY and XAUTHORITY: started by this
+              # script alone, the program is a child of the agent and lives in its control group, and a restart of the
+              # agent (a package upgrade) killed it; no drag was taken until the next logon. Where that cannot be done,
+              # as before; without an empty XAUTHORITY, which keeps X from looking for ~/.Xauthority.
+              runuser -u "$user" -- env XDG_RUNTIME_DIR=/run/user/$uid DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus \
+                systemd-run --user --quiet --collect python3 {HELPER} >/dev/null 2>&1 </dev/null && continue
+              if [ -n "$authority" ]; then
+                runuser -u "$user" -- env DISPLAY="$display" XAUTHORITY="$authority" XDG_RUNTIME_DIR=/run/user/$uid \
+                  setsid -f python3 {HELPER} >/dev/null 2>&1 </dev/null
+              else
+                runuser -u "$user" -- env DISPLAY="$display" XDG_RUNTIME_DIR=/run/user/$uid \
+                  setsid -f python3 {HELPER} >/dev/null 2>&1 </dev/null
+              fi
             done
             exit 0
             """.ReplaceLineEndings("\n")

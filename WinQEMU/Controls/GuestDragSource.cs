@@ -60,7 +60,10 @@ namespace WinQEMU.Controls
             // With the right button, Explorer returns before its menu ("Copy here", "Cancel") has been answered, with
             // no effect; the files must still be there when the answer comes. What the target said as the pointer
             // passed over it is all there is to go by: a release where nothing took files gives nothing.
-            return (effect & DropEffectCopy) != 0 || (source.RightButton && (source.LastEffect & DropEffectCopy) != 0);
+            // And a target that was given the paths after the release has them, whatever effect it reports: some answer
+            // "none" so that no source ever deletes what they took, and the folder was then removed under them.
+            return (effect & DropEffectCopy) != 0 || (source.RightButton && (source.LastEffect & DropEffectCopy) != 0)
+                || data.GivenAfterRelease;
         }
 
         /// <summary>
@@ -195,6 +198,24 @@ namespace WinQEMU.Controls
             /// <summary>The button was released over a target: from now on, the paths wait for the copy.</summary>
             public void MarkReleased() => _released = true;
 
+            /// <summary>Whether a target was given the paths after the release: it then has the files to read.</summary>
+            public bool GivenAfterRelease => _givenAfterRelease;
+
+            private volatile bool _givenAfterRelease;
+
+            /// <summary>
+            /// What the shell stored on the object (its drag image is a 32-bit bitmap) was never freed, a leak with every
+            /// drag. Freed with the object, not when the drag returns: the target may still hold it and ask.
+            /// </summary>
+            ~FileDataObject()
+            {
+                foreach (var (_, medium) in _stored)
+                {
+                    var owned = medium;
+                    ReleaseStgMedium(ref owned);
+                }
+            }
+
             public CustomQueryInterfaceResult GetInterface(ref Guid iid, out IntPtr ppv)
             {
                 ppv = IntPtr.Zero;
@@ -219,6 +240,8 @@ namespace WinQEMU.Controls
                     if (_released && !_copy.IsCompletedSuccessfully)
                         throw new COMException("The copy from the guest failed.", unchecked((int)0x80004005)); // E_FAIL
                     medium = new STGMEDIUM { tymed = TYMED.TYMED_HGLOBAL, unionmember = DropFiles(_paths) };
+                    if (_released)
+                        _givenAfterRelease = true;
                     return;
                 }
 

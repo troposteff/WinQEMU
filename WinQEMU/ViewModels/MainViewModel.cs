@@ -664,7 +664,8 @@ namespace WinQEMU.ViewModels
         {
             // Failures go back to the console, which traces the first few: unlike a key, a pointer that
             // does nothing has no other sign of why.
-            var session = SelectedSession;
+            // During a drag out of a guest, that guest's: its button is released for it (see _dragSession).
+            var session = _dragSession ?? SelectedSession;
             if (session is null || session.State is not VmState.Running)
                 throw new InvalidOperationException($"no running session ({session?.State.ToString() ?? "none selected"})");
 
@@ -1480,9 +1481,28 @@ namespace WinQEMU.ViewModels
         /// edge and moves it a pixel, which makes the guest look again for the window under it; a Linux guest is told
         /// first which <paramref name="edge"/> to lay its window along (it cannot see the pointer under Wayland).
         /// </summary>
+        /// <summary>
+        /// The machine a drag out of the guest belongs to, from its start to its end. Each step read the selection
+        /// instead: changed meanwhile (the mouse is busy, but "winqemu show" from a terminal is not), a cancelled drag
+        /// stopped the other machine's copy and let its own run on, the outcome was shown on the other machine, the
+        /// Linux strip stayed along the first guest's edge, and the button's release went to the wrong guest.
+        /// </summary>
+        private VmSession? _dragSession;
+
+        /// <summary>Starts a drag out of the selection's guest, if one may be (<see cref="CanDragFromGuest"/>).</summary>
+        public bool BeginGuestDrag()
+        {
+            if (_dragSession is not null || !CanDragFromGuest)
+                return false;
+            _dragSession = SelectedSession;
+            return true;
+        }
+
+        public void EndGuestDrag() => _dragSession = null;
+
         public async Task<IReadOnlyList<string>?> WaitForGuestDragAsync(string edge, Func<Task> pin)
         {
-            if (SelectedSession is not { IsRunning: true } session)
+            if ((_dragSession ?? SelectedSession) is not { IsRunning: true } session)
                 return null;
             var windowsGuest = GuestTools.IsWindows(session.Config);
             try
@@ -1531,7 +1551,7 @@ namespace WinQEMU.ViewModels
         /// <summary>How a drag out of the guest ended, for the console bar and the journal.</summary>
         public void ReportGuestDrag(bool dropped, IReadOnlyList<string> names, string? failure)
         {
-            if (SelectedVm is not { } target)
+            if ((_dragSession?.Config ?? SelectedVm) is not { } target)
                 return;
             if (failure is not null)
                 SetTransferOutcome(target, string.Format(CultureInfo.CurrentCulture, ShellText.DragOutFailed, failure));
@@ -1539,16 +1559,20 @@ namespace WinQEMU.ViewModels
                 SetTransferOutcome(target, string.Format(CultureInfo.CurrentCulture, ShellText.DraggedToPc, string.Join(", ", names.Take(3))));
             else
                 SetTransferOutcome(target, ShellText.DragOutCancelled);
-            AppendDiagnostic($"Files: drag out of the guest {(failure is not null ? "failed: " + failure : dropped ? $"dropped ({names.Count} item(s))" : "cancelled")}.");
+            AppendDiagnostic(target, $"Files: drag out of the guest {(failure is not null ? "failed: " + failure : dropped ? $"dropped ({names.Count} item(s))" : "cancelled")}.");
         }
 
         /// <summary>Stops the copy of a drag that was cancelled.</summary>
-        public void CancelGuestDragCopy() => CancelSendFiles();
+        public void CancelGuestDragCopy()
+        {
+            if ((_dragSession?.Config ?? SelectedVm) is { } vm && _transfers.TryGetValue(vm, out var transfer))
+                transfer.Cancel.Cancel();
+        }
 
         /// <summary>Takes the Linux program's window away from the edge once the drag is over (nothing to do for Windows).</summary>
         public async Task HideGuestDragEdgeAsync()
         {
-            if (SelectedSession is not { IsRunning: true } session || GuestTools.IsWindows(session.Config))
+            if ((_dragSession ?? SelectedSession) is not { IsRunning: true } session || GuestTools.IsWindows(session.Config))
                 return;
             try
             {
@@ -2611,7 +2635,9 @@ namespace WinQEMU.ViewModels
         public async Task<DropResult?> PullFilesAsync(IReadOnlyList<string> guestPaths, string destination, bool forDrag,
             Action<Task>? copying = null)
         {
-            if (SelectedVm is not { } target || SelectedSession is not { IsRunning: true } session)
+            // A drag's copy is its own machine's, whatever is selected by now.
+            var dragged = forDrag ? _dragSession : null;
+            if ((dragged?.Config ?? SelectedVm) is not { } target || (dragged ?? SelectedSession) is not { IsRunning: true } session)
                 throw new InvalidOperationException(ShellText.MachineMustRun);
             if (_transfers.ContainsKey(target))
                 throw new InvalidOperationException(ShellText.PullAlreadyBusy);

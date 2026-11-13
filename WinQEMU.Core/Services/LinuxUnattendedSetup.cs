@@ -264,7 +264,9 @@ namespace WinQEMU.Core.Services
 
         /// <summary>
         /// Run by Anaconda before it sets up its sources: waits until the network is up and Fedora's mirror server answers by
-        /// name, twice, three seconds apart (a minute at most).
+        /// name, twice, three seconds apart. A minute at most for the card, then a minute at most for the name: with sixty
+        /// tries of up to eight seconds each, a guest that cannot reach the mirrors (an installation without Internet)
+        /// sat silent for up to nine minutes before going on.
         /// </summary>
         /// <remarks>
         /// From the netinst ISO (Fedora 45), Anaconda set up its sources about a second after NetworkManager had brought the
@@ -278,10 +280,12 @@ namespace WinQEMU.Core.Services
             %pre --log=/tmp/winqemu-pre.log
             nm-online -s -q -t 60
             ok=0
+            end=$(( $(date +%s) + 60 ))
             for i in $(seq 60); do
               if curl -sSI --max-time 5 -o /dev/null https://mirrors.fedoraproject.org; then ok=$((ok + 1)); else ok=0; fi
               echo "$(date +%T.%N) try $i ok $ok"
               [ "$ok" -ge 2 ] && break
+              [ "$(date +%s)" -ge "$end" ] && break
               sleep 3
             done
             %end

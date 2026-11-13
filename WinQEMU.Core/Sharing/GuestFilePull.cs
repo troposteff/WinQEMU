@@ -371,7 +371,9 @@ namespace WinQEMU.Core.Sharing
         public static async Task<DropResult> ReceiveAsync(Stream port, string destination, IProgress<DropProgress>? progress,
             Func<CancellationToken, Task<string?>> senderExited, CancellationToken cancellationToken, string? marker = null)
         {
-            var top = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            // Where each item of the guest goes on this PC (by its path there, which is case-sensitive), and the paths given.
+            var placed = new Dictionary<string, string>(StringComparer.Ordinal);
+            var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var names = new List<string>();
             var created = new List<string>();
             string? partial = null;
@@ -413,20 +415,37 @@ namespace WinQEMU.Core.Sharing
                 var parts = relative.Split('/');
                 if (parts.Any(p => p.Length == 0 || p == "." || p == ".."))
                     throw new GuestFileDropException(string.Format(CultureInfo.CurrentCulture, CoreText.FilePullInvalidName, relative));
+                // Each item of the guest, at every level, gets a name of its own here. Two of its names may make one for
+                // Windows: "Makefile" and "makefile" (Windows ignores case), "a:b" and "a?b" (both "a_b"). Under the first
+                // level the second one failed on "the file exists" and the whole copy was removed; at the first level
+                // the two were merged into one folder. The later one is numbered, as a name already taken on this PC is.
+                string guest = string.Empty, host = destination;
                 for (var i = 0; i < parts.Length; i++)
-                    parts[i] = WindowsName(parts[i]);
-                if (!top.TryGetValue(parts[0], out var first))
                 {
-                    first = parts[0];
-                    for (var n = 2; File.Exists(Path.Combine(destination, first)) || Directory.Exists(Path.Combine(destination, first)); n++)
-                        first = GuestFileDrop.Numbered(parts[0], n);
-                    top[parts[0]] = first;
-                    names.Add(first);
-                    created.Add(Path.Combine(destination, first));
+                    guest = i == 0 ? parts[i] : guest + "/" + parts[i];
+                    if (!placed.TryGetValue(guest, out var at))
+                    {
+                        var name = WindowsName(parts[i]);
+                        var candidate = name;
+                        for (var n = 2; Taken(Path.Combine(host, candidate), i == 0); n++)
+                            candidate = GuestFileDrop.Numbered(name, n);
+                        at = Path.Combine(host, candidate);
+                        placed[guest] = at;
+                        taken.Add(at);
+                        if (i == 0)
+                        {
+                            names.Add(candidate);
+                            created.Add(at);
+                        }
+                    }
+                    host = at;
                 }
-                parts[0] = first;
-                return Path.Combine(destination, Path.Combine(parts));
+                return host;
             }
+
+            // What this copy has placed, and at the first level what was there before it.
+            bool Taken(string path, bool firstLevel) =>
+                taken.Contains(path) || (firstLevel && (File.Exists(path) || Directory.Exists(path)));
 
             if (marker is not null)
             {
@@ -479,7 +498,23 @@ namespace WinQEMU.Core.Sharing
                     {
                         while (size > 0)
                         {
-                            var length = BinaryPrimitives.ReadUInt32BigEndian(await TakeAsync(4).ConfigureAwait(false));
+                            var lengthBytes = await TakeAsync(4).ConfigureAwait(false);
+                            // The sender giving up in the middle of a file (it changed while being read, a read error)
+                            // writes its "X" record where a chunk's length is expected: 'X', the message's length on two
+                            // bytes, then the message. A chunk is a mebibyte at most, so its first byte is never 'X'. Read
+                            // as a length, this was reported as "invalid chunk (58…)", which looked like lost bytes.
+                            if (lengthBytes[0] == (byte)'X')
+                            {
+                                var messageLength = BinaryPrimitives.ReadUInt16BigEndian(lengthBytes.AsSpan(1));
+                                var message = new byte[messageLength];
+                                if (messageLength > 0)
+                                    message[0] = lengthBytes[3];
+                                if (messageLength > 1)
+                                    (await TakeAsync(messageLength - 1).ConfigureAwait(false)).CopyTo(message, 1);
+                                throw new GuestFileDropException(string.Format(CultureInfo.CurrentCulture, CoreText.FileDropFailed,
+                                    GuestFileDrop.GuestMessage(Encoding.UTF8.GetString(message))));
+                            }
+                            var length = BinaryPrimitives.ReadUInt32BigEndian(lengthBytes);
                             if (length == 0 || length > size || length > buffer.Length)
                             {
                                 // The numbers say whether bytes went missing (a length read from inside data) or the

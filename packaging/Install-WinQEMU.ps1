@@ -22,7 +22,9 @@ $ErrorActionPreference = 'Stop'
 
 $certificatePath = Join-Path $PSScriptRoot 'WinQEMU.cer'
 $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certificatePath)
-$msix = Get-ChildItem $PSScriptRoot -Filter 'WinQEMU_*_x64.msix' | Sort-Object Name -Descending | Select-Object -First 1
+$msix = Get-ChildItem $PSScriptRoot -Filter 'WinQEMU_*_x64.msix' |
+    # By version, not by name: 2026.0.9 sorted above 2026.0.10.
+    Sort-Object { if ($_.Name -match '_(\d+(\.\d+){1,3})') { [version]$Matches[1] } else { [version]'0.0' } } -Descending | Select-Object -First 1
 
 if ($msix) {
     # A package altered after it was built no longer matches the published list.

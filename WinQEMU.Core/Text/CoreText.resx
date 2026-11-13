@@ -142,4 +142,6 @@
   <data name="GuestToolsNoPerl" xml:space="preserve"><value>The guest agent answers, but Perl is not installed: files cannot be copied to or from the guest, and shared folders are not mounted.</value></data>
   <data name="GuestToolsRestricted" xml:space="preserve"><value>The guest agent answers, but the guest's distribution holds it back (SELinux, or commands blocked): shared folders, file copies and drag and drop do not work. “Install the guest tools” lifts these limits.</value></data>
   <data name="GuestSharesFolderIsLink" xml:space="preserve"><value>The guest's shared folders folder ({0}) is a symbolic link: nothing was mounted on it. Replace it with an ordinary folder in the guest.</value></data>
+  <data name="DeleteFolderIsLibrary" xml:space="preserve"><value>The files of {0} are not deleted: its folder ({1}) is the library's, or a drive's root. Remove it from the list, then delete its files in the Explorer.</value></data>
+  <data name="DeleteFolderUsedByOther" xml:space="preserve"><value>The files of {0} are not deleted: its folder ({1}) also holds files of {2}, which would go with it.</value></data>
 </root>

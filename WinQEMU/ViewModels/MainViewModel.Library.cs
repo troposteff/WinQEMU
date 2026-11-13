@@ -286,6 +286,7 @@ namespace WinQEMU.ViewModels
             FolderProblem.EmptyName => LibraryText.FolderNameEmpty,
             FolderProblem.NameTaken => string.Format(CultureInfo.CurrentCulture, LibraryText.FolderNameTaken, name),
             FolderProblem.IntoItself => LibraryText.FolderIntoItself,
+            FolderProblem.Separator => LibraryText.FolderNameSeparator,
             _ => LibraryText.FolderNotFound
         };
 

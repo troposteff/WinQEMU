@@ -873,8 +873,17 @@ namespace WinQEMU.Core.Services
                 return;
             }
 
-            if (File.Exists(config.DescriptorPath))
-                File.Delete(config.DescriptorPath);
+            // Every descriptor of the folder (its own level only), with its backup: the path built from the name in memory
+            // missed the file when the name had been edited to one never saved, and the machine came back at the next scan.
+            if (!Directory.Exists(config.FolderPath))
+                return;
+            foreach (var descriptor in Directory.EnumerateFiles(config.FolderPath, "*" + VmConfig.FileExtension))
+            {
+                File.Delete(descriptor);
+                var backup = SafeFile.BackupOf(descriptor);
+                if (File.Exists(backup))
+                    File.Delete(backup);
+            }
         }
 
         private string AllocateFolder(string name)

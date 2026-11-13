@@ -49,6 +49,11 @@ if ($Name -eq $info.Name -or $Publisher -eq $info.Publisher) {
     throw "That is the GitHub package's identity ($($info.Name), $($info.Publisher)); the Store's comes from Partner Center."
 }
 
+# Built from the version commit's sources only (see Assert-SourcesAtVersion.ps1); recorded beside the package, for
+# Publish-Store.ps1 -SkipBuild and New-GitHubRelease.ps1 to check against.
+$versionCommit = & (Join-Path $PSScriptRoot 'Assert-SourcesAtVersion.ps1') -Root $root -PackageVersion $info.Package
+$builtCommit = (git -C $root rev-parse HEAD).Trim()
+
 $out = Join-Path $root "artifacts\store\v$($info.Display)"
 $work = Join-Path $out 'build'
 New-Item -ItemType Directory -Force $work | Out-Null
@@ -85,6 +90,7 @@ try {
     }
     $uploadName = "WinQEMU_$($info.Display)_x64.msix"
     Copy-Item $msix.FullName (Join-Path $out $uploadName) -Force
+    @{ Version = $info.Package; Commit = $builtCommit; VersionCommit = $versionCommit } | ConvertTo-Json | Set-Content (Join-Path $out 'build.json') -Encoding utf8NoBOM
 } finally {
     Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 }

@@ -247,7 +247,17 @@ package for removal, shows the draft, and sends it to certification only on "yes
   change it in Partner Center.
 - **First run for 2026.1.4**: the role Developer was enough to submit, and `msstore publish` took the `.msix` path as it
   was. The draft keeps the uploaded package as "PendingUpload", without a version, until the Store has processed it: the
-  script recognises it by its file name, and a run stopped after the upload takes that draft up again without uploading.
+  script recognises it by its file name. A run stopped after the upload takes that draft up again without uploading, **only
+  with `-Resume`**: without it the script refuses, since a package rebuilt meanwhile (a fix without a new version) would
+  have been left out and the old one submitted.
+- **Built from the version commit only** (`tools/Assert-SourcesAtVersion.ps1`, used by `Build-StorePackage.ps1` and
+  `New-GitHubRelease.ps1`): the application's sources (WinQEMU, WinQEMU.Core, WinQEMU.Cli) must be committed and unchanged
+  since the commit that set the version, or the Store would certify code no commit holds and the GitHub release would tag
+  other sources. The built commit is written to `artifacts\store\v<version>\build.json`; `Publish-Store.ps1 -SkipBuild`
+  refuses a package whose application has changed since.
+- `New-GitHubRelease.ps1` reads the downloaded package's own manifest (name, publisher, version against `identity.json`),
+  requires the signer to be that publisher, and refuses when the tag already exists on GitHub at another commit (`gh release
+  create` would ignore `--target` and attach the release there).
 
 ## WinGet
 

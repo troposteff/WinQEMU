@@ -135,7 +135,16 @@ namespace WinQEMU.ViewModels
         /// Asks each running machine of the folder to shut down (the power button), in the reverse order of a start: the
         /// clients before their server. A paused one is resumed first, or it would not hear the button.
         /// </summary>
-        public Task<FolderOutcome> StopFolderAsync(string folderId) =>
+        public Task<FolderOutcome> StopFolderAsync(string folderId)
+        {
+            // A start of this folder (or of one holding it, or inside it) still under way stops too: otherwise the machines
+            // it had not reached yet started after the stop, one 60 s later.
+            if (_folderStart is { } start && MachinesOf(start.FolderId).Intersect(MachinesOf(folderId)).Any())
+                start.Cancel.Cancel();
+            return StopFolderMachinesAsync(folderId);
+        }
+
+        private Task<FolderOutcome> StopFolderMachinesAsync(string folderId) =>
             OnFolderAsync(folderId, reverse: true, s => s.State is VmState.Running or VmState.Paused, async session =>
             {
                 if (session.State == VmState.Paused)

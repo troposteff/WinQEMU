@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using WinQEMU.Core.Models;
 using WinQEMU.Core.Qemu;
 using WinQEMU.Core.Text;
@@ -320,7 +320,45 @@ namespace WinQEMU.Core.Services
 
         /// <summary>Why deleting the machine's files is refused, or null when it is allowed.</summary>
         public string? WhyFilesCannotBeDeleted(VmConfig machine) =>
-            LinkedCloneGuard.WhyFilesCannotBeDeleted(machine, Protection);
+            WhyFolderHoldsMore(machine) ?? LinkedCloneGuard.WhyFilesCannotBeDeleted(machine, Protection);
+
+        /// <summary>
+        /// Whether deleting the machine's folder would delete more than the machine. The folder is deleted whole, and it is
+        /// only where the descriptor was found: a descriptor at the library root (a drive root, even) made it the whole
+        /// library; a machine copied into another's folder, or a disk another machine attached from it by its path, went
+        /// with it, without a word.
+        /// </summary>
+        public string? WhyFolderHoldsMore(VmConfig machine)
+        {
+            if (string.IsNullOrWhiteSpace(machine.FolderPath))
+                return null;
+            var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(machine.FolderPath));
+            bool Inside(string? path) =>
+                !string.IsNullOrWhiteSpace(path)
+                && (string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)), folder, StringComparison.OrdinalIgnoreCase)
+                    || Path.GetFullPath(path).StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+
+            if (Library is { } library)
+            {
+                var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(library.RootPath));
+                if (Inside(root) || string.Equals(Path.GetPathRoot(folder), folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    return string.Format(System.Globalization.CultureInfo.CurrentCulture, CoreText.DeleteFolderIsLibrary, machine.Name, folder);
+            }
+            foreach (var other in VirtualMachines.Where(m => !ReferenceEquals(m, machine) && m.Id != machine.Id))
+            {
+                var paths = new List<string?> { other.FolderPath, other.IsoPath, other.SecondaryIsoPath };
+                foreach (var disk in other.Disks)
+                {
+                    paths.Add(other.ResolvePath(disk.FileName));
+                    if (!string.IsNullOrWhiteSpace(disk.BackingFileName))
+                        paths.Add(other.ResolvePath(disk.BackingFileName));
+                    paths.AddRange(disk.DeeperBackingFiles.Select(other.ResolvePath));
+                }
+                if (paths.Any(p => !string.IsNullOrWhiteSpace(p) && Inside(other.ResolvePath(p!))))
+                    return string.Format(System.Globalization.CultureInfo.CurrentCulture, CoreText.DeleteFolderUsedByOther, machine.Name, folder, other.Name);
+            }
+            return null;
+        }
 
         /// <summary>Why attaching this image as a disk is refused, or null when it is allowed.</summary>
         public string? WhyImageCannotBeAttached(string path) =>

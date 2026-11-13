@@ -142,4 +142,6 @@
   <data name="GuestToolsNoPerl" xml:space="preserve"><value>L'agent invité répond, mais Perl n'est pas installé : aucun fichier ne peut être copié vers l'invité ou depuis lui, et les dossiers partagés ne sont pas montés.</value></data>
   <data name="GuestToolsRestricted" xml:space="preserve"><value>L'agent invité répond, mais la distribution de l'invité le bride (SELinux, ou commandes bloquées) : dossiers partagés, copies de fichiers et glisser-déposer ne marchent pas. « Installer les outils invités » lève ces limites.</value></data>
   <data name="GuestSharesFolderIsLink" xml:space="preserve"><value>Le dossier des partages de l'invité ({0}) est un lien symbolique : rien n'y a été monté. Remplacez-le par un dossier ordinaire dans l'invité.</value></data>
+  <data name="DeleteFolderIsLibrary" xml:space="preserve"><value>Les fichiers de {0} ne sont pas supprimés : son dossier ({1}) est celui de la bibliothèque, ou la racine d'un lecteur. Retirez-la de la liste, puis supprimez ses fichiers dans l'Explorateur.</value></data>
+  <data name="DeleteFolderUsedByOther" xml:space="preserve"><value>Les fichiers de {0} ne sont pas supprimés : son dossier ({1}) contient aussi des fichiers de {2}, qui partiraient avec lui.</value></data>
 </root>

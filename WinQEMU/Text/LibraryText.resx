@@ -51,4 +51,5 @@
   <data name="FolderStopTip" xml:space="preserve"><value>Asks the folder's running machines to shut down (power button), in the reverse order of a start.</value></data>
   <data name="FolderPause" xml:space="preserve"><value>Pause</value></data>
   <data name="FolderResume" xml:space="preserve"><value>Resume</value></data>
+  <data name="FolderNameSeparator" xml:space="preserve"><value>A folder name cannot contain / or \: the command line names folders by their path (Work/Linux).</value></data>
 </root>

@@ -32,15 +32,16 @@ if ($info.Beta) { throw "$($info.Display) is a beta: only versions published on 
 
 # The tag goes on the current commit: it must hold the sources the Store package was built from. Documentation and scripts
 # may have moved on since the version was raised, the application must not.
-$versionCommit = (git -C $Root log -1 --format=%H "-SVersion=`"$($info.Package)`"" -- WinQEMU/Package.appxmanifest).Trim()
-if (-not $versionCommit) { throw "No commit sets Version=`"$($info.Package)`" in the manifest: commit the version first." }
-$changed = @(git -C $Root diff --name-only $versionCommit HEAD -- WinQEMU WinQEMU.Core WinQEMU.Cli)
-if ($changed) {
-    throw "The application changed since $($versionCommit.Substring(0, 7)) set $($info.Package) ($($changed.Count) files, $($changed[0])…): check out the commit the Store package was built from."
-}
-if (git -C $Root status --porcelain -- WinQEMU WinQEMU.Core WinQEMU.Cli) { throw 'The application sources have uncommitted changes.' }
+$null = & (Join-Path $PSScriptRoot 'Assert-SourcesAtVersion.ps1') -Root $Root -PackageVersion $info.Package
+$commit = (git -C $Root rev-parse HEAD).Trim()
 git -C $Root fetch -q origin
 if (-not (git -C $Root branch -r --contains HEAD)) { throw 'The current commit is not pushed: push it first, the tag is created on GitHub.' }
+# gh release create ignores --target when the tag already exists on GitHub (a release deleted, its tag kept): the release
+# would land on that older commit while this script names HEAD.
+$remoteTag = git -C $Root ls-remote --tags origin "refs/tags/$($info.Tag)"
+if ($remoteTag -and -not $remoteTag.StartsWith($commit)) {
+    throw "The tag $($info.Tag) already exists on GitHub at $($remoteTag.Substring(0, 7)), not at HEAD: delete it there first (git push origin :refs/tags/$($info.Tag))."
+}
 
 $out = Join-Path $Root "artifacts\github\$($info.Tag)"
 $download = Join-Path $out 'download'
@@ -56,14 +57,25 @@ $license = @(Get-ChildItem $download -Filter '*_License.xml')
 if ($package.Count -ne 1) { throw "Expected one .msix from the Store, got $($package.Count)." }
 if ($license.Count -ne 1) { throw 'The Store gave no licence: sign in with an administrator of the tenant (Global, User or License Administrator).' }
 
-# 2. The Store's version must be the manifest's: a release names the sources it was built from.
-if ($package[0].Name -notmatch '_(\d+\.\d+\.\d+\.\d+)_') { throw "No version in $($package[0].Name)." }
-if ($Matches[1] -ne $info.Package) {
-    throw "The Store serves $($Matches[1]), the manifest says $($info.Package): wait for the Store to publish it, or check out the matching commit."
+# 2. WinQEMU as the Store publishes it, at the manifest's version: read in the package's own manifest (the file name could
+# say anything), and signed for the Store's publisher, not merely by the Marketplace.
+$identityExpected = Get-Content (Join-Path $Root 'packaging\store\identity.json') -Raw | ConvertFrom-Json
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::OpenRead($package[0].FullName)
+try {
+    $identity = ([xml]([System.IO.StreamReader]::new(($zip.Entries | Where-Object FullName -eq 'AppxManifest.xml').Open()).ReadToEnd())).Package.Identity
+} finally {
+    $zip.Dispose()
+}
+if ($identity.Name -ne $identityExpected.Name -or $identity.Publisher -ne $identityExpected.Publisher) {
+    throw "The package is $($identity.Name), $($identity.Publisher): not WinQEMU of the Store (identity.json)."
+}
+if ($identity.Version -ne $info.Package) {
+    throw "The Store serves $($identity.Version), the manifest says $($info.Package): wait for the Store to publish it, or check out the matching commit."
 }
 $signature = Get-AuthenticodeSignature $package[0].FullName
-if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Issuer -notmatch 'Microsoft Marketplace') {
-    throw "The package is not signed by the Store ($($signature.Status), $($signature.SignerCertificate.Issuer))."
+if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -ne $identityExpected.Publisher -or $signature.SignerCertificate.Issuer -notmatch 'Microsoft Marketplace') {
+    throw "The package is not signed by the Store for WinQEMU ($($signature.Status), $($signature.SignerCertificate.Subject), $($signature.SignerCertificate.Issuer))."
 }
 
 $msixName = "WinQEMU_$($info.Display)_x64.msix"
@@ -113,7 +125,6 @@ the library and the virtual machines are shared. QEMU is installed separately (s
 "@
 $notes | Set-Content (Join-Path $out 'notes.md') -Encoding utf8NoBOM
 
-$commit = (git -C $Root rev-parse HEAD).Trim()
 ''
 "Prepared in ${out}:"
 Get-ChildItem $out | ForEach-Object { "  $($_.Name)" }

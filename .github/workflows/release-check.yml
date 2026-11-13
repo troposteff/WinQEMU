@@ -49,15 +49,19 @@ jobs:
 
       - name: Build the package (unsigned)
         shell: pwsh
+        # Through the environment, never pasted into the script: the values come from the manifest.
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.package }}
+          DISPLAY_VERSION: ${{ steps.version.outputs.display }}
         run: |
           dotnet publish WinQEMU/WinQEMU.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 `
             -p:GenerateAppxPackageOnBuild=true -p:AppxPackageSigningEnabled=false `
             -p:AppxBundle=Never -p:UapAppxPackageBuildMode=SideloadOnly "-p:AppxPackageDir=$PWD\out\"
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)." }
-          $msix = Get-ChildItem out -Recurse -Filter "WinQEMU_${{ steps.version.outputs.package }}_x64.msix" | Select-Object -First 1
+          $msix = Get-ChildItem out -Recurse -Filter "WinQEMU_$($env:PACKAGE_VERSION)_x64.msix" | Select-Object -First 1
           if (-not $msix) { throw "The package was not produced." }
           New-Item -ItemType Directory dist | Out-Null
-          Copy-Item $msix.FullName "dist/WinQEMU_${{ steps.version.outputs.display }}_x64-unsigned.msix"
+          Copy-Item $msix.FullName "dist/WinQEMU_$($env:DISPLAY_VERSION)_x64-unsigned.msix"
           # LF line ends, as tools/Build-Package.ps1: sha256sum -c reads a CRLF line's name with a trailing \r.
           $sums = Get-ChildItem dist | ForEach-Object { "$((Get-FileHash $_.FullName).Hash.ToLowerInvariant()) *$($_.Name)`n" }
           [System.IO.File]::WriteAllText("$PWD/dist/SHA256SUMS-unsigned.txt", -join $sums, [System.Text.Encoding]::ASCII)

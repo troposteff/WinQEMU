@@ -51,4 +51,5 @@
   <data name="FolderStopTip" xml:space="preserve"><value>Demande aux machines en marche du dossier de s'arrêter (bouton d'alimentation), dans l'ordre inverse du démarrage.</value></data>
   <data name="FolderPause" xml:space="preserve"><value>Mettre en pause</value></data>
   <data name="FolderResume" xml:space="preserve"><value>Reprendre</value></data>
+  <data name="FolderNameSeparator" xml:space="preserve"><value>Un nom de dossier ne peut pas contenir / ni \ : la ligne de commande désigne les dossiers par leur chemin (Travail/Linux).</value></data>
 </root>

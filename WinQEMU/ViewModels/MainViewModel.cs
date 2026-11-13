@@ -513,7 +513,24 @@ namespace WinQEMU.ViewModels
 
         public async Task InitializeAsync()
         {
+            // The rows are rebuilt from scratch: the list lost its selection, so the console of the machine on screen, and
+            // the first folder or machine got selected instead. Selected again once the rows are back.
+            var shown = SelectedVm?.Id;
             await Manager.InitializeAsync();
+            try
+            {
+                FinishInitialize();
+            }
+            finally
+            {
+                if (shown is { } id && SelectedVm?.Id != id
+                    && _allItems.FirstOrDefault(item => item.Config.Id == id) is { } item)
+                    SelectedItem = item;
+            }
+        }
+
+        private void FinishInitialize()
+        {
             _hasProbedQemu = true;
             RepairLibraryFolders();
             DescribeQemu();

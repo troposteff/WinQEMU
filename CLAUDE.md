@@ -29,6 +29,16 @@ qu'un dossier de VM reste déplaçable.
   le dossier le plus récent, reçoit un `Id` et des MAC neufs, enregistrés. Actualiser garde l'objet de toute machine qui a
   une session (seules celles en marche l'étaient : une session arrêtée démarrait depuis l'ancien objet pendant que la
   fenêtre modifiait le nouveau, et un instantané à chaud n'était noté que dans l'ancien).
+- **« Supprimer avec les fichiers » ne supprime que la machine** (`VmManager.WhyFolderHoldsMore`, relecture du 13/11/2026) :
+  le dossier est supprimé en entier, et ce n'est que celui où le descripteur a été trouvé. Refusé, en le disant, quand ce
+  dossier est la bibliothèque ou la racine d'un lecteur (un descripteur posé à la racine emportait toute la bibliothèque),
+  contient le dossier d'une autre machine (copie rangée dedans), ou un disque, une ISO ou une base qu'une autre machine
+  utilise par son chemin. « Retirer de la liste » supprime tous les descripteurs du dossier (le chemin tiré du nom en
+  mémoire manquait le fichier après un nom jamais enregistré : la machine revenait au parcours suivant).
+- **Actualiser garde la machine affichée** (la liste est refaite : elle perdait sa sélection, donc la console, et
+  sélectionnait le premier dossier). Vérifié dans l'app, Ubuntu en marche. Noms de dossiers : `/` et `\` refusés (la
+  commande désigne un dossier par son chemin, `Travail/Linux`), remplacés dans les noms existants. Arrêter un dossier
+  annule aussi son démarrage en cours (sinon les machines pas encore atteintes démarraient après l'arrêt).
 - **QMP** : une commande envoyée après la fin de la boucle de lecture attendait pour toujours (QEMU parti, ou gestionnaire
   d'événement qui lève) ; refusée, et un gestionnaire qui lève ne termine plus la boucle.
 
@@ -171,7 +181,15 @@ Installer ne met à jour que vers plus haut.
   utilisateur (refuse les comptes Microsoft personnels) ; JSON de soumission modifié en `JsonNode` (ConvertFrom-Json
   changerait les dates). **Lancé pour 2026.1.4** : le rôle Developer suffit ; le paquet envoyé reste « PendingUpload » sans
   version tant que le Store ne l'a pas traité, d'où sa reconnaissance par nom de fichier, et un passage interrompu après
-  l'envoi reprend le brouillon sans renvoyer le paquet. Le script est lancé par l'utilisateur, pas par Claude.
+  l'envoi reprend le brouillon sans renvoyer le paquet, **seulement avec `-Resume`** (sinon refus : un paquet recompilé
+  depuis, correction sans nouvelle version, aurait été laissé de côté et l'ancien soumis). Le script est lancé par
+  l'utilisateur, pas par Claude.
+- **Paquet du Store construit depuis le commit de la version seulement** (`tools/Assert-SourcesAtVersion.ps1`, relecture du
+  13/11/2026) : sources de l'application validées et inchangées depuis le commit qui a fixé `Version`, sinon refus ; commit
+  construit noté dans `artifacts\store\v<version>\build.json`, que `-SkipBuild` compare. `New-GitHubRelease.ps1` lit
+  l'identité et la version dans le manifeste du paquet téléchargé (pas dans son nom), exige que le signataire soit l'éditeur
+  de `identity.json` (vérifié sur le paquet 2026.1.5), et refuse une étiquette déjà présente sur GitHub ailleurs qu'à HEAD.
+  `add-text.py` refuse un `.fr.resx` en argument et n'écrit rien tant que les deux fichiers ne sont pas prêts.
 - **Déroulé d'une version** (`docs/distribution.md`, Releasing a version) : `Version` du manifeste et « What's new » des
   deux fiches, commit et push ; `Publish-Store.ps1` (l'utilisateur) ; attente de la certification et de la publication ;
   `New-GitHubRelease.ps1`, puis `gh release create` avec l'accord de l'utilisateur. L'étiquette est posée sur le commit

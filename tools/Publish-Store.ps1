@@ -36,7 +36,11 @@ param(
     # Passed to msstore only if it refuses the submission's price (per-market pricing); 'Free' for WinQEMU.
     [string]$PriceId,
     # After the submission, waits until the Store publishes it or fails (certification can take hours).
-    [switch]$Wait
+    [switch]$Wait,
+    # Takes up a draft that already holds this version's package (a run stopped after the upload) without uploading again.
+    # Only on request: a package rebuilt since (a fix without a new version) would otherwise be left out, the old one
+    # submitted.
+    [switch]$Resume
 )
 
 $ErrorActionPreference = 'Stop'
@@ -105,10 +109,13 @@ $msixName = "WinQEMU_$($info.Display)_x64.msix"
 $msix = Join-Path $packageDir $msixName
 $current = Get-Submission
 $status = [string]$current['Status']
-$resume = $status -eq 'PendingCommit' -and
+$draftHolds = $status -eq 'PendingCommit' -and
     @($current['ApplicationPackages'].AsArray() | Where-Object { [string]$_['FileName'] -eq $msixName }).Count -gt 0
+$resume = $draftHolds -and $Resume
 if ($resume) {
     "A draft already holds ${msixName}: taking it up (no new upload)."
+} elseif ($draftHolds) {
+    throw "A draft already holds ${msixName}. -Resume to submit that very package, or delete the draft to upload the current one: msstore submission delete $productId"
 } elseif ($status -ne 'Published') {
     throw "A submission is already pending ($status). Finish it in Partner Center, or delete a draft: msstore submission delete $productId"
 }
@@ -132,6 +139,15 @@ if (-not $resume) {
         & (Join-Path $PSScriptRoot 'Build-StorePackage.ps1')
     }
     if (-not (Test-Path $msix)) { throw "$msix not found: build it (without -SkipBuild)." }
+    if ($SkipBuild) {
+        # Built days ago perhaps: from the sources of the current commit's application, or refused.
+        $built = Join-Path $packageDir 'build.json'
+        if (-not (Test-Path $built)) { throw "$built not found: the package predates this check; build it again (without -SkipBuild)." }
+        $builtCommit = (Get-Content $built -Raw | ConvertFrom-Json).Commit
+        if (@(git -C $root diff --name-only $builtCommit HEAD -- WinQEMU WinQEMU.Core WinQEMU.Cli) -or (git -C $root status --porcelain -- WinQEMU WinQEMU.Core WinQEMU.Cli)) {
+            throw "The application changed since the package was built ($($builtCommit.Substring(0, 7))): build it again (without -SkipBuild)."
+        }
+    }
 
     # 3. The draft. The .msix itself is given: msstore then takes the file as it is, rather than looking at the repository
     # for a project to build (it recognises WinQEMU.csproj as a WinUI project).

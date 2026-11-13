@@ -6,6 +6,7 @@ import json, re, sys
 from xml.sax.saxutils import escape
 
 def upsert(path, entries, lang):
+    """The file's new text; written by the caller once both languages are ready."""
     text = open(path, encoding='utf-8', newline='').read()
     for e in entries:
         key = e['key']
@@ -18,7 +19,7 @@ def upsert(path, entries, lang):
             text = pattern.sub(lambda _: node, text, count=1)
         else:
             text = text.replace('</root>', node + '</root>', 1)
-    open(path, 'w', encoding='utf-8', newline='').write(text)
+    return text
 
 path, data = sys.argv[1], json.load(open(sys.argv[2], encoding='utf-8'))
 for e in data:
@@ -26,6 +27,17 @@ for e in data:
         if lang not in e: sys.exit(f'{e["key"]}: missing {lang}')
     if sorted(re.findall(r'\{\d+[^}]*\}', e['en'])) != sorted(re.findall(r'\{\d+[^}]*\}', e['fr'])):
         sys.exit(f'{e["key"]}: placeholders differ')
-upsert(path, data, 'en')
-upsert(path.replace('.resx', '.fr.resx'), data, 'fr')
+# The English file is named: given the French one, English values went into it, then the script failed on X.fr.fr.resx.
+# Both files exist and both texts are made before either is written, so the two never get out of step.
+if path.endswith('.fr.resx'):
+    sys.exit('give the English file (X.resx), not X.fr.resx')
+french = path[:-len('.resx')] + '.fr.resx'
+for p in (path, french):
+    try:
+        open(p, encoding='utf-8').close()
+    except OSError:
+        sys.exit(f'missing: {p}')
+english_text, french_text = upsert(path, data, 'en'), upsert(french, data, 'fr')
+open(path, 'w', encoding='utf-8', newline='').write(english_text)
+open(french, 'w', encoding='utf-8', newline='').write(french_text)
 print(f'{len(data)} entries in {path}')

@@ -21,7 +21,12 @@ namespace WinQEMU.Core.Models
         NameTaken,
         NotFound,
         /// <summary>A folder moved into itself or one of its own subfolders would leave the tree.</summary>
-        IntoItself
+        IntoItself,
+        /// <summary>
+        /// '/' or '\': the command line names a folder by its path (winqemu start --folder Work/Linux), and a folder named
+        /// "Work/Linux" could not be told from Linux inside Work, nor ever be named.
+        /// </summary>
+        Separator
     }
 
     /// <summary>One folder of the library. Machines are not listed here: <see cref="LibraryTree.Machines"/> points at folders.</summary>
@@ -128,6 +133,8 @@ namespace WinQEMU.Core.Models
             var trimmed = name?.Trim() ?? string.Empty;
             if (trimmed.Length == 0)
                 return FolderProblem.EmptyName;
+            if (trimmed.IndexOfAny(new[] { '/', '\\' }) >= 0)
+                return FolderProblem.Separator;
             if (parentId is not null && Find(parentId) is null)
                 return FolderProblem.NotFound;
             return ChildrenOf(parentId).Any(f => f.Id != exceptId && NameComparer.Equals(f.Name, trimmed))
@@ -285,7 +292,8 @@ namespace WinQEMU.Core.Models
 
             foreach (var folder in Folders)
             {
-                var name = string.IsNullOrWhiteSpace(folder.Name) ? unnamedFolder : folder.Name.Trim();
+                // A separator from before it was refused: replaced, or the command line could not name the folder.
+                var name = string.IsNullOrWhiteSpace(folder.Name) ? unnamedFolder : folder.Name.Trim().Replace('/', '-').Replace('\\', '-');
                 // Only the folders before this one count, so the first of two "Linux" keeps its name.
                 var before = Folders.TakeWhile(f => !ReferenceEquals(f, folder))
                     .Where(f => f.ParentId == folder.ParentId)

@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using WinQEMU.Core.Models;
@@ -620,7 +620,7 @@ namespace WinQEMU.Core.Qemu
                         // back by itself when the switch does, after WinQEMU restarted for instance.
                         var switchPort = networkPorts?.Invoke(adapter.NetworkId) ?? throw new InvalidOperationException(
                             string.Format(CultureInfo.CurrentCulture, PlatformText.ArgumentsAdapterWithoutNetwork, adapter.Id));
-                        netdev.Append($"stream,id={adapter.Id},server=off,addr.type=inet,addr.host=127.0.0.1," +
+                        netdev.Append($"stream,id={adapter.Id},server=off,addr.type=inet,addr.host={PrivateLoopback.Host}," +
                                       $"addr.port={switchPort.ToString(CultureInfo.InvariantCulture)},reconnect-ms=1000");
                         break;
 
@@ -833,7 +833,7 @@ namespace WinQEMU.Core.Qemu
             args.Add($"virtserialport,bus=wq-agent-bus.0,chardev=wq-vdagent,name=com.redhat.spice.0,id={ClipboardAgentPortId}");
 
             args.Add("-vnc");
-            args.Add(string.Create(CultureInfo.InvariantCulture, $"127.0.0.1:{port - VncBasePort},password=on"));
+            args.Add(string.Create(CultureInfo.InvariantCulture, $"{PrivateLoopback.Host}:{port - VncBasePort},password=on"));
         }
 
         /// <summary>Name of the virtio-serial port shared folders are served on (see Sharing.NinePServer).</summary>
@@ -860,21 +860,21 @@ namespace WinQEMU.Core.Qemu
             if (agentPort is { } agent)
             {
                 args.Add("-chardev");
-                args.Add($"socket,id=wq-qga,host=127.0.0.1,port={agent.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
+                args.Add($"socket,id=wq-qga,host={PrivateLoopback.Host},port={agent.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
                 args.Add("-device");
                 args.Add("virtserialport,bus=wq-qga-bus.0,chardev=wq-qga,name=org.qemu.guest_agent.0");
             }
             if (sharesPort is { } shares)
             {
                 args.Add("-chardev");
-                args.Add($"socket,id=wq-shares,host=127.0.0.1,port={shares.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
+                args.Add($"socket,id=wq-shares,host={PrivateLoopback.Host},port={shares.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
                 args.Add("-device");
                 args.Add($"virtserialport,bus=wq-qga-bus.0,chardev=wq-shares,name={SharedFoldersPortName}");
             }
             if (dropPort is { } drop)
             {
                 args.Add("-chardev");
-                args.Add($"socket,id=wq-drop,host=127.0.0.1,port={drop.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
+                args.Add($"socket,id=wq-drop,host={PrivateLoopback.Host},port={drop.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
                 args.Add("-device");
                 args.Add($"virtserialport,bus=wq-qga-bus.0,chardev=wq-drop,name={FileDropPortName}");
             }
@@ -885,7 +885,7 @@ namespace WinQEMU.Core.Qemu
             // QMP on loopback TCP. The 'pipe' chardev is not reliably full-duplex on Windows,
             // which QMP requires; 'server=on,wait=off' lets QEMU boot without waiting for us.
             args.Add("-qmp");
-            args.Add($"tcp:127.0.0.1:{qmpPort.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
+            args.Add($"tcp:{PrivateLoopback.Host}:{qmpPort.ToString(CultureInfo.InvariantCulture)},server=on,wait=off");
         }
 
         private static string FormatName(DiskFormat format) => format switch

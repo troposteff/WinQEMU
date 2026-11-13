@@ -14,7 +14,7 @@ public class ClipboardArgumentTests
     [Fact]
     public void Vnc_listens_on_loopback_only_and_requires_a_password()
     {
-        Assert.Equal("127.0.0.1:44100,password=on", Fixtures.Value(BuildWithClipboard(50000), "-vnc"));
+        Assert.Equal("127.87.81.1:44100,password=on", Fixtures.Value(BuildWithClipboard(50000), "-vnc"));
     }
 
     [Fact]

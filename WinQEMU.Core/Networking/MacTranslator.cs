@@ -24,16 +24,29 @@ namespace WinQEMU.Core.Networking
         private const ushort Arp = 0x0806;
         private const int EthernetHeader = 14;
 
+        /// <summary>
+        /// The most addresses and machines remembered: they come from what guests send, and a guest sending from
+        /// random addresses grew both tables until WinQEMU ran out of memory. Far more than a network has machines.
+        /// </summary>
+        public const int MaxEntries = 1024;
+
         private readonly byte[] _host;
+        private readonly Func<uint, bool> _isHostAddress;
         private readonly Dictionary<uint, PhysicalAddress> _machineOf = new();
         private readonly HashSet<PhysicalAddress> _machines = new();
         private readonly object _lock = new();
 
-        public MacTranslator(PhysicalAddress host)
+        /// <param name="isHostAddress">
+        /// Whether an IPv4 address is one of this PC's on the card. A guest sending from it was learnt as its owner: every
+        /// frame the network sent this PC was then copied to that guest (Windows still got its own, so nothing showed),
+        /// and the guest's frames left under this PC's MAC and address, able to break into its connections.
+        /// </param>
+        public MacTranslator(PhysicalAddress host, Func<uint, bool>? isHostAddress = null)
         {
             _host = host.GetAddressBytes();
             if (_host.Length != 6)
                 throw new ArgumentException("An Ethernet MAC address has 6 bytes.", nameof(host));
+            _isHostAddress = isHostAddress ?? (_ => false);
         }
 
         /// <summary>
@@ -53,13 +66,19 @@ namespace WinQEMU.Core.Networking
             {
                 case Arp when copy.Length >= EthernetHeader + 28 && IsEthernetIpv4Arp(copy):
                     var arp = EthernetHeader;
+                    var arpSender = BinaryPrimitives.ReadUInt32BigEndian(copy.AsSpan(arp + 14));
+                    if (_isHostAddress(arpSender))
+                        return null;   // a machine claiming this PC's own address (see the constructor)
                     if (copy.AsSpan(arp + 8, 6).SequenceEqual(frame.AsSpan(6, 6)))
                         _host.CopyTo(copy, arp + 8);
-                    Learn(BinaryPrimitives.ReadUInt32BigEndian(copy.AsSpan(arp + 14)), machine);
+                    Learn(arpSender, machine);
                     break;
 
                 case Ipv4 when copy.Length >= EthernetHeader + 20:
-                    Learn(BinaryPrimitives.ReadUInt32BigEndian(copy.AsSpan(EthernetHeader + 12)), machine);
+                    var sender = BinaryPrimitives.ReadUInt32BigEndian(copy.AsSpan(EthernetHeader + 12));
+                    if (_isHostAddress(sender))
+                        return null;
+                    Learn(sender, machine);
                     if (DhcpOffset(copy, toServer: true) is { } bootp)
                     {
                         // The server would answer the client's MAC, which never reaches this PC: ask it to
@@ -76,7 +95,10 @@ namespace WinQEMU.Core.Networking
             }
 
             lock (_lock)
-                _machines.Add(machine);
+            {
+                if (_machines.Count < MaxEntries || _machines.Contains(machine))
+                    _machines.Add(machine);
+            }
             _host.CopyTo(copy, 6);
             return copy;
         }
@@ -132,10 +154,13 @@ namespace WinQEMU.Core.Networking
         {
             // 0.0.0.0 is a machine without an address yet (DHCP, ARP probes); a group or broadcast address
             // is never a machine's.
-            if (address == 0 || address == uint.MaxValue || address >> 28 == 0xE)
+            if (address == 0 || address == uint.MaxValue || address >> 28 == 0xE || _isHostAddress(address))
                 return;
             lock (_lock)
-                _machineOf[address] = machine;
+            {
+                if (_machineOf.Count < MaxEntries || _machineOf.ContainsKey(address))
+                    _machineOf[address] = machine;
+            }
         }
 
         private PhysicalAddress? MachineOf(uint address)

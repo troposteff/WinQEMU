@@ -58,7 +58,7 @@ namespace WinQEMU.Core.Qemu
 
         public async Task ConnectAsync(int port, string password, CancellationToken cancellationToken = default)
         {
-            await _tcp.ConnectAsync("127.0.0.1", port, cancellationToken).ConfigureAwait(false);
+            await _tcp.ConnectAsync(PrivateLoopback.Address, port, cancellationToken).ConfigureAwait(false);
             _tcp.NoDelay = true;
             _stream = _tcp.GetStream();
 

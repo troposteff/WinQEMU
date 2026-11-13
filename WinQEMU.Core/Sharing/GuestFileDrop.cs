@@ -617,7 +617,7 @@ namespace WinQEMU.Core.Sharing
                 var client = new TcpClient { NoDelay = true };
                 try
                 {
-                    await client.ConnectAsync("127.0.0.1", port, cancellationToken).ConfigureAwait(false);
+                    await client.ConnectAsync(Qemu.PrivateLoopback.Address, port, cancellationToken).ConfigureAwait(false);
                     return client;
                 }
                 catch (SocketException)

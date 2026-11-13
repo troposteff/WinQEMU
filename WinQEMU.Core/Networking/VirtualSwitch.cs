@@ -19,7 +19,14 @@ namespace WinQEMU.Core.Networking
     {
         private const int MaxFrame = 65536;
 
-        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
+        /// <summary>
+        /// The most addresses the switch learns: they come from what guests send, and a guest sending from random MACs
+        /// grew the table until WinQEMU ran out of memory. Beyond it, unknown senders are flooded, as unknown
+        /// destinations are.
+        /// </summary>
+        private const int MaxLearned = 4096;
+
+        private readonly TcpListener _listener = new(Qemu.PrivateLoopback.Address, 0);
         private readonly Dictionary<PhysicalAddress, SwitchPort> _macTable = new();
         private readonly List<SwitchPort> _ports = new();
         private readonly object _lock = new();
@@ -40,6 +47,20 @@ namespace WinQEMU.Core.Networking
         public int ConnectedPorts
         {
             get { lock (_lock) return _ports.Count; }
+        }
+
+        /// <summary>The machines' cards connected now (not this PC's TAP adapter nor the physical card).</summary>
+        public int MachinePorts
+        {
+            get { lock (_lock) return _ports.Count(p => p is StreamPort); }
+        }
+
+        private bool _hadUplink;
+
+        /// <summary>Whether the TAP adapter or physical card the switch was given has gone (disabled, removed).</summary>
+        public bool LostUplink
+        {
+            get { lock (_lock) return _hadUplink && !_ports.Any(p => p is not StreamPort); }
         }
 
         public void Start()
@@ -67,6 +88,7 @@ namespace WinQEMU.Core.Networking
                 var port = new StreamPort(client);
                 lock (_lock)
                     _ports.Add(port);
+                port.StartWriting(cancellationToken);
                 _ = ServeAsync(port, cancellationToken);
             }
         }
@@ -79,7 +101,11 @@ namespace WinQEMU.Core.Networking
         {
             var port = new TapPort(device);
             lock (_lock)
+            {
                 _ports.Add(port);
+                _hadUplink = true;
+            }
+            port.StartWriting(_stop.Token);
             _ = ServeTapAsync(port, _stop.Token);
         }
 
@@ -91,7 +117,7 @@ namespace WinQEMU.Core.Networking
                 {
                     var frame = await port.Device.ReadAsync(cancellationToken).ConfigureAwait(false);
                     if (frame.Length >= 14)
-                        await ForwardAsync(port, frame, cancellationToken).ConfigureAwait(false);
+                        Forward(port, frame);
                 }
             }
             catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
@@ -112,7 +138,11 @@ namespace WinQEMU.Core.Networking
         {
             var port = new PcapPort(device, translator);
             lock (_lock)
+            {
                 _ports.Add(port);
+                _hadUplink = true;
+            }
+            port.StartWriting(_stop.Token);
             // pcap_next_ex blocks for up to its timeout: a thread of its own rather than a pool thread.
             _ = Task.Factory.StartNew(() => ServePcap(port, _stop.Token), CancellationToken.None,
                 TaskCreationOptions.LongRunning, TaskScheduler.Default);
@@ -125,7 +155,7 @@ namespace WinQEMU.Core.Networking
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     if (port.Device.Read() is { } seen && port.Translator.Incoming(seen) is { } frame)
-                        ForwardAsync(port, frame, cancellationToken).GetAwaiter().GetResult();
+                        Forward(port, frame);
                 }
             }
             catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
@@ -152,7 +182,7 @@ namespace WinQEMU.Core.Networking
                     var frame = new byte[length];
                     if (!await ReadExactlyAsync(stream, frame, cancellationToken).ConfigureAwait(false))
                         break;
-                    await ForwardAsync(port, frame, cancellationToken).ConfigureAwait(false);
+                    Forward(port, frame);
                 }
             }
             catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException or ObjectDisposedException)
@@ -165,8 +195,12 @@ namespace WinQEMU.Core.Networking
             }
         }
 
-        /// <summary>Delivers one frame that came in on <paramref name="from"/>.</summary>
-        private async Task ForwardAsync(SwitchPort from, byte[] frame, CancellationToken cancellationToken)
+        /// <summary>
+        /// Delivers one frame that came in on <paramref name="from"/>: queued on each target port, never waited for. A
+        /// port that stopped reading (a paused machine, a guest whose driver takes nothing) filled its socket, and the
+        /// sender then waited on it, the next sender on that one, until no machine on the network passed any traffic.
+        /// </summary>
+        private void Forward(SwitchPort from, byte[] frame)
         {
             var destination = new PhysicalAddress(frame[..6]);
             var source = new PhysicalAddress(frame[6..12]);
@@ -175,7 +209,7 @@ namespace WinQEMU.Core.Networking
             List<SwitchPort> targets;
             lock (_lock)
             {
-                if ((frame[6] & 1) == 0)
+                if ((frame[6] & 1) == 0 && (_macTable.Count < MaxLearned || _macTable.ContainsKey(source)))
                     _macTable[source] = from;
 
                 targets = !broadcast && _macTable.TryGetValue(destination, out var known)
@@ -184,13 +218,22 @@ namespace WinQEMU.Core.Networking
             }
 
             foreach (var target in targets)
-                await target.SendAsync(frame, cancellationToken).ConfigureAwait(false);
+                target.Queue(frame);
 
-            // The DHCP server sits on the switch itself: it hears broadcasts and what is sent to its MAC.
-            if (_dhcp is not null && (broadcast || destination.GetAddressBytes().AsSpan().SequenceEqual(DhcpResponder.Mac))
-                && _dhcp.Answer(frame) is { } reply)
+            // The DHCP server sits on the switch itself: it hears broadcasts and what is sent to its MAC. A failure
+            // there is the server's, not the sender's: it escaped the loop, which then disconnected the sender.
+            if (_dhcp is not null && (broadcast || destination.GetAddressBytes().AsSpan().SequenceEqual(DhcpResponder.Mac)))
             {
-                await from.SendAsync(reply, cancellationToken).ConfigureAwait(false);
+                byte[]? reply = null;
+                try
+                {
+                    reply = _dhcp.Answer(frame);
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IndexOutOfRangeException)
+                {
+                }
+                if (reply is not null)
+                    from.Queue(reply);
             }
         }
 
@@ -235,32 +278,46 @@ namespace WinQEMU.Core.Networking
             _stop.Dispose();
         }
 
-        /// <summary>A port of the switch: something frames are delivered to.</summary>
+        /// <summary>
+        /// A port of the switch: something frames are delivered to, through a queue of its own written by one task, so
+        /// frames from several senders never interleave and no sender waits on it. A full queue drops the frame, as a
+        /// switch with a congested port does.
+        /// </summary>
         private abstract class SwitchPort
         {
-            private readonly SemaphoreSlim _writeLock = new(1, 1);
+            private readonly System.Threading.Channels.Channel<byte[]> _queue =
+                System.Threading.Channels.Channel.CreateBounded<byte[]>(new System.Threading.Channels.BoundedChannelOptions(256)
+                {
+                    FullMode = System.Threading.Channels.BoundedChannelFullMode.DropWrite,
+                    SingleReader = true
+                });
 
-            /// <summary>One frame; serialised so frames from several senders never interleave.</summary>
-            public async Task SendAsync(byte[] frame, CancellationToken cancellationToken)
+            public void Queue(byte[] frame) => _queue.Writer.TryWrite(frame);
+
+            public void StartWriting(CancellationToken cancellationToken) => _ = WriteAllAsync(cancellationToken);
+
+            private async Task WriteAllAsync(CancellationToken cancellationToken)
             {
-                await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    await WriteAsync(frame, cancellationToken).ConfigureAwait(false);
+                    await foreach (var frame in _queue.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+                        await WriteAsync(frame, cancellationToken).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException)
+                catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException or OperationCanceledException)
                 {
                     // That port is going away; its reader removes it.
-                }
-                finally
-                {
-                    _writeLock.Release();
                 }
             }
 
             protected abstract Task WriteAsync(byte[] frame, CancellationToken cancellationToken);
 
-            public abstract void Close();
+            public void Close()
+            {
+                _queue.Writer.TryComplete();
+                Release();
+            }
+
+            protected abstract void Release();
         }
 
         /// <summary>A machine's card: QEMU's stream netdev, each frame preceded by its length.</summary>
@@ -278,7 +335,7 @@ namespace WinQEMU.Core.Networking
                 await Client.GetStream().WriteAsync(message, cancellationToken).ConfigureAwait(false);
             }
 
-            public override void Close() => Client.Dispose();
+            protected override void Release() => Client.Dispose();
         }
 
         /// <summary>A physical card, through Npcap and the address translation it needs.</summary>
@@ -301,7 +358,7 @@ namespace WinQEMU.Core.Networking
                 return Task.CompletedTask;
             }
 
-            public override void Close() => Device.Dispose();
+            protected override void Release() => Device.Dispose();
         }
 
         /// <summary>This PC, through a TAP-Windows adapter: one frame per write, no framing.</summary>
@@ -314,7 +371,7 @@ namespace WinQEMU.Core.Networking
             protected override Task WriteAsync(byte[] frame, CancellationToken cancellationToken) =>
                 Device.WriteAsync(frame, cancellationToken);
 
-            public override void Close() => _ = Device.DisposeAsync();
+            protected override void Release() => _ = Device.DisposeAsync();
         }
     }
 }

@@ -149,7 +149,7 @@ public class VirtualNetworkTests
     private static async Task<NetworkStream> ConnectAsync(VirtualSwitch network)
     {
         var client = new TcpClient();
-        await client.ConnectAsync(IPAddress.Loopback, network.Port);
+        await client.ConnectAsync(WinQEMU.Core.Qemu.PrivateLoopback.Address, network.Port);
         return client.GetStream();
     }
 
@@ -230,7 +230,7 @@ public class VirtualNetworkTests
 
         var args = QemuArgumentBuilder.Build(config, Fixtures.Installation(), 4444, networkPorts: id => id == "lab" ? 50123 : null);
 
-        Assert.Contains("stream,id=net1,server=off,addr.type=inet,addr.host=127.0.0.1,addr.port=50123,reconnect-ms=1000",
+        Assert.Contains("stream,id=net1,server=off,addr.type=inet,addr.host=127.87.81.1,addr.port=50123,reconnect-ms=1000",
             Fixtures.Values(args, "-netdev"));
     }
 

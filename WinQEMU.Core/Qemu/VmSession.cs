@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
@@ -1411,7 +1411,7 @@ namespace WinQEMU.Core.Qemu
                 try
                 {
                     using var client = new TcpClient();
-                    await client.ConnectAsync(IPAddress.Loopback, port).ConfigureAwait(false);
+                    await client.ConnectAsync(PrivateLoopback.Address, port).ConfigureAwait(false);
                     await server.ServeAsync(client.GetStream()).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is IOException or SocketException or InvalidDataException)
@@ -1473,7 +1473,7 @@ namespace WinQEMU.Core.Qemu
         /// </summary>
         private static int ReserveLoopbackPort()
         {
-            var listener = new TcpListener(IPAddress.Loopback, 0);
+            var listener = new TcpListener(PrivateLoopback.Address, 0);
             listener.Start();
             try
             {

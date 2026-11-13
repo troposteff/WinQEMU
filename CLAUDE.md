@@ -204,6 +204,14 @@ Prises avec l'utilisateur ; ne pas les remettre en cause sans raison nouvelle.
   plus à un Windows muni des outils virtio-win : vérifié par un clic QMP sur le menu Démarrer, avec et sans) ; `VncClipboardClient` ne parle
   que les messages *Extended Clipboard* et ne demande jamais d'image. `ClipboardBridge` synchronise avec
   Windows.
+- **Canaux vers QEMU sur `127.87.81.1`, jamais `127.0.0.1`** (`Qemu.PrivateLoopback`) : QMP, agent, partages, dépôt,
+  VNC du presse-papiers, commutateurs. Le NAT de QEMU change le 10.0.2.2 d'un invité en 127.0.0.1 de ce PC, quel que soit
+  le port : vérifié sur Ubuntu (13/11/2026), un utilisateur **non privilégié** de l'invité joignait l'agent et lançait
+  `guest-exec` en root, et aurait pu piloter l'agent, le QMP ou le commutateur d'une autre machine. Le reste de 127.0.0.0/8
+  est du bouclage sous Windows sans réglage, et aucun invité ne le nomme : depuis l'invité, les quatre ports refusés ;
+  agent, partages, presse-papiers et commutateur marchent. **Seul WebDAV reste sur 127.0.0.1**, exprès (l'invité Windows
+  le joint par 10.0.2.2, derrière un secret). **Limite connue** : un autre compte de ce PC peut encore s'y connecter (QEMU
+  n'a pas de tube nommé réutilisable pour ces canaux).
 - **QEMU : détecter et guider, jamais embarquer ni télécharger.** `QemuLocator` explore et explique les
   échecs ; l'utilisateur peut désigner un dossier.
 
@@ -665,6 +673,13 @@ administrateur ; ajout et retrait à chaud. Section **Dossiers partagés** du r�
   de groupe sont traduits) qui monte le lecteur dans la session de l'utilisateur (`WindowsMapScript` : un `net use`
   fait en SYSTEM ne serait visible que de SYSTEM), de Z: vers le bas, nommé « Partages WinQEMU », 10.0.2.2 en zone
   intranet. Vérifié sur le Windows 11 de l'utilisateur (lecture, écriture, lecteur dans l'Explorateur).
+- **Jamais au travers d'un lien, jamais un périphérique** (`Sharing.ShareGuard`, relecture du 13/11/2026) : Windows suit
+  les jonctions et liens symboliques d'un chemin, et Documents en contient de cachés (`Ma musique` → `..\Music`) : un
+  dossier partagé donnait accès à d'autres dossiers de l'utilisateur, en écriture. Les deux serveurs refusent tout chemin
+  qui passe par un lien (absent des listes, introuvable au parcours) ; les espaces réservés OneDrive (point d'analyse sans
+  cible) restent permis. Noms de périphérique (`COM1`, `nul.txt`, `LPT¹`) refusés. 9P : taille de message bornée
+  (4 Kio au moins), 65 536 fids au plus, ancien fid toujours fermé ; WebDAV : PROPPATCH borné à 1 Mio, dossier copié dans
+  lui-même refusé. Vérifié dans un vrai Ubuntu (jonction invisible, `COM1` refusé, lecture et écriture).
 - **L'agent invité n'est pas dans virtio-win-guest-tools** (qui n'apporte que spice-vdagent) : `guest-agent\qemu-ga-x86_64.msi`
   du même lecteur, à installer à part ; le message de WinQEMU le dit pour un invité Windows.
 
@@ -1160,6 +1175,13 @@ Bouton à côté des Paramètres (`VirtualNetworksDialog`).
   externe). Deux réseaux virtuels quels qu'ils soient ne partagent jamais d'adresses (VMware refuse deux VMnets
   sur un même sous-réseau) ; aucun ne doit chevaucher le NAT de QEMU (10.0.2.0/24). Vérifié à la
   fermeture du dialogue **et** au démarrage du commutateur (le PC a pu rejoindre un autre Wi-Fi depuis).
+- **Relecture du 13/11/2026, corrigé** : un port lent (QEMU en pause, figé) bloquait tout le commutateur (`Forward`
+  écrivait port par port) ; chaque port a désormais sa file bornée (256 trames, les suivantes perdues) et son propre
+  écrivain. Table des MAC bornée (4096). DHCP : bail seulement pour la MAC qui émet la trame (un invité pouvait épuiser la
+  plage en inventant des `chaddr`), plage pleine = pas de réponse (une exception arrêtait le commutateur). Réseau externe :
+  une VM qui prend l'adresse IP de ce PC n'est plus apprise ni émise (elle détournait son trafic). Réseau modifié dans
+  l'éditeur alors que son commutateur tourne sans machine, ou carte physique perdue : commutateur redémarré avec les
+  nouveaux réglages au lieu de garder les anciens jusqu'à la fermeture de WinQEMU (`VirtualNetworkHost.Signature`).
 - **Remplace le mode « Interne » par multicast** (`socket,mcast=`), qui envoyait aussi le trafic des VM
   par la carte de l'hôte à quiconque rejoignait le groupe. Les cartes qui l'utilisaient sont rebranchées au
   chargement sur un réseau privé « Segment N » (`VmManager.MoveMulticastSegmentsToNetworks`).
@@ -1518,7 +1540,8 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   (`segfault at`, `potentially unexpected fatal signal`). C'est ce qui a trouvé la cause CET.
 - Lire le disque d'un invité Linux arrêté : démarrer le noyau de l'ISO Ubuntu avec
   `boot=casper init=/bin/bash console=ttyS0`, disque attaché, et `mount -o ro,noload`.
-- Un shell QMP de plus pour observer une VM lancée par l'app : `-qmp tcp:127.0.0.1:<port>,server=on,wait=off`
+- Un shell QMP de plus pour observer une VM lancée par l'app : `-qmp tcp:127.87.81.1:<port>,server=on,wait=off`
+  (pas 127.0.0.1 : l'invité le joindrait)
   dans les arguments supplémentaires (QEMU accepte plusieurs moniteurs ; celui de l'app est exclusif).
 
 ## Conventions

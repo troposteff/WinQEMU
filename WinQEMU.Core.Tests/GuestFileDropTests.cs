@@ -54,7 +54,7 @@ public sealed class GuestFileDropTests : IAsyncLifetime
 
         Assert.Equal("virtio-serial-pci,id=wq-qga-bus", devices[^4]);
         Assert.Equal("virtserialport,bus=wq-qga-bus.0,chardev=wq-drop,name=org.winqemu.drop.0", devices[^1]);
-        Assert.Contains("socket,id=wq-drop,host=127.0.0.1,port=4557,server=on,wait=off", Fixtures.Values(args, "-chardev"));
+        Assert.Contains("socket,id=wq-drop,host=127.87.81.1,port=4557,server=on,wait=off", Fixtures.Values(args, "-chardev"));
         Assert.Equal(1, devices.Count(d => d.StartsWith("virtio-serial-pci,id=wq-qga-bus", StringComparison.Ordinal)));
     }
 

@@ -92,6 +92,10 @@ namespace WinQEMU.Core.Networking
             if (message[0] != 1 || BinaryPrimitives.ReadUInt32BigEndian(message[236..]) != 0x63825363)   // BOOTREQUEST, magic cookie
                 return null;
 
+            // Only for the card that sends it: chaddr is the guest's word, and DISCOVERs with made-up chaddr values took
+            // every address of the range for as long as WinQEMU ran.
+            if (!message.Slice(28, 6).SequenceEqual(frame[6..12]))
+                return null;
             var clientMac = new PhysicalAddress(message.Slice(28, 6).ToArray());
             byte type = 0;
             byte[]? requested = null;
@@ -113,14 +117,15 @@ namespace WinQEMU.Core.Networking
             switch (type)
             {
                 case 1:   // DISCOVER
-                    return Reply(message, 2, Lease(clientMac));
+                    // No address left: no offer, as a full server does.
+                    return Lease(clientMac) is { } offered ? Reply(message, 2, offered) : null;
                 case 3:   // REQUEST
                     // Another server's offer was chosen: say nothing.
                     if (serverId is not null && !serverId.AsSpan().SequenceEqual(ServerAddress))
                         return null;
                     var lease = Lease(clientMac);
                     var asked = BinaryPrimitives.ReadUInt32BigEndian(requested ?? message.Slice(12, 4).ToArray());   // ciaddr when renewing
-                    return asked == lease
+                    return lease is not null && asked == lease
                         ? Reply(message, 5, lease)
                         : Reply(message, 6, null);   // NAK: the guest starts over and is offered its lease
                 default:
@@ -128,7 +133,12 @@ namespace WinQEMU.Core.Networking
             }
         }
 
-        private uint Lease(PhysicalAddress mac)
+        /// <summary>The card's address, or null when the range is full.</summary>
+        /// <remarks>
+        /// Never throws: a full range threw from the switch's loop, which then disconnected the card that asked; QEMU
+        /// reconnected it a second later, it asked again, and its link flapped until WinQEMU restarted.
+        /// </remarks>
+        private uint? Lease(PhysicalAddress mac)
         {
             lock (_lock)
             {
@@ -136,19 +146,32 @@ namespace WinQEMU.Core.Networking
                 if (_leases.TryGetValue(key, out var existing))
                     return existing;
 
-                var taken = _leases.Values.ToHashSet();
+                // Kept alongside the leases: built again from them for every new lease, it cost a flood quadratic time.
+                if (_taken is null)
+                {
+                    _taken = _leases.Values.ToHashSet();
+                    _takenInRange = _taken.Count(a => a >= _first && a <= _last);
+                }
                 var size = (ulong)(_last - _first) + 1;
+                if ((ulong)_takenInRange >= size)
+                    return null;
                 var start = Fnv(mac.GetAddressBytes()) % size;
-                // Walks the range from the hashed start: a few probes at most, as leases are few.
+                // Walks the range from the hashed start: a few probes at most while leases are few.
                 for (ulong i = 0; i < size; i++)
                 {
                     var candidate = (uint)(_first + (start + i) % size);
-                    if (!taken.Contains(candidate))
+                    if (_taken.Add(candidate))
+                    {
+                        _takenInRange++;
                         return _leases[key] = candidate;
+                    }
                 }
-                throw new InvalidOperationException("No address left on this network.");
+                return null;
             }
         }
+
+        private HashSet<uint>? _taken;
+        private int _takenInRange;
 
         private static uint Fnv(byte[] bytes)
         {

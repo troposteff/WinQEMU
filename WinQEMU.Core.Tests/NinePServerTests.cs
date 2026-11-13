@@ -125,6 +125,70 @@ public sealed class NinePServerTests : IDisposable
 
     // ---- Tests ----
 
+    /// <summary>A junction, as Windows puts in Documents (My Music → ..\Music): made by mklink /J, which needs no rights.</summary>
+    internal static void Junction(string link, string target)
+    {
+        var mklink = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{link}\" \"{target}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true
+        })!;
+        mklink.WaitForExit();
+        Assert.True(Directory.Exists(link), "mklink /J failed");
+    }
+
+    // Walking "My Music" in a shared Documents read and wrote the user's Music folder: Windows follows junctions.
+    [Fact]
+    public void A_junction_inside_a_share_is_neither_listed_nor_followed()
+    {
+        var outside = Directory.CreateDirectory(Path.Combine(_root, "Outside")).FullName;
+        File.WriteAllText(Path.Combine(outside, "secret.txt"), "private");
+        var link = Path.Combine(_root, "Documents", "Lien");
+        Junction(link, outside);
+        try
+        {
+            Mount();
+
+            Ok(110, new Message().U32(0).U32(1).U16(1).Str("Documents"));
+            Assert.DoesNotContain("Lien", ReadDirectory(1));
+            // A walk stops short before the junction: one name walked of two, no new fid.
+            var walk = Ok(110, new Message().U32(0).U32(2).U16(3).Str("Documents").Str("Lien").Str("secret.txt"));
+            Assert.Equal(1, walk.U16());
+            // Walked alone: absent, as in the listing (ENOENT).
+            Assert.Equal(2u, Errno(110, new Message().U32(1).U32(3).U16(1).Str("Lien")));
+        }
+        finally
+        {
+            Directory.Delete(link);
+        }
+        Assert.Equal("private", File.ReadAllText(Path.Combine(outside, "secret.txt")));
+    }
+
+    [Theory]
+    [InlineData("COM1")]
+    [InlineData("nul.txt")]
+    [InlineData("LPT¹")]
+    public void A_device_name_is_refused(string name)
+    {
+        Mount();
+        Ok(110, new Message().U32(0).U32(1).U16(1).Str("Documents"));
+        Assert.Equal(13u, Errno(14, new Message().U32(1).Str(name).U32(0x241).U32(0x1A4).U32(0)));   // Tlcreate → EACCES
+    }
+
+    // msize 0 made "msize - 11" wrap round: a read's count was no longer capped, and one Tread allocated gigabytes.
+    [Fact]
+    public void A_tiny_message_size_is_raised_and_reads_stay_capped()
+    {
+        var version = Ok(100, new Message().U32(0).Str("9P2000.L"));
+        Assert.True(version.U32() >= 4096);
+        Ok(104, new Message().U32(0).U32(0xFFFFFFFF).Str("root").Str("1000:1000").U32(0));
+        Ok(110, new Message().U32(0).U32(1).U16(2).Str("Documents").Str("lisez-moi.txt"));
+        Ok(12, new Message().U32(1).U32(0));
+        var read = Ok(116, new Message().U32(1).U64(0).U32(0x7FFFFFC0));
+        Assert.Equal(22u, read.U32());
+    }
+
     [Fact]
     public void The_root_lists_one_directory_per_shared_folder()
     {

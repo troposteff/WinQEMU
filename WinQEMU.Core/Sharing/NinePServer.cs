@@ -26,6 +26,14 @@ namespace WinQEMU.Core.Sharing
         private const uint NoFid = 0xFFFFFFFF;
         private const string Dialect = "9P2000.L";
         private const uint MaxMessageSize = 1024 * 1024;
+
+        /// <summary>
+        /// The most fids a guest holds at once: far more than a mount uses, and a guest driving the port itself could
+        /// otherwise pile up handles and memory in WinQEMU until the machine stopped.
+        /// </summary>
+        private const int MaxFids = 65536;
+
+        private const uint EMFILE = 24;
         private const uint V9fsMagic = 0x01021997;
 
         // Linux errno values, which is what 9P2000.L carries.
@@ -141,7 +149,9 @@ namespace WinQEMU.Core.Sharing
             var clientSize = r.U32();
             var version = r.Str();
             Reset();
-            _messageSize = Math.Min(clientSize, MaxMessageSize);
+            // At least what the largest header needs: below 11, "_messageSize - 11" wrapped round, a read's count was no
+            // longer capped, and one Tread made WinQEMU allocate gigabytes.
+            _messageSize = Math.Clamp(clientSize, 4096, MaxMessageSize);
             w.U32(_messageSize);
             w.Str(version.StartsWith(Dialect, StringComparison.Ordinal) ? Dialect : "unknown");
         }
@@ -205,8 +215,11 @@ namespace WinQEMU.Core.Sharing
 
             if (qids.Count == count)
             {
-                if (_fids.Remove(newFid, out var replaced) && !ReferenceEquals(replaced, fid))
+                // A walk onto the fid itself (newfid == fid) replaces it too: its handle closed, not left open.
+                if (_fids.Remove(newFid, out var replaced))
                     replaced.Close();
+                else if (_fids.Count >= MaxFids)
+                    throw new NinePException(EMFILE);
                 _fids[newFid] = new Fid(node);
             }
 
@@ -244,10 +257,26 @@ namespace WinQEMU.Core.Sharing
             if (name.IndexOfAny(new[] { '/', '\\', ':', '*', '?', '"', '<', '>', '|' }) >= 0
                 || name.Any(c => c < ' ') || name.EndsWith('.') || name.EndsWith(' '))
                 throw new NinePException(EINVAL);
+            // "COM1" in a shared folder is the PC's serial port to Windows (and a read there blocked every share).
+            if (ShareGuard.IsDeviceName(name))
+                throw new NinePException(EACCES);
         }
 
-        private bool Exists(Node node) =>
-            node.Folder is null || Directory.Exists(PathOf(node)) || File.Exists(PathOf(node));
+        private bool Exists(Node node)
+        {
+            if (node.Folder is null)
+                return true;
+            try
+            {
+                var path = PathOf(node);
+                return Directory.Exists(path) || File.Exists(path);
+            }
+            catch (NinePException)
+            {
+                // A link, or a share removed: nothing there for the guest.
+                return false;
+            }
+        }
 
         /// <summary>The folder is looked up again by name: one removed while the guest runs is gone.</summary>
         private string PathOf(Node node)
@@ -255,6 +284,9 @@ namespace WinQEMU.Core.Sharing
             if (node.Folder is null)
                 throw new NinePException(EISDIR);
             var folder = _folders().FirstOrDefault(f => f.Name == node.Folder.Name) ?? throw new NinePException(ENOENT);
+            // Never through a junction or symbolic link: Windows would follow it out of the share (ShareGuard).
+            if (node.Relative.Length > 0 && ShareGuard.CrossesLink(folder.HostPath, node.Relative))
+                throw new NinePException(EACCES);
             return node.Relative.Length == 0 ? folder.HostPath : Path.Combine(folder.HostPath, node.Relative);
         }
 
@@ -384,9 +416,12 @@ namespace WinQEMU.Core.Sharing
                 var access = AccessOf(flags);
                 if (access != FileAccess.Read)
                     RequireWritable(node);
-                fid.Handle = File.OpenHandle(PathOf(node),
+                var opened = File.OpenHandle(PathOf(node),
                     (flags & Truncate) != 0 && access != FileAccess.Read ? FileMode.Truncate : FileMode.Open,
                     access, FileShare.ReadWrite | FileShare.Delete);
+                // Opened again on a fid already open: the previous handle was dropped open, one more each time.
+                fid.Handle?.Dispose();
+                fid.Handle = opened;
                 fid.Append = (flags & Append) != 0;
                 fid.Opened = true;
             }
@@ -509,6 +544,9 @@ namespace WinQEMU.Core.Sharing
             {
                 // Hidden system files (desktop.ini and the like) are Windows' business, not the guest's.
                 if (entry.Attributes.HasFlag(FileAttributes.System) && entry.Attributes.HasFlag(FileAttributes.Hidden))
+                    continue;
+                // Links lead out of the share: not listed, and refused when named (PathOf).
+                if (ShareGuard.IsLink(entry))
                     continue;
                 list.Add((entry.Name, directory with { Relative = Path.Combine(directory.Relative, entry.Name) }));
             }

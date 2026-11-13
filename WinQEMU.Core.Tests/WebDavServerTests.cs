@@ -161,6 +161,51 @@ public sealed class WebDavServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync(path)).StatusCode);
     }
 
+    // Windows follows junctions: "My Music" in a shared Documents led to the user's Music folder.
+    [Fact]
+    public async Task A_junction_inside_a_share_is_neither_listed_nor_followed()
+    {
+        var outside = Directory.CreateDirectory(Path.Combine(_root, "Outside")).FullName;
+        File.WriteAllText(Path.Combine(outside, "secret.txt"), "private");
+        var link = Path.Combine(Documents, "Lien");
+        NinePServerTests.Junction(link, outside);
+        try
+        {
+            Assert.DoesNotContain(await ListAsync("s3cret/Documents/"), h => h.Contains("Lien"));
+            Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync("s3cret/Documents/Lien/secret.txt")).StatusCode);
+            Assert.NotEqual(HttpStatusCode.Created, (await SendAsync("PUT", "s3cret/Documents/Lien/new.txt", new StringContent("x"))).StatusCode);
+            Assert.False(File.Exists(Path.Combine(outside, "new.txt")));
+        }
+        finally
+        {
+            Directory.Delete(link);
+        }
+    }
+
+    [Fact]
+    public async Task A_device_name_is_refused()
+    {
+        Assert.NotEqual(HttpStatusCode.Created, (await SendAsync("PUT", "s3cret/Documents/COM1", new StringContent("x"))).StatusCode);
+        Assert.NotEqual(HttpStatusCode.Created, (await SendAsync("PUT", "s3cret/Documents/nul.txt", new StringContent("x"))).StatusCode);
+    }
+
+    // A copy of "d" into "d\a" recursed for ever (each level holds "a" again) until the stack overflowed.
+    [Fact]
+    public async Task A_folder_is_not_copied_into_itself()
+    {
+        Assert.Equal(HttpStatusCode.Created, (await SendAsync("MKCOL", "s3cret/Documents/d")).StatusCode);
+        var inside = new Uri(_http.BaseAddress!, "s3cret/Documents/d/a").ToString();
+        Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("COPY", "s3cret/Documents/d", null, ("Destination", inside))).StatusCode);
+        Assert.False(Directory.Exists(Path.Combine(Documents, "d", "a")));
+    }
+
+    [Fact]
+    public async Task An_oversized_proppatch_body_is_refused()
+    {
+        var body = new ByteArrayContent(new byte[3 * 1024 * 1024]);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, (await SendAsync("PROPPATCH", "s3cret/Documents/note.txt", body)).StatusCode);
+    }
+
     [Theory]
     [InlineData("/s3cret/Documents/../Locked/keep.txt")]
     [InlineData("/s3cret/Documents/%2e%2e/%2e%2e/")]

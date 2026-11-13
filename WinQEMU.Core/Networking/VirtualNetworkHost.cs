@@ -12,7 +12,14 @@ namespace WinQEMU.Core.Networking
     public sealed class VirtualNetworkHost : IAsyncDisposable
     {
         private readonly Dictionary<string, VirtualSwitch> _switches = new();
+        /// <summary>The settings each switch was started with (<see cref="Signature"/>).</summary>
+        private readonly Dictionary<string, string> _started = new();
         private readonly object _lock = new();
+
+        /// <summary>What a switch is started from: a change here needs a new one.</summary>
+        private static string Signature(VirtualNetwork network) => string.Join("|",
+            network.Type, network.Subnet, network.PrefixLength, network.Dhcp, network.DhcpStart, network.DhcpEnd,
+            network.TapAdapterId, network.PhysicalAdapterId);
 
         /// <summary>
         /// The loopback port of the network's switch, started on first use. <paramref name="all"/> are every
@@ -23,7 +30,18 @@ namespace WinQEMU.Core.Networking
             lock (_lock)
             {
                 if (_switches.TryGetValue(network.Id, out var running))
-                    return running.Port;
+                {
+                    // Kept while it serves as it was set up. Otherwise started again once no machine is on it: its
+                    // settings changed (subnet, DHCP, card), or it lost this PC (TAP adapter disabled, Wi-Fi gone).
+                    // Before, a running switch was kept until WinQEMU restarted, whatever was changed.
+                    if (_started.TryGetValue(network.Id, out var how) && how == Signature(network) && !running.LostUplink
+                        || running.MachinePorts > 0)
+                        return running.Port;
+                    _switches.Remove(network.Id);
+                    _ = running.DisposeAsync().AsTask();
+                }
+
+                _started[network.Id] = Signature(network);
 
                 if (network.Type == VirtualNetworkType.External)
                     return StartExternal(network);
@@ -74,9 +92,44 @@ namespace WinQEMU.Core.Networking
             var device = Npcap.Open(adapter);
             var created = new VirtualSwitch(null);
             created.Start();
-            created.Attach(device, new MacTranslator(adapter.Mac));
+            created.Attach(device, new MacTranslator(adapter.Mac, HostAddresses(adapter.Id)));
             _switches[network.Id] = created;
             return created.Port;
+        }
+
+        /// <summary>
+        /// Whether an IPv4 address is one of this PC's on the card (MacTranslator), read again at most every few
+        /// seconds: the card may take another address (DHCP renewal, another Wi-Fi) while the switch runs.
+        /// </summary>
+        private static Func<uint, bool> HostAddresses(string adapterId)
+        {
+            HashSet<uint> addresses = new();
+            var readAt = DateTime.MinValue;
+            var gate = new object();
+            return address =>
+            {
+                lock (gate)
+                {
+                    if (DateTime.UtcNow - readAt > TimeSpan.FromSeconds(5))
+                    {
+                        readAt = DateTime.UtcNow;
+                        try
+                        {
+                            addresses = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                                .Where(n => n.Id.Equals(adapterId, StringComparison.OrdinalIgnoreCase))
+                                .SelectMany(n => n.GetIPProperties().UnicastAddresses)
+                                .Where(u => u.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                                .Select(u => System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(u.Address.GetAddressBytes()))
+                                .ToHashSet();
+                        }
+                        catch (System.Net.NetworkInformation.NetworkInformationException)
+                        {
+                            // Kept as they were.
+                        }
+                    }
+                    return addresses.Contains(address);
+                }
+            };
         }
 
         /// <summary>The address the network's DHCP gave a card, for display. Null when none, or not yet.</summary>

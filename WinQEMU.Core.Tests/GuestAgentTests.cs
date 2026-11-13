@@ -25,8 +25,21 @@ public class GuestAgentTests
         Assert.Equal("virtserialport,bus=wq-qga-bus.0,chardev=wq-qga,name=org.qemu.guest_agent.0", devices[^2]);
         Assert.Equal("virtserialport,bus=wq-qga-bus.0,chardev=wq-shares,name=org.winqemu.shares.0", devices[^1]);
         Assert.True(devices.IndexOf("qemu-xhci,id=wq-usb") < devices.Count - 3);
-        Assert.Contains("socket,id=wq-qga,host=127.0.0.1,port=4555,server=on,wait=off", Fixtures.Values(args, "-chardev"));
-        Assert.Contains("socket,id=wq-shares,host=127.0.0.1,port=4556,server=on,wait=off", Fixtures.Values(args, "-chardev"));
+        Assert.Contains("socket,id=wq-qga,host=127.87.81.1,port=4555,server=on,wait=off", Fixtures.Values(args, "-chardev"));
+        Assert.Contains("socket,id=wq-shares,host=127.87.81.1,port=4556,server=on,wait=off", Fixtures.Values(args, "-chardev"));
+    }
+
+    [Fact]
+    public void No_channel_of_ours_listens_where_a_guest_reaches()
+    {
+        // QEMU's NAT sends a guest's 10.0.2.2 to 127.0.0.1: an agent there ran guest-exec for any user of any guest.
+        var vm = Fixtures.Vm();
+        vm.NetworkAdapters.Add(new NetworkAdapterConfig { Id = "net1", Mode = NetworkMode.Network, NetworkId = "net" });
+        var args = QemuArgumentBuilder.Build(vm, Fixtures.Installation(), 4444, 50000, guestAgentPort: 4555, sharedFoldersPort: 4556,
+            networkPorts: id => id == "net" ? 50123 : null, fileDropPort: 4557);
+
+        Assert.DoesNotContain(args, a => a.Contains("127.0.0.1"));
+        Assert.Contains(args, a => a.Contains("127.87.81.1:" + "4444"));
     }
 
     [Fact]
@@ -86,7 +99,7 @@ public class GuestAgentTests
     /// </summary>
     private static async Task<(int Port, Task Served)> FakeAgentAsync(Func<JsonObject, JsonObject> answer)
     {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
+        var listener = new TcpListener(WinQEMU.Core.Qemu.PrivateLoopback.Address, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
 
@@ -151,7 +164,7 @@ public class GuestAgentTests
     public async Task No_agent_in_the_guest_is_a_timeout_not_a_hang()
     {
         // QEMU accepts the connection whether or not an agent listens behind it.
-        var listener = new TcpListener(IPAddress.Loopback, 0);
+        var listener = new TcpListener(WinQEMU.Core.Qemu.PrivateLoopback.Address, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var accepted = listener.AcceptTcpClientAsync();

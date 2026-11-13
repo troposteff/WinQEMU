@@ -158,11 +158,22 @@ namespace WinQEMU.Core.Sharing
                     await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
             }
 
-            /// <summary>A small body (an XML request), whole.</summary>
-            public async Task<byte[]> ReadAllAsync(CancellationToken cancellationToken)
+            /// <summary>
+            /// A small body (an XML request), whole; null past <paramref name="limit"/> bytes. Without a limit, a PROPPATCH
+            /// announcing gigabytes (or an endless chunked body) grew memory until "Stream was too long", once per
+            /// connection.
+            /// </summary>
+            public async Task<byte[]?> ReadAllAsync(CancellationToken cancellationToken, int limit = 1 << 20)
             {
                 using var memory = new MemoryStream();
-                await CopyToAsync(memory, cancellationToken).ConfigureAwait(false);
+                var buffer = new byte[81920];
+                int read;
+                while ((read = await ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    if (memory.Length + read > limit)
+                        return null;
+                    memory.Write(buffer, 0, read);
+                }
                 return memory.ToArray();
             }
 
@@ -309,7 +320,9 @@ namespace WinQEMU.Core.Sharing
                     "DELETE" => Delete(target),
                     "MKCOL" => MakeCollection(target),
                     "MOVE" or "COPY" => MoveOrCopy(target, request),
-                    "PROPPATCH" => PropPatch(path, await request.Body.ReadAllAsync(cancellationToken).ConfigureAwait(false)),
+                    "PROPPATCH" => await request.Body.ReadAllAsync(cancellationToken).ConfigureAwait(false) is { } body
+                        ? PropPatch(path, body)
+                        : new Response { Status = 413 },
                     "LOCK" => Lock(target, path, request),
                     "UNLOCK" => new Response { Status = 204 },
                     _ => new Response { Status = 405 }
@@ -354,14 +367,19 @@ namespace WinQEMU.Core.Sharing
                 return null;
 
             var folder = _folders().FirstOrDefault(f => string.Equals(f.Name, segments[1], StringComparison.OrdinalIgnoreCase));
-            return folder is null ? null : new Target(folder, Path.Combine(segments.Skip(2).ToArray()));
+            if (folder is null)
+                return null;
+            var relative = Path.Combine(segments.Skip(2).ToArray());
+            // Never through a junction or symbolic link: Windows would follow it out of the share (ShareGuard).
+            return relative.Length > 0 && ShareGuard.CrossesLink(folder.HostPath, relative) ? null : new Target(folder, relative);
         }
 
         /// <summary>As for 9P: a name stays a name, with nothing Windows reads as a drive, stream or device.</summary>
         private static bool IsValidName(string name) =>
             name.Length is > 0 and <= 255 && name != "." && name != ".."
             && name.IndexOfAny(new[] { '/', '\\', ':', '*', '?', '"', '<', '>', '|' }) < 0
-            && !name.Any(c => c < ' ') && !name.EndsWith('.') && !name.EndsWith(' ');
+            && !name.Any(c => c < ' ') && !name.EndsWith('.') && !name.EndsWith(' ')
+            && !ShareGuard.IsDeviceName(name);
 
         private static string HostPath(Target target) =>
             target.Relative.Length == 0 ? target.Folder!.HostPath : Path.Combine(target.Folder!.HostPath, target.Relative);
@@ -402,6 +420,9 @@ namespace WinQEMU.Core.Sharing
                         // Hidden system files of the host (desktop.ini and the like) are the guest's business too,
                         // but a name the guest could not ask for back would only cause errors.
                         if (!IsValidName(child.Name))
+                            continue;
+                        // Links lead out of the share: not listed, and refused when named (Resolve).
+                        if (ShareGuard.IsLink(child))
                             continue;
                         var isDirectory = child is DirectoryInfo;
                         entries.Add(Entry(self + Uri.EscapeDataString(child.Name) + (isDirectory ? "/" : string.Empty), child, isDirectory));
@@ -549,6 +570,11 @@ namespace WinQEMU.Core.Sharing
 
             // A rename that only changes case is a move onto itself as far as Windows is concerned.
             var sameItem = string.Equals(Path.GetFullPath(from), Path.GetFullPath(to), StringComparison.OrdinalIgnoreCase);
+            // Into itself: a copy recursed for ever (a copy of "d" into "d\a" holds "a" again), filling the disk until the
+            // stack overflowed and WinQEMU died; a move fails anyway.
+            if (!sameItem && Directory.Exists(from)
+                && Path.GetFullPath(to).StartsWith(Path.GetFullPath(from).TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))
+                return new Response { Status = 403 };
             if (exists && !sameItem)
             {
                 if (Directory.Exists(to))
@@ -580,10 +606,11 @@ namespace WinQEMU.Core.Sharing
         private static void CopyDirectory(string from, string to)
         {
             Directory.CreateDirectory(to);
-            foreach (var file in Directory.EnumerateFiles(from))
-                File.Copy(file, Path.Combine(to, Path.GetFileName(file)), overwrite: true);
-            foreach (var directory in Directory.EnumerateDirectories(from))
-                CopyDirectory(directory, Path.Combine(to, Path.GetFileName(directory)));
+            // Links skipped: they lead out of the share, and one pointing at a parent looped.
+            foreach (var file in new DirectoryInfo(from).EnumerateFiles().Where(f => !ShareGuard.IsLink(f)))
+                File.Copy(file.FullName, Path.Combine(to, file.Name), overwrite: true);
+            foreach (var directory in new DirectoryInfo(from).EnumerateDirectories().Where(d => !ShareGuard.IsLink(d)))
+                CopyDirectory(directory.FullName, Path.Combine(to, directory.Name));
         }
 
         /// <summary>

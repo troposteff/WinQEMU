@@ -92,7 +92,7 @@ namespace WinQEMU.Core.Qemu
                     using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                     attempt.CancelAfter(remaining);
 
-                    await tcp.ConnectAsync("127.0.0.1", port, attempt.Token).ConfigureAwait(false);
+                    await tcp.ConnectAsync(PrivateLoopback.Address, port, attempt.Token).ConfigureAwait(false);
                     trace?.Invoke($"QMP: TCP connected on port {port.ToString(CultureInfo.InvariantCulture)}.");
 
                     var client = new QmpClient(tcp);

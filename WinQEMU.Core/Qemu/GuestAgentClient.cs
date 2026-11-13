@@ -45,7 +45,7 @@ namespace WinQEMU.Core.Qemu
             var client = new TcpClient();
             try
             {
-                await client.ConnectAsync("127.0.0.1", port, cancellationToken).ConfigureAwait(false);
+                await client.ConnectAsync(PrivateLoopback.Address, port, cancellationToken).ConfigureAwait(false);
                 return new GuestAgentClient(client);
             }
             catch

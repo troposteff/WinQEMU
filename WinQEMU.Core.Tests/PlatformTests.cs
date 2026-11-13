@@ -264,6 +264,6 @@ public class PlatformTests
     {
         var args = Fixtures.Build(Fixtures.Vm(), qmpPort: 5555);
 
-        Assert.Equal("tcp:127.0.0.1:5555,server=on,wait=off", Fixtures.Value(args, "-qmp"));
+        Assert.Equal("tcp:127.87.81.1:5555,server=on,wait=off", Fixtures.Value(args, "-qmp"));
     }
 }

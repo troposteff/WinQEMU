@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -223,7 +223,8 @@ namespace WinQEMU.ViewModels
         /// <summary>Attaches an image that already exists, reading its real geometry from qemu-img.</summary>
         public async Task AttachExistingDiskAsync(string path)
         {
-            if (_config is null)
+            // Captured: the selection may change while qemu-img works, and the disk belongs to this machine (see SaveNow).
+            if (_config is not { } config)
                 return;
 
             try
@@ -236,7 +237,7 @@ namespace WinQEMU.ViewModels
                     throw new InvalidOperationException(reason);
 
                 // An encrypted machine writes nothing in clear: a clear image would be.
-                if (_config.DisksEncrypted && _manager.DiskService is { } probe && !await probe.IsEncryptedAsync(full).ConfigureAwait(true))
+                if (config.DisksEncrypted && _manager.DiskService is { } probe && !await probe.IsEncryptedAsync(full).ConfigureAwait(true))
                     throw new InvalidOperationException(EncryptionText.AttachClearImage);
 
                 var format = DiskFormat.Qcow2;
@@ -249,16 +250,16 @@ namespace WinQEMU.ViewModels
                     capacity = info.VirtualSizeBytes;
                 }
 
-                _config.Disks.Add(new DiskConfig
+                config.Disks.Add(new DiskConfig
                 {
-                    Id = NextDiskId(),
+                    Id = NextDiskId(config),
                     FileName = full,
                     Format = format,
-                    Bus = DefaultBus(),
+                    Bus = DefaultBus(config),
                     CapacityBytes = capacity
                 });
 
-                _requestSave();
+                SaveNow(config);
             }
             catch (Exception ex)
             {
@@ -269,7 +270,8 @@ namespace WinQEMU.ViewModels
         /// <summary>Creates a new image inside the VM folder and attaches it.</summary>
         public async Task CreateDiskAsync(long capacityBytes, DiskFormat format, DiskBus bus)
         {
-            if (_config is null)
+            // Captured: the selection may change while qemu-img works, and the disk belongs to this machine (see SaveNow).
+            if (_config is not { } config)
                 return;
 
             try
@@ -277,19 +279,19 @@ namespace WinQEMU.ViewModels
                 if (_manager.DiskService is null)
                     throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
-                var id = NextDiskId();
+                var id = NextDiskId(config);
                 var fileName = $"{id}.{DiskExtension(format)}";
-                var fullPath = Path.Combine(_config.FolderPath, fileName);
+                var fullPath = Path.Combine(config.FolderPath, fileName);
 
                 if (File.Exists(fullPath))
                     throw new IOException(string.Format(CultureInfo.CurrentCulture, DialogText.HardwareFileExists, fileName));
 
                 // Encrypted with the machine's password when its disks are.
-                var images = await _manager.ImagesForAsync(_config).ConfigureAwait(true);
+                var images = await _manager.ImagesForAsync(config).ConfigureAwait(true);
                 await images.CreateAsync(fullPath, format, capacityBytes, backingFile: null)
                     .ConfigureAwait(true);
 
-                _config.Disks.Add(new DiskConfig
+                config.Disks.Add(new DiskConfig
                 {
                     Id = id,
                     // Relative, so the VM folder stays movable as a unit.
@@ -299,7 +301,7 @@ namespace WinQEMU.ViewModels
                     CapacityBytes = capacityBytes
                 });
 
-                _requestSave();
+                SaveNow(config);
             }
             catch (Exception ex)
             {
@@ -310,7 +312,8 @@ namespace WinQEMU.ViewModels
         /// <summary>Enlarges an image and records the new capacity in the descriptor.</summary>
         public async Task GrowDiskAsync(DiskConfig disk, long newCapacityBytes)
         {
-            if (_config is null || !CanEdit)
+            // Captured: the selection may change while qemu-img works, and the disk belongs to this machine (see SaveNow).
+            if (_config is not { } config || !CanEdit)
                 return;
 
             try
@@ -318,14 +321,14 @@ namespace WinQEMU.ViewModels
                 if (_manager.DiskService is null)
                     throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
-                var images = await _manager.ImagesForAsync(_config).ConfigureAwait(true);
-                await images.GrowAsync(ResolveDiskPath(disk), newCapacityBytes).ConfigureAwait(true);
+                var images = await _manager.ImagesForAsync(config).ConfigureAwait(true);
+                await images.GrowAsync(config.ResolvePath(disk.FileName), newCapacityBytes).ConfigureAwait(true);
 
                 // Read the geometry back rather than assuming the requested value was applied verbatim.
-                var info = await _manager.DiskService.GetInfoAsync(ResolveDiskPath(disk)).ConfigureAwait(true);
+                var info = await _manager.DiskService.GetInfoAsync(config.ResolvePath(disk.FileName)).ConfigureAwait(true);
                 disk.CapacityBytes = info.VirtualSizeBytes;
 
-                _requestSave();
+                SaveNow(config);
             }
             catch (Exception ex)
             {
@@ -343,7 +346,8 @@ namespace WinQEMU.ViewModels
         /// </remarks>
         public async Task ConvertDiskAsync(DiskConfig disk, DiskFormat format, bool compress)
         {
-            if (_config is null || !CanEdit)
+            // Captured: the selection may change while qemu-img works, and the disk belongs to this machine (see SaveNow).
+            if (_config is not { } config || !CanEdit)
                 return;
 
             try
@@ -351,15 +355,15 @@ namespace WinQEMU.ViewModels
                 if (_manager.DiskService is null)
                     throw new InvalidOperationException(DialogText.HardwareNoQemuImg);
 
-                var source = ResolveDiskPath(disk);
+                var source = config.ResolvePath(disk.FileName);
                 var targetName = $"{disk.Id}.{DiskExtension(format)}";
-                var target = Path.Combine(_config.FolderPath, targetName);
+                var target = Path.Combine(config.FolderPath, targetName);
 
                 if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase) || File.Exists(target))
                     throw new IOException(string.Format(CultureInfo.CurrentCulture, DialogText.HardwareFileExists, targetName));
 
                 // An encrypted machine's copy is encrypted too (qcow2 only, uncompressed: see QemuImgService).
-                var images = await _manager.ImagesForAsync(_config).ConfigureAwait(true);
+                var images = await _manager.ImagesForAsync(config).ConfigureAwait(true);
                 await images.ConvertAsync(source, target, format, compress).ConfigureAwait(true);
 
                 // Relative, so the VM folder stays movable as a unit.
@@ -373,12 +377,12 @@ namespace WinQEMU.ViewModels
                 {
                     // What the clone read until now, before the link that says so is gone: the original
                     // may have kept some of it only for this clone.
-                    var formerlyRead = _manager.ImagesReadThrough(_config);
+                    var formerlyRead = _manager.ImagesReadThrough(config);
                     disk.LinkedBaseFileName = string.Empty;
                     _manager.ReleaseRetainedImages(formerlyRead);
                 }
 
-                _requestSave();
+                SaveNow(config);
             }
             catch (Exception ex)
             {
@@ -516,12 +520,12 @@ namespace WinQEMU.ViewModels
         /// <summary>Absolute path of a disk image, for the caller that needs to delete or inspect it.</summary>
         public string ResolveDiskPath(DiskConfig disk) => _config?.ResolvePath(disk.FileName) ?? disk.FileName;
 
-        private string NextDiskId()
+        private static string NextDiskId(VmConfig config)
         {
             for (var index = 0; ; index++)
             {
                 var candidate = $"disk{index.ToString(CultureInfo.InvariantCulture)}";
-                if (_config!.Disks.All(d => d.Id != candidate))
+                if (config.Disks.All(d => d.Id != candidate))
                     return candidate;
             }
         }
@@ -727,7 +731,7 @@ namespace WinQEMU.ViewModels
         /// <summary>Matches the bus of the existing disks so a second disk does not land on a different controller by accident.</summary>
         public DiskBus SuggestedBus => _config?.Disks.Count > 0 ? _config.Disks[0].Bus : DiskBus.VirtioBlk;
 
-        private DiskBus DefaultBus() => SuggestedBus;
+        private static DiskBus DefaultBus(VmConfig config) => config.Disks.Count > 0 ? config.Disks[0].Bus : DiskBus.VirtioBlk;
 
         private static DiskFormat ParseFormat(string? format) => format?.ToLowerInvariant() switch
         {

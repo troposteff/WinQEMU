@@ -101,16 +101,36 @@ namespace WinQEMU.Core.Services
                 return machines;
             }
 
-            foreach (var descriptor in Directory.EnumerateFiles(
-                         RootPath, "*" + VmConfig.FileExtension, SearchOption.AllDirectories))
+            // A folder that cannot be read (C:\Config.Msi under a drive root, the hidden junctions of Documents) is
+            // passed over: the enumeration threw on it, out of the loop's catch, and the library stayed empty at every
+            // start, the command server with it.
+            var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 };
+            var ids = new HashSet<Guid>();
+            // Oldest folder first: of two machines with one identity, the copy is the newer folder (Explorer gives a
+            // copied folder a new creation date), and the original keeps its identity, passwords and place in the tree.
+            var descriptors = Directory.EnumerateFiles(RootPath, "*" + VmConfig.FileExtension, options)
+                .OrderBy(d => CreationOf(Path.GetDirectoryName(d)!)).ToList();
+            foreach (var descriptor in descriptors)
             {
                 try
                 {
-                    var config = JsonSerializer.Deserialize<VmConfig>(File.ReadAllText(descriptor), SerializerOptions);
+                    // A descriptor cut short (power lost while it was written by an older version) is read from its backup.
+                    var text = SafeFile.ReadValid(descriptor, IsDescriptor) ?? File.ReadAllText(descriptor);
+                    var config = JsonSerializer.Deserialize<VmConfig>(text, SerializerOptions);
                     if (config is null)
                     {
                         problems.Add($"{descriptor}: the descriptor is empty.");
                         continue;
+                    }
+                    // A machine folder copied in Explorer has the original's Id: everything keyed by it (sessions,
+                    // passwords, the library tree) mixed the two, and starting the copy started the original. The copy
+                    // is made a machine of its own, as a clone would be.
+                    if (!ids.Add(config.Id))
+                    {
+                        config.FolderPath = Path.GetDirectoryName(descriptor)!;
+                        MakeDistinct(config);
+                        ids.Add(config.Id);
+                        problems.Add($"{descriptor}: same identity as another machine (a copied folder?); given a new one.");
                     }
 
                     // FolderPath is derived from where the file actually is, never persisted, so a
@@ -126,6 +146,46 @@ namespace WinQEMU.Core.Services
 
             warnings = problems;
             return machines.OrderBy(m => m.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+        }
+
+        /// <summary>A machine found under the identity of another (a copied folder): its own identity and MAC addresses, saved.</summary>
+        private void MakeDistinct(VmConfig config)
+        {
+            config.Id = Guid.NewGuid();
+            foreach (var adapter in config.NetworkAdapters.Where(a => !string.IsNullOrWhiteSpace(a.MacAddress)))
+                adapter.MacAddress = NetworkAdapterConfig.GenerateMacAddress();
+            try
+            {
+                Save(config);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                // Distinct for this run all the same; saved at its next change.
+            }
+        }
+
+        private static DateTime CreationOf(string folder)
+        {
+            try
+            {
+                return Directory.GetCreationTimeUtc(folder);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return DateTime.MaxValue;
+            }
+        }
+
+        private static bool IsDescriptor(string text)
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<VmConfig>(text, SerializerOptions) is not null;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
         }
 
         public void Save(VmConfig config)
@@ -144,7 +204,7 @@ namespace WinQEMU.Core.Services
             // outright: renaming it to something the filesystem rejects deleted the only descriptor and
             // then failed to write the new one, leaving the disks with nothing left to load them from.
             var target = config.DescriptorPath;
-            File.WriteAllText(target, JsonSerializer.Serialize(config, SerializerOptions));
+            SafeFile.WriteAllText(target, JsonSerializer.Serialize(config, SerializerOptions));
 
             // Renaming a VM renames its descriptor, so stale files do not accumulate and reappear on scan.
             foreach (var existing in Directory.EnumerateFiles(config.FolderPath, "*" + VmConfig.FileExtension))

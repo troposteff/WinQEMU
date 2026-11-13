@@ -18,6 +18,20 @@ Une VM = un dossier sous la bibliothèque (`C:\qemu` par défaut) contenant son 
 (`AppSettings`, dont le chemin de la bibliothèque) vivent à part, dans le stockage local du paquet, pour
 qu'un dossier de VM reste déplaçable.
 
+- **Descripteurs et réglages écrits par `Services.SafeFile`** (relecture du 13/11/2026) : fichier temporaire vidé sur le
+  disque, puis `File.Replace`, l'ancien gardé en `.bak` et relu si le fichier ne se lit pas. `File.WriteAllText` vide le
+  fichier d'abord : une coupure de courant faisait disparaître la machine, et un `settings.json` illisible était lu comme
+  des valeurs par défaut puis réécrit par-dessus (bibliothèque, réseaux, dossiers perdus). Illisible ainsi que sa copie :
+  mis de côté (`.unreadable`), jamais réécrit.
+- **Parcours de la bibliothèque** : un dossier illisible est passé (`IgnoreInaccessible` ; une racine sur `C:\` ou
+  Documents levait une exception hors de la boucle, bibliothèque vide à chaque démarrage). Deux machines de même `Id`
+  (dossier copié dans l'Explorateur : démarrer la copie démarrait l'original, mots de passe et arbre mêlés) : la copie,
+  le dossier le plus récent, reçoit un `Id` et des MAC neufs, enregistrés. Actualiser garde l'objet de toute machine qui a
+  une session (seules celles en marche l'étaient : une session arrêtée démarrait depuis l'ancien objet pendant que la
+  fenêtre modifiait le nouveau, et un instantané à chaud n'était noté que dans l'ancien).
+- **QMP** : une commande envoyée après la fin de la boucle de lecture attendait pour toujours (QEMU parti, ou gestionnaire
+  d'événement qui lève) ; refusée, et un gestionnaire qui lève ne termine plus la boucle.
+
 ## Compiler, tester, déployer
 
 ```powershell
@@ -788,6 +802,7 @@ refusé en le nommant, sans moitié de texte tapée. Confirmation au-delà de 30
   texte Fedora, relue par `screendump`) : `été à çà: {a}[b]|c\d @home #1 €5 <ok> "q" 's' ù% êö` tapé juste ; « ~/x »
   sortait « ~ /x », corrigé (ci-dessus) et revérifié : ``cd ~/x_y `date` ~ ^2 été êö`` tapé juste, « ñ » refusé ;
   « École » refusé sans rien taper. Le message de refus finissait par « (Parameter 'text') » (nom de paramètre de l'`ArgumentException`), retiré.
+  Un émoji (hors du plan de base) est refusé en le nommant ; sa moitié atteignait `Normalize`, dont le message brut s'affichait.
 
 ## Capture de la console
 
@@ -844,6 +859,11 @@ Fedora) : image 1966 × 1524 et fichier (`FileDrop`) du même PNG, menu volant a
   l'instantané automatique ; un second démarrage entre-temps (bouton, commande, dossier) prenait un second instantané et
   ouvrait les disques deux fois. Le plan du démarrage automatique est relu après son délai (machine décochée ou devenue
   modèle : laissée).
+- **Arrêt ignoré par l'invité : la machine repasse « En cours d'exécution » au bout de 3 min**
+  (`VmSession.ResumeIfIgnoredAsync`, relecture du 13/11/2026). Elle restait « Arrêt en cours » pour toujours : plus
+  considérée en marche, agent, dossiers partagés, graphiques et démarrage refusés, seul Éteindre l'en sortait. Vérifié :
+  `winqemu stop` 20 s après le démarrage d'Ubuntu, ignoré ; 3 min plus tard « En cours d'exécution », second arrêt réussi.
+  Éteindre pendant un redémarrage de l'invité n'est plus suivi d'une relance (ni après suppression de la machine).
 - **Arrêter un invité Linux passe par l'agent** (`VmSession.RequestShutdownAsync`, donc bouton, commande, dossier, fermeture
   de WinQEMU, arrêt de Windows) : ce qu'un bureau fait du bouton d'alimentation lui appartient. Plasma n'affichait que son
   écran de déconnexion (`winqemu stop --wait` abandonnait après 300 s), Xfce ne s'arrêtait pas en 90 s, GNOME compte 60 s.
@@ -1563,6 +1583,17 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   et la touche arrive **sans scancode**. La console annule les pertes de focus clavier et retrouve le
   scancode par `MapVirtualKey`.
 - **AltGr** arrive comme un Ctrl gauche factice suivi d'Alt droit : `AltGrFilter` supprime le Ctrl.
+- **Touches relâchées quand la fenêtre perd le premier plan** (`Window.Activated`, `VmConsoleHost.ReleaseKeys`) : Alt+Tab,
+  Win+L, Ctrl+Alt+Suppr envoient le relâchement à une autre fenêtre et WinUI ne signale aucune perte de focus ; l'invité
+  gardait Alt enfoncé (un clic devenait Alt+clic). **Pause et Verr. Num.** arrivent tous deux en 0x45 (Verr. Num. marqué
+  étendu) : Verr. Num. partait en 0xC5 (aucune touche), Pause basculait Verr. Num. ; envoyés en 0x45 et 0xC6, les codes de
+  QEMU. **Boutons de la couche du pointeur** relâchés dans l'invité quand la capture est perdue ou la couche cachée en
+  plein glisser. **Console prise pour une machine qu'on a quittée entre-temps** : regarée au lieu d'être affichée sous
+  l'autre (clavier vers l'une, image de l'autre, fenêtre orpheline).
+- **Presse-papiers** : un message trop grand ou un flux zlib abîmé n'est plus que sauté ; il arrêtait le partage du
+  presse-papiers jusqu'au redémarrage de la machine.
+- **Opérations de disque** (créer, attacher, agrandir, convertir) : la machine est retenue au début et enregistrée aussitôt ;
+  sélection changée pendant qu'qemu-img travaillait, le disque allait à l'autre machine (ou s'y résolvait).
 - **Touche maintenue : la répétition de Windows est transmise** (`Input.KeyRepeat`), sauf modificateurs et verrous.
   N'envoyer que l'appui et le relâchement suffisait sous un bureau (le compositeur répète lui-même), pas dans une console
   texte Linux, dont le pilote PS/2 attend que le clavier renvoie le code : Bas maintenu dans archinstall ne descendait que

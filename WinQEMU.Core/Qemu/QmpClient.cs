@@ -55,7 +55,10 @@ namespace WinQEMU.Core.Qemu
         /// <summary>Raised once when the connection drops, whether by guest shutdown or by failure.</summary>
         public event EventHandler? Disconnected;
 
-        public bool IsConnected => !_disposed && _client.Connected;
+        public bool IsConnected => !_disposed && !_closed && _client.Connected;
+
+        // Set once the read loop has ended: a command sent after that would never get its answer.
+        private volatile bool _closed;
 
         /// <summary>
         /// Connects and completes the capability handshake. QEMU opens its listening socket during
@@ -153,6 +156,12 @@ namespace WinQEMU.Core.Qemu
             var id = Interlocked.Increment(ref _nextCommandId).ToString(CultureInfo.InvariantCulture);
             var completion = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
             _pending[id] = completion;
+            // Added after the read loop failed what was pending (QEMU gone, socket half closed): it would wait forever.
+            if (_closed)
+            {
+                _pending.TryRemove(id, out _);
+                throw new QmpException("The QMP connection was closed.");
+            }
 
             var request = new JsonObject
             {
@@ -232,11 +241,20 @@ namespace WinQEMU.Core.Qemu
                     if (envelope.TryGetPropertyValue("event", out var eventName) && eventName is not null)
                     {
                         envelope.TryGetPropertyValue("data", out var data);
-                        EventReceived?.Invoke(this, new QmpEventArgs
+                        // A handler that throws (the state change runs the shell's handlers) must not end the loop: QMP
+                        // looked connected and every later command waited forever.
+                        try
                         {
-                            Name = eventName.GetValue<string>(),
-                            Data = data?.DeepClone()
-                        });
+                            EventReceived?.Invoke(this, new QmpEventArgs
+                            {
+                                Name = eventName.GetValue<string>(),
+                                Data = data?.DeepClone()
+                            });
+                        }
+                        catch (Exception ex) when (ex is not OutOfMemoryException)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"QMP event handler failed: {ex}");
+                        }
                         continue;
                     }
 
@@ -270,6 +288,7 @@ namespace WinQEMU.Core.Qemu
             }
             finally
             {
+                _closed = true;
                 FailPending(new QmpException("The QMP connection was closed."));
                 Disconnected?.Invoke(this, EventArgs.Empty);
             }

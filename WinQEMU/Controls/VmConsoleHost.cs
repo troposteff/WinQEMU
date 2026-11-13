@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -302,7 +302,7 @@ namespace WinQEMU.Controls
                 // Seen before and parked when the user switched away: it is still a child window, so
                 // it only needs moving back, not finding again among the desktop's windows.
                 if (await Task.Run(() => parked.Unpark(_shellWindow)))
-                    return CompleteAttach(parked, processId);
+                    return token.IsCancellationRequested ? await ParkAgainAsync(parked, processId) : CompleteAttach(parked, processId);
 
                 Log?.Invoke($"Console: could not take window 0x{parked.Handle.ToInt64():X} back from parking; searching again.");
             }
@@ -341,7 +341,25 @@ namespace WinQEMU.Controls
                 return false;
             }
 
+            if (token.IsCancellationRequested)
+                return await ParkAgainAsync(console, processId);
             return CompleteAttach(console, processId);
+        }
+
+        /// <summary>
+        /// Another machine was selected while this console was being taken (QEMU's message loop can be slow while a guest
+        /// boots): completed anyway, it showed this machine with the keys going to the other, left the other's window an
+        /// orphan child, and that machine's console was not found again until its QEMU restarted. It goes back to parking.
+        /// </summary>
+        private async Task<bool> ParkAgainAsync(QemuConsoleWindow console, int processId)
+        {
+            var parking = _parkingWindow;
+            if (await Task.Run(() => console.Park(parking)))
+            {
+                _parked[processId] = console;
+                Watch(console, processId);
+            }
+            return false;
         }
 
         /// <summary>Common tail of attaching, once the console is a child of the shell window.</summary>
@@ -694,6 +712,12 @@ namespace WinQEMU.Controls
         /// Releases every key the guest still believes is held. Without this, leaving the console with
         /// Ctrl or Alt down leaves the guest stuck with a phantom modifier.
         /// </summary>
+        /// <summary>
+        /// The window lost the foreground (Alt+Tab, Win+L, Ctrl+Alt+Del): the key-ups go to another window, and WinUI
+        /// keeps the focus where it was, without LostFocus. The guest kept Alt held, a click became Alt+click.
+        /// </summary>
+        public void ReleaseKeys() => ReleaseHeldKeys();
+
         private void ReleaseHeldKeys()
         {
             if (_pressedKeys.Count == 0)
@@ -734,6 +758,13 @@ namespace WinQEMU.Controls
         /// </remarks>
         private static int ToScancode(KeyRoutedEventArgs e)
         {
+            // Both arrive as scancode 0x45, NumLock marked extended and Pause not (its E1 prefix is lost), the reverse
+            // of QEMU's numbers: NumLock went out as 0xC5, no key at all, and Pause toggled the guest's NumLock.
+            if (e.Key == Windows.System.VirtualKey.NumberKeyLock)
+                return 0x45;
+            if (e.Key == Windows.System.VirtualKey.Pause)
+                return 0xC6;
+
             var status = e.KeyStatus;
             if (status.ScanCode != 0)
                 return (int)status.ScanCode | (status.IsExtendedKey ? 0x80 : 0);

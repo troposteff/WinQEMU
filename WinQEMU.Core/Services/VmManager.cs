@@ -92,12 +92,14 @@ namespace WinQEMU.Core.Services
             foreach (var warning in warnings)
                 Warnings.Add(warning);
 
-            // Keep configs that already have a live session, so restarting the scan never orphans
-            // a running VM from its entry in the list.
+            // Keep the config of every machine that has a session, whatever its state: a session is bound to its config
+            // for good. Only running ones used to be kept, and after Refresh (or a QEMU folder change) a stopped
+            // machine's session started QEMU from the old object while the window edited and saved the new one; a live
+            // snapshot then recorded its overlay on the old object only, and the next start reopened the base image.
             VirtualMachines.Clear();
             foreach (var machine in machines)
             {
-                if (_sessions.TryGetValue(machine.Id, out var session) && session.IsRunning)
+                if (_sessions.TryGetValue(machine.Id, out var session))
                     VirtualMachines.Add(session.Config);
                 else
                     VirtualMachines.Add(machine);

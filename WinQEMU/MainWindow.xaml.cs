@@ -111,6 +111,12 @@ namespace WinQEMU
                 () => _viewModel.Manager.LiveSessions.Any(),
                 () => DispatcherQueue.TryEnqueue(() => _ = StopMachinesForWindowsAsync()),
                 ending => DispatcherQueue.TryEnqueue(() => OnWindowsSessionEnded(ending)));
+            // Keys held when the window loses the foreground are released in the guest (see VmConsoleHost.ReleaseKeys).
+            Activated += (_, e) =>
+            {
+                if (e.WindowActivationState == WindowActivationState.Deactivated)
+                    ConsoleHost.ReleaseKeys();
+            };
             if (!_sessionEnd.IsInstalled)
                 _viewModel.AppendDiagnostic("Windows: cannot hold its shutdown; running machines would lose their power with it.");
 

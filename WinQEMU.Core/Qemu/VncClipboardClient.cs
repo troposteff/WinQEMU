@@ -162,15 +162,31 @@ namespace WinQEMU.Core.Qemu
                             if (length >= 0)
                             {
                                 // Legacy Latin-1 cut text; the extended messages carry the same content.
-                                await ReadExactAsync(stream, length, cancellationToken).ConfigureAwait(false);
+                                await SkipAsync(stream, length, cancellationToken).ConfigureAwait(false);
                             }
                             else
                             {
-                                var size = checked(-length);
+                                var size = length == int.MinValue ? int.MaxValue : -length;
+                                // A message too large or too small is passed over, not fatal: the stream stays in step,
+                                // and ending the loop ended clipboard sharing for the rest of the run.
                                 if (size < 4 || size > MaxTextBytes + 1024)
-                                    throw new IOException($"Unexpected extended clipboard message of {size} bytes.");
+                                {
+                                    await SkipAsync(stream, size, cancellationToken).ConfigureAwait(false);
+                                    break;
+                                }
                                 var payload = await ReadExactAsync(stream, size, cancellationToken).ConfigureAwait(false);
-                                await HandleExtendedAsync(payload, cancellationToken).ConfigureAwait(false);
+                                try
+                                {
+                                    await HandleExtendedAsync(payload, cancellationToken).ConfigureAwait(false);
+                                }
+                                // A guest copy over the limit once decompressed, or a damaged zlib stream: that copy is
+                                // dropped, the next ones still go through.
+                                catch (InvalidDataException)
+                                {
+                                }
+                                catch (ClipboardTooLargeException)
+                                {
+                                }
                             }
                             break;
 
@@ -248,6 +264,22 @@ namespace WinQEMU.Core.Qemu
             return output.ToArray();
         }
 
+        private sealed class ClipboardTooLargeException : Exception
+        {
+        }
+
+        private static async Task SkipAsync(NetworkStream stream, int count, CancellationToken cancellationToken)
+        {
+            var buffer = new byte[65536];
+            while (count > 0)
+            {
+                var read = await stream.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, count)), cancellationToken).ConfigureAwait(false);
+                if (read == 0)
+                    throw new EndOfStreamException();
+                count -= read;
+            }
+        }
+
         private static byte[] Decompress(ReadOnlySpan<byte> data)
         {
             using var input = new MemoryStream(data.ToArray());
@@ -259,7 +291,7 @@ namespace WinQEMU.Core.Qemu
             {
                 output.Write(buffer, 0, read);
                 if (output.Length > MaxTextBytes + 4)
-                    throw new IOException("Clipboard data exceeds the size limit.");
+                    throw new ClipboardTooLargeException();
             }
             return output.ToArray();
         }

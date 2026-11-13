@@ -41,6 +41,15 @@ public sealed class KeyboardTextTests : IDisposable
     }
 
     [Fact]
+    public void An_emoji_is_refused_by_name()
+    {
+        // Half of it reached Normalize: "String contains invalid Unicode code points" was shown as is.
+        var error = Assert.Throws<ArgumentException>(() => Keys("ok 😀", Layout("0000040C")));
+        Assert.Contains("😀", error.Message);
+        Assert.DoesNotContain("Unicode", error.Message);
+    }
+
+    [Fact]
     public void Shift_is_held_around_a_capital()
     {
         Assert.Equal(new[] { (0x2A, true), (0x1E, true), (0x1E, false), (0x2A, false) }, Keys("A", Layout("00000409")));

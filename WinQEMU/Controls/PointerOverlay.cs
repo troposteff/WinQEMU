@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Runtime.InteropServices;
 
@@ -42,7 +43,7 @@ namespace WinQEMU.Controls
         private static bool s_registered;
 
         private readonly IntPtr _handle;
-        private int _buttonsDown;
+        private readonly System.Collections.Generic.HashSet<string> _held = new();
 
         /// <summary>The pointer moved to a point of this window's client area (physical pixels).</summary>
         public event Action<int, int>? Moved;
@@ -100,7 +101,8 @@ namespace WinQEMU.Controls
             // SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_HIDEWINDOW.
             SetWindowPos(_handle, IntPtr.Zero, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0080);
             IsVisible = false;
-            if (_buttonsDown != 0)
+            // Releasing the capture raises WM_CAPTURECHANGED, which releases the held buttons in the guest.
+            if (_held.Count != 0)
                 ReleaseCapture();
         }
 
@@ -162,7 +164,11 @@ namespace WinQEMU.Controls
                     return IntPtr.Zero;
                 }
                 case WmCaptureChanged:
-                    _buttonsDown = 0;
+                    // Capture taken away (Alt+Tab, a prompt, the overlay hidden mid-drag): the release will never come
+                    // here, and SDL never saw the press. Without these, the guest's drag went on until the next click.
+                    foreach (var held in _held.ToArray())
+                        Button?.Invoke(held, false, int.MinValue, int.MinValue);
+                    _held.Clear();
                     return IntPtr.Zero;
                 default:
                     return null;
@@ -172,11 +178,19 @@ namespace WinQEMU.Controls
         private IntPtr Press(string button, bool down, int x, int y)
         {
             // Captured while a button is held, so a drag that leaves the image still ends in the guest.
-            if (down && _buttonsDown++ == 0)
-                SetCapture(_handle);
-            else if (!down && _buttonsDown > 0 && --_buttonsDown == 0)
-                ReleaseCapture();
+            if (down)
+            {
+                if (_held.Count == 0)
+                    SetCapture(_handle);
+                _held.Add(button);
+                Button?.Invoke(button, down, x, y);
+                return IntPtr.Zero;
+            }
+            // Removed before the call, so the capture change that the last release causes finds nothing held.
+            _held.Remove(button);
             Button?.Invoke(button, down, x, y);
+            if (_held.Count == 0)
+                ReleaseCapture();
             return IntPtr.Zero;
         }
 

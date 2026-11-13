@@ -47,8 +47,17 @@ namespace WinQEMU.Core.Input
         {
             linuxGuest = linuxGuest && IsFrench(layout);
             var strokes = new List<IReadOnlyList<(int, bool)>>();
-            foreach (var ch in text.Replace("\r\n", "\n", StringComparison.Ordinal))
+            var normalizedText = text.Replace("\r\n", "\n", StringComparison.Ordinal);
+            for (var index = 0; index < normalizedText.Length; index++)
             {
+                var ch = normalizedText[index];
+                // A character outside the basic plane (an emoji) has no key on any layout: refused by name. Half of it
+                // reached Normalize, whose message ("String contains invalid Unicode code points") was shown as is.
+                if (char.IsSurrogate(ch))
+                {
+                    var whole = char.IsHighSurrogate(ch) && index + 1 < normalizedText.Length ? normalizedText.Substring(index, 2) : ch.ToString();
+                    throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, CoreText.KeyboardCannotType, whole));
+                }
                 if (ch == '\n')
                 {
                     strokes.Add(Press(Enter));

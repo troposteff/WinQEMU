@@ -1157,7 +1157,8 @@ namespace WinQEMU.ViewModels
                 {
                     metrics = await session.QueryMetricsAsync();
                 }
-                catch (Exception ex) when (ex is QmpException or InvalidOperationException or ObjectDisposedException)
+                // IOException: the write to a socket QEMU has just closed.
+                catch (Exception ex) when (ex is QmpException or InvalidOperationException or ObjectDisposedException or IOException)
                 {
                     return;
                 }

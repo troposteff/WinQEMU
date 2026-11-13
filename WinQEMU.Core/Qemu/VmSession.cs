@@ -247,6 +247,8 @@ namespace WinQEMU.Core.Qemu
             var qmp = RequireQmp();
             var port = GuestAgentPort;
             State = VmState.Stopping;
+            var request = Interlocked.Increment(ref _shutdownRequest);
+            _ = ResumeIfIgnoredAsync(request);
             if (port is { } agentPort && await ShutLinuxDownThroughAgentAsync(agentPort, cancellationToken).ConfigureAwait(false))
             {
                 AppendLog("Shutdown asked of the guest agent; waiting for the guest to shut down.");
@@ -255,6 +257,36 @@ namespace WinQEMU.Core.Qemu
 
             AppendLog("ACPI power button pressed; waiting for the guest to shut down.");
             await qmp.ExecuteAsync("system_powerdown", null, cancellationToken).ConfigureAwait(false);
+        }
+
+        private int _shutdownRequest;
+
+        /// <summary>How long a guest may take to go once asked before the machine counts as running again.</summary>
+        public static TimeSpan IgnoredShutdownDelay { get; set; } = TimeSpan.FromMinutes(3);
+
+        /// <summary>
+        /// A guest that ignored the request (Debian still booting ignores the button) stayed "stopping" for good: not
+        /// running, so its agent, shared folders, graphs and start were all refused, and only Power off got it out.
+        /// Still there after the delay, with no other request since, it is running again, and the log says so.
+        /// </summary>
+        private async Task ResumeIfIgnoredAsync(int request)
+        {
+            await Task.Delay(IgnoredShutdownDelay).ConfigureAwait(false);
+            if (request != Volatile.Read(ref _shutdownRequest) || State != VmState.Stopping || _process is not { HasExited: false })
+                return;
+            await _transitionLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (request == Volatile.Read(ref _shutdownRequest) && State == VmState.Stopping && _process is { HasExited: false })
+                {
+                    AppendLog($"The guest did not shut down within {IgnoredShutdownDelay.TotalMinutes.ToString(CultureInfo.InvariantCulture)} min: it is running again.");
+                    State = VmState.Running;
+                }
+            }
+            finally
+            {
+                _transitionLock.Release();
+            }
         }
 
         /// <summary>
@@ -299,6 +331,7 @@ namespace WinQEMU.Core.Qemu
         public void ForcePowerOff()
         {
             _forcedPowerOff = true;
+            _restartAfterExit = false;
             AppendLog("QEMU is not responding: powered off at the user's request.");
             try
             {
@@ -321,6 +354,9 @@ namespace WinQEMU.Core.Qemu
                     return;
 
                 State = VmState.Stopping;
+                // Cut during a guest reboot, the machine would otherwise be started again once QEMU exits.
+                _restartAfterExit = false;
+                Interlocked.Increment(ref _shutdownRequest);
                 AppendLog("Powering off.");
 
                 var qmp = _qmp;
@@ -1181,6 +1217,8 @@ namespace WinQEMU.Core.Qemu
 
                 case "SHUTDOWN":
                     State = VmState.Stopping;
+                    // Going for good: no longer a request the guest might ignore.
+                    Interlocked.Increment(ref _shutdownRequest);
 
                     // Under WHPX a reboot is turned into a shutdown (-action reboot=shutdown), because
                     // an in-place reset never comes back from UEFI firmware. The reason tells the two
@@ -1335,6 +1373,9 @@ namespace WinQEMU.Core.Qemu
         /// </summary>
         private async Task RestartAfterRebootAsync()
         {
+            // Powered off or disposed (machine deleted, WinQEMU quitting) while the guest rebooted: stays off.
+            if (_disposed || _forcedPowerOff)
+                return;
             try
             {
                 await StartAsync().ConfigureAwait(false);

@@ -96,29 +96,47 @@ namespace WinQEMU.Core.Services
         {
             if (importFirst)
                 SettingsImport.ImportIfFirstStart();
-            try
+            if (SafeFile.ReadValid(SettingsPath, text => Parse(text) is not null) is { } json)
+                return Parse(json)!;
+
+            // Neither the file nor its backup reads: defaults, so that WinQEMU starts. The unreadable file is put aside
+            // first, never saved over (the next save would have replaced the library root, networks and folders for good).
+            if (File.Exists(SettingsPath))
             {
-                if (File.Exists(SettingsPath))
+                try
                 {
-                    var json = File.ReadAllText(SettingsPath);
-                    var settings = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions);
-                    if (settings is not null)
-                        return settings;
+                    File.Move(SettingsPath, SettingsPath + "." + DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture) + ".unreadable");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Still held: nothing is lost as long as it is not saved over, which Save then refuses.
+                    _unreadableKept = true;
                 }
             }
-            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
-            {
-                // A corrupt or unreadable settings file must not prevent the app from starting;
-                // defaults plus auto-detection are a usable fallback.
-            }
-
             return new AppSettings();
         }
 
+        private static AppSettings? Parse(string json)
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        private static bool _unreadableKept;
+
         public void Save()
         {
+            if (_unreadableKept && File.Exists(SettingsPath))
+                return;
+            _unreadableKept = false;
             Directory.CreateDirectory(SettingsDirectory);
-            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, SerializerOptions));
+            SafeFile.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, SerializerOptions));
         }
     }
 

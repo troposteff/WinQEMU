@@ -222,15 +222,16 @@ namespace WinQEMU.Core.Services
             Start-Transcript -Path $log -Append | Out-Null
             # Windows keeps copies of the answer file, which hold the account's password.
             Remove-Item "$env:SystemRoot\Panther\unattend.xml", "$env:SystemRoot\Panther\unattend-original.xml" -Force -ErrorAction SilentlyContinue
-            $drive = Get-PSDrive -PSProvider FileSystem | Where-Object { Test-Path (Join-Path $_.Root 'virtio-win-guest-tools.exe') } | Select-Object -First 1
-            if ($drive) {
-                $root = $drive.Root
-                $catalog = Get-ChildItem (Join-Path $root 'Balloon') -Recurse -Filter *.cat -ErrorAction SilentlyContinue | Select-Object -First 1
-                if ($catalog) {
-                    $certificate = (Get-AuthenticodeSignature $catalog.FullName).SignerCertificate
-                    if ($certificate) {
+            # QEMU's DVD drives only, and Red Hat's own certificate from a valid signature (see GuestTools.WindowsToolsScript).
+            $root = Get-CimInstance Win32_CDROMDrive | Where-Object { $_.PNPDeviceID -like '*VEN_QEMU*' -and $_.Drive } | ForEach-Object { $_.Drive + '\' } |
+                Where-Object { Test-Path (Join-Path $_ 'virtio-win-guest-tools.exe') } | Select-Object -First 1
+            if ($root) {
+                foreach ($catalog in Get-ChildItem (Join-Path $root 'Balloon') -Recurse -Filter *.cat -ErrorAction SilentlyContinue) {
+                    $signature = Get-AuthenticodeSignature $catalog.FullName
+                    if ($signature.Status -eq 'Valid' -and $signature.SignerCertificate.Subject -match '(^|, )O="?Red Hat, Inc\.?"?(,|$)') {
                         $store = New-Object Security.Cryptography.X509Certificates.X509Store('TrustedPublisher', 'LocalMachine')
-                        $store.Open('ReadWrite'); $store.Add($certificate); $store.Close()
+                        $store.Open('ReadWrite'); $store.Add($signature.SignerCertificate); $store.Close()
+                        break
                     }
                 }
                 Start-Process (Join-Path $root 'virtio-win-guest-tools.exe') -ArgumentList '/install', '/quiet', '/norestart' -Wait

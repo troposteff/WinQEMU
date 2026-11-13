@@ -85,6 +85,16 @@ namespace WinQEMU.Core.Qemu
                 problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateUefiMissing, config.Architecture, installation.InstallDirectory));
             }
 
+            // ARM64's 'virt' machine has no BIOS and no IDE/AHCI controller: with the BIOS it showed "Display output is
+            // not active" and nothing else; a SATA or IDE disk stopped QEMU on a missing ide.N bus.
+            if (config.Architecture == GuestArchitecture.Aarch64)
+            {
+                if (config.Firmware == FirmwareType.Bios)
+                    problems.Add(PlatformText.ValidateAarch64NeedsUefi);
+                foreach (var disk in config.Disks.Where(d => d.Bus is DiskBus.Sata or DiskBus.Ide))
+                    problems.Add(string.Format(CultureInfo.CurrentCulture, PlatformText.ValidateAarch64NoSata, disk.Id));
+            }
+
             if (config.Firmware == FirmwareType.UefiSecureBoot
                 && ResolveAccelerator(config, installation) == AcceleratorType.Whpx)
             {

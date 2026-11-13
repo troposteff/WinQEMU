@@ -36,8 +36,9 @@ namespace WinQEMU.Core.Services
                 return CoreText.CompactionRefusedProtected;
             if (info.Snapshots.Count > 0)
                 return string.Format(CultureInfo.CurrentCulture, CoreText.CompactionRefusedSnapshots, info.Snapshots.Count);
-            var root = Path.GetPathRoot(Path.GetFullPath(path));
-            if (root is not null && new DriveInfo(root).AvailableFreeSpace < info.ActualSizeBytes)
+            // DriveInfo refuses a network path (ArgumentException), which took WinQEMU down from the button: unknown, not refused.
+            var free = HostCapabilities.GetFreeSpaceBytes(path);
+            if (free >= 0 && free < info.ActualSizeBytes)
                 return CoreText.CompactionNoSpace;
             return null;
         }
@@ -48,18 +49,35 @@ namespace WinQEMU.Core.Services
         {
             var before = new FileInfo(path).Length;
             var copy = path + ".compact";
+            var original = path + ".precompact";
             if (File.Exists(copy))
                 File.Delete(copy);
             try
             {
                 await images.ConvertAsync(path, copy, DiskFormat.Qcow2, compress: false, progress, cancellationToken).ConfigureAwait(false);
-                File.Replace(copy, path, destinationBackupFileName: null);
+                // With a backup name: ReplaceFile without one can fail after the original is gone (the copy held by an
+                // antivirus: ERROR_UNABLE_TO_MOVE_REPLACEMENT), and the copy, deleted below, was then the only one left.
+                // The original is only renamed (same volume), then deleted once the copy is in place.
+                File.Replace(copy, path, original, ignoreMetadataErrors: true);
             }
             catch
             {
-                if (File.Exists(copy))
+                // Put back whatever happened; a copy is deleted only while the disk itself is there.
+                if (!File.Exists(path) && File.Exists(original))
+                    File.Move(original, path);
+                else if (!File.Exists(path) && File.Exists(copy))
+                    File.Move(copy, path);
+                if (File.Exists(path) && File.Exists(copy))
                     File.Delete(copy);
                 throw;
+            }
+            try
+            {
+                File.Delete(original);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Held a moment: left beside the disk, its name says what it is.
             }
             return new CompactionResult(before, new FileInfo(path).Length);
         }

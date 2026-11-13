@@ -53,7 +53,7 @@ namespace WinQEMU.Core.Networking
         /// </summary>
         public static async Task InstallAsync(CancellationToken cancellationToken = default)
         {
-            RequireGenuine(InstallerPath);
+            using var held = RequireGenuine(InstallerPath);
             var exitCode = await Elevation.RunAsync(InstallerPath, "/S", cancellationToken).ConfigureAwait(false);
             if (exitCode != 0)
                 throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapInstallFailed, exitCode));
@@ -64,7 +64,7 @@ namespace WinQEMU.Core.Networking
         {
             var folder = InstallDirectory ?? throw new InvalidOperationException(PlatformText.TapDriverNotInstalled);
             var tool = Path.Combine(folder, "bin", "tapinstall.exe");
-            RequireGenuine(tool);
+            using var held = RequireGenuine(tool);
             var exitCode = await Elevation.RunAsync(tool,
                 $"install \"{Path.Combine(folder, "driver", "OemVista.inf")}\" tap0901", cancellationToken).ConfigureAwait(false);
             if (exitCode != 0)
@@ -93,17 +93,41 @@ namespace WinQEMU.Core.Networking
         /// Refuses to run a program as administrator unless Windows vouches for its signature and it is
         /// OpenVPN's: a file swapped in the package or the install folder must not get elevated.
         /// </summary>
-        public static void RequireGenuine(string path)
+        /// <returns>
+        /// The file, held open until the caller has run it: checked and then run by its name, it could be replaced in between
+        /// (a package registered in place lives in a folder the user can write). Shared for reading only, it can be neither
+        /// written, renamed nor deleted meanwhile, and Windows can still start it.
+        /// </returns>
+        public static IDisposable RequireGenuine(string path)
         {
             if (!File.Exists(path))
                 throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapFileNotFound, Path.GetFileName(path), path));
+            var held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            try
+            {
+                Check(path);
+                return held;
+            }
+            catch
+            {
+                held.Dispose();
+                throw;
+            }
+        }
+
+        private static void Check(string path)
+        {
             if (!IsTrusted(path))
                 throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapSignatureInvalid, Path.GetFileName(path)));
 
 #pragma warning disable SYSLIB0057   // the signer's certificate of a signed file, which X509CertificateLoader does not read
             using var signer = new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
 #pragma warning restore SYSLIB0057
-            if (!signer.Subject.Contains("O=OpenVPN Inc.", StringComparison.Ordinal))
+            // The organization itself, not text found anywhere in the name ("O=OpenVPN Inc. Ltd", a CN holding it).
+            var organizations = signer.SubjectName.EnumerateRelativeDistinguishedNames()
+                .Where(rdn => !rdn.HasMultipleElements && rdn.GetSingleElementType().Value == "2.5.4.10")
+                .Select(rdn => rdn.GetSingleElementValue());
+            if (!organizations.Contains("OpenVPN Inc.", StringComparer.Ordinal))
                 throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, PlatformText.TapNotSignedByOpenVpn, Path.GetFileName(path)));
         }
 

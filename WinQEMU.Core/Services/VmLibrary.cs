@@ -224,55 +224,70 @@ namespace WinQEMU.Core.Services
 
             var folder = AllocateFolder(request.Name);
             Directory.CreateDirectory(folder);
-
-            var config = new VmConfig
+            // Removed on failure (qemu-img refused the disk, the ISO had no installer): an empty folder left behind made the
+            // next try "Name (2)". The folder is new; an existing disk attached in place is outside it.
+            try
             {
-                Name = request.Name.Trim(),
-                Description = request.Description,
-                GuestOs = request.GuestOs,
-                Architecture = request.Architecture,
-                Firmware = request.Firmware,
-                CpuCount = request.CpuCount,
-                MemoryMb = request.MemoryMb,
-                IsoPath = request.IsoPath,
-                SecondaryIsoPath = request.SecondaryIsoPath,
-                BootFromIso = request.BootFromIso && !string.IsNullOrWhiteSpace(request.IsoPath),
-                RtcLocalTime = request.RtcLocalTime,
-                FolderPath = folder,
-                DisksEncrypted = request.DiskKey is not null
-            };
-
-            await AddSystemDiskAsync(config, request, folder, cancellationToken).ConfigureAwait(false);
-
-            if (request.Unattended is { } unattended && config.BootFromIso)
-            {
-                WindowsUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), unattended);
-                config.UnattendedSetup = UnattendedSetupState.Pending;
-            }
-            else if (request.UnattendedLinux is { } linux && !string.IsNullOrWhiteSpace(request.IsoPath))
-            {
-                // Read out of the ISO now, so the first start does not wait on a hundred megabytes.
-                if (!LinuxUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), linux, config.GuestOs, request.IsoPath))
-                    throw new InvalidOperationException(CoreText.LibraryUbuntuIsoWithoutInstaller);
-                config.UnattendedSetup = UnattendedSetupState.Pending;
-                // The installer's own kernel is booted for the first start; every later one is the disk's.
-                config.BootFromIso = false;
-            }
-
-            if (request.NetworkMode != NetworkMode.None)
-            {
-                config.NetworkAdapters.Add(new NetworkAdapterConfig
+                var config = new VmConfig
                 {
-                    Id = "net0",
-                    Mode = request.NetworkMode,
-                    NetworkId = request.NetworkId,
-                    Model = request.NicModel,
-                    MacAddress = NetworkAdapterConfig.GenerateMacAddress()
-                });
-            }
+                    Name = request.Name.Trim(),
+                    Description = request.Description,
+                    GuestOs = request.GuestOs,
+                    Architecture = request.Architecture,
+                    Firmware = request.Firmware,
+                    CpuCount = request.CpuCount,
+                    MemoryMb = request.MemoryMb,
+                    IsoPath = request.IsoPath,
+                    SecondaryIsoPath = request.SecondaryIsoPath,
+                    BootFromIso = request.BootFromIso && !string.IsNullOrWhiteSpace(request.IsoPath),
+                    RtcLocalTime = request.RtcLocalTime,
+                    FolderPath = folder,
+                    DisksEncrypted = request.DiskKey is not null
+                };
 
-            Save(config);
-            return config;
+                await AddSystemDiskAsync(config, request, folder, cancellationToken).ConfigureAwait(false);
+
+                if (request.Unattended is { } unattended && config.BootFromIso)
+                {
+                    WindowsUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), unattended);
+                    config.UnattendedSetup = UnattendedSetupState.Pending;
+                }
+                else if (request.UnattendedLinux is { } linux && !string.IsNullOrWhiteSpace(request.IsoPath))
+                {
+                    // Read out of the ISO now, so the first start does not wait on a hundred megabytes.
+                    if (!LinuxUnattendedSetup.WriteTo(QemuArgumentBuilder.GetWindowsSetupFolder(config), linux, config.GuestOs, request.IsoPath))
+                        throw new InvalidOperationException(CoreText.LibraryUbuntuIsoWithoutInstaller);
+                    config.UnattendedSetup = UnattendedSetupState.Pending;
+                    // The installer's own kernel is booted for the first start; every later one is the disk's.
+                    config.BootFromIso = false;
+                }
+
+                if (request.NetworkMode != NetworkMode.None)
+                {
+                    config.NetworkAdapters.Add(new NetworkAdapterConfig
+                    {
+                        Id = "net0",
+                        Mode = request.NetworkMode,
+                        NetworkId = request.NetworkId,
+                        Model = request.NicModel,
+                        MacAddress = NetworkAdapterConfig.GenerateMacAddress()
+                    });
+                }
+
+                Save(config);
+                return config;
+            }
+            catch
+            {
+                try
+                {
+                    Directory.Delete(folder, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                }
+                throw;
+            }
         }
 
         /// <summary>
@@ -865,13 +880,21 @@ namespace WinQEMU.Core.Services
         private string AllocateFolder(string name)
         {
             Directory.CreateDirectory(RootPath);
+            return FolderFor(RootPath, name);
+        }
 
+        /// <summary>
+        /// The folder a new machine named <paramref name="name"/> gets under <paramref name="root"/>: its name in ASCII,
+        /// numbered when taken. Shown by the wizard, which showed the name as typed ("Débian") while "Debian (2)" was made.
+        /// </summary>
+        public static string FolderFor(string root, string name)
+        {
             var baseName = SanitizeFolderName(name);
-            var candidate = Path.Combine(RootPath, baseName);
+            var candidate = Path.Combine(root, baseName);
             var suffix = 2;
             while (Directory.Exists(candidate))
             {
-                candidate = Path.Combine(RootPath, $"{baseName} ({suffix.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
+                candidate = Path.Combine(root, $"{baseName} ({suffix.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
                 suffix++;
             }
 

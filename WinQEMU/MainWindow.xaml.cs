@@ -1302,6 +1302,11 @@ namespace WinQEMU
         /// </summary>
         private async void OnTypeClipboardClick(object sender, RoutedEventArgs e)
         {
+            if (_viewModel.IsTyping)
+            {
+                _viewModel.StopTyping();
+                return;
+            }
             string? text = null;
             try
             {

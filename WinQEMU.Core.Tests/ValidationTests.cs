@@ -65,6 +65,31 @@ public class ValidationTests : IDisposable
     }
 
     [Fact]
+    public void An_ARM64_machine_needs_UEFI_and_no_SATA()
+    {
+        // A blank "Display output is not active" with the BIOS; QEMU stopped on a missing ide.0 bus with SATA.
+        var vm = Vm();
+        vm.Architecture = GuestArchitecture.Aarch64;
+        vm.Firmware = FirmwareType.Bios;
+        vm.Disks[0].Bus = DiskBus.Sata;
+
+        var problems = Validate(vm);
+
+        Assert.Contains(problems, p => p.Contains("UEFI", StringComparison.Ordinal) && p.Contains("ARM64", StringComparison.Ordinal));
+        Assert.Contains(problems, p => p.Contains("SATA", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_listening_address_that_is_not_IPv4_is_refused()
+    {
+        // A comma would have added an option to -netdev.
+        var vm = VmWithForward(2222, 22);
+        vm.NetworkAdapters[0].PortForwards[0].HostAddress = "127.0.0.1,smb=C:\\";
+
+        Assert.Contains(Validate(vm), p => p.Contains("IPv4", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void The_cpu_models_that_never_execute_under_whpx_are_refused()
     {
         // Observed with QEMU 11 on WHPX: the guest runs no instruction at all, not even the firmware,

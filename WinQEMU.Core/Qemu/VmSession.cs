@@ -257,6 +257,29 @@ namespace WinQEMU.Core.Qemu
 
             AppendLog("ACPI power button pressed; waiting for the guest to shut down.");
             await qmp.ExecuteAsync("system_powerdown", null, cancellationToken).ConfigureAwait(false);
+            if (GuestOsCatalog.Find(Config.GuestOs)?.Family == "Windows")
+                _ = PressAgainAsync(request);
+        }
+
+        /// <summary>
+        /// Windows with its screen off takes the first press for waking the display, and stays on: an idle Windows 11
+        /// ignored winqemu stop for 300 s, and went in 40 s at a second press. Still there after 20 s, with no other
+        /// request since, the button is pressed once more (pressed while Windows is already going, it changes nothing).
+        /// </summary>
+        private async Task PressAgainAsync(int request)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+            if (request != Volatile.Read(ref _shutdownRequest) || State != VmState.Stopping || _qmp is not { IsConnected: true } qmp)
+                return;
+            try
+            {
+                AppendLog("ACPI power button pressed again (a Windows guest with its screen off only wakes it at the first).");
+                await qmp.ExecuteAsync("system_powerdown").ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is QmpException or IOException or ObjectDisposedException)
+            {
+                // Gone meanwhile.
+            }
         }
 
         private int _shutdownRequest;
@@ -616,8 +639,10 @@ namespace WinQEMU.Core.Qemu
         {
             foreach (var keys in strokes)
             {
-                await SendKeysAsync(keys, cancellationToken).ConfigureAwait(false);
-                await Task.Delay(15, cancellationToken).ConfigureAwait(false);
+                // Stopped between two characters only: a character's keys go whole, never a Shift left held down.
+                cancellationToken.ThrowIfCancellationRequested();
+                await SendKeysAsync(keys, CancellationToken.None).ConfigureAwait(false);
+                await Task.Delay(15, CancellationToken.None).ConfigureAwait(false);
             }
         }
 

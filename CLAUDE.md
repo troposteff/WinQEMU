@@ -178,6 +178,18 @@ Installer ne met à jour que vers plus haut.
   courant : le script refuse si `WinQEMU`, `WinQEMU.Core` ou `WinQEMU.Cli` ont changé depuis le commit qui a fixé la
   version (le paquet du Store n'aurait pas été compilé de ces sources), ou si ce commit n'est pas poussé.
 
+## Assistant de création (relecture du 13/11/2026)
+
+- **Disque existant** : refusé s'il est protégé par un clone lié (`WhyImageCannotBeAttached`, comme l'attache depuis le
+  Matériel ; l'assistant ne le vérifiait pas, et la nouvelle machine écrivait dans l'image que les clones lisent), et
+  **pas d'installation automatique** sur un disque existant (elle partitionne tout le disque : l'image apportée sur place
+  était effacée).
+- Dossier affiché = dossier créé (`VmLibrary.FolderFor` : nom en ASCII, numéroté s'il est pris ; l'assistant montrait
+  « Débian » quand « Debian (2) » était créé). Création ratée (qemu-img, ISO sans installateur) : dossier supprimé.
+- ARM64 : BIOS et disques SATA/IDE refusés par `Validate` (écran vide, ou QEMU arrêté faute de bus `ide.N`).
+- Détection de QEMU : un dossier dont `qemu-system --version` ne répond pas est écarté (il masquait un QEMU valide plus
+  loin), et un dossier choisi dans les Paramètres qui n'existe plus est dit.
+
 ## Préparer ce PC (`Dialogs.ReadinessDialog`)
 
 Ouvert au démarrage tant que QEMU ou l'accélération manque (sauf « Ne plus afficher au démarrage »,
@@ -385,7 +397,9 @@ courant, et dit pourquoi les autres ne le sont pas.
   **Pris au démarrage, hors ligne** (`MainViewModel.StartMachineAsync`, avant QEMU), pas pendant que la machine
   tourne : sous WHPX le seul instantané possible alors est une superposition, qui ne se fusionne que machine arrêtée ;
   une prise toutes les heures d'une longue session allongerait la chaîne sans moyen de l'élaguer. Les plus anciens
-  au-delà du nombre gardé sont supprimés, **seulement ceux nommés `Auto …`**. Filiation enregistrée comme une prise
+  au-delà du nombre gardé sont supprimés, **seulement ceux nommés `Auto …`**, **jamais celui qui vient d'être pris** (les
+  noms trient par heure locale : l'horloge reculée, le nouveau passait pour le plus ancien et, à 1 gardé, était supprimé
+  aussitôt). Filiation enregistrée comme une prise
   manuelle. Un échec est signalé sans empêcher le démarrage. Vérifié dans l'app sur Debian (journal + `qemu-img
   snapshot -l`).
 
@@ -403,7 +417,12 @@ qcow2 ne fait que grossir, même quand l'invité supprime des fichiers. `qemu-im
   (TRIM) » des Outils invités (`guest-fstrim` par l'agent, machine en marche), qui prévient si un disque n'a pas
   l'option **Discard** (sans elle, les TRIM n'atteignent pas l'image).
 - Vérifié sur le disque Debian de l'utilisateur, depuis l'app : 2,4 Go → 1,5 Go, `qemu-img compare` « Images are
-  identical ». TRIM : 21 systèmes de fichiers sous Ubuntu, 1 sous Windows 11.
+  identical ».
+- **Remplacement avec copie de l'original** (`.precompact`, relecture du 13/11/2026) : `File.Replace` sans nom de
+  sauvegarde peut échouer après la disparition de l'original (copie tenue par un antivirus), et le `catch` supprimait
+  alors la copie, seule restante : disque perdu. L'original est renommé, remis en place en cas d'échec, supprimé après ;
+  une copie n'est supprimée que si le disque est là. Place libre inconnue (bibliothèque sur un chemin réseau, où
+  `DriveInfo` levait et faisait tomber WinQEMU) : pas un refus. TRIM : 21 systèmes de fichiers sous Ubuntu, 1 sous Windows 11.
 
 ## Clonage
 
@@ -770,7 +789,14 @@ get-default` y répondait pourtant `graphical.target`). Absents : lien dans la b
 - **Sous Windows l'agent passe par le pilote virtio-serial des outils virtio-win** : désinstaller les outils a fait taire
   un agent qui fonctionnait. Les outils d'abord, donc.
 - **Le reste passe par l'agent**, en SYSTEM ou root, sans question : sous Windows, l'éditeur Red Hat est approuvé d'abord
-  (signature d'un catalogue de pilote), sinon chaque pilote demande « Installer ce logiciel de périphérique ? ».
+  (signature d'un catalogue de pilote), sinon chaque pilote demande « Installer ce logiciel de périphérique ? ». **Seulement
+  depuis un lecteur DVD de QEMU** (`Win32_CDROMDrive`, `VEN_QEMU` : ni une clé USB ni une ISO montée par un utilisateur de
+  l'invité, dont SYSTEM aurait lancé le programme) **et seulement un certificat Red Hat d'une signature valide** (le
+  signataire du premier catalogue, quel qu'il soit, entrait dans les éditeurs approuvés de la machine). Même règle dans
+  le script de première ouverture de session de l'installation automatique. `virtio-win-guest-tools.exe` lui-même n'est pas
+  signé (vu dans le cache de paquets de Windows 11) : pas de vérification possible de ce côté.
+- Vérification annulée par l'arrêt de la machine : plus de « l'agent n'a pas répondu en 3 min » au journal au bout de
+  quelques secondes.
 - **ISO virtio-win jamais téléchargée** : celle déjà choisie (`AppSettings.VirtioWinIsoPath`), sinon celle qu'une VM de la
   bibliothèque utilise (nom `virtio-win*.iso`), sinon la plus récente des Téléchargements, sinon demandée (où la trouver
   est dit). Insérée dans le lecteur principal, qu'elle remplace (`ChangeIsoAsync`).
@@ -803,6 +829,9 @@ refusé en le nommant, sans moitié de texte tapée. Confirmation au-delà de 30
   sortait « ~ /x », corrigé (ci-dessus) et revérifié : ``cd ~/x_y `date` ~ ^2 été êö`` tapé juste, « ñ » refusé ;
   « École » refusé sans rien taper. Le message de refus finissait par « (Parameter 'text') » (nom de paramètre de l'`ArgumentException`), retiré.
   Un émoji (hors du plan de base) est refusé en le nommant ; sa moitié atteignait `Normalize`, dont le message brut s'affichait.
+- **Pendant la frappe, le bouton devient « Arrêter la frappe »** (`MainViewModel.StopTyping`) : 20 000 caractères prenaient
+  onze minutes, bouton grisé, et seul l'arrêt de la machine y mettait fin. Arrêtée entre deux caractères seulement (les
+  touches d'un caractère partent ensemble : jamais une Maj laissée enfoncée). Vérifié dans l'app sur Fedora test.
 
 ## Capture de la console
 
@@ -864,6 +893,9 @@ Fedora) : image 1966 × 1524 et fichier (`FileDrop`) du même PNG, menu volant a
   considérée en marche, agent, dossiers partagés, graphiques et démarrage refusés, seul Éteindre l'en sortait. Vérifié :
   `winqemu stop` 20 s après le démarrage d'Ubuntu, ignoré ; 3 min plus tard « En cours d'exécution », second arrêt réussi.
   Éteindre pendant un redémarrage de l'invité n'est plus suivi d'une relance (ni après suppression de la machine).
+- **Invité Windows : second appui sur le bouton d'alimentation 20 s après le premier** (`VmSession.PressAgainAsync`) :
+  écran éteint, Windows prend le premier appui pour réveiller l'affichage et reste allumé (Windows 11 inactif : `winqemu
+  stop` attendait 300 s). Vérifié, écran éteint (délai réglé à 1 min puis remis à 5) : arrêté en 26 s.
 - **Arrêter un invité Linux passe par l'agent** (`VmSession.RequestShutdownAsync`, donc bouton, commande, dossier, fermeture
   de WinQEMU, arrêt de Windows) : ce qu'un bureau fait du bouton d'alimentation lui appartient. Plasma n'affichait que son
   écran de déconnexion (`winqemu stop --wait` abandonnait après 300 s), Xfce ne s'arrêtait pas en 90 s, GNOME compte 60 s.
@@ -1246,6 +1278,10 @@ Bouton à côté des Paramètres (`VirtualNetworksDialog`).
   « branche » (IOCTL media status, sinon Windows ne demande pas d'adresse) et en fait un port du
   commutateur. Le DHCP réserve `.1` à sa MAC : Windows prend son adresse tout seul, sans droits.
   Accès refusé (5) → réglage « Non-Admin Access » de la carte. OpenVPN Connect (`tap_ovpnconnect`) exclu.
+  **Signature vérifiée sur le fichier tenu ouvert** jusqu'au lancement (`RequireGenuine` rend le fichier ouvert en lecture
+  partagée : ni écrit, ni renommé, ni supprimé entre la vérification et l'élévation ; un paquet enregistré sur place vit
+  dans un dossier où l'utilisateur écrit), et **organisation exacte** du signataire (`O=OpenVPN Inc.`, pas un texte
+  contenu dans le nom). Vérifié : l'installateur embarqué accepté et verrouillé, un exécutable étranger refusé.
   **Wintun écarté** (étudié le 12/11/2026, non essayé) : maintenu, plus rapide, une seule DLL redistribuable, mais niveau
   IP et non Ethernet (ARP et en-têtes à simuler pour ce PC), pas de DHCP pour ce PC (adresse à poser en administrateur),
   carte ouvrable seulement avec des droits élevés (UAC à chaque démarrage du réseau, ou un service), et la règle 10.2.4

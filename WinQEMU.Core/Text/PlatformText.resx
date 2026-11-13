@@ -123,4 +123,8 @@
   <data name="ImportPackageDescriptor" xml:space="preserve"><value>a VMDK descriptor naming files outside the package</value></data>
   <data name="ImportChainTooDeep" xml:space="preserve"><value>a chain of more than sixteen images</value></data>
   <data name="ValidatePortForwardAddress" xml:space="preserve"><value>Port forward: "{0}" is not an IPv4 address (0.0.0.0 for the network, 127.0.0.1 or empty for this PC only).</value></data>
+  <data name="LocatorFolderMissing" xml:space="preserve"><value>This folder no longer exists.</value></data>
+  <data name="LocatorDoesNotRun" xml:space="preserve"><value>QEMU is there but does not run (qemu-system --version gave no version): a file of the installation may be missing.</value></data>
+  <data name="ValidateAarch64NeedsUefi" xml:space="preserve"><value>An ARM64 machine starts with UEFI only: choose UEFI as its firmware.</value></data>
+  <data name="ValidateAarch64NoSata" xml:space="preserve"><value>Disk {0}: an ARM64 machine has no SATA or IDE controller; choose VirtIO or NVMe.</value></data>
 </root>

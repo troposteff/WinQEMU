@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Window
     x:Class="WinQEMU.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -1999,9 +1999,9 @@
                             <Button
                                 Click="OnTypeClipboardClick"
                                 IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}"
-                                AutomationProperties.Name="{x:Bind t:WindowText.ConsoleTypeClipboard}"
+                                AutomationProperties.Name="{Binding TypeLabel, Mode=OneWay}"
                                 ToolTipService.ToolTip="{x:Bind t:WindowText.ConsoleTypeClipboardTip}">
-                                <FontIcon FontSize="16" Glyph="&#xE77F;" />
+                                <FontIcon FontSize="16" Glyph="{Binding TypeGlyph, Mode=OneWay}" />
                             </Button>
                             <Button
                                 Click="OnCaptureClick"
@@ -2183,8 +2183,8 @@
                     <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="{Binding SoundGlyph, Mode=OneWay}" />
                 </Button>
                 <Button Style="{StaticResource FullScreenIconButton}" Click="OnTypeClipboardClick" IsEnabled="{Binding CanTypeIntoGuest, Mode=OneWay}"
-                        AutomationProperties.Name="{x:Bind t:WindowText.ConsoleTypeClipboard}">
-                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="&#xE77F;" />
+                        AutomationProperties.Name="{Binding TypeLabel, Mode=OneWay}">
+                    <FontIcon FontSize="{StaticResource IconFontSize}" Glyph="{Binding TypeGlyph, Mode=OneWay}" />
                 </Button>
                 <Button Style="{StaticResource FullScreenIconButton}" Click="OnCaptureClick" IsEnabled="{Binding CanCapture, Mode=OneWay}"
                         AutomationProperties.Name="{x:Bind t:WindowText.ConsoleCapture}" ToolTipService.ToolTip="{x:Bind t:WindowText.ConsoleCaptureTip}">

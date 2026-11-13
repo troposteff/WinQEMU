@@ -37,7 +37,12 @@ namespace WinQEMU.Core.Qemu
             foreach (var directory in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 if (!Directory.Exists(directory))
+                {
+                    // The folder chosen in the settings is gone (QEMU uninstalled, a drive unplugged): said, not silent.
+                    if (!string.IsNullOrWhiteSpace(configuredDirectory))
+                        rejected.Add(new RejectedQemuCandidate(directory, PlatformText.LocatorFolderMissing));
                     continue;
+                }
 
                 var binaries = new Dictionary<GuestArchitecture, string>();
                 foreach (var architecture in Enum.GetValues<GuestArchitecture>())
@@ -72,6 +77,15 @@ namespace WinQEMU.Core.Qemu
                     ? x64
                     : binaries.Values.First();
 
+                // One that does not run (a DLL missing from an old install) is passed over: taken because its files were
+                // there, it hid a working QEMU further down the list, and read as having no WHPX.
+                var version = await ProbeVersionAsync(primary, cancellationToken).ConfigureAwait(false);
+                if (version is null)
+                {
+                    rejected.Add(new RejectedQemuCandidate(directory, PlatformText.LocatorDoesNotRun));
+                    continue;
+                }
+
                 return new QemuDetectionResult
                 {
                     Installation = new QemuInstallation
@@ -79,7 +93,7 @@ namespace WinQEMU.Core.Qemu
                         InstallDirectory = directory,
                         SystemBinaries = binaries,
                         QemuImgPath = qemuImg,
-                        Version = await ProbeVersionAsync(primary, cancellationToken).ConfigureAwait(false),
+                        Version = version,
                         WhpxInBuild = await ProbeWhpxAsync(primary, cancellationToken).ConfigureAwait(false),
                         Platform = HypervisorPlatform.Probe(),
                         UefiCodeX64 = FindFirmware(directory, "edk2-x86_64-code.fd", "OVMF_CODE.fd", "OVMF_CODE_4M.fd"),

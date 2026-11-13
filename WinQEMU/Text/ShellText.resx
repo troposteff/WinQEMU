@@ -287,4 +287,5 @@ Do not touch the keyboard while it types (a few seconds). If sudo asks for your 
   <data name="ToolsStillRestricted" xml:space="preserve"><value>The guest agent is still held back after ten minutes. Check in the guest that the command ran correctly.</value></data>
   <data name="StartRefusedWhileStoppingAll" xml:space="preserve"><value>WinQEMU is shutting every machine down: {0} is not started.</value></data>
   <data name="StartAlreadyInProgress" xml:space="preserve"><value>{0} is already being started.</value></data>
+  <data name="TypeStop" xml:space="preserve"><value>Stop typing</value></data>
 </root>

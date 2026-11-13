@@ -186,9 +186,11 @@ namespace WinQEMU.ViewModels
             if (!_manager.IsQemuAvailable)
                 return (DialogText.NewVmNoQemu, null);
 
-            if (Directory.Exists(TargetFolder))
+            // TargetFolder is the numbered one when the plain name is taken: the plain one is what exists.
+            var plain = Path.Combine(LibraryRoot, VmLibrary.SanitizeFolderName(Name ?? string.Empty));
+            if (Directory.Exists(plain))
             {
-                return (null, string.Format(CultureInfo.CurrentCulture, DialogText.NewVmFolderExists, TargetFolder));
+                return (null, string.Format(CultureInfo.CurrentCulture, DialogText.NewVmFolderExists, plain));
             }
 
             return (null, null);
@@ -251,6 +253,9 @@ namespace WinQEMU.ViewModels
                     return (DialogText.NewVmNoDiskFile, null);
                 if (!File.Exists(ExistingDiskPath))
                     return (string.Format(CultureInfo.CurrentCulture, DialogText.FileNotFound, ExistingDiskPath), null);
+                // Attached in place and written to: an image a linked clone reads would corrupt every clone.
+                if (_manager.WhyImageCannotBeAttached(Path.GetFullPath(ExistingDiskPath)) is { } refused)
+                    return (refused, null);
 
                 return (null, DialogText.NewVmExistingDiskAdvisory);
             }
@@ -342,7 +347,7 @@ namespace WinQEMU.ViewModels
                 var trimmed = (Name ?? string.Empty).Trim();
                 if (trimmed.Length == 0 || VmLibrary.ValidateName(trimmed) is not null)
                     return LibraryRoot;
-                return Path.Combine(LibraryRoot, trimmed);
+                return VmLibrary.FolderFor(LibraryRoot, trimmed);
             }
         }
 
@@ -469,7 +474,7 @@ namespace WinQEMU.ViewModels
                 if (!SetProperty(ref _createNewDisk, value))
                     return;
                 RaisePropertyChanged(nameof(UseExistingDisk));
-                RevalidateCurrentStep();
+                RaiseUnattended();
             }
         }
 
@@ -544,8 +549,10 @@ namespace WinQEMU.ViewModels
         /// Offered for a Windows from 10 on, in UEFI, starting from its ISO: VMware's "installation
         /// simplifiée". Windows 7 and 8.1 keep BIOS and their own answer file format.
         /// </summary>
+        // A new disk only: an installation partitions the whole disk, and an image brought in place (another
+        // hypervisor's machine) was wiped.
         public bool CanInstallUnattended =>
-            BootFromIso && !string.IsNullOrWhiteSpace(IsoPath)
+            CreateNewDisk && BootFromIso && !string.IsNullOrWhiteSpace(IsoPath)
             && (SelectedProfile.Family == "Windows"
                 ? SelectedProfile.Key != "windows-7" && Firmware == FirmwareType.Uefi
                 : LinuxUnattendedSetup.Supports(SelectedProfile.Key) && IsLinuxInstaller(SelectedProfile.Key, IsoPath));

@@ -46,6 +46,15 @@ public sealed class AutoSnapshotTests : IAsyncLifetime
     }
 
     [Fact]
+    public void The_one_just_taken_stays_even_when_the_clock_went_back()
+    {
+        // Taken at 07h00 after the clock was set back: it sorts oldest, and at keep = 1 it was deleted at once.
+        var surplus = AutoSnapshots.Surplus(new[] { "Auto 2026-10-04 08h00", "Auto 2026-10-04 07h00" }, keep: 1, taken: "Auto 2026-10-04 07h00");
+
+        Assert.Equal(new[] { "Auto 2026-10-04 08h00" }, surplus);
+    }
+
+    [Fact]
     public async Task A_snapshot_is_taken_once_an_interval_and_the_oldest_go()
     {
         if (_images is null)

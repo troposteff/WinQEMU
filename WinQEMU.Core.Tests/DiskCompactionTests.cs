@@ -60,6 +60,7 @@ public sealed class DiskCompactionTests : IAsyncLifetime
         compare.WaitForExit();
         Assert.Equal(0, compare.ExitCode);
         Assert.False(File.Exists(image + ".compact"));
+        Assert.False(File.Exists(image + ".precompact"));
     }
 
     [Fact]

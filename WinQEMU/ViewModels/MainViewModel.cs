@@ -2078,10 +2078,30 @@ namespace WinQEMU.ViewModels
 
         // ---- Typing into the guest ----
 
-        private bool _typing;
+        private System.Threading.CancellationTokenSource? _typing;
 
-        /// <summary>The selection can be typed into: running, and not typing already.</summary>
-        public bool CanTypeIntoGuest => IsSelectedRunning && !_typing;
+        /// <summary>
+        /// A text is being typed. The button then stops it: a long clipboard typed for minutes (20 000 characters, about
+        /// eleven), and only stopping the machine ended it.
+        /// </summary>
+        public bool IsTyping => _typing is not null;
+
+        /// <summary>The button: types into the running selection, or stops the typing under way.</summary>
+        public bool CanTypeIntoGuest => IsTyping || IsSelectedRunning;
+
+        public string TypeGlyph => IsTyping ? "" : "";
+
+        public string TypeLabel => IsTyping ? ShellText.TypeStop : WindowText.ConsoleTypeClipboard;
+
+        public void StopTyping() => _typing?.Cancel();
+
+        private void RaiseTypingProperties()
+        {
+            RaisePropertyChanged(nameof(IsTyping));
+            RaisePropertyChanged(nameof(CanTypeIntoGuest));
+            RaisePropertyChanged(nameof(TypeGlyph));
+            RaisePropertyChanged(nameof(TypeLabel));
+        }
 
         /// <summary>
         /// Types text at the selection's keyboard, in this PC's layout (Input.KeyboardText): the clipboard of a
@@ -2090,7 +2110,7 @@ namespace WinQEMU.ViewModels
         /// </summary>
         public async Task<string?> TypeIntoGuestAsync(string text)
         {
-            if (SelectedSession is not { IsRunning: true } session || _typing)
+            if (SelectedSession is not { IsRunning: true } session || _typing is not null)
                 return ShellText.MachineMustRun;
             IReadOnlyList<IReadOnlyList<(int Number, bool Down)>> strokes;
             try
@@ -2103,12 +2123,18 @@ namespace WinQEMU.ViewModels
                 return ex.Message;
             }
 
-            _typing = true;
-            RaisePropertyChanged(nameof(CanTypeIntoGuest));
+            using var typing = new System.Threading.CancellationTokenSource();
+            _typing = typing;
+            RaiseTypingProperties();
             try
             {
-                await session.TypeAsync(strokes);
-                AppendDiagnostic($"Keyboard: {text.Length} character(s) typed in the guest.");
+                await session.TypeAsync(strokes, typing.Token);
+                AppendDiagnostic(session.Config, $"Keyboard: {text.Length} character(s) typed in the guest.");
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                AppendDiagnostic(session.Config, "Keyboard: typing stopped by the user.");
                 return null;
             }
             catch (Exception ex) when (ex is QmpException or InvalidOperationException or IOException)
@@ -2117,8 +2143,8 @@ namespace WinQEMU.ViewModels
             }
             finally
             {
-                _typing = false;
-                RaisePropertyChanged(nameof(CanTypeIntoGuest));
+                _typing = null;
+                RaiseTypingProperties();
             }
         }
 
@@ -2155,6 +2181,12 @@ namespace WinQEMU.ViewModels
             {
                 report = new GuestToolsReport(GuestToolsState.Unknown, string.Empty);
                 session.AppendLog($"Guest tools: could not be checked ({ex.Message}).");
+            }
+            // Stopped meanwhile: the wait ended because the machine went, not because the agent was silent for 3 min.
+            if (!session.IsRunning)
+            {
+                SetToolsReport(config, new GuestToolsReport(GuestToolsState.Unknown, string.Empty));
+                return;
             }
             // In the machine's own log (AppendDiagnostic writes to the one shown, which another selection clears): the
             // banner says "missing or incomplete" for an agent that did not answer as for a missing spice-vdagent, and a

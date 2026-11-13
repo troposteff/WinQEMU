@@ -56,15 +56,20 @@ namespace WinQEMU.Core.Services
         /// </summary>
         public const string WindowsToolsScript = """
             $ProgressPreference = 'SilentlyContinue'
-            $drive = Get-PSDrive -PSProvider FileSystem | Where-Object { Test-Path (Join-Path $_.Root 'virtio-win-guest-tools.exe') } | Select-Object -First 1
-            if (-not $drive) { exit 30 }
-            $root = $drive.Root
-            $catalog = Get-ChildItem (Join-Path $root 'Balloon') -Recurse -Filter *.cat -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($catalog) {
-              $certificate = (Get-AuthenticodeSignature $catalog.FullName).SignerCertificate
-              if ($certificate) {
+            # A drive of the virtual machine (QEMU's DVD drive, where WinQEMU inserted the ISO), never any drive: a user of
+            # the guest could letter a USB stick or a mounted ISO ("Microsoft Virtual DVD-ROM") first, and have SYSTEM run
+            # its program and trust its certificate.
+            $letters = Get-CimInstance Win32_CDROMDrive | Where-Object { $_.PNPDeviceID -like '*VEN_QEMU*' -and $_.Drive } | ForEach-Object { $_.Drive + '\' }
+            $root = $letters | Where-Object { Test-Path (Join-Path $_ 'virtio-win-guest-tools.exe') } | Select-Object -First 1
+            if (-not $root) { exit 30 }
+            # Red Hat's own certificate only, from a valid signature: whatever signed the first catalog went into the
+            # machine's trusted publishers.
+            foreach ($catalog in Get-ChildItem (Join-Path $root 'Balloon') -Recurse -Filter *.cat -ErrorAction SilentlyContinue) {
+              $signature = Get-AuthenticodeSignature $catalog.FullName
+              if ($signature.Status -eq 'Valid' -and $signature.SignerCertificate.Subject -match '(^|, )O="?Red Hat, Inc\.?"?(,|$)') {
                 $store = New-Object Security.Cryptography.X509Certificates.X509Store('TrustedPublisher', 'LocalMachine')
-                $store.Open('ReadWrite'); $store.Add($certificate); $store.Close()
+                $store.Open('ReadWrite'); $store.Add($signature.SignerCertificate); $store.Close()
+                break
               }
             }
             $process = Start-Process (Join-Path $root 'virtio-win-guest-tools.exe') -ArgumentList '/install', '/quiet', '/norestart' -Wait -PassThru

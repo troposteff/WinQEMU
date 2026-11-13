@@ -400,8 +400,16 @@ namespace WinQEMU.ViewModels
             var path = ResolveDiskPath(disk);
             if (!File.Exists(path))
                 return DialogText.HardwareDiskFileMissing;
-            var info = await _manager.DiskService.GetInfoAsync(path).ConfigureAwait(true);
-            return DiskCompaction.WhyNot(_config, disk, info, _manager.ProtectedImages);
+            // A damaged or locked image: said, not thrown (the button's handler is async void).
+            try
+            {
+                var info = await _manager.DiskService.GetInfoAsync(path).ConfigureAwait(true);
+                return DiskCompaction.WhyNot(_config, disk, info, _manager.ProtectedImages);
+            }
+            catch (Exception ex) when (ex is QemuImgException or IOException or InvalidOperationException)
+            {
+                return ex.Message;
+            }
         }
 
         /// <summary>Compacts the disk; failures are reported and give null.</summary>

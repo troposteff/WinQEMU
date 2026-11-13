@@ -51,9 +51,16 @@ namespace WinQEMU.Core.Services
         /// The automatic snapshots beyond the number kept, oldest first. A partial one (absent from a disk)
         /// counts like any other: what it has is removed.
         /// </summary>
-        public static IReadOnlyList<string> Surplus(IEnumerable<string> names, int keep) =>
-            names.Where(IsAutomatic).Distinct().OrderByDescending(n => n, StringComparer.Ordinal).Skip(Math.Max(1, keep))
-                .OrderBy(n => n, StringComparer.Ordinal).ToList();
+        /// <param name="taken">
+        /// The one just taken, never removed. The names sort by local time: after the clock went back (a time zone to the
+        /// west, a reset clock), the new one sorted oldest and, at keep = 1, was deleted at once at every start.
+        /// </param>
+        public static IReadOnlyList<string> Surplus(IEnumerable<string> names, int keep, string? taken = null)
+        {
+            var kept = Math.Max(1, keep);
+            var others = names.Where(IsAutomatic).Distinct().Where(n => n != taken).OrderByDescending(n => n, StringComparer.Ordinal);
+            return others.Skip(taken is null ? kept : kept - 1).OrderBy(n => n, StringComparer.Ordinal).ToList();
+        }
 
         /// <summary>
         /// Takes the snapshot and removes the surplus, the machine being stopped. Returns the name taken, or
@@ -81,7 +88,7 @@ namespace WinQEMU.Core.Services
             config.LastAutoSnapshotUtc = nowUtc;
 
             tree = await TreeAsync(config, images, library, cancellationToken);
-            foreach (var old in Surplus(SnapshotNames(tree), config.AutoSnapshotKeep))
+            foreach (var old in Surplus(SnapshotNames(tree), config.AutoSnapshotKeep, taken: name))
             {
                 var oldParent = SnapshotTree.ParentOf(tree, old);
                 foreach (var disk in disks)

@@ -287,4 +287,5 @@ Ne touchez pas au clavier pendant la saisie (quelques secondes). Si sudo demande
   <data name="ToolsStillRestricted" xml:space="preserve"><value>L'agent invité est toujours bridé après dix minutes. Vérifiez dans l'invité que la commande s'est bien exécutée.</value></data>
   <data name="StartRefusedWhileStoppingAll" xml:space="preserve"><value>WinQEMU arrête toutes les machines : {0} ne démarre pas.</value></data>
   <data name="StartAlreadyInProgress" xml:space="preserve"><value>{0} est déjà en train de démarrer.</value></data>
+  <data name="TypeStop" xml:space="preserve"><value>Arrêter la frappe</value></data>
 </root>

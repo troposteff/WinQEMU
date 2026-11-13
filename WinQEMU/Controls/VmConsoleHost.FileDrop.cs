@@ -18,6 +18,12 @@ namespace WinQEMU.Controls
         /// <summary>Whether the button held down was pressed over the console (a drag inside the guest), or null.</summary>
         private bool? _pressStartedOnConsole;
 
+        /// <summary>
+        /// When a button was last pressed on the console, as Windows told the shell at once (OnChildClicked), in
+        /// Environment.TickCount64; 0 for never.
+        /// </summary>
+        private long _consolePressAt;
+
         /// <summary>Whether <see cref="GuestDragLeft"/> was raised for the button held now.</summary>
         private bool _guestDragLeftRaised;
 
@@ -175,9 +181,14 @@ namespace WinQEMU.Controls
             }
 
             var over = cursor.X >= bounds.Left && cursor.X < bounds.Right && cursor.Y >= bounds.Top && cursor.Y < bounds.Bottom;
-            if (_pressStartedOnConsole is null && over)
+            // Where the press was made, not where the pointer is a tenth of a second later: a press near the console's
+            // edge dragged out before this timer's next turn was taken for a press made outside, and files dragged out
+            // of the guest that way went nowhere. Windows reports a press on the console the moment it is made; one
+            // older than this timer's period and a half belongs to an earlier press.
+            var pressedHere = over || (_consolePressAt != 0 && Environment.TickCount64 - _consolePressAt <= 150);
+            if (_pressStartedOnConsole is null && pressedHere)
                 _sdlHasPress = _pointerOverlay is not { IsVisible: true };
-            _pressStartedOnConsole ??= over;
+            _pressStartedOnConsole ??= pressedHere;
             _pressButton ??= left ? "left" : "right";
             _pressEndedOutside = !over;
             if (_pressStartedOnConsole == true)

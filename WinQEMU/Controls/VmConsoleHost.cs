@@ -503,6 +503,7 @@ namespace WinQEMU.Controls
                 return;
             if (x >= _lastX && x < _lastX + _lastWidth && y >= _lastY && y < _lastY + _lastHeight)
             {
+                _consolePressAt = Environment.TickCount64;
                 FocusGuest();
                 ConsoleClicked?.Invoke(this, EventArgs.Empty);
             }

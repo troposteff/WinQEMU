@@ -717,8 +717,8 @@ refusé en le nommant, sans moitié de texte tapée. Confirmation au-delà de 30
   aussitôt, et « ~/x » sortait « ~ /x » (Debian « fr latin9 », Fedora « fr »). Sans l'espace pour un invité Linux ; une
   lettre qui aurait besoin de cet accent (ñ en français, qui sortirait « ~n ») est refusée. Les touches mortes sans
   AltGr (^ ¨) le restent partout. **Appliquée à la seule disposition française** (`IsFrench`, 0000040C) : la disposition
-  belge de Linux, par exemple, garde ses accents AltGr morts comme Windows. Non vérifiée sous un bureau (xkb « fr » :
-  AltGr+2 = `asciitilde`, non morte).
+  belge de Linux, par exemple, garde ses accents AltGr morts comme Windows. Vérifiée aussi sous un bureau (Ubuntu 26.04,
+  GNOME, terminal) : ``echo ~/x_y `date +%Y` ~ ^2 été êö`` tapé juste, `~` et accents graves développés par le shell.
 - Vérifié sur la console texte d'une copie jetable de Debian 13 (relu par `/dev/vcsu1` via l'agent) et dans Exécuter
   d'un Windows 11. **Bouton vérifié de bout en bout sur le PC de test** (12/11/2026, invite de connexion d'une console
   texte Fedora, relue par `screendump`) : `été à çà: {a}[b]|c\d @home #1 €5 <ok> "q" 's' ù% êö` tapé juste ; « ~/x »
@@ -987,7 +987,13 @@ invité), `MainWindow.DragOut` et `Controls.GuestDragSource` (côté PC), `VmCon
   fie à ce que la cible acceptait au survol, et les fichiers restent (le dossier temporaire est vidé au bout d'une heure).
   **Vérifié à la main par l'utilisateur** : le menu copie, « Annuler » annule. Choisi par un clic simulé ou une touche
   Entrée envoyés depuis un autre processus, « Copier ici » ne copiait rien : sans doute l'essai, pas WinQEMU. Une détection au
-  bouton droit a échoué une fois (sur deux) pendant ces essais automatiques, sans explication.
+  bouton droit avait échoué une fois (sur deux) pendant ces essais automatiques ; cause probable, trouvée depuis :
+- **L'appui est situé là où il est fait, pas là où est le pointeur au tour suivant du minuteur.** `WatchForDrag` (100 ms)
+  décidait « appui sur la console » d'après la position du pointeur à son premier tour : un appui près du bord, sorti de
+  la console avant ce tour, passait pour un appui fait dehors, et le glisser hors de l'invité n'était jamais pris.
+  Windows signale l'appui sur la console à l'instant même (`WM_PARENTNOTIFY`, `OnChildClicked`, `_consolePressAt`) : un
+  appui signalé depuis 150 ms au plus compte. Reproduit par un glisser scripté (13/11/2026, Ubuntu) : sortie de la console
+  20 ms après l'appui, non détectée avant (détectée à 300 ms) ; après, détectée à 5, 20 et 300 ms, boutons gauche et droit.
 - Vérifié sur une copie du Windows 11 de l'utilisateur (Ryzen, 09/11/2026), glisser simulé (`SetCursorPos`,
   `mouse_event`, processus *per-monitor aware*), empreintes SHA-256 comparées par l'agent : 3 Mo, 400 Mo, 3 Go relâché
   pendant la copie, sur les deux chemins (image à l'échelle : `PointerOverlay` ; image au pixel : SDL) ; **relâché sur

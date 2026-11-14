@@ -36,7 +36,11 @@ A Windows interface over QEMU: create, run and manage virtual machines with hard
 
 ## What's new in this version
 
-Drag files out of the guest: files and folders dragged out of the console are dropped on this PC, in Explorer or any other window that takes files, from Windows guests and from Linux guests with a desktop (GNOME, KDE Plasma, Xfce; Wayland or X11). Shutting down a Linux guest goes through its guest agent, so it stops at once whatever its desktop does with the power button. Unattended installation of Fedora no longer stops on its repositories, and openSUSE installs from the DVD as well. A Linux guest without Perl is reported and repaired by "Install the guest tools". Copies to and from a guest no longer fail one after another until the machine is restarted.
+Security and reliability. A guest can no longer reach WinQEMU's own channels to QEMU (guest agent, control, shared folders) through its network card. Shared folders no longer follow links out of the folder you shared. Inside a Windows guest, the helper programs are kept in a folder only the system can write. Imported machines cannot make WinQEMU read files outside their own folder.
+
+Your machines are better protected: descriptors and settings are written safely and kept in a backup copy, a failed compaction can no longer lose a disk, "Delete with files" only ever deletes the machine itself, and an unexpected error no longer closes WinQEMU and its running machines.
+
+Also: a guest that ignores the shutdown request no longer stays stuck in "Stopping"; an idle Windows guest shuts down at the first request; quitting or shutting Windows down waits for every machine; keys are released in the guest when you switch windows; typing the clipboard can be stopped; an interrupted unattended installation starts over; many smaller fixes in snapshots, clones, encryption, virtual networks and the winqemu command.
 
 ## Product features
 

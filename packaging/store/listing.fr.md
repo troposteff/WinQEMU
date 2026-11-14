@@ -36,7 +36,11 @@ Une interface Windows au-dessus de QEMU : créez, lancez et gérez des machines 
 
 ## Nouveautés de cette version
 
-Glisser des fichiers hors de l'invité : les fichiers et dossiers glissés hors de la console sont déposés sur ce PC, dans l'Explorateur ou toute fenêtre qui prend des fichiers, depuis un invité Windows ou un invité Linux avec un bureau (GNOME, KDE Plasma, Xfce ; Wayland ou X11). L'arrêt d'un invité Linux passe par son agent invité : il s'arrête aussitôt, quoi que son bureau fasse du bouton d'alimentation. L'installation automatique de Fedora ne s'arrête plus sur ses dépôts, et openSUSE s'installe aussi depuis le DVD. Un invité Linux sans Perl est signalé et réparé par « Installer les outils invités ». Les copies vers et depuis un invité n'échouent plus l'une après l'autre jusqu'au redémarrage de la machine.
+Sécurité et fiabilité. Un invité ne peut plus joindre par sa carte réseau les canaux internes de WinQEMU vers QEMU (agent invité, pilotage, dossiers partagés). Les dossiers partagés ne suivent plus les liens qui sortent du dossier que vous avez partagé. Dans un invité Windows, les programmes d'assistance sont rangés dans un dossier que seul le système peut modifier. Une machine importée ne peut plus faire lire à WinQEMU des fichiers hors de son propre dossier.
+
+Vos machines sont mieux protégées : descripteurs et réglages sont écrits de façon sûre et gardés en copie de secours, un compactage raté ne peut plus perdre un disque, « Supprimer avec les fichiers » ne supprime jamais que la machine, et une erreur imprévue ne ferme plus WinQEMU ni ses machines en marche.
+
+Aussi : un invité qui ignore la demande d'arrêt ne reste plus bloqué sur « Arrêt en cours » ; un invité Windows inactif s'arrête à la première demande ; quitter ou arrêter Windows attend toutes les machines ; les touches sont relâchées dans l'invité quand vous changez de fenêtre ; la frappe du presse-papiers peut être arrêtée ; une installation automatique interrompue repart du début ; nombreuses corrections dans les instantanés, les clones, le chiffrement, les réseaux virtuels et la commande winqemu.
 
 ## Fonctionnalités du produit
 

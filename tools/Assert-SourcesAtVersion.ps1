@@ -17,7 +17,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $application = 'WinQEMU', 'WinQEMU.Core', 'WinQEMU.Cli'
-$versionCommit = (git -C $Root log -1 --format=%H "-SVersion=`"$PackageVersion`"" -- WinQEMU/Package.appxmanifest).Trim()
+# Cast to a string: git prints nothing when no commit sets it, and a method called on that would hide the message below.
+$pickaxe = "-SVersion=`"$PackageVersion`""
+$versionCommit = "$(git -C $Root log -1 --format=%H $pickaxe -- WinQEMU/Package.appxmanifest)".Trim()
 if (-not $versionCommit) { throw "No commit sets Version=`"$PackageVersion`" in the manifest: commit the version first." }
 $changed = @(git -C $Root diff --name-only $versionCommit HEAD -- @application)
 if ($changed) {

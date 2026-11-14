@@ -847,6 +847,9 @@ namespace WinQEMU.ViewModels
                 // The password first: the automatic snapshot opens the disks too.
                 await PrepareDiskKeyAsync(session);
                 await RestartInterruptedInstallationAsync(config);
+                // What an installation now over could not delete while its machine ran.
+                if (config.UnattendedSetup == UnattendedSetupState.None && !QemuArgumentBuilder.NeedsWindowsSetupStick(config))
+                    DeleteAnswerFiles(config, report: false);
                 await TakeAutoSnapshotAsync(config);
                 session.UpdateSharedFolders(config.SharedFolders);
                 await session.StartAsync();
@@ -1750,6 +1753,20 @@ namespace WinQEMU.ViewModels
             if (config.UnattendedSetup != UnattendedSetupState.Installing)
                 return;
 
+            DeleteAnswerFiles(config, report: true);
+            config.BootFromIso = false;
+            config.UnattendedSetup = UnattendedSetupState.None;
+            Manager.Save(config);
+            AppendDiagnostic(config, "Unattended installation: done. Answer file deleted; the machine now starts from its disk.");
+        }
+
+        /// <summary>
+        /// Deletes what an unattended installation left in the machine's setup folder. Again at each later start
+        /// (<paramref name="report"/> false): QEMU holds the stick's files while the installation's machine runs, and
+        /// WQSETUP.PS1, still being read when the agent first answered, stayed there for good.
+        /// </summary>
+        private void DeleteAnswerFiles(VmConfig config, bool report)
+        {
             var folder = QemuArgumentBuilder.GetWindowsSetupFolder(config);
             foreach (var file in new[]
                      {
@@ -1769,13 +1786,10 @@ namespace WinQEMU.ViewModels
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    AppendDiagnostic(config, $"Unattended installation: {file} could not be deleted ({ex.Message}).");
+                    if (report)
+                        AppendDiagnostic(config, $"Unattended installation: {file} could not be deleted yet ({ex.Message}); tried again at the next start.");
                 }
             }
-            config.BootFromIso = false;
-            config.UnattendedSetup = UnattendedSetupState.None;
-            Manager.Save(config);
-            AppendDiagnostic(config, "Unattended installation: done. Answer file deleted; the machine now starts from its disk.");
         }
 
         /// <summary>

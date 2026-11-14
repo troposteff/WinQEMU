@@ -816,7 +816,8 @@ get-default` y répondait pourtant `graphical.target`). Absents : lien dans la b
   **Vérifié de bout en bout (14/11/2026)** : installation automatique de Windows 11 (ISO 26H2 fr-FR de Microsoft,
   virtio-win stable du jour, `E:\ISO`) sur une machine créée par le même `CreateAsync` que l'assistant : 28 min sans une
   question, session ouverte, `QEMU-GA`, `spice-agent` et `BalloonService` en marche, aucun périphérique en erreur, fichiers
-  de réponses supprimés (reste `WQSETUP.PS1`, sans secret). **Dans cette ISO, 16 des 17 catalogues `w11` sont signés par
+  de réponses supprimés (restait `WQSETUP.PS1`, sans secret, que QEMU tenait encore : ce qui n'a pas pu partir est
+  resupprimé à chaque démarrage suivant, `MainViewModel.DeleteAnswerFiles`, vérifié). **Dans cette ISO, 16 des 17 catalogues `w11` sont signés par
   Microsoft** (« Windows Hardware Compatibility Publisher », installés sans question) ; le certificat `O="Red Hat, Inc."`
   que le filtre accepte est bien celui qui se retrouve dans les éditeurs approuvés.
 - Vérification annulée par l'arrêt de la machine : plus de « l'agent n'a pas répondu en 3 min » au journal au bout de

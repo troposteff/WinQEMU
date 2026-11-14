@@ -288,8 +288,31 @@ namespace WinQEMU.Controls
             // Being taken in the background: wait for it, it will then be among the parked ones.
             if (_adoptions.TryGetValue(processId, out var adoption))
                 await adoption;
+            // Or by an earlier attach of this same machine, superseded since (A, B, A in quick succession): its window is
+            // neither parked nor shown while it is in hand, and searching the desktop for it found nothing ("the console
+            // window cannot be found", for good). That attach parks it again; then it is taken from there.
+            while (_inHand.TryGetValue(processId, out var earlier))
+                await earlier;
             if (token.IsCancellationRequested)
                 return false;
+
+            var hand = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _inHand[processId] = hand.Task;
+            try
+            {
+                return await AttachCoreAsync(processId, token);
+            }
+            finally
+            {
+                _inHand.Remove(processId);
+                hand.SetResult();
+            }
+        }
+
+        private readonly Dictionary<int, Task> _inHand = new();
+
+        private async Task<bool> AttachCoreAsync(int processId, CancellationToken token)
+        {
 
             foreach (var dead in _parked.Where(entry => !entry.Value.IsAlive).Select(entry => entry.Key).ToList())
                 _parked.Remove(dead);

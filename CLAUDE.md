@@ -1664,7 +1664,14 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   étendu) : Verr. Num. partait en 0xC5 (aucune touche), Pause basculait Verr. Num. ; envoyés en 0x45 et 0xC6, les codes de
   QEMU. **Boutons de la couche du pointeur** relâchés dans l'invité quand la capture est perdue ou la couche cachée en
   plein glisser. **Console prise pour une machine qu'on a quittée entre-temps** : regarée au lieu d'être affichée sous
-  l'autre (clavier vers l'une, image de l'autre, fenêtre orpheline).
+  l'autre (clavier vers l'une, image de l'autre, fenêtre orpheline). **Et une console « en main »** (`_inHand`) : pendant
+  qu'un rattachement dépassé la regare, elle n'est ni garée ni affichée ; le rattachement suivant de la même machine (A, B,
+  A à la suite) la cherchait sur le bureau et affichait « La fenêtre de console de QEMU est introuvable » pour de bon. Il
+  attend désormais le précédent.
+  **Vérifié dans l'app (14/11/2026)**, état des touches lu dans Ubuntu par `EVIOCGKEY` et les événements du clavier :
+  Alt tenu puis relâché dès que la fenêtre perd le premier plan ; Verr. Num. tenu et voyant basculé ; Pause reçue (code
+  119) ; dix séries de 6 à 12 `winqemu show` alternés entre deux machines en marche, la bonne console visible à chaque fois
+  (le défaut « introuvable » reproduit avant le correctif).
 - **Presse-papiers** : un message trop grand ou un flux zlib abîmé n'est plus que sauté ; il arrêtait le partage du
   presse-papiers jusqu'au redémarrage de la machine.
 - **Opérations de disque** (créer, attacher, agrandir, convertir) : la machine est retenue au début et enregistrée aussitôt ;

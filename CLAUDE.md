@@ -1553,7 +1553,13 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
   revérifie la machine. Vérifié dans l'app : Paramètres ouverts, `WM_CLOSE` ignoré, `show Fedora` refusé (code 1).
 - **Commandes QMP rapides bornées à 30 s** quand l'appelant ne donne pas de délai (`QmpClient.IsQuick` : `query-*`,
   `qom-*`, entrées, pause, bouton…) : un QEMU figé laissait l'appelant attendre pour toujours. Les longues (`savevm`,
-  instantanés, moniteur humain) attendent toujours.
+  instantanés, moniteur humain) attendent toujours. Vérifié (14/11/2026) sur Fedora test, processus QEMU suspendu
+  (`NtSuspendProcess`) : `winqemu pause` répond au bout de 30 s (« QEMU did not answer 'stop' within 30 s », code 1),
+  `winqemu list` aussitôt. **La commande abandonnée reste dans la file de QEMU** : à la reprise du processus la machine
+  s'est mise en pause quand même (l'état affiché suit, par l'événement STOP).
+- **Bouton de souris tenu en changeant de fenêtre** (vérifié, état lu dans l'invité par `EVIOCGKEY`) : Windows laisse la
+  capture à la couche du pointeur tant que le bouton est enfoncé, et le relâchement arrive dans l'invité ; la perte de
+  capture elle-même (invite UAC) n'a pas été provoquée.
 
 - **`IsEnabled` est déclaré par `Control`, pas par `Panel`.** Le lier sur un `StackPanel`/`Grid` fait
   sortir `XamlCompiler.exe` en erreur **sans aucun message** ; seule une bissection le trouve. Envelopper

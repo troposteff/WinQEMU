@@ -813,6 +813,12 @@ get-default` y répondait pourtant `graphical.target`). Absents : lien dans la b
   signataire du premier catalogue, quel qu'il soit, entrait dans les éditeurs approuvés de la machine). Même règle dans
   le script de première ouverture de session de l'installation automatique. `virtio-win-guest-tools.exe` lui-même n'est pas
   signé (vu dans le cache de paquets de Windows 11) : pas de vérification possible de ce côté.
+  **Vérifié de bout en bout (14/11/2026)** : installation automatique de Windows 11 (ISO 26H2 fr-FR de Microsoft,
+  virtio-win stable du jour, `E:\ISO`) sur une machine créée par le même `CreateAsync` que l'assistant : 28 min sans une
+  question, session ouverte, `QEMU-GA`, `spice-agent` et `BalloonService` en marche, aucun périphérique en erreur, fichiers
+  de réponses supprimés (reste `WQSETUP.PS1`, sans secret). **Dans cette ISO, 16 des 17 catalogues `w11` sont signés par
+  Microsoft** (« Windows Hardware Compatibility Publisher », installés sans question) ; le certificat `O="Red Hat, Inc."`
+  que le filtre accepte est bien celui qui se retrouve dans les éditeurs approuvés.
 - Vérification annulée par l'arrêt de la machine : plus de « l'agent n'a pas répondu en 3 min » au journal au bout de
   quelques secondes.
 - **ISO virtio-win jamais téléchargée** : celle déjà choisie (`AppSettings.VirtioWinIsoPath`), sinon celle qu'une VM de la

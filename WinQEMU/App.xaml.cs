@@ -35,6 +35,40 @@ namespace WinQEMU
         public App()
         {
             InitializeComponent();
+            UnhandledException += OnUnhandledException;
+        }
+
+        /// <summary>
+        /// The last resort for an exception no handler caught (an event handler is "async void": what escapes it reaches
+        /// here). Without this WinQEMU died, and its machines with it: QEMU is killed with the process that started it, a
+        /// power cut for every guest, over a failed button. The exception is shown in the error bar and written to
+        /// crash.log beside the settings; WinQEMU and the machines stay.
+        /// </summary>
+        private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+        {
+            e.Handled = true;
+            try
+            {
+                var folder = WinQEMU.Core.Services.AppSettings.SettingsDirectory;
+                Directory.CreateDirectory(folder);
+                var log = System.IO.Path.Combine(folder, "crash.log");
+                // Kept small: the last ones are what matters.
+                if (File.Exists(log) && new FileInfo(log).Length > 512 * 1024)
+                    File.Delete(log);
+                File.AppendAllText(log, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {e.Exception}{Environment.NewLine}{Environment.NewLine}");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Nowhere to write it: still shown below.
+            }
+            try
+            {
+                _window?.ReportUnhandled(e.Exception);
+            }
+            catch (Exception)
+            {
+                // The window is what failed: nothing more to do than stay alive.
+            }
         }
 
         /// <summary>

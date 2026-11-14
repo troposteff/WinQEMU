@@ -1367,7 +1367,7 @@ namespace WinQEMU.ViewModels
 
             adapter.PortForwards.Add(forward);
             // The machine of the click: the selection may have changed during the await.
-            Manager.Save(target);
+            SaveMachine(target);
             RefreshLanServices();
             return null;
         }
@@ -1414,7 +1414,7 @@ namespace WinQEMU.ViewModels
             }
 
             item.Adapter.PortForwards.Remove(item.Forward);
-            Manager.Save(target);
+            SaveMachine(target);
             RefreshLanServices();
         }
 
@@ -2320,7 +2320,14 @@ namespace WinQEMU.ViewModels
         public void RememberVirtioWinIso(string path)
         {
             Settings.VirtioWinIsoPath = path;
-            Settings.Save();
+            try
+            {
+                Settings.Save();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Not remembered this time; the ISO is used all the same.
+            }
         }
 
         /// <summary>

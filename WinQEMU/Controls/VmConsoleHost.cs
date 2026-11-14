@@ -377,7 +377,7 @@ namespace WinQEMU.Controls
             // so it must stay hidden until this host is on screen, or it would appear over whatever
             // the user is currently looking at.
             _suspended = false;
-            if (IsOnScreen)
+            if (IsOnScreen && !HoldHidden)
             {
                 // Queued so any pending layout has completed and ActualWidth/Height are final.
                 // Positioning with stale bounds reveals the console at the wrong size and then
@@ -414,8 +414,17 @@ namespace WinQEMU.Controls
             _console.Hide();
         }
 
+        /// <summary>
+        /// A dialog is open: the console stays hidden whatever happens meanwhile. One attached then (a machine started just
+        /// before Settings was opened, a guest reboot relaunching QEMU) was shown over the dialog and took the keyboard:
+        /// the dialog, invisible but modal, made the window look frozen.
+        /// </summary>
+        public bool HoldHidden { get; set; }
+
         public void Resume()
         {
+            if (HoldHidden)
+                return;
             // Never un-hide while off screen: a console suspended for a dialog must stay hidden if
             // its tab is no longer the visible one.
             if (_console is null || !_suspended || !IsOnScreen)

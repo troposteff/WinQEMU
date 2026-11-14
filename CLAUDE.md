@@ -1538,6 +1538,23 @@ Chacun a coûté du temps ; les commentaires du code donnent le détail.
 
 ## Pièges WinUI 3
 
+- **Dernier recours : `App.OnUnhandledException`** (relecture du 14/11/2026). Un gestionnaire d'événement est `async void` :
+  ce qui lui échappe tuait WinQEMU, donc QEMU avec lui (coupure de courant pour chaque invité, pour un bouton raté).
+  L'exception est marquée traitée, écrite dans `crash.log` à côté des réglages, et montrée dans la barre d'erreur. Non
+  vérifié en provoquant une vraie exception.
+- **Un seul ContentDialog à la fois** (`MainWindow.ShowDialogAsync`, seul endroit qui en affiche) : WinUI lève une
+  `COMException` au second. Un résultat affiché après une longue attente (outils invités, copie, mot de passe de la
+  machine suivante d'un dossier) rencontrait le dialogue ouvert entre-temps, et la console revenait par-dessus. Chacun
+  attend le précédent ; la console reste cachée tant qu'il en reste (`VmConsoleHost.HoldHidden` : une console rattachée
+  pendant un dialogue, machine qui démarre ou invité qui redémarre, passait dessus et prenait le clavier). **Un dialogue
+  ne doit jamais en ouvrir un autre avant de s'être fermé** : il attendrait sa propre fin. Fermer la fenêtre sous un
+  dialogue est refusé (sans machine en marche, WinQEMU quittait au milieu d'un clonage ou d'un chiffrement) ; `winqemu
+  show <autre>` aussi (la sélection changée sous un dialogue, l'action confirmée allait à l'autre machine), et Supprimer
+  revérifie la machine. Vérifié dans l'app : Paramètres ouverts, `WM_CLOSE` ignoré, `show Fedora` refusé (code 1).
+- **Commandes QMP rapides bornées à 30 s** quand l'appelant ne donne pas de délai (`QmpClient.IsQuick` : `query-*`,
+  `qom-*`, entrées, pause, bouton…) : un QEMU figé laissait l'appelant attendre pour toujours. Les longues (`savevm`,
+  instantanés, moniteur humain) attendent toujours.
+
 - **`IsEnabled` est déclaré par `Control`, pas par `Panel`.** Le lier sur un `StackPanel`/`Grid` fait
   sortir `XamlCompiler.exe` en erreur **sans aucun message** ; seule une bissection le trouve. Envelopper
   le panneau dans un `ContentControl`.

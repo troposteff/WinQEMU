@@ -206,9 +206,17 @@ namespace WinQEMU.Dialogs
         {
             var path = _viewModel.LibraryRootDisplay;
 
-            // The default library folder is created lazily on first use, so it may not exist yet.
-            Directory.CreateDirectory(path);
-            await Launcher.LaunchFolderPathAsync(path);
+            // The default library folder is created lazily on first use, so it may not exist yet. A library on a drive
+            // that is unplugged, or a network one out of reach, cannot be: nothing to open then.
+            try
+            {
+                Directory.CreateDirectory(path);
+                await Launcher.LaunchFolderPathAsync(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                _viewModel.ReportError(ex);
+            }
         }
 
         // ---- Plumbing ----

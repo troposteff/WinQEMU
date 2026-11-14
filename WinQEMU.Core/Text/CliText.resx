@@ -81,4 +81,5 @@ Exit codes: 0 success, 1 failure, 2 incorrect command.</value></data>
   <data name="FolderPaused" xml:space="preserve"><value>{0}: {1} machine(s) paused.</value></data>
   <data name="FolderResumed" xml:space="preserve"><value>{0}: {1} machine(s) resumed.</value></data>
   <data name="FolderNeedsPassword" xml:space="preserve"><value>its disks are encrypted and no password is remembered</value></data>
+  <data name="ShowDialogOpen" xml:space="preserve"><value>WinQEMU has a dialog open: {0} is not shown until it is answered.</value></data>
 </root>

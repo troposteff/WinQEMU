@@ -145,6 +145,14 @@ namespace WinQEMU.Core.Qemu
             trace?.Invoke("QMP: capabilities negotiated.");
         }
 
+        /// <summary>How long a quick command may take when its caller set no limit of its own.</summary>
+        public static TimeSpan QuickCommandTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+        private static bool IsQuick(string command) =>
+            command.StartsWith("query-", StringComparison.Ordinal) || command.StartsWith("qom-", StringComparison.Ordinal)
+            || command is "input-send-event" or "stop" or "cont" or "system_powerdown" or "system_reset" or "set_link"
+                or "screendump" or "qmp_capabilities" or "set_password";
+
         /// <summary>Executes a QMP command and returns its <c>return</c> payload.</summary>
         public async Task<JsonNode?> ExecuteAsync(
             string command,
@@ -186,6 +194,15 @@ namespace WinQEMU.Core.Qemu
 
                 using var registration = cancellationToken.Register(
                     () => completion.TrySetCanceled(cancellationToken));
+                // A command QEMU answers at once, sent without any way to give up: a frozen QEMU (its QMP runs on the
+                // stuck thread) left the caller waiting for good — a metrics sample that never ended stopped that
+                // machine's charts, a pause or a power button never came back. Long ones (savevm, snapshots, the human
+                // monitor) keep waiting: they take what they take.
+                if (!cancellationToken.CanBeCanceled && IsQuick(command))
+                {
+                    if (await Task.WhenAny(completion.Task, Task.Delay(QuickCommandTimeout)).ConfigureAwait(false) != completion.Task)
+                        throw new QmpException($"QEMU did not answer '{command}' within {QuickCommandTimeout.TotalSeconds:0} s.");
+                }
                 return await completion.Task.ConfigureAwait(false);
             }
             finally

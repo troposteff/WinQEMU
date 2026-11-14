@@ -81,4 +81,5 @@ Codes de sortie : 0 réussite, 1 échec, 2 commande incorrecte.</value></data>
   <data name="FolderPaused" xml:space="preserve"><value>{0} : {1} machine(s) mise(s) en pause.</value></data>
   <data name="FolderResumed" xml:space="preserve"><value>{0} : {1} machine(s) reprise(s).</value></data>
   <data name="FolderNeedsPassword" xml:space="preserve"><value>ses disques sont chiffrés et aucun mot de passe n'est mémorisé</value></data>
+  <data name="ShowDialogOpen" xml:space="preserve"><value>WinQEMU a un dialogue ouvert : {0} ne sera affichée qu'une fois qu'il aura reçu sa réponse.</value></data>
 </root>

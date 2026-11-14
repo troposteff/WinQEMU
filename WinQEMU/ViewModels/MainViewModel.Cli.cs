@@ -409,11 +409,23 @@ namespace WinQEMU.ViewModels
             return Ok(string.Format(CultureInfo.CurrentCulture, done, name, config.Name));
         }
 
+        /// <summary>Set by the window: whether a dialog is open or waiting to be shown.</summary>
+        public Func<bool>? IsDialogOpen { get; set; }
+
         private CliResponse Show(string[] args)
         {
             // Not SelectConfig: it files a machine of the root into the open folder, as it does for a new one.
             if (args.Length > 0 && FindMachine(args[0]) is var config)
+            {
+                // A dialog is about the machine it was opened on (delete it, clone it, merge its disk): the selection changed
+                // under it, the confirmed action went to the machine shown instead.
+                if (IsDialogOpen?.Invoke() == true && !ReferenceEquals(SelectedVm, config))
+                {
+                    ShowRequested?.Invoke();
+                    throw new CommandException(string.Format(CultureInfo.CurrentCulture, CliText.ShowDialogOpen, config.Name));
+                }
                 SelectedItem = _allItems.FirstOrDefault(item => ReferenceEquals(item.Config, config));
+            }
             ShowRequested?.Invoke();
             return Ok(string.Empty);
         }

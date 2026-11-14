@@ -85,21 +85,27 @@ namespace WinQEMU.Core.Services
         public static async Task<string?> WhyNotEnoughSpaceAsync(VmConfig config, QemuImgService images, CancellationToken cancellationToken = default)
         {
             long needed = 0;
-            foreach (var disk in config.Disks)
+            try
             {
-                foreach (var file in disk.ChainFromTop)
+                foreach (var disk in config.Disks)
                 {
-                    var path = config.ResolvePath(file);
-                    if (File.Exists(path))
-                        needed += (await images.GetInfoAsync(path, cancellationToken)).ActualSizeBytes;
+                    foreach (var file in disk.ChainFromTop)
+                    {
+                        var path = config.ResolvePath(file);
+                        if (File.Exists(path))
+                            needed += (await images.GetInfoAsync(path, cancellationToken)).ActualSizeBytes;
+                    }
                 }
             }
+            catch (QemuImgException ex)
+            {
+                // A damaged image, or one another program holds: said as the reason, not thrown at a button's handler.
+                return ex.Message;
+            }
 
-            var root = Path.GetPathRoot(Path.GetFullPath(config.FolderPath));
-            if (root is null)
-                return null;
-            var free = new DriveInfo(root).AvailableFreeSpace;
-            return free >= needed
+            // Unknown (a library on a network path, where DriveInfo throws) is not a refusal.
+            var free = Qemu.HostCapabilities.GetFreeSpaceBytes(config.FolderPath);
+            return free < 0 || free >= needed
                 ? null
                 : string.Format(CultureInfo.CurrentCulture, EncryptionText.NoSpace, Sizes.Format(needed), Sizes.Format(free));
         }

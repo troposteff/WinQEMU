@@ -456,20 +456,43 @@ namespace WinQEMU
         /// Shows a dialog with the console hidden. A child HWND draws above all XAML content, so an
         /// embedded console would otherwise cover the dialog completely.
         /// </summary>
+        /// <remarks>
+        /// One at a time: WinUI throws when a second ContentDialog is shown. A result shown after a long wait (guest tools
+        /// installed, files copied, a folder's next machine asking for its password) met the dialog the user had opened
+        /// meanwhile; the exception escaped, and the console came back over the first dialog. Each waits for the one
+        /// before it, and the console returns only once none is left.
+        /// </remarks>
         private async Task<ContentDialogResult> ShowDialogAsync(ContentDialog dialog)
         {
+            var previous = _lastDialog;
+            var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _lastDialog = done.Task;
+            _dialogsPending++;
+            ConsoleHost.HoldHidden = true;
             ConsoleHost.Suspend();
-            // A dialog is shown in a popup, outside the window's tree: it takes the window's theme only if told.
-            dialog.RequestedTheme = RootGrid.RequestedTheme;
             try
             {
+                await previous;
+                // A dialog is shown in a popup, outside the window's tree: it takes the window's theme only if told.
+                dialog.RequestedTheme = RootGrid.RequestedTheme;
                 return await dialog.ShowAsync();
             }
             finally
             {
-                ConsoleHost.Resume();
+                done.SetResult();
+                if (--_dialogsPending == 0)
+                {
+                    ConsoleHost.HoldHidden = false;
+                    ConsoleHost.Resume();
+                }
             }
         }
+
+        private Task _lastDialog = Task.CompletedTask;
+        private int _dialogsPending;
+
+        /// <summary>A dialog is open or waiting: the window is not to be closed under it.</summary>
+        private bool IsShowingDialog => _dialogsPending > 0;
 
         // ---- Handlers ----
 
@@ -1090,7 +1113,7 @@ namespace WinQEMU
                 // A few qemu-img runs: quick, but long enough to want the busy cursor of a disabled window.
                 plan = await Core.Import.VmImporter.ReadAsync(file.Path, images);
             }
-            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or FormatException or System.Xml.XmlException)
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or FormatException or OverflowException or System.Xml.XmlException)
             {
                 await ShowDialogAsync(new ContentDialog
                 {
@@ -1746,7 +1769,8 @@ namespace WinQEMU
                 XamlRoot = Content.XamlRoot
             });
 
-            if (result == ContentDialogResult.None)
+            // The machine the dialog named, or nothing: never whichever is selected by now.
+            if (result == ContentDialogResult.None || !ReferenceEquals(_viewModel.SelectedVm, selected))
                 return;
 
             _viewModel.DeleteCommand.Execute(result == ContentDialogResult.Primary);
@@ -1763,6 +1787,14 @@ namespace WinQEMU
             SavePlacement();
             if (_closeConfirmed)
                 return;
+
+            // Closed from the title bar under a dialog: the question below would be a second dialog, and with no machine
+            // running WinQEMU quit in the middle of a clone, an export or an encryption, qemu-img left behind.
+            if (IsShowingDialog)
+            {
+                args.Cancel = true;
+                return;
+            }
 
             var running = _viewModel.Manager.LiveSessions.ToList();
             if (running.Count == 0)
@@ -1795,6 +1827,9 @@ namespace WinQEMU
 
         // ---- Windows ending the session ----
 
+        /// <summary>An exception nothing caught (App.OnUnhandledException): shown in the error bar rather than fatal.</summary>
+        public void ReportUnhandled(Exception exception) => _viewModel.ReportError(exception);
+
         private readonly SessionEndWatcher _sessionEnd;
         private bool _windowsEnding;
 
@@ -1811,6 +1846,23 @@ namespace WinQEMU
             _windowsEnding = true;
             _viewModel.AppendDiagnostic("Windows is ending the session: the machines are shut down first.");
             _viewModel.CancelFolderStart();
+            try
+            {
+                await ShutMachinesDownThenQuitAsync();
+            }
+            catch (Exception ex)
+            {
+                // Whatever went wrong, Windows must not be left waiting on a reason nobody will clear: WinQEMU stops
+                // objecting, and the next request starts over.
+                _viewModel.AppendDiagnostic($"Shutting down for Windows failed ({ex.Message}).");
+                _windowsEnding = false;
+                _viewModel.StopShuttingDownAll();
+                _sessionEnd.ClearReason();
+            }
+        }
+
+        private async Task ShutMachinesDownThenQuitAsync()
+        {
             await _viewModel.RequestShutdownOfAllAsync();
 
             while (_windowsEnding)
@@ -1866,6 +1918,7 @@ namespace WinQEMU
         {
             await _viewModel.InitializeAsync();
             _viewModel.ShowRequested += ShowFromBackground;
+            _viewModel.IsDialogOpen = () => IsShowingDialog;
             _commandServer = new Cli.CommandServer(_viewModel.RunCommandAsync, DispatcherQueue);
             _commandServer.Start();
         }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Globalization;
@@ -47,6 +47,11 @@ namespace WinQEMU.Dialogs
                     var (tap, npcap) = await System.Threading.Tasks.Task.Run(() => (CanAddInternal(), Npcap.IsInstalled));
                     ShowInternalAvailability(tap);
                     ShowExternalAvailability(npcap);
+                }
+                catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Security.SecurityException
+                                               or System.ComponentModel.Win32Exception or System.Net.NetworkInformation.NetworkInformationException)
+                {
+                    // The registry or the adapters could not be read this time: the buttons stay as they were.
                 }
                 finally
                 {
@@ -192,7 +197,9 @@ namespace WinQEMU.Dialogs
                     ShowError(DialogText.NetworksTapRefused);
                     return;
                 }
-                catch (InvalidOperationException ex)
+                // Win32Exception: elevation refused by a policy (not the user's own refusal, which is the cancellation above);
+                // IOException: the installer held or gone.
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or System.IO.IOException or UnauthorizedAccessException)
                 {
                     ShowError(ex.Message);
                     return;
